@@ -1,6 +1,7 @@
 package org.catalogueoflife.nametracker.eval;
 
 import org.catalogueoflife.nametracker.eval.corpus.CorpusManifest;
+import org.catalogueoflife.nametracker.eval.corpus.CorpusRebuilder;
 import org.catalogueoflife.nametracker.eval.corpus.CorpusStore;
 import org.catalogueoflife.nametracker.eval.corpus.GoldDocument;
 import org.catalogueoflife.nametracker.eval.corpus.OpenAlexClient;
@@ -28,7 +29,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 
 /** The evaluation command line. More subcommands (curated-select, ls-export, ls-import, build-dictionary) arrive with later tasks. */
-@Command(name = "eval", mixinStandardHelpOptions = true, subcommands = {EvalCli.FetchPensoft.class, EvalCli.Run.class},
+@Command(name = "eval", mixinStandardHelpOptions = true, subcommands = {EvalCli.FetchPensoft.class, EvalCli.RebuildPensoft.class, EvalCli.Run.class},
     description = "Name finder evaluation")
 public class EvalCli implements Runnable {
   public static void main(String[] args) {
@@ -85,6 +86,33 @@ public class EvalCli implements Runnable {
       CorpusStore.write(out.resolve("gold.jsonl.gz"), docs);
       System.err.println("Wrote " + docs.size() + " documents to " + out + ", skipped " + skipped
           + (docs.size() < n ? "; only " + docs.size() + " of " + n + " could be built, candidates ran out" : ""));
+      return 0;
+    }
+  }
+
+  @Command(name = "rebuild-pensoft", mixinStandardHelpOptions = true,
+      description = "Re-fetches the TaxPub XML of every manifest row and re-extracts the gold with the current code, without resampling")
+  public static class RebuildPensoft implements Callable<Integer> {
+    @Option(names = "--corpus", required = true, description = "corpus directory holding manifest.tsv and gold.jsonl.gz") Path corpus;
+
+    @Override
+    public Integer call() throws Exception {
+      CorpusManifest manifest = CorpusManifest.read(corpus.resolve("manifest.tsv"));
+      Path gold = corpus.resolve("gold.jsonl.gz");
+      List<GoldDocument> old = Files.exists(gold) ? CorpusStore.read(gold, null) : List.of();
+      java.net.http.HttpClient http = PensoftFetcher.defaultClient();
+      PensoftFetcher fetcher = new PensoftFetcher(http, new OpenAlexClient(http, System.getenv("OPENALEX_API_KEY")));
+      System.err.println("Rebuilding " + manifest.rows().size() + " documents of " + corpus);
+      CorpusRebuilder.Result r = CorpusRebuilder.rebuild(manifest, old, fetcher::fetch, System.err::println);
+      CorpusStore.write(gold, r.documents());
+      CorpusRebuilder.Stats s = r.stats();
+      System.out.println("documents: " + s.documents() + " in manifest, " + s.rebuilt() + " rebuilt, " + s.keptOld()
+          + " kept from the previous corpus" + (s.failed().isEmpty() ? "" : " " + s.failed()));
+      System.out.println("documents changed: " + s.documentsChanged() + " (text changed in " + s.textChanged() + ")");
+      System.out.println("names: " + s.oldNames() + " -> " + s.newNames() + "; changed " + s.namesChanged() + ", added "
+          + s.namesAdded() + ", removed " + s.namesRemoved() + " (name texts per block, compared as multisets)");
+      System.out.println("acts: " + s.oldActs() + " -> " + s.newActs());
+      System.out.println("Wrote " + gold);
       return 0;
     }
   }
