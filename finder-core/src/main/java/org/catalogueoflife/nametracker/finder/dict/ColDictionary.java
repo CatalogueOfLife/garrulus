@@ -13,6 +13,9 @@ import java.util.Optional;
  * Case: genus and uninomial lookups are case-sensitive and expect the capitalised form ("Carabus"); epithet
  * lookups are lower-cased ("nigrus").
  * <p>
+ * Pairs: genus plus specific epithet of every species and infraspecific name ("Carabus nigrus"), so a binomial can be
+ * told from a known genus followed by any known epithet ("Carabus ater" when only "Procarabus ater" exists).
+ * <p>
  * Hash collisions: with n stored hashes a word that is not in the dictionary is reported as present with a
  * probability of about n / 2^64. For the full XR (a few million hashes per category at most) this is ~1e-13 per
  * lookup, so a collision is not expected to ever occur in practice and is accepted.
@@ -24,16 +27,26 @@ public final class ColDictionary {
   private final Long2ByteOpenHashMap uninomialRanks;
   private final Rank[] rankTable;
   private final LongOpenHashSet ambiguous;
+  private final LongOpenHashSet pairs;
 
-  /** @param rankTable maps the byte values stored in {@code uninomialRanks} to ranks */
+  /**
+   * @param rankTable maps the byte values stored in {@code uninomialRanks} to ranks
+   * @param pairs hashes of {@link #pairKey(String, String)}
+   */
   public ColDictionary(String releaseKey, LongOpenHashSet genera, LongOpenHashSet epithets, Long2ByteOpenHashMap uninomialRanks,
-                       Rank[] rankTable, LongOpenHashSet ambiguous) {
+                       Rank[] rankTable, LongOpenHashSet ambiguous, LongOpenHashSet pairs) {
     this.releaseKey = releaseKey;
     this.genera = genera;
     this.epithets = epithets;
     this.uninomialRanks = uninomialRanks;
     this.rankTable = rankTable;
     this.ambiguous = ambiguous;
+    this.pairs = pairs;
+  }
+
+  /** The string hashed for a genus-epithet pair: the genus as given, a space, the epithet lower-cased. */
+  static String pairKey(String genus, String epithet) {
+    return genus + ' ' + epithet.toLowerCase(Locale.ROOT);
   }
 
   /** 64-bit FNV-1a over the UTF-16 code units, two bytes each. */
@@ -64,6 +77,11 @@ public final class ColDictionary {
     long h = hash(w);
     if (!uninomialRanks.containsKey(h)) return Optional.empty();
     return Optional.of(rankTable[uninomialRanks.get(h) & 0xff]);
+  }
+
+  /** "Carabus nigrus" is a species (or the species part of an infraspecific name) in COL. The genus is case-sensitive. */
+  public boolean isBinomial(String genus, String epithet) {
+    return genus != null && epithet != null && pairs.contains(hash(pairKey(genus, epithet)));
   }
 
   /** A genus or uninomial that is also an ordinary word, e.g. "Major". Expects the capitalised form. */
@@ -102,9 +120,13 @@ public final class ColDictionary {
     return ambiguous.size();
   }
 
+  public int pairCount() {
+    return pairs.size();
+  }
+
   public String stats() {
     return "release " + releaseKey + ": genera " + genusCount() + ", epithets " + epithetCount() + ", uninomials "
-        + uninomialCount() + ", ambiguous " + ambiguousCount();
+        + uninomialCount() + ", ambiguous " + ambiguousCount() + ", genus-epithet pairs " + pairCount();
   }
 
   LongOpenHashSet genera() { return genera; }
@@ -112,4 +134,5 @@ public final class ColDictionary {
   Long2ByteOpenHashMap uninomialRanks() { return uninomialRanks; }
   Rank[] rankTable() { return rankTable; }
   LongOpenHashSet ambiguous() { return ambiguous; }
+  LongOpenHashSet pairs() { return pairs; }
 }

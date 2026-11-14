@@ -44,6 +44,26 @@ class ColDictionaryBuilderTest {
   }
 
   @Test
+  void genusEpithetPairsFromSpeciesAndInfraspecificRows() throws IOException {
+    ColDictionary d = sample();
+    assertThat(d.isBinomial("Carabus", "nigrus")).isTrue();
+    assertThat(d.isBinomial("Procarabus", "ater")).isTrue(); // from a synonym
+    assertThat(d.isBinomial("Rosa", "canina")).isTrue();
+    assertThat(d.isBinomial("Major", "minor")).isTrue();
+    assertThat(d.isBinomial("Carabus", "Nigrus")).isTrue(); // the epithet is lower-cased
+    assertThat(d.isBinomial("Carabus", "ater")).isFalse(); // both words known, the pair is not
+    assertThat(d.isBinomial("Carabus", "montanus")).isFalse(); // an infraspecific epithet pairs with nothing
+    assertThat(d.isBinomial("carabus", "nigrus")).isFalse(); // the genus is case-sensitive
+    assertThat(d.isBinomial("Carabus", null)).isFalse();
+    // a variety row alone gives the pair of its species
+    ColDictionary v = ColDictionaryBuilder.fromNameUsageTsv(new java.io.StringReader(
+        "col:ID\tcol:rank\tcol:uninomial\tcol:genericName\tcol:specificEpithet\tcol:infraspecificEpithet\n"
+            + "1\tvariety\t\tAus\tbus\tcus\n"), "1", CommonWords.of(java.util.Set.of()));
+    assertThat(v.isBinomial("Aus", "bus")).isTrue();
+    assertThat(v.pairCount()).isEqualTo(1);
+  }
+
+  @Test
   void commonWordGenusIsAmbiguous() throws IOException {
     ColDictionary d = sample();
     assertThat(d.isGenus("Major")).isTrue();

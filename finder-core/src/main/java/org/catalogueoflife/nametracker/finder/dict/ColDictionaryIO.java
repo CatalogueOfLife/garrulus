@@ -16,11 +16,12 @@ import java.nio.file.Path;
 
 /**
  * Versioned binary format: magic, version, release key, rank name table, then the genus, epithet and ambiguous hash
- * sets and the uninomial hash to rank-index map. Ranks are stored by name; a name the current Rank enum no longer has is read as UNRANKED, so the file survives a changed enum.
+ * sets, the uninomial hash to rank-index map and (since version 2) the genus-epithet pair set. Other versions are
+ * rejected with a hint to rebuild the file. Ranks are stored by name; a name the current Rank enum no longer has is read as UNRANKED, so the file survives a changed enum.
  */
 public final class ColDictionaryIO {
   static final int MAGIC = 0x434F4C44; // "COLD"
-  static final int VERSION = 1;
+  static final int VERSION = 2;
 
   private ColDictionaryIO() {}
 
@@ -41,6 +42,7 @@ public final class ColDictionaryIO {
         out.writeLong(e.getLongKey());
         out.writeByte(e.getByteValue());
       }
+      writeSet(out, d.pairs());
     }
   }
 
@@ -69,7 +71,10 @@ public final class ColDictionaryIO {
     try (DataInputStream in = new DataInputStream(new BufferedInputStream(Files.newInputStream(file), 1 << 16))) {
       if (in.readInt() != MAGIC) throw new IOException("Not a dictionary file (bad magic): " + file);
       int v = in.readInt();
-      if (v != VERSION) throw new IOException("Unsupported dictionary version " + v + " in " + file);
+      if (v != VERSION) {
+        throw new IOException("Dictionary " + file + " has format version " + v + " but this build reads version " + VERSION
+            + "; rebuild it with: eval build-dictionary --xr <XR zip> --out <dir>");
+      }
       String key = in.readUTF();
       int n = in.readUnsignedShort();
       // file index -> current Rank
@@ -93,7 +98,8 @@ public final class ColDictionaryIO {
         long h = in.readLong();
         m.put(h, in.readByte());
       }
-      return new ColDictionary(key, genera, epithets, m, stored, ambiguous);
+      LongOpenHashSet pairs = readSet(in, size, file);
+      return new ColDictionary(key, genera, epithets, m, stored, ambiguous, pairs);
     }
   }
 

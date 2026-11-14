@@ -28,6 +28,7 @@ public final class ColDictionaryBuilder {
   private final LongOpenHashSet genera = new LongOpenHashSet();
   private final LongOpenHashSet epithets = new LongOpenHashSet();
   private final LongOpenHashSet ambiguous = new LongOpenHashSet();
+  private final LongOpenHashSet pairs = new LongOpenHashSet();
   /** hash -> flat [rankOrdinal, count, rankOrdinal, count, ...] while building */
   private final Long2ObjectOpenHashMap<int[]> uninomialCounts = new Long2ObjectOpenHashMap<>();
   private long rows;
@@ -147,8 +148,10 @@ public final class ColDictionaryBuilder {
         if (rnk.isSuprageneric()) addUninomial(uninomial, rnk);
         else if (rnk == Rank.GENUS) addGenus(uninomial);
       }
-      addEpithet(field(line, cut, sp, f));
+      String specific = field(line, cut, sp, f);
+      addEpithet(specific);
       addEpithet(field(line, cut, inf, f));
+      if (!genericName.isEmpty() && !specific.isEmpty() && (rnk == null || !rnk.isSuprageneric())) addPair(genericName, specific);
     }
   }
 
@@ -224,6 +227,14 @@ public final class ColDictionaryBuilder {
     epithets.add(ColDictionary.hash(w.toLowerCase(Locale.ROOT)));
   }
 
+  /** Species and infraspecific rows: the genus and the specific epithet. */
+  private void addPair(String genus, String epithet) {
+    genus = clean(genus);
+    epithet = clean(epithet);
+    if (genus == null || epithet == null || !Character.isUpperCase(genus.charAt(0))) return;
+    pairs.add(ColDictionary.hash(ColDictionary.pairKey(genus, epithet)));
+  }
+
   public ColDictionary build(String releaseKey) {
     if (RANKS.length > 255) throw new IllegalStateException("too many ranks for a byte");
     Long2ByteOpenHashMap ranks = new Long2ByteOpenHashMap(uninomialCounts.size());
@@ -242,7 +253,8 @@ public final class ColDictionaryBuilder {
     genera.trim();
     epithets.trim();
     ambiguous.trim();
+    pairs.trim();
     ranks.trim();
-    return new ColDictionary(releaseKey, genera, epithets, ranks, RANKS, ambiguous);
+    return new ColDictionary(releaseKey, genera, epithets, ranks, RANKS, ambiguous, pairs);
   }
 }

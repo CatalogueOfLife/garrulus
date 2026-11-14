@@ -18,8 +18,10 @@ import java.util.Map;
  * (the dictionary is permissive about lower-case words, so those never start one), or at an abbreviated genus "X." / "Xy."
  * followed by a known epithet. It then grows to binomial, "(Subgenus)" and trinomial forms. Abbreviations are not
  * expanded here. Features: dictHit (a {@link DictHit}) and ambiguousWord (Boolean, the genus is also an ordinary word).
- * A bare ambiguous word has dictHit AMBIGUOUS_WORD, a name with an epithet BINOMIAL. An abbreviation plus epithet is tagged dictHit=EPITHET: DictHit has no ABBREVIATED
- * value, the kind ABBREVIATED is derived later.
+ * A bare ambiguous word has dictHit AMBIGUOUS_WORD. A name with an epithet is BINOMIAL only if genus and specific
+ * epithet are a known COL pair ({@link ColDictionary#isBinomial}), else EPITHET: some COL epithet follows a COL genus,
+ * which ordinary text does too ("The baculum"). An abbreviation plus epithet is tagged dictHit=EPITHET: DictHit has no
+ * ABBREVIATED value, the kind ABBREVIATED is derived later.
  */
 public class DictionaryGenerator implements CandidateGenerator {
   private final ColDictionary dict;
@@ -60,21 +62,23 @@ public class DictionaryGenerator implements CandidateGenerator {
         } else {
           String base = w.substring(0, w.length() - 1);
           if (dict.isGenus(base) || dict.isUninomial(base)) {
-            out.add(candidate(b, cps, t.start(), t.end() - 1, hitOf(base, null), dict.isAmbiguousWord(base)));
+            out.add(candidate(b, cps, t.start(), t.end() - 1, hitOf(base, null, toks), dict.isAmbiguousWord(base)));
           }
         }
       } else if (dict.isGenus(w) || dict.isUninomial(w)) {
         NameShape.Run r = dict.isGenus(w) ? NameShape.follow(cps, toks, i, dict::isEpithet) : new NameShape.Run(i, t.end(), false, 0, -1);
         boolean amb = dict.isAmbiguousWord(w);
-        out.add(candidate(b, cps, t.start(), r.endCp(), hitOf(w, r), amb));
+        out.add(candidate(b, cps, t.start(), r.endCp(), hitOf(w, r, toks), amb));
         next = r.lastToken() + 1;
       }
       i = next;
     }
   }
 
-  private DictHit hitOf(String word, NameShape.Run r) {
-    if (r != null && r.epithets() > 0) return DictHit.BINOMIAL;
+  private DictHit hitOf(String word, NameShape.Run r, List<Token> toks) {
+    if (r != null && r.epithets() > 0) {
+      return dict.isBinomial(word, toks.get(r.firstEpithetToken()).text()) ? DictHit.BINOMIAL : DictHit.EPITHET;
+    }
     if (dict.isAmbiguousWord(word)) return DictHit.AMBIGUOUS_WORD;
     return dict.isGenus(word) ? DictHit.GENUS : DictHit.UNINOMIAL;
   }

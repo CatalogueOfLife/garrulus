@@ -52,6 +52,17 @@ class DictionaryGeneratorTest {
   }
 
   @Test
+  void binomialHitOnlyForAKnownPair() {
+    // nigrus and ater are both COL epithets, but only Carabus nigrus is a COL name
+    String t = "Carabus nigrus and Carabus ater differ; Procarabus ater too, as does Carabus nigrus montanus.";
+    List<Candidate> cs = run(t);
+    assertThat(cs).extracting(Candidate::verbatim)
+        .containsExactly("Carabus nigrus", "Carabus ater", "Procarabus ater", "Carabus nigrus montanus");
+    assertThat(cs).extracting(c -> c.features().get("dictHit"))
+        .containsExactly(DictHit.BINOMIAL, DictHit.EPITHET, DictHit.BINOMIAL, DictHit.BINOMIAL);
+  }
+
+  @Test
   void subgenusInParentheses() {
     List<Candidate> cs = run("See Carabus (Megodontus) nigrus here.");
     assertThat(cs).extracting(Candidate::verbatim).containsExactly("Carabus (Megodontus) nigrus");
