@@ -167,4 +167,26 @@ class TaskQueueIT extends AbstractPostgresIT {
     assertThat(queue.requeueRunning(Duration.ofHours(1))).isEqualTo(1);
     assertThat(queue.claim(Set.of("PING"), "w1", 1)).extracting(Task::id).containsExactly(id);
   }
+
+  @Test
+  void completeAndFailIgnoreTasksThatAreNotRunning() {
+    long id = queue.enqueue("PING", "{}", TaskPriority.LIVE, null);
+    // QUEUED: a stale worker's late result must not touch it
+    queue.complete(id);
+    queue.fail(id, "late", 5, Duration.ofSeconds(100));
+    assertThat(jdbc.queryForObject("SELECT state FROM task WHERE id=?", String.class, id)).isEqualTo("QUEUED");
+    assertThat(jdbc.queryForObject("SELECT last_error FROM task WHERE id=?", String.class, id)).isNull();
+    // DONE stays DONE
+    queue.claim(Set.of("PING"), "w1", 1);
+    queue.complete(id);
+    queue.fail(id, "late", 5, Duration.ofSeconds(100));
+    assertThat(jdbc.queryForObject("SELECT state FROM task WHERE id=?", String.class, id)).isEqualTo("DONE");
+    assertThat(jdbc.queryForObject("SELECT last_error FROM task WHERE id=?", String.class, id)).isNull();
+    // DEAD is left alone too
+    long dead = queue.enqueue("PING", "{}", TaskPriority.LIVE, null);
+    queue.claim(Set.of("PING"), "w1", 1);
+    queue.fail(dead, "x", 1, Duration.ZERO);
+    queue.complete(dead);
+    assertThat(jdbc.queryForObject("SELECT state FROM task WHERE id=?", String.class, dead)).isEqualTo("DEAD");
+  }
 }

@@ -49,7 +49,8 @@
   </select>
 
   <update id="complete">
-    UPDATE task SET state = 'DONE', finished = now(), locked_by = NULL, locked_at = NULL WHERE id = #{id}
+    UPDATE task SET state = 'DONE', finished = now(), locked_by = NULL, locked_at = NULL
+    WHERE id = #{id} AND state = 'RUNNING'
   </update>
 
   <update id="fail">
@@ -62,7 +63,7 @@
       run_after = CASE WHEN attempts &lt; #{maxAttempts}
                        THEN now() + make_interval(secs => #{backoffSeconds} * power(2, attempts - 1))
                        ELSE run_after END
-    WHERE id = #{id}
+    WHERE id = #{id} AND state = 'RUNNING'
   </update>
 
   <update id="requeueRunning">
