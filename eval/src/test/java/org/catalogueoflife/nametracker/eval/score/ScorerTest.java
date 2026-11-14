@@ -243,6 +243,52 @@ class ScorerTest {
   }
 
   @Test
+  void matchedSpanWithAWrongExpansionIsMatchedButNotNameCorrect() {
+    // both spans match; the abbreviation was expanded to the wrong genus
+    FinderResult r = result(m("1", "b1", 0, 16, "Ophelia limacina", "Ophelia limacina"), m("2", "b1", 21, 32, "O. limacina", "Ophion limacina"));
+    EvalReport rep = Scorer.score(List.of(doc()), Map.of("d1", r), opts(MatchMode.STRICT, false));
+    assertThat(rep.names()).isEqualTo(new Metrics(2, 0, 0));
+    // the first gold name has no fullName, so only the abbreviation is in the denominator
+    assertThat(rep.nameCorrect()).isEqualTo(new NameAccuracy(0, 1));
+    assertThat(rep.nameCorrectByKind()).containsOnlyKeys("kind:ABBREVIATED").containsEntry("kind:ABBREVIATED", new NameAccuracy(0, 1));
+
+    FinderResult right = result(m("1", "b1", 0, 16, "Ophelia limacina", "Ophelia limacina"), m("2", "b1", 21, 32, "O. limacina", "Ophelia  limacina"));
+    EvalReport ok = Scorer.score(List.of(doc()), Map.of("d1", right), opts(MatchMode.STRICT, false));
+    assertThat(ok.nameCorrect()).as("whitespace is normalised as at document level").isEqualTo(new NameAccuracy(1, 1));
+    assertThat(ok.nameCorrect().rate()).isEqualTo(1.0);
+    assertThat(new NameAccuracy(0, 0).rate()).isZero();
+  }
+
+  @Test
+  void goldWithoutFullNameIsLeftOutOfTheNameCorrectDenominator() {
+    Document d = new Document("d1", "en", List.of(new Block("b1", BlockType.PARAGRAPH, 0, TEXT, List.of(), List.of())), Map.of());
+    GoldDocument g = gold(d.blocks(), List.of(new GoldName("b1", 0, 16, "Ophelia limacina", null, null)));
+    EvalReport rep = Scorer.score(List.of(g), Map.of("d1", result(m("1", "b1", 0, 16, "Ophelia limacina", "Something else"))),
+        opts(MatchMode.OVERLAP, false));
+    assertThat(rep.names().tp()).isEqualTo(1);
+    assertThat(rep.nameCorrect()).isEqualTo(new NameAccuracy(0, 0));
+    assertThat(rep.nameCorrectByKind()).isEmpty();
+    // document level compares names anyway, so there is no such metric there
+    assertThat(Scorer.score(List.of(doc()), Map.of(), opts(MatchMode.STRICT, true)).nameCorrect()).isNull();
+  }
+
+  @Test
+  void nameCorrectIsInTheMarkdownAndTheJson(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tmp) throws Exception {
+    FinderResult r = result(m("1", "b1", 0, 16, "Ophelia limacina", "Ophelia limacina"), m("2", "b1", 21, 32, "O. limacina", "Ophion limacina"));
+    EvalReport rep = Scorer.score(List.of(doc()), Map.of("d1", r), opts(MatchMode.STRICT, false), "pipeline", "pensoft", "A");
+    String md = ReportWriter.markdown(rep, java.time.LocalDate.of(2026, 11, 14));
+    assertThat(md).contains("| Name correct | Correct | Matched | Rate |").contains("| names | 0 | 1 | 0.000 |")
+        .contains("| &nbsp;&nbsp;kind:ABBREVIATED | 0 | 1 | 0.000 |");
+    java.nio.file.Path file = ReportWriter.write(rep, tmp);
+    String json = java.nio.file.Files.readString(tmp.resolve(file.getFileName().toString().replace(".md", ".json")));
+    var tree = org.catalogueoflife.nametracker.finder.api.FinderJson.mapper().readTree(json);
+    assertThat(tree.get("nameCorrect").get("correct").asInt()).isZero();
+    assertThat(tree.get("nameCorrect").get("matched").asInt()).isEqualTo(1);
+    assertThat(tree.get("nameCorrect").get("rate").asDouble()).isZero();
+    assertThat(tree.get("nameCorrectByKind").get("kind:ABBREVIATED").get("matched").asInt()).isEqualTo(1);
+  }
+
+  @Test
   void notesAreWrittenIntoTheReport() {
     EvalReport rep = Scorer.score(List.of(doc()), Map.of(), opts(MatchMode.STRICT, true)).withNotes(List.of("3 PDFs failed"));
     assertThat(rep.notes()).containsExactly("3 PDFs failed");

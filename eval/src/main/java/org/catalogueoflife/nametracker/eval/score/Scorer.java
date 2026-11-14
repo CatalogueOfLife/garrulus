@@ -33,7 +33,8 @@ import java.util.regex.Pattern;
  * Scores finder results against gold documents, micro-averaged over documents.
  *
  * <p>Names: span matching per {@link MatchMode}, one gold name to at most one mention; or, with documentLevel, the sets of
- * {@code fullName ?: text} against {@code Mention.name}. Acts: the pair (type, normalised name) per document. Contexts: the pair
+ * {@code fullName ?: text} against {@code Mention.name}. With span matching, a matched gold name that has a fullName is
+ * also name-correct if the normalised {@code Mention.name} equals it ({@link EvalReport#nameCorrect()}). Acts: the pair (type, normalised name) per document. Contexts: the pair
  * (rank, normalised name) per document. A document without a result counts all its gold as missed.
  */
 public final class Scorer {
@@ -65,6 +66,7 @@ public final class Scorer {
                                  String finderName, String corpus, String mode, Map<String, Document> predicted) {
     Acc names = new Acc();
     Map<String, Acc> cats = new TreeMap<>();
+    NameAcc nameCorrect = new NameAcc();
     Acc acts = new Acc();
     Acc ctxs = new Acc();
     Acc subj = new Acc();
@@ -91,7 +93,7 @@ public final class Scorer {
       if (opts.documentLevel()) {
         scoreDocumentLevel(d, gold, pred, lang, stratum, names, cats, fps, fns);
       } else {
-        scoreSpans(d, blocks, predBlocks, gold, pred, lang, stratum, opts.mode(), names, cats, fps, fns);
+        scoreSpans(d, blocks, predBlocks, gold, pred, lang, stratum, opts.mode(), names, cats, nameCorrect, fps, fns);
       }
       scoreActs(d, r, opts, blocks, predBlocks, acts);
       scoreContexts(d, r, opts, blocks, predBlocks, ctxs);
@@ -100,7 +102,8 @@ public final class Scorer {
     Map<String, Metrics> byCat = new LinkedHashMap<>();
     cats.forEach((k, v) -> byCat.put(k, v.metrics()));
     return new EvalReport(finderName, info, corpus, split == null ? "" : split, mode, docs.size(), names.metrics(), byCat,
-        acts.metrics(), ctxs.metrics(), subj.metrics(), spread(fps), spread(fns), opts.mode(), opts.documentLevel(), List.of());
+        opts.documentLevel() ? null : nameCorrect.overall, opts.documentLevel() ? Map.of() : nameCorrect.byKind, acts.metrics(),
+        ctxs.metrics(), subj.metrics(), spread(fps), spread(fns), opts.mode(), opts.documentLevel(), List.of());
   }
 
   private static Map<String, Block> blocks(Document doc) {
@@ -118,7 +121,7 @@ public final class Scorer {
 
   private static void scoreSpans(GoldDocument d, Map<String, Block> blocks, Map<String, Block> predBlocks, List<GoldName> gold, List<Mention> pred,
                                  String lang, @Nullable String stratum, MatchMode mode, Acc names, Map<String, Acc> cats,
-                                 List<ErrorSample> fps, List<ErrorSample> fns) {
+                                 NameAcc nameCorrect, List<ErrorSample> fps, List<ErrorSample> fns) {
     boolean[] goldUsed = new boolean[gold.size()];
     boolean[] predUsed = new boolean[pred.size()];
     // exact spans first so that overlap mode never steals an exact partner
@@ -137,6 +140,7 @@ public final class Scorer {
             predUsed[p] = true;
             hitCats(cats, gn, blocks, lang, stratum);
             names.tp++;
+            if (gn.fullName() != null) nameCorrect.add(goldKind(gn), norm(m.name()).equals(norm(gn.fullName())));
             break;
           }
         }
@@ -326,6 +330,17 @@ public final class Scorer {
 
   private static void add(List<ErrorSample> into, ErrorSample s) {
     if (into.size() < MAX_SAMPLES) into.add(s);
+  }
+
+  /** Name correctness of the matched spans, overall and per kind:X of the gold name. */
+  private static final class NameAcc {
+    NameAccuracy overall = new NameAccuracy(0, 0);
+    final Map<String, NameAccuracy> byKind = new TreeMap<>();
+
+    void add(NameKind kind, boolean ok) {
+      overall = overall.plus(ok);
+      byKind.compute("kind:" + kind, (k, v) -> (v == null ? new NameAccuracy(0, 0) : v).plus(ok));
+    }
   }
 
   private static final class Acc {

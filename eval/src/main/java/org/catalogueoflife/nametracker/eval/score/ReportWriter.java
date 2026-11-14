@@ -63,6 +63,13 @@ public final class ReportWriter {
     row(sb, "acts", r.acts());
     row(sb, "contexts", r.contexts());
     row(sb, "main subject", r.mainSubject());
+    if (r.nameCorrect() != null) {
+      sb.append("\nName correct: of the matched spans whose gold has a full name, how many mentions carry that name"
+          + " (whitespace normalised). It does not change the name P/R/F1 above.\n\n");
+      sb.append("| Name correct | Correct | Matched | Rate |\n|---|---:|---:|---:|\n");
+      accuracy(sb, "names", r.nameCorrect());
+      r.nameCorrectByKind().forEach((k, v) -> accuracy(sb, "&nbsp;&nbsp;" + k, v));
+    }
     samples(sb, "False positives", r.falsePositives());
     samples(sb, "False negatives", r.falseNegatives());
     return sb.toString();
@@ -71,6 +78,10 @@ public final class ReportWriter {
   private static void row(StringBuilder sb, String label, Metrics m) {
     sb.append(String.format(Locale.ROOT, "| %s | %d | %d | %d | %.3f | %.3f | %.3f |%n", label, m.tp(), m.fp(), m.fn(),
         m.precision(), m.recall(), m.f1()));
+  }
+
+  private static void accuracy(StringBuilder sb, String label, NameAccuracy a) {
+    sb.append(String.format(Locale.ROOT, "| %s | %d | %d | %.3f |%n", label, a.correct(), a.matched(), a.rate()));
   }
 
   private static void samples(StringBuilder sb, String title, List<ErrorSample> list) {
