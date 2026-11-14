@@ -63,6 +63,7 @@ class PipelineNameFinderTest {
       106\taccepted\tXenus baculum Smith, 1900\tspecies\t\tXenus\t\tbaculum\t\tzoological\tXenus\t\t\t\tAnimalia\t
       107\taccepted\tOphiocordyceps Petch, 1931\tgenus\tOphiocordyceps\t\t\t\t\tbotanical\t\t\t\t\tFungi\t
       108\taccepted\tXenus fungi Smith, 1900\tspecies\t\tXenus\t\tfungi\t\tzoological\tXenus\t\t\t\tAnimalia\t
+      109\taccepted\tParamphibambusa bambusicola Dai, 2024\tspecies\t\tParamphibambusa\t\tbambusicola\t\tbotanical\tParamphibambusa\t\t\t\tFungi\t
       """;
   private static final ColDictionary DICT;
   private static final NameParserRust PARSER = new NameParserRust();
@@ -347,6 +348,33 @@ class PipelineNameFinderTest {
     CandidateFeatures f = feats(italic, markup, odds, hit, ambiguous, p);
     assertThat(PipelineNameFinder.isCertain(p, f, 8.0)).isEqualTo(certain);
     if (certain) assertThat(PipelineNameFinder.certainConfidence(p, f)).isCloseTo(confidence, org.assertj.core.api.Assertions.within(1e-9));
+  }
+
+  @Test
+  void compoundActWithDottedEt() {
+    // the exact dev string; the compound "gen. et. sp. nov." is SP_NOV and "gen" is no epithet
+    String text = "Paramphibambusa bambusicola gen. et. sp. nov.";
+    Document d = doc(block("b1", BlockType.PARAGRAPH, text, new StyleSpan(0, 27, Style.ITALIC)));
+    FinderResult r = finder(new RecordedGnfinder().nothingIn(d)).find(d, FinderOptions.defaults());
+    assertThat(r.mentions()).extracting(Mention::name).containsExactly("Paramphibambusa bambusicola");
+    assertThat(r.acts()).hasSize(1);
+    assertThat(r.acts().get(0).type()).isEqualTo(ActType.SP_NOV);
+    assertThat(r.acts().get(0).marker()).isEqualTo("gen. et. sp. nov.");
+    assertThat(r.acts().get(0).mentionId()).isEqualTo(r.mentions().get(0).id());
+  }
+
+  @Test
+  void newSubspeciesKeepsItsTrinomialAndAct() {
+    // "novella" is no COL epithet; gnfinder and italics both see the trinomial
+    String text = "Carabus nigrus novella ssp. nov. is described.";
+    Document d = doc(block("b1", BlockType.PARAGRAPH, text, new StyleSpan(0, 22, Style.ITALIC)));
+    GnName gnName = new GnName(3, "Carabus nigrus novella", "Carabus nigrus novella", null, 11.0, 0, 22, "ssp. nov.", "SUBSP_NOV");
+    RecordedGnfinder gn = new RecordedGnfinder().answer(text, new GnfinderResponse(Map.of(), List.of(gnName)));
+    FinderResult r = finder(gn).find(d, FinderOptions.defaults());
+    Mention m = r.mentions().stream().filter(x -> x.verbatim().equals("Carabus nigrus novella")).findFirst().orElseThrow();
+    assertThat(m.kind()).isEqualTo(NameKind.TRINOMIAL);
+    assertThat(m.actId()).isNotNull();
+    assertThat(r.acts()).singleElement().satisfies(a -> assertThat(a.type()).isEqualTo(ActType.SSP_NOV));
   }
 
   @Test

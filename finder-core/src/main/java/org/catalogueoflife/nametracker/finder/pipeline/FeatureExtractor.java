@@ -3,8 +3,6 @@ package org.catalogueoflife.nametracker.finder.pipeline;
 import org.catalogueoflife.nametracker.finder.api.Block;
 import org.catalogueoflife.nametracker.finder.api.Document;
 import org.catalogueoflife.nametracker.finder.api.Generator;
-import org.catalogueoflife.nametracker.finder.api.Style;
-import org.catalogueoflife.nametracker.finder.api.StyleSpan;
 import org.catalogueoflife.nametracker.finder.dict.DictHit;
 
 import java.util.HashMap;
@@ -83,7 +81,7 @@ public final class FeatureExtractor {
     Double odds = f.get("oddsLog10") instanceof Number n ? n.doubleValue() : null;
     DictHit hit = f.get("dictHit") instanceof DictHit h ? h : DictHit.NONE;
     return new CandidateFeatures(
-        c.exactGenerators().contains(Generator.ITALIC) || allItalic(b, cps, c.start(), c.end()),
+        c.exactGenerators().contains(Generator.ITALIC) || NameShape.allItalic(b, cps, c.start(), c.end()),
         c.exactGenerators().contains(Generator.TAXON_MARKUP),
         rankWordBefore(cps, c.start()),
         odds,
@@ -98,23 +96,6 @@ public final class FeatureExtractor {
         c.partialSupport());
   }
 
-  /** Every letter of cps[start, end) lies inside an ITALIC style span; false for a span without letters. */
-  private static boolean allItalic(Block b, int[] cps, int start, int end) {
-    boolean letters = false;
-    for (int i = Math.max(0, start); i < Math.min(end, cps.length); i++) {
-      if (!Character.isLetter(cps[i])) continue;
-      letters = true;
-      boolean in = false;
-      for (StyleSpan s : b.styles()) {
-        if (s.style() == Style.ITALIC && s.start() <= i && i < s.end()) {
-          in = true;
-          break;
-        }
-      }
-      if (!in) return false;
-    }
-    return letters;
-  }
 
   static boolean rankWordBefore(int[] cps, int start) {
     int i = Math.min(start, cps.length) - 1;

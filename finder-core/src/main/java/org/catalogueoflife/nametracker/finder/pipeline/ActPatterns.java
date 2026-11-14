@@ -137,9 +137,12 @@ public final class ActPatterns {
       ActType.GEN_NOV, ActType.FAM_NOV, ActType.COMB_NOV, ActType.NOM_NOV, ActType.STAT_REV, ActType.STAT_NOV, ActType.SYN_NOV,
       ActType.TYPE_DESIGNATION);
 
-  /** "gen. et sp. nov." shares its trailing "nov.": expand to "gen. nov. et sp. nov." before matching. */
+  /**
+   * "gen. et sp. nov." shares its trailing "nov.": expand to "gen. nov. et sp. nov." before matching. The joining "et" may
+   * carry a dot ("gen. et. sp. nov.", seen on Pensoft dev).
+   */
   private static final Pattern SHARED_NOV = Pattern.compile(
-      "(?<![\\p{L}])([\\p{L}]+\\.?)\\s*(?:et|&|and|und|y|,)\\s*([\\p{L}]+\\.?)\\s*(nov|n)(?![\\p{L}])\\.?",
+      "(?<![\\p{L}])([\\p{L}]+\\.?)\\s*(?:et\\.?|&|and|und|y|,)\\s*([\\p{L}]+\\.?)\\s*(nov|n)(?![\\p{L}])\\.?",
       Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
   private static Optional<ActType> mostSpecific(List<ActMatch> found) {

@@ -124,8 +124,30 @@ class DictionaryGeneratorTest {
     String t = "Gemenesis gen. nov. and Paramphibambusa bambusicola gen. et sp. nov. differ; Carabus nigrus comb. nov. is old.";
     assertThat(runWith(rows, t)).extracting(Candidate::verbatim)
         .containsExactly("Gemenesis", "Paramphibambusa bambusicola", "Carabus nigrus");
-    // without a marker following, the same word is an epithet
-    assertThat(runWith(rows, "Gemenesis gen is odd.")).extracting(Candidate::verbatim).containsExactly("Gemenesis gen");
+    // the only "gen" and "spec" epithets in COL are placeholders: never epithets, marker or not
+    assertThat(runWith(rows + "6\tspecies\t\tAus\tspec\t\n", "Gemenesis gen is odd, Gemenesis spec too."))
+        .extracting(Candidate::verbatim).containsExactly("Gemenesis", "Gemenesis");
+  }
+
+  @Test
+  void shortAndEnglishThirdWordsAreNoEpithets() throws Exception {
+    // dev: "Cistanche phelypaea s" (s.l.), "Heteromysoides spongicola n" (n.g.), "Curculio s",
+    // "... recorded", "... larvae": junk or English words that COL has as epithets
+    String rows = "1\tspecies\t\tCistanche\tphelypaea\t\n2\tspecies\t\tAus\ts\t\n3\tspecies\t\tAus\tn\t\n"
+        + "4\tspecies\t\tAus\trecorded\t\n5\tspecies\t\tAus\tlarvae\t\n6\tgenus\tCurculio\t\t\t\n"
+        + "7\tsubspecies\t\tCarabus\tnigrus\tmontanus\n";
+    assertThat(runWith(rows, "Cistanche phelypaea s.l. and Curculio s.l. here")).extracting(Candidate::verbatim)
+        .containsExactly("Cistanche phelypaea", "Curculio");
+    assertThat(runWith(rows, "Carabus nigrus recorded and Carabus nigrus larvae, Carabus nigrus montanus"))
+        .extracting(Candidate::verbatim).containsExactly("Carabus nigrus", "Carabus nigrus", "Carabus nigrus montanus");
+    // in italics the English word is left to the italics: kept
+    String t = "Carabus nigrus larvae";
+    ColDictionary d = ColDictionaryBuilder.fromNameUsageTsv(new java.io.StringReader(HEADER + rows), "1", CommonWords.of(List.of()));
+    Document doc = new Document("d", null, List.of(new Block("b1", BlockType.PARAGRAPH, 0, t,
+        List.of(new org.catalogueoflife.nametracker.finder.api.StyleSpan(0, 21, org.catalogueoflife.nametracker.finder.api.Style.ITALIC)),
+        List.of())), null);
+    assertThat(new DictionaryGenerator(d).generate(doc, FlatText.of(doc), new GenerationContext(null)))
+        .extracting(Candidate::verbatim).containsExactly(t);
   }
 
   @Test

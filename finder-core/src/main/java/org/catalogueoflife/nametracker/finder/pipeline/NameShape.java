@@ -1,6 +1,11 @@
 package org.catalogueoflife.nametracker.finder.pipeline;
 
+import org.catalogueoflife.nametracker.finder.api.ActType;
+import org.catalogueoflife.nametracker.finder.api.Block;
+import org.catalogueoflife.nametracker.finder.api.Style;
+import org.catalogueoflife.nametracker.finder.api.StyleSpan;
 import org.catalogueoflife.nametracker.finder.dict.ColDictionary;
+import org.catalogueoflife.nametracker.finder.dict.CommonWords;
 import org.catalogueoflife.nametracker.finder.pipeline.Tokenizer.Token;
 import org.gbif.nameparser.api.NomCode;
 import org.gbif.nameparser.api.Rank;
@@ -27,7 +32,18 @@ final class NameShape {
       "which", "who", "when", "where", "than", "then", "these", "those", "its", "their", "into", "over", "under", "between",
       "after", "before", "if", "so", "no", "all", "some", "both", "each", "other", "sensu", "group", "complex", "species",
       // English participles that COL also has as epithets, seen extending names on Pensoft dev ("Arecophila based")
-      "based", "described", "known");
+      "based", "described", "known",
+      // the only COL epithets "gen" and "spec" are placeholders; as words they abbreviate genus and species
+      "gen", "spec");
+
+  private static final class English {
+    static final CommonWords WORDS = CommonWords.load(Set.of("en"));
+  }
+
+  /** The English common word list, for the bare infraspecific rule. */
+  static CommonWords english() {
+    return English.WORDS;
+  }
 
   /** The end of a name run that starts at token {@code first}. */
   record Run(int lastToken, int endCp, boolean subgenus, int epithets, int firstEpithetToken) {}
@@ -36,13 +52,28 @@ final class NameShape {
    * What may continue a name.
    *
    * @param epithet which lower-case words count as bare epithets; the one after a rank marker is always taken
-   * @param bareInfraspecific which words may be a second bare epithet (no rank marker before it): a COL epithet, so that
-   *                          "Aphrodes bicincta nymph" stays a binomial
+   * @param bareInfraspecific which tokens of at least three letters may be a second bare epithet (no rank marker before
+   *                          it), e.g. only COL epithets, so that "Aphrodes bicincta nymph" stays a binomial
    * @param subgenus which capitalised words in parentheses count as a subgenus, see {@link #subgenusRule}
    * @param markerAt whether a nomenclatural act marker ("gen. nov.", "comb. n.") starts at a code-point offset of the
    *                 token array; a token there is never an epithet, whatever the dictionary says
+   * @param newInfraspecificAfter whether, after whitespace, an SSP_NOV or VAR_NOV marker follows the token that ends at an
+   *                              offset (the generator looks in its whole text, also past the italics): that bare word is
+   *                              the new subspecies or variety and is kept whatever {@code bareInfraspecific} says
    */
-  record Rules(Predicate<String> epithet, Predicate<String> bareInfraspecific, Predicate<String> subgenus, IntPredicate markerAt) {}
+  record Rules(Predicate<String> epithet, Predicate<Token> bareInfraspecific, Predicate<String> subgenus, IntPredicate markerAt,
+               IntPredicate newInfraspecificAfter) {}
+
+  /** Where act markers start in a text, by code-point offset, and which of them describe a new subspecies or variety. */
+  record Markers(BitSet any, BitSet newInfraspecific) {
+    boolean at(int cp) {
+      return cp >= 0 && any.get(cp);
+    }
+
+    boolean newInfraspecificAt(int cp) {
+      return cp >= 0 && newInfraspecific.get(cp);
+    }
+  }
 
   private static final Pattern SUBGENUS_SHAPE = Pattern.compile("\\p{Lu}\\p{Ll}+");
 
@@ -57,11 +88,40 @@ final class NameShape {
         && !SuffixRules.rankFor(w, code).map(Rank::isSuprageneric).orElse(false);
   }
 
-  /** Code-point offsets of {@code cps} at which an act marker of {@link ActPatterns} starts. */
-  static IntPredicate actMarkerStarts(int[] cps) {
-    BitSet starts = new BitSet();
-    for (ActPatterns.ActMatch m : ActPatterns.find(new String(cps, 0, cps.length))) starts.set(m.start());
-    return starts::get;
+  /** The act markers of {@link ActPatterns} in {@code cps}. */
+  static Markers actMarkers(int[] cps) {
+    BitSet any = new BitSet();
+    BitSet infra = new BitSet();
+    for (ActPatterns.ActMatch m : ActPatterns.find(new String(cps, 0, cps.length))) {
+      any.set(m.start());
+      if (m.type() == ActType.SSP_NOV || m.type() == ActType.VAR_NOV) infra.set(m.start());
+    }
+    return new Markers(any, infra);
+  }
+
+  /** The first non-whitespace offset at or after {@code from} satisfies {@code at}, with at least one whitespace between. */
+  static boolean followedBy(int[] cps, int from, IntPredicate at) {
+    int p = from;
+    while (p < cps.length && (Character.isWhitespace(cps[p]) || Character.isSpaceChar(cps[p]))) p++;
+    return p > from && p < cps.length && at.test(p);
+  }
+
+  /** Every letter of cps[start, end) lies inside an ITALIC style span of the block; false for a span without letters. */
+  static boolean allItalic(Block b, int[] cps, int start, int end) {
+    boolean letters = false;
+    for (int i = Math.max(0, start); i < Math.min(end, cps.length); i++) {
+      if (!Character.isLetter(cps[i])) continue;
+      letters = true;
+      boolean in = false;
+      for (StyleSpan s : b.styles()) {
+        if (s.style() == Style.ITALIC && s.start() <= i && i < s.end()) {
+          in = true;
+          break;
+        }
+      }
+      if (!in) return false;
+    }
+    return letters;
   }
 
   static boolean isCapitalised(String t) {
@@ -99,7 +159,10 @@ final class NameShape {
   /**
    * Follows the name that starts at token {@code i}: an optional "(Subgenus)", then up to two epithets (species and one
    * infraspecific, which may follow a rank marker with its dot). A rank marker never counts as an epithet itself, nor does a
-   * word that starts an act marker ("gen. nov."). Runs stop at any gap that is not plain whitespace.
+   * word that starts an act marker ("gen. nov."). A bare epithet has at least two letters, a bare infraspecific one at
+   * least three ("Curculio s.l.", "Heteromysoides spongicola n.g." are binomials) and must pass
+   * {@link Rules#bareInfraspecific()}, unless a new subspecies or variety marker follows it. Runs stop at any gap that is not
+   * plain whitespace.
    */
   static Run follow(int[] cps, List<Token> toks, int i, Rules rules) {
     int n = toks.size();
@@ -135,7 +198,12 @@ final class NameShape {
         }
         break;
       }
-      if (isLowerWord(w) && !STOP.contains(w) && rules.epithet().test(w) && (count == 0 || rules.bareInfraspecific().test(w))) {
+      int len = w.codePointCount(0, w.length());
+      boolean ok = isLowerWord(w) && !STOP.contains(w) && len >= 2 && rules.epithet().test(w);
+      if (ok && count > 0 && !rules.newInfraspecificAfter().test(t.end())) {
+        ok = len >= 3 && rules.bareInfraspecific().test(t);
+      }
+      if (ok) {
         if (first < 0) first = k + 1;
         k++;
         end = t.end();

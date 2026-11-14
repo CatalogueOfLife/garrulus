@@ -100,6 +100,16 @@ class ActPatternsTest {
   }
 
   @Test
+  void compoundWithDottedEt() {
+    // dev: "Paramphibambusa bambusicola gen. et. sp. nov."
+    String text = "Paramphibambusa bambusicola gen. et. sp. nov., and Aus bus comb. et. stat. nov.";
+    var found = ActPatterns.find(text);
+    assertThat(found).extracting(ActPatterns.ActMatch::type).containsExactly(ActType.SP_NOV, ActType.COMB_NOV);
+    assertThat(CodePoints.slice(text, found.get(0).start(), found.get(0).end())).isEqualTo("gen. et. sp. nov.");
+    assertThat(ActPatterns.classify("gen. et. sp. nov.")).contains(ActType.SP_NOV);
+  }
+
+  @Test
   void unrelatedCommaIsNotACompound() {
     var found = ActPatterns.find("Foo bar, sp. nov.");
     assertThat(found).hasSize(1);

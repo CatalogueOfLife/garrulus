@@ -12,13 +12,13 @@ import org.catalogueoflife.nametracker.finder.pipeline.Tokenizer.Token;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.function.IntPredicate;
 import java.util.function.Predicate;
 
 /**
  * Candidates from document markup. Inside each ITALIC span the maximal runs of name-shaped tokens become candidates
  * (generator ITALIC): a capitalised word or abbreviated genus, an optional "(Subgenus)", then lower-case epithets and rank
- * markers. Italics say little about a third word, so a bare infraspecific epithet must be a COL epithet. Runs end at
+ * markers. Italics say little about a third word, so a bare infraspecific epithet must be a COL epithet of three letters
+ * or more, unless a new subspecies or variety marker ("ssp. nov.") follows it, even past the italics. Runs end at
  * anything but whitespace between tokens. Each TAXON_NAME span becomes a candidate that covers the span exactly
  * (generator TAXON_MARKUP).
  */
@@ -43,7 +43,7 @@ public class MarkupGenerator implements CandidateGenerator {
     for (Block b : doc.blocks()) {
       int[] cps = b.text().codePoints().toArray();
       List<StyleSpan> spans = mergeItalics(b.styles(), cps);
-      IntPredicate markers = null;
+      NameShape.Markers markers = null;
       for (StyleSpan s : spans) {
         int from = Math.max(0, s.start());
         int to = Math.min(cps.length, s.end());
@@ -52,7 +52,7 @@ public class MarkupGenerator implements CandidateGenerator {
           String v = new String(cps, from, to - from);
           if (!v.isBlank()) out.add(new Candidate(b.id(), from, to, v, NameShape.collapse(v.strip()), Generator.TAXON_MARKUP, Map.of()));
         } else if (s.style() == Style.ITALIC) {
-          if (markers == null) markers = NameShape.actMarkerStarts(cps); // on the whole block: a marker may run past the italics
+          if (markers == null) markers = NameShape.actMarkers(cps); // on the whole block: a marker may run past the italics
           italic(b, cps, from, to, subgenus, markers, out);
         }
       }
@@ -90,11 +90,13 @@ public class MarkupGenerator implements CandidateGenerator {
     return true;
   }
 
-  private void italic(Block b, int[] full, int from, int to, Predicate<String> subgenus, IntPredicate markers,
+  private void italic(Block b, int[] full, int from, int to, Predicate<String> subgenus, NameShape.Markers markers,
                       List<Candidate> out) {
     int[] cps = java.util.Arrays.copyOfRange(full, from, to);
     List<Token> toks = Tokenizer.tokens(cps);
-    NameShape.Rules rules = new NameShape.Rules(x -> x.length() >= 3, dict::isEpithet, subgenus, k -> markers.test(from + k));
+    // token offsets are relative to the italic span; markers and the look-ahead use the whole block
+    NameShape.Rules rules = new NameShape.Rules(x -> x.length() >= 3, t -> dict.isEpithet(t.text()), subgenus,
+        k -> markers.at(from + k), end -> NameShape.followedBy(full, from + end, markers::newInfraspecificAt));
     int i = 0;
     while (i < toks.size()) {
       Token t = toks.get(i);

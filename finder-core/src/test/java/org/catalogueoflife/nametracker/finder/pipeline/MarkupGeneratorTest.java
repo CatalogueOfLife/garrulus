@@ -119,6 +119,15 @@ class MarkupGeneratorTest {
   }
 
   @Test
+  void newSubspeciesKeepsItsThirdWord() {
+    // "novella" is no COL epithet yet, but it is the subspecies the "ssp. nov." describes
+    String t = "Carabus nigrus novella ssp. nov. and Rosa canina rubella var. nov. and Carabus nigrus novella here";
+    assertThat(run(t, span(t, "Carabus nigrus novella", Style.ITALIC), span(t, "Rosa canina rubella", Style.ITALIC),
+        new StyleSpan(t.lastIndexOf("Carabus"), t.lastIndexOf("Carabus") + 22, Style.ITALIC)))
+        .extracting(Candidate::verbatim).containsExactly("Carabus nigrus novella", "Rosa canina rubella", "Carabus nigrus");
+  }
+
+  @Test
   void familyInParenthesesIsNoSubgenus() {
     // dev: "Luperomorpha (Chrysomelidae)" in italics; Coleoptera is an order in the dictionary
     String t = "Carabus (Carabidae) and Carabus (Coleoptera) nigrus";

@@ -5,6 +5,8 @@ import org.catalogueoflife.nametracker.finder.api.BlockType;
 import org.catalogueoflife.nametracker.finder.api.CodePoints;
 import org.catalogueoflife.nametracker.finder.api.Document;
 import org.catalogueoflife.nametracker.finder.api.Generator;
+import org.catalogueoflife.nametracker.finder.api.Style;
+import org.catalogueoflife.nametracker.finder.api.StyleSpan;
 import org.catalogueoflife.nametracker.finder.dict.ColDictionary;
 import org.catalogueoflife.nametracker.finder.dict.ColDictionaryBuilder;
 import org.catalogueoflife.nametracker.finder.dict.CommonWords;
@@ -19,7 +21,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class EpithetGuardTest {
   private static final String TSV = "col:ID\tcol:rank\tcol:uninomial\tcol:genericName\tcol:specificEpithet\tcol:infraspecificEpithet\n"
-      + "1\tspecies\t\tAphrodes\tbicincta\t\n2\tsubspecies\t\tCarabus\tnigrus\tmontanus\n3\tvariety\t\tRosa\tcanina\tglandulosa\n";
+      + "1\tspecies\t\tAphrodes\tbicincta\t\n2\tsubspecies\t\tCarabus\tnigrus\tmontanus\n3\tvariety\t\tRosa\tcanina\tglandulosa\n"
+      + "4\tspecies\t\tAus\ts\t\n5\tspecies\t\tAus\tn\t\n6\tspecies\t\tAus\tlarvae\t\n7\tspecies\t\tLupinus\tgrandiflorus\tconfertiflora\n";
   private static final EpithetGuard GUARD;
 
   static {
@@ -63,6 +66,44 @@ class EpithetGuardTest {
         gn(t, "Gemenesis gen", 2));
     assertThat(out).extracting(Candidate::verbatim).containsExactly("Lathraea clandestina", "Arecophila", "H. rosae", "Gemenesis");
     assertThat(out).extracting(Candidate::name).containsExactly("Lathraea clandestina", "Arecophila", "H. rosae", "Gemenesis");
+  }
+
+  @Test
+  void shortEnglishAndUnknownThirdWordsAreCut() {
+    // dev: "N. asper s", "Heteromysoides spongicola n", "Curculio s", "... larvae"; L. g. confertiflora is a valid abbreviation
+    String t = "N. asper s.l., Heteromysoides spongicola n.g., Curculio s.l., Aphrodes bicincta larvae, L. g. confertiflora.";
+    List<Candidate> out = guard(t, gn(t, "N. asper s", 3), gn(t, "Heteromysoides spongicola n", 3), gn(t, "Curculio s", 2),
+        gn(t, "Aphrodes bicincta larvae", 3), gn(t, "L. g. confertiflora", 3));
+    assertThat(out).extracting(Candidate::verbatim)
+        .containsExactly("N. asper", "Heteromysoides spongicola", "Curculio", "Aphrodes bicincta", "L. g. confertiflora");
+  }
+
+  @Test
+  void italicEnglishThirdWordIsKept() {
+    String t = "Aphrodes bicincta larvae";
+    Document d = new Document("d", "en", List.of(new Block("b1", BlockType.PARAGRAPH, 0, t,
+        List.of(new StyleSpan(0, 24, Style.ITALIC)), List.of())), Map.of());
+    Candidate c = gn(t, t, 3);
+    assertThat(GUARD.apply(List.of(c), d).candidates()).containsExactly(c);
+  }
+
+  @Test
+  void newSubspeciesBeforeItsMarkerIsKept() {
+    String t = "Carabus nigrus novella ssp. nov. and Rosa canina rubella var. nov. differ.";
+    Candidate[] cs = {gn(t, "Carabus nigrus novella", 3), gn(t, "Rosa canina rubella", 3)};
+    assertThat(guard(t, cs)).containsExactly(cs);
+  }
+
+  @Test
+  void nameRebuiltFromVerbatimWhenGnfinderNamesItDifferently() {
+    // gnfinder leaves the subgenus out of its name
+    String t = "Carabus (Megodontus) nigrus has wings.";
+    int s = 0;
+    Candidate c = new Candidate("b1", s, 31, "Carabus (Megodontus) nigrus has", "Carabus nigrus has", Generator.GNFINDER,
+        Map.of("cardinality", 3));
+    List<Candidate> out = guard(t, c);
+    assertThat(out).extracting(Candidate::verbatim).containsExactly("Carabus (Megodontus) nigrus");
+    assertThat(out.get(0).name()).isEqualTo("Carabus (Megodontus) nigrus");
   }
 
   @Test

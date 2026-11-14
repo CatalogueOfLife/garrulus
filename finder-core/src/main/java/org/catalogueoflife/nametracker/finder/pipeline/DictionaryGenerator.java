@@ -4,6 +4,7 @@ import org.catalogueoflife.nametracker.finder.api.Block;
 import org.catalogueoflife.nametracker.finder.api.Document;
 import org.catalogueoflife.nametracker.finder.api.Generator;
 import org.catalogueoflife.nametracker.finder.dict.ColDictionary;
+import org.catalogueoflife.nametracker.finder.dict.CommonWords;
 import org.catalogueoflife.nametracker.finder.dict.DictHit;
 import org.catalogueoflife.nametracker.finder.doc.FlatText;
 import org.catalogueoflife.nametracker.finder.pipeline.Tokenizer.Token;
@@ -23,12 +24,24 @@ import java.util.function.Predicate;
  * epithet are a known COL pair ({@link ColDictionary#isBinomial}), else EPITHET: some COL epithet follows a COL genus,
  * which ordinary text does too ("The baculum"). An abbreviation plus epithet is tagged dictHit=EPITHET: DictHit has no
  * ABBREVIATED value, the kind ABBREVIATED is derived later.
+ *
+ * <p>A bare infraspecific epithet (no rank marker before it) must be a COL epithet of three letters or more and, outside
+ * italics, no common English word ("Carabus nigrus recorded", "... larvae"). The trade-off: a bare, non-italic "Parus major
+ * minor" loses its third word. Italic and rank-marked infraspecific epithets are not affected.
  */
 public class DictionaryGenerator implements CandidateGenerator {
   private final ColDictionary dict;
+  private final CommonWords english;
 
+  /** Uses the default English common word list for the bare infraspecific rule. */
   public DictionaryGenerator(ColDictionary dict) {
+    this(dict, NameShape.english());
+  }
+
+  /** @param english ordinary English words, never a bare infraspecific epithet outside italics */
+  public DictionaryGenerator(ColDictionary dict, CommonWords english) {
     this.dict = dict;
+    this.english = english;
   }
 
   @Override
@@ -47,7 +60,10 @@ public class DictionaryGenerator implements CandidateGenerator {
   private void scan(Block b, Predicate<String> subgenus, List<Candidate> out) {
     int[] cps = b.text().codePoints().toArray();
     List<Token> toks = Tokenizer.tokens(cps);
-    NameShape.Rules rules = new NameShape.Rules(dict::isEpithet, dict::isEpithet, subgenus, NameShape.actMarkerStarts(cps));
+    NameShape.Markers markers = NameShape.actMarkers(cps);
+    NameShape.Rules rules = new NameShape.Rules(dict::isEpithet,
+        t -> dict.isEpithet(t.text()) && (!english.contains(t.text()) || NameShape.allItalic(b, cps, t.start(), t.end())),
+        subgenus, markers::at, end -> NameShape.followedBy(cps, end, markers::newInfraspecificAt));
     int i = 0;
     while (i < toks.size()) {
       Token t = toks.get(i);
