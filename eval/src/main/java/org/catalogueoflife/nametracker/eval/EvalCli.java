@@ -195,12 +195,18 @@ public class EvalCli implements Runnable {
         HttpClient.newHttpClient());
   }
 
-  /** Mode B for the Pensoft corpus: PDFs from the PMC open data copy if there is one, else from pensoft.net. */
-  static org.catalogueoflife.nametracker.eval.modeb.ModeBRunner modeB(java.util.function.Predicate<String> isKnownWord, int parallel) {
+  /**
+   * Mode B for the Pensoft corpus: PDFs from the PMC open data copy if there is one, else from pensoft.net. With
+   * cacheOnly, a document without a cached PDF is skipped instead of downloaded.
+   */
+  static org.catalogueoflife.nametracker.eval.modeb.ModeBRunner modeB(java.util.function.Predicate<String> isKnownWord, int parallel,
+                                                                     boolean cacheOnly) {
     HttpClient http = org.catalogueoflife.nametracker.eval.modeb.PdfDownloader.defaultClient();
-    var source = org.catalogueoflife.nametracker.eval.modeb.ModeBRunner.PdfSource.pmcThenPensoft(
-        new org.catalogueoflife.nametracker.eval.modeb.PdfDownloader(http),
-        new org.catalogueoflife.nametracker.eval.modeb.PmcPdfLocator(http), System.err::println);
+    org.catalogueoflife.nametracker.eval.modeb.ModeBRunner.PdfSource source = cacheOnly
+        ? g -> { throw new IOException("no PDF in the cache (fill it with fetch-pdf)"); }
+        : org.catalogueoflife.nametracker.eval.modeb.ModeBRunner.PdfSource.pmcThenPensoft(
+            new org.catalogueoflife.nametracker.eval.modeb.PdfDownloader(http),
+            new org.catalogueoflife.nametracker.eval.modeb.PmcPdfLocator(http), System.err::println);
     return new org.catalogueoflife.nametracker.eval.modeb.ModeBRunner(source, grobid(), isKnownWord, parallel, System.err::println);
   }
 
@@ -216,7 +222,7 @@ public class EvalCli implements Runnable {
     public Integer call() throws Exception {
       if (split != null) checkSplit(split);
       List<GoldDocument> docs = readSplit(corpus, split);
-      Map<String, String> failed = modeB(w -> false, parallel).prefetch(docs, cache);
+      Map<String, String> failed = modeB(w -> false, parallel, false).prefetch(docs, cache);
       System.out.println((docs.size() - failed.size()) + " of " + docs.size() + " documents have TEI in " + cache
           + (failed.isEmpty() ? "" : "; failed: " + failed.size()));
       failed.forEach((id, why) -> System.out.println("  " + id + ": " + why));
@@ -227,9 +233,14 @@ public class EvalCli implements Runnable {
   @Command(name = "tune", mixinStandardHelpOptions = true,
       description = "Grid search over the pipeline judge (threshold and weights) on a dev split; prints the best settings and the config overrides to put into pipeline-defaults.json")
   public static class Tune implements Callable<Integer> {
-    /** The default grid: the threshold, the largest weights that fire on stripped text, and the weights behind the main false positive buckets. */
-    static final String DEFAULT_GRID = "italic=1,2,3,4,5,6,7;gnfinderOdds=2,4,6,8;ambiguousWord=-1,-2.5,-4,-6;"
-        + "dictHit.NONE=-1,-2,-3,-4,-5;partialSupport=-0.5,-2,-4";
+    /**
+     * The default grid, besides the threshold: the largest weights that fire on stripped text (italic, gnfinderOdds,
+     * ambiguousWord; taxonMarkup never fires there) and the weights behind the main false positive buckets
+     * (dictHit.NONE, partialSupport). The ranges reach past the values the search settled on, except where the brief
+     * fixes them (threshold up to 0.8).
+     */
+    static final String DEFAULT_GRID = "italic=1,2,3,4,5,6,7;gnfinderOdds=2,4,6,8,10,12,16;ambiguousWord=-1,-2.5,-4,-6;"
+        + "dictHit.NONE=0,-1,-2,-3,-4,-5;partialSupport=-0.5,-2,-4,-6,-8";
 
     @Option(names = "--corpus", required = true, description = "corpus directory holding gold.jsonl.gz") Path corpus;
     @Option(names = "--split", defaultValue = "dev", description = "the split to tune on; never test, default ${DEFAULT-VALUE}") String split;
@@ -240,6 +251,7 @@ public class EvalCli implements Runnable {
     @Option(names = "--dictionary", description = "COL dictionary file, default $FINDER_DICTIONARY") Path dictionary;
     @Option(names = "--pdf-cache", defaultValue = "eval/work/pdf", description = "mode B: PDF and TEI cache, default ${DEFAULT-VALUE}") Path pdfCache;
     @Option(names = "--parallel", defaultValue = "4", description = "mode B: documents downloaded and converted at once, default ${DEFAULT-VALUE}") int parallel;
+    @Option(names = "--cache-only", description = "mode B: use only PDFs already in the cache, skip the others") boolean cacheOnly;
 
     @Override
     public Integer call() throws Exception {
@@ -267,7 +279,7 @@ public class EvalCli implements Runnable {
           gold = docs;
           docLevel = false;
         } else if (m.equals("B")) {
-          var converted = modeB(dict::isKnownWord, parallel).convert(docs, pdfCache);
+          var converted = modeB(dict::isKnownWord, parallel, cacheOnly).convert(docs, pdfCache);
           converted.documents().forEach((id, d) -> prepared.put(id, finder.prepare(d, FinderOptions.defaults())));
           gold = converted.scored(docs);
           docLevel = true;
@@ -350,6 +362,7 @@ public class EvalCli implements Runnable {
     @Option(names = "--dictionary", description = "COL dictionary file for the pipeline finder and mode B de-hyphenation, default $FINDER_DICTIONARY") Path dictionary;
     @Option(names = "--pdf-cache", defaultValue = "eval/work/pdf", description = "mode B: PDF and TEI cache, default ${DEFAULT-VALUE}") Path pdfCache;
     @Option(names = "--parallel", defaultValue = "4", description = "mode B: documents downloaded and converted at once, default ${DEFAULT-VALUE}") int parallel;
+    @Option(names = "--cache-only", description = "mode B: use only PDFs already in the cache, skip the others") boolean cacheOnly;
 
     @Override
     public Integer call() throws Exception {
@@ -368,7 +381,7 @@ public class EvalCli implements Runnable {
         doc = true; // converted blocks cannot be aligned with the gold spans
         ColDictionary dict = org.catalogueoflife.nametracker.finder.pipeline.PipelineFactory.readDictionary(
             FinderFactory.dictionaryFile(dictionary, System::getenv));
-        var converted = modeB(dict::isKnownWord, parallel).convert(docs, pdfCache);
+        var converted = modeB(dict::isKnownWord, parallel, cacheOnly).convert(docs, pdfCache);
         results = org.catalogueoflife.nametracker.eval.modeb.ModeBRunner.find(converted, f);
         predicted = converted.documents();
         int all = docs.size();
