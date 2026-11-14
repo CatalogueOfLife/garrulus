@@ -6,3 +6,8 @@ frontend/dist/
 eval/work/
 .env
 frontend/.npm/
+# Eclipse/jdtls
+.project
+.classpath
+.settings/
+.factorypath

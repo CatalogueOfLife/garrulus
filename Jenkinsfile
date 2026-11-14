@@ -1,5 +1,5 @@
 // CI build for Garrulus (nametracker).
-// Backend builds with the agent's native JDK 25 + Maven; only npm runs in Docker (node:24),
+// Backend builds with the agent's native JDK 25 + Maven (its tests use Docker via Testcontainers); npm runs in Docker (node:24),
 // matching the Blixa job. Build only: no deploy stage yet (added in M2 with the systemd units).
 pipeline {
   agent any
@@ -18,9 +18,11 @@ pipeline {
       parallel {
         stage('Backend') {
           steps {
-            // Native JDK 25 + Maven on the agent (no Docker); reuses the agent's ~/.m2 cache.
-            // ITs are skipped here (they need Testcontainers); run `mvn -B verify` locally.
-            sh 'mvn -B -DskipITs clean verify'
+            // Native JDK 25 + Maven on the agent; reuses the agent's ~/.m2 cache.
+            // The ITs run here too: Testcontainers starts postgres:17 through the agent's Docker daemon
+            // (the Frontend stage needs Docker as well). If the daemon is not at the default socket, set
+            // DOCKER_HOST (and TESTCONTAINERS_HOST_OVERRIDE if the containers are not reachable on localhost).
+            sh 'mvn -B clean verify'
           }
         }
         stage('Frontend SPA') {

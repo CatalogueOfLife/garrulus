@@ -4,13 +4,14 @@
 #   docker compose --profile grobid up -d     # + GROBID (PDF/TEI parsing)
 #   docker compose --profile annotate up -d   # + Label Studio (annotation)
 #
+# Ports are published on 127.0.0.1 only.
 # Local use only: the database credentials below are throwaway development values.
 name: nametracker
 services:
   db:
     image: postgres:17
     ports:
-      - "5434:5432"
+      - "127.0.0.1:5434:5432"
     environment:
       POSTGRES_DB: nametracker
       POSTGRES_USER: nametracker
@@ -28,7 +29,7 @@ services:
     platform: linux/amd64           # v1.4.0 is published for amd64 only; runs emulated on arm64
     command: ["-p", "8999"]          # the image default, spelled out
     ports:
-      - "8778:8999"
+      - "127.0.0.1:8778:8999"
 
   grobid:
     image: grobid/grobid:0.9.1-crf
@@ -37,13 +38,13 @@ services:
     ulimits:
       core: 0
     ports:
-      - "8070:8070"
+      - "127.0.0.1:8070:8070"
 
   labelstudio:
     image: heartexlabs/label-studio:1.23.2
     profiles: [annotate]
     ports:
-      - "8090:8080"
+      - "127.0.0.1:8090:8080"
     volumes:
       - ls:/label-studio/data
 

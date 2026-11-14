@@ -22,7 +22,7 @@ Prerequisites: `sdk env` (JDK 25 from `.sdkmanrc`), Docker (OrbStack works), Nod
 docker compose up -d db gnfinder                    # db 5434, gnfinder 8778 (add --profile grobid / annotate for 8070 / 8090)
 mvn -B verify                                       # all unit tests and ITs (ITs use Testcontainers)
 mvn -B -pl <module> -am verify -Dit.test=<Class>    # one IT
-mvn -B -DskipTests install                          # once after changing store: -pl resolves siblings from ~/.m2
+mvn -B -DskipTests install                          # once on a fresh clone and after changing store: -pl resolves siblings from ~/.m2
 mvn -pl indexer spring-boot:run                     # indexer on 8081 (127.0.0.1)
 mvn -pl web spring-boot:run                         # web on 8080
 cd frontend && npm install                          # once
@@ -35,7 +35,10 @@ cd frontend && npm run dev | npm test | npm run build   # Vite on 5173, proxies 
 - `web`: `ADMIN_TOKEN` enables `POST /api/admin/tasks` (send it in the `X-Admin-Token` header). If blank, the endpoint
   returns 404.
 - `indexer`: `NAMETRACKER_INDEXER_PORT` (8081), `NAMETRACKER_INDEXER_WORKERS`, `NAMETRACKER_INDEXER_POLL_INTERVAL`,
-  `NAMETRACKER_INDEXER_MAX_ATTEMPTS`, `NAMETRACKER_INDEXER_BACKOFF`.
+  `NAMETRACKER_INDEXER_MAX_ATTEMPTS`, `NAMETRACKER_INDEXER_BACKOFF`, `NAMETRACKER_INDEXER_STALE_AFTER` (1h),
+  `NAMETRACKER_INDEXER_REQUEUE_INTERVAL` (10m), `NAMETRACKER_INDEXER_HEARTBEAT_INTERVAL` (2m). Task delivery is
+  at-least-once, so handlers must be idempotent.
+- Both apps also read a local `.env` (git-ignored, see `.env.example`) from the working or the parent directory.
 - Port clash (for example a CLB `WsMatchingServer` on 8080 or 8081): `SERVER_PORT=9080 mvn -pl web spring-boot:run`.
 
 ## Modules
