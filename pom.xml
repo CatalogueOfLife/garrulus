@@ -106,6 +106,10 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-failsafe-plugin</artifactId>
+          <configuration>
+            <!-- so that -Dit.test=X works with -pl/-am, where the other modules have no such test -->
+            <failIfNoSpecifiedTests>false</failIfNoSpecifiedTests>
+          </configuration>
           <executions>
             <execution>
               <goals>

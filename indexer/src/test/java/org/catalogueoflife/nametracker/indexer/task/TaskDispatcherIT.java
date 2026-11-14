@@ -18,7 +18,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-@Import(TaskDispatcherIT.BoomConfig.class)
+@Import({TaskDispatcherIT.BoomConfig.class, TaskDispatcherIT.ErrorConfig.class})
 class TaskDispatcherIT extends AbstractPostgresIT {
 
   /** Test-only handler that always fails. */
@@ -33,6 +33,23 @@ class TaskDispatcherIT extends AbstractPostgresIT {
 
         @Override public void handle(Task task) {
           throw new IllegalStateException("boom");
+        }
+      };
+    }
+  }
+
+  /** Test-only handler that throws an Error rather than an Exception. */
+  @TestConfiguration
+  static class ErrorConfig {
+    @Bean
+    TaskHandler errorHandler() {
+      return new TaskHandler() {
+        @Override public String type() {
+          return "ERR";
+        }
+
+        @Override public void handle(Task task) {
+          throw new StackOverflowError("err");
         }
       };
     }
@@ -80,5 +97,14 @@ class TaskDispatcherIT extends AbstractPostgresIT {
     // the dispatcher keeps working after the failure
     long ping2 = queue.enqueue("PING", "{}", TaskPriority.LIVE, null);
     await().atMost(10, SECONDS).until(() -> state(ping2) == TaskState.DONE);
+  }
+
+  @Test
+  void errorInHandlerFailsTaskInsteadOfLeavingItRunning() {
+    long id = queue.enqueue("ERR", "{}", TaskPriority.LIVE, null);
+    await().atMost(10, SECONDS).until(() -> mapper.get(id).lastError() != null);
+    Task t = mapper.get(id);
+    assertThat(t.state()).isEqualTo(TaskState.QUEUED);
+    assertThat(t.lastError()).contains("StackOverflowError");
   }
 }

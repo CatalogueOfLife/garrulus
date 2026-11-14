@@ -103,11 +103,11 @@ public class TaskDispatcher implements DisposableBean {
     try {
       handlers.get(task.type()).handle(task);
       queue.complete(task.id());
-    } catch (Exception e) {
+    } catch (Throwable e) { // an Error must not leave the task RUNNING either
       LOG.warn("Task {} ({}) failed on attempt {}", task.id(), task.type(), task.attempts(), e);
       try {
         queue.fail(task.id(), truncate(e.toString()), maxAttempts, backoff);
-      } catch (RuntimeException e2) {
+      } catch (Throwable e2) {
         LOG.error("Could not record failure of task {}", task.id(), e2);
       }
     } finally {
