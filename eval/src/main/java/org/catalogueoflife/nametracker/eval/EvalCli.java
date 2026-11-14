@@ -26,6 +26,19 @@ import org.catalogueoflife.nametracker.eval.score.Scorer;
 import org.catalogueoflife.nametracker.finder.api.FinderOptions;
 import org.catalogueoflife.nametracker.finder.api.FinderResult;
 import org.catalogueoflife.nametracker.finder.api.NameFinder;
+import java.util.function.Predicate;
+import org.catalogueoflife.nametracker.eval.modeb.GrobidClient;
+import org.catalogueoflife.nametracker.eval.modeb.ModeBRunner;
+import org.catalogueoflife.nametracker.eval.modeb.PdfDownloader;
+import org.catalogueoflife.nametracker.eval.modeb.PmcPdfLocator;
+import org.catalogueoflife.nametracker.eval.tune.JudgeTuner;
+import org.catalogueoflife.nametracker.finder.api.BlockType;
+import org.catalogueoflife.nametracker.finder.api.Document;
+import org.catalogueoflife.nametracker.finder.pipeline.PipelineConfig;
+import org.catalogueoflife.nametracker.finder.pipeline.PipelineFactory;
+import org.catalogueoflife.nametracker.finder.pipeline.PipelineNameFinder;
+import org.catalogueoflife.nametracker.finder.pipeline.ThresholdJudge;
+import org.jspecify.annotations.Nullable;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -174,7 +187,7 @@ public class EvalCli implements Runnable {
   }
 
   /** The documents of one split of a corpus; curated abstracts stored without text are re-fetched from OpenAlex. */
-  static List<GoldDocument> readSplit(Path corpus, @org.jspecify.annotations.Nullable String split) throws IOException {
+  static List<GoldDocument> readSplit(Path corpus, @Nullable String split) throws IOException {
     HttpClient http = PensoftFetcher.defaultClient();
     List<GoldDocument> docs = CorpusStore.read(corpus.resolve("gold.jsonl.gz"),
         new org.catalogueoflife.nametracker.eval.corpus.OpenAlexAbstractRefetcher(new OpenAlexClient(http, System.getenv("OPENALEX_API_KEY")))).stream()
@@ -188,10 +201,10 @@ public class EvalCli implements Runnable {
   }
 
   /** GROBID at GROBID_URL, default http://localhost:8070 (docker compose --profile grobid up -d grobid). */
-  static org.catalogueoflife.nametracker.eval.modeb.GrobidClient grobid() {
+  static GrobidClient grobid() {
     String url = System.getenv("GROBID_URL");
-    return new org.catalogueoflife.nametracker.eval.modeb.GrobidClient(
-        URI.create(url == null || url.isBlank() ? org.catalogueoflife.nametracker.eval.modeb.GrobidClient.DEFAULT_URL : url),
+    return new GrobidClient(
+        URI.create(url == null || url.isBlank() ? GrobidClient.DEFAULT_URL : url),
         HttpClient.newHttpClient());
   }
 
@@ -199,15 +212,15 @@ public class EvalCli implements Runnable {
    * Mode B for the Pensoft corpus: PDFs from the PMC open data copy if there is one, else from pensoft.net. With
    * cacheOnly, a document without a cached PDF is skipped instead of downloaded.
    */
-  static org.catalogueoflife.nametracker.eval.modeb.ModeBRunner modeB(java.util.function.Predicate<String> isKnownWord, int parallel,
+  static ModeBRunner modeB(Predicate<String> isKnownWord, int parallel,
                                                                      boolean cacheOnly) {
-    HttpClient http = org.catalogueoflife.nametracker.eval.modeb.PdfDownloader.defaultClient();
-    org.catalogueoflife.nametracker.eval.modeb.ModeBRunner.PdfSource source = cacheOnly
+    HttpClient http = PdfDownloader.defaultClient();
+    ModeBRunner.PdfSource source = cacheOnly
         ? g -> { throw new IOException("no PDF in the cache (fill it with fetch-pdf)"); }
-        : org.catalogueoflife.nametracker.eval.modeb.ModeBRunner.PdfSource.pmcThenPensoft(
-            new org.catalogueoflife.nametracker.eval.modeb.PdfDownloader(http),
-            new org.catalogueoflife.nametracker.eval.modeb.PmcPdfLocator(http), System.err::println);
-    return new org.catalogueoflife.nametracker.eval.modeb.ModeBRunner(source, grobid(), isKnownWord, parallel, System.err::println);
+        : ModeBRunner.PdfSource.pmcThenPensoft(
+            new PdfDownloader(http),
+            new PmcPdfLocator(http), System.err::println);
+    return new ModeBRunner(source, grobid(), isKnownWord, parallel, System.err::println);
   }
 
   @Command(name = "fetch-pdf", mixinStandardHelpOptions = true,
@@ -257,21 +270,21 @@ public class EvalCli implements Runnable {
     public Integer call() throws Exception {
       if (!split.equals("dev")) throw new IllegalArgumentException("Tuning runs on the dev split only; reports quote test");
       Path dictFile = FinderFactory.dictionaryFile(dictionary, System::getenv);
-      ColDictionary dict = org.catalogueoflife.nametracker.finder.pipeline.PipelineFactory.readDictionary(dictFile);
-      var finder = org.catalogueoflife.nametracker.finder.pipeline.PipelineFactory.create(dict,
-          org.catalogueoflife.nametracker.finder.pipeline.PipelineFactory.gnfinder(System.getenv(FinderFactory.GNFINDER_ENV)),
-          org.catalogueoflife.nametracker.finder.pipeline.PipelineConfig.defaults());
+      ColDictionary dict = PipelineFactory.readDictionary(dictFile);
+      var finder = PipelineFactory.create(dict,
+          PipelineFactory.gnfinder(System.getenv(FinderFactory.GNFINDER_ENV)),
+          PipelineConfig.defaults());
       var base = finder.config();
       List<GoldDocument> docs = readSplit(corpus, split);
       String corpusName = corpus.toAbsolutePath().normalize().getFileName().toString();
-      java.util.Set<org.catalogueoflife.nametracker.finder.api.BlockType> excluded = corpusName.equals("pensoft")
+      java.util.Set<BlockType> excluded = corpusName.equals("pensoft")
           ? ScoreOptions.pensoft(MatchMode.STRICT).excludedBlocks() : ScoreOptions.curated(MatchMode.STRICT).excludedBlocks();
 
-      List<org.catalogueoflife.nametracker.eval.tune.JudgeTuner.Target> targets = new ArrayList<>();
+      List<JudgeTuner.Target> targets = new ArrayList<>();
       for (String mode : modes) {
         String m = mode.strip().toUpperCase(Locale.ROOT);
         long t0 = System.nanoTime();
-        Map<String, org.catalogueoflife.nametracker.finder.pipeline.PipelineNameFinder.Prepared> prepared = new LinkedHashMap<>();
+        Map<String, PipelineNameFinder.Prepared> prepared = new LinkedHashMap<>();
         List<GoldDocument> gold;
         boolean docLevel;
         if (m.equals("A")) {
@@ -288,13 +301,13 @@ public class EvalCli implements Runnable {
           throw new IllegalArgumentException("--modes takes A and/or B, not " + mode);
         }
         System.err.printf(Locale.ROOT, "mode %s: %d documents prepared in %.0f s%n", m, gold.size(), (System.nanoTime() - t0) / 1e9);
-        targets.add(new org.catalogueoflife.nametracker.eval.tune.JudgeTuner.Target(m, gold, prepared,
+        targets.add(new JudgeTuner.Target(m, gold, prepared,
             new ScoreOptions(MatchMode.STRICT, excluded, docLevel)));
       }
 
       LinkedHashMap<String, double[]> values = parseGrid(grid);
-      var tuner = new org.catalogueoflife.nametracker.eval.tune.JudgeTuner(base, List.copyOf(values.keySet()), targets);
-      var points = org.catalogueoflife.nametracker.eval.tune.JudgeTuner.grid(base, thresholds, values);
+      var tuner = new JudgeTuner(base, List.copyOf(values.keySet()), targets);
+      var points = JudgeTuner.grid(base, thresholds, values);
       long t1 = System.nanoTime();
       var ranked = tuner.search(points);
       System.out.printf(Locale.ROOT, "%d settings searched in %.1f s; objective: mean names F1 over modes %s on %s/%s%n",
@@ -307,10 +320,10 @@ public class EvalCli implements Runnable {
       var best = ranked.get(0);
       for (var t : targets) {
         Map<String, FinderResult> results = new LinkedHashMap<>();
-        var judge = new org.catalogueoflife.nametracker.finder.pipeline.ThresholdJudge(best.setting().weights(), base.judgeBias(),
+        var judge = new ThresholdJudge(best.setting().weights(), base.judgeBias(),
             best.setting().threshold());
         t.prepared().forEach((id, p) -> results.put(id, finder.finish(p, judge)));
-        Map<String, org.catalogueoflife.nametracker.finder.api.Document> predicted = new LinkedHashMap<>();
+        Map<String, Document> predicted = new LinkedHashMap<>();
         t.prepared().forEach((id, p) -> predicted.put(id, p.document()));
         Metrics real = Scorer.score(t.gold(), results, t.opts(), "pipeline", corpusName, t.label(), predicted).names();
         System.out.printf(Locale.ROOT, "check mode %s with the real scorer: P=%.3f R=%.3f F1=%.3f (tp %d, fp %d, fn %d)%n",
@@ -335,8 +348,8 @@ public class EvalCli implements Runnable {
       return out;
     }
 
-    private static void printOutcome(String label, org.catalogueoflife.nametracker.eval.tune.JudgeTuner.Outcome o,
-                                     List<org.catalogueoflife.nametracker.eval.tune.JudgeTuner.Target> targets,
+    private static void printOutcome(String label, JudgeTuner.Outcome o,
+                                     List<JudgeTuner.Target> targets,
                                      LinkedHashMap<String, double[]> values) {
       StringBuilder sb = new StringBuilder(String.format(Locale.ROOT, "%-5s objective %.4f | threshold %.2f", label, o.objective(),
           o.setting().threshold()));
@@ -372,17 +385,17 @@ public class EvalCli implements Runnable {
       NameFinder f = FinderFactory.create(finder, dictionary);
       List<GoldDocument> docs = readSplit(corpus, split);
       Map<String, FinderResult> results = new LinkedHashMap<>();
-      Map<String, org.catalogueoflife.nametracker.finder.api.Document> predicted = Map.of();
+      Map<String, Document> predicted = Map.of();
       List<String> notes = new ArrayList<>();
       boolean doc = docLevel;
       if (m.equals("A")) {
         for (GoldDocument d : docs) results.put(d.docId(), f.find(d.document(), FinderOptions.defaults()));
       } else {
         doc = true; // converted blocks cannot be aligned with the gold spans
-        ColDictionary dict = org.catalogueoflife.nametracker.finder.pipeline.PipelineFactory.readDictionary(
+        ColDictionary dict = PipelineFactory.readDictionary(
             FinderFactory.dictionaryFile(dictionary, System::getenv));
         var converted = modeB(dict::isKnownWord, parallel, cacheOnly).convert(docs, pdfCache);
-        results = org.catalogueoflife.nametracker.eval.modeb.ModeBRunner.find(converted, f);
+        results = ModeBRunner.find(converted, f);
         predicted = converted.documents();
         int all = docs.size();
         docs = converted.scored(docs);
