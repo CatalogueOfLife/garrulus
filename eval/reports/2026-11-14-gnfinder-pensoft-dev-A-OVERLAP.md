@@ -37,7 +37,7 @@ Finder: gnfinder 1.4.0, config `chunk=100000;ambiguous=true;odds=true;lang=detec
 - `pensoft:bdj.12.e130385` [UNINOMIAL] derate levels of genetic diversity with «PIC» = 0.77, NA = 3.9, NE = 2.8, Ho = 0.56 a
 - `pensoft:zookeys.1254.168429` [UNINOMIAL] ymenoptera, Ichneumonidae) from western «Amazonia»
 - `pensoft:bdj.12.e132915` [UNINOMIAL] «Overview» of myrmecological studies and a checkli
-- `pensoft:zookeys.1218.126535` [UNINOMIAL] ﻿A «Taxonomic» Odyssey: An annotated checklist of Pero
+- `pensoft:zookeys.1218.126535` [UNINOMIAL] A «Taxonomic» Odyssey: An annotated checklist of Pero
 - `pensoft:phytokeys.247.131353` [UNINOMIAL] 24) Nomenclature and systematics of two «Cocconeis» species (Bacillariophyta) from Lake Bai
 - `pensoft:phytokeys.263.163351` [UNINOMIAL] Academic editor: «Blanca» León
 - `pensoft:mycokeys.141.209886` [UNINOMIAL] microfungi associated with Macadamia in «China» and Thailand and their lignocellulitic 
@@ -68,7 +68,7 @@ Finder: gnfinder 1.4.0, config `chunk=100000;ambiguous=true;odds=true;lang=detec
 - `pensoft:zookeys.1195.115889` [ABBREVIATED] ina, Leptogenys hainanensissp. nov. and «L. zhoui»sp. nov., are delineated and depicted ba
 - `pensoft:zookeys.1217.125780` [ABBREVIATED] t al. (1980) described two new species, «B. fascia» Huang & Tian, 1980 and B. nigromarginat
 - `pensoft:bdj.12.e130385` [ABBREVIATED] cular markers has hampered the study of «D. mun»’s genetic diversity and population stru
-- `pensoft:zookeys.1254.168429` [UNINOMIAL] ﻿«Amazoboea», a new genus of Darwin wasps (Hymenopte
+- `pensoft:zookeys.1254.168429` [UNINOMIAL] «Amazoboea», a new genus of Darwin wasps (Hymenopte
 - `pensoft:zookeys.1218.126535` [UNINOMIAL] Deer «mice», Peromyscus, thrive in diverse environm
 - `pensoft:phytokeys.247.131353` [UNINOMIAL] ). By analogy with Ex. 11, the epithets «baicalensis» and baikalensis should be treated as ho
 - `pensoft:phytokeys.263.163351` [UNINOMIAL] xonomically (PPG I 2016). The broadened «Dryopteris» has been shown to be a monophyletic gen

@@ -106,8 +106,8 @@
   }, {
     "docId" : "pensoft:mycokeys.104.117872",
     "blockId" : "b1",
-    "start" : 136,
-    "end" : 141,
+    "start" : 135,
+    "end" : 140,
     "text" : "China",
     "category" : "UNINOMIAL",
     "context" : "is spp. nov. in Cainiaceae from Yunnan, «China»"
@@ -122,16 +122,16 @@
   }, {
     "docId" : "pensoft:zookeys.1251.145353",
     "blockId" : "b1",
-    "start" : 92,
-    "end" : 97,
+    "start" : 91,
+    "end" : 96,
     "text" : "China",
     "category" : "UNINOMIAL",
     "context" : "ger, 1871 (Lepidoptera, Uraniidae) from «China», with descriptions of three new species"
   }, {
     "docId" : "pensoft:mycokeys.113.140932",
     "blockId" : "b1",
-    "start" : 130,
-    "end" : 135,
+    "start" : 129,
+    "end" : 134,
     "text" : "China",
     "category" : "UNINOMIAL",
     "context" : "omycota) in the Yunnan-Guizhou Plateau, «China»"
@@ -146,16 +146,16 @@
   }, {
     "docId" : "pensoft:zookeys.1195.115889",
     "blockId" : "b1",
-    "start" : 84,
-    "end" : 89,
+    "start" : 83,
+    "end" : 88,
     "text" : "China",
     "category" : "UNINOMIAL",
     "context" : " (Hymenoptera, Formicidae) from Hainan, «China», with a key to the known Chinese specie"
   }, {
     "docId" : "pensoft:zookeys.1217.125780",
     "blockId" : "b1",
-    "start" : 125,
-    "end" : 130,
+    "start" : 124,
+    "end" : 129,
     "text" : "China",
     "category" : "UNINOMIAL",
     "context" : "ea, Delphacidae, Tropidocephalini) from «China», with an updated checklist and key to s"
@@ -170,8 +170,8 @@
   }, {
     "docId" : "pensoft:zookeys.1254.168429",
     "blockId" : "b1",
-    "start" : 82,
-    "end" : 90,
+    "start" : 81,
+    "end" : 89,
     "text" : "Amazonia",
     "category" : "UNINOMIAL",
     "context" : "ymenoptera, Ichneumonidae) from western «Amazonia»"
@@ -186,11 +186,11 @@
   }, {
     "docId" : "pensoft:zookeys.1218.126535",
     "blockId" : "b1",
-    "start" : 3,
-    "end" : 12,
+    "start" : 2,
+    "end" : 11,
     "text" : "Taxonomic",
     "category" : "UNINOMIAL",
-    "context" : "﻿A «Taxonomic» Odyssey: An annotated checklist of Pero"
+    "context" : "A «Taxonomic» Odyssey: An annotated checklist of Pero"
   }, {
     "docId" : "pensoft:phytokeys.247.131353",
     "blockId" : "b6",
@@ -234,8 +234,8 @@
   }, {
     "docId" : "pensoft:mycokeys.123.161540",
     "blockId" : "b1",
-    "start" : 103,
-    "end" : 108,
+    "start" : 102,
+    "end" : 107,
     "text" : "China",
     "category" : "UNINOMIAL",
     "context" : "th description of four new species from «China»"
@@ -250,16 +250,16 @@
   }, {
     "docId" : "pensoft:mycokeys.126.174148",
     "blockId" : "b1",
-    "start" : 117,
-    "end" : 122,
+    "start" : 116,
+    "end" : 121,
     "text" : "China",
     "category" : "UNINOMIAL",
     "context" : "errestrial habitats in Hainan Province, «China»"
   }, {
     "docId" : "pensoft:zookeys.1257.165617",
     "blockId" : "b1",
-    "start" : 111,
-    "end" : 116,
+    "start" : 110,
+    "end" : 115,
     "text" : "China",
     "category" : "UNINOMIAL",
     "context" : "ura, Ranidae) from northeastern Yunnan, «China»"
@@ -290,8 +290,8 @@
   }, {
     "docId" : "pensoft:phytokeys.252.134081",
     "blockId" : "b1",
-    "start" : 83,
-    "end" : 88,
+    "start" : 82,
+    "end" : 87,
     "text" : "Nepal",
     "category" : "UNINOMIAL",
     "context" : "ies from the tropical forest of Eastern «Nepal»"
@@ -410,8 +410,8 @@
   }, {
     "docId" : "pensoft:zookeys.1254.168429",
     "blockId" : "b6",
-    "start" : 113,
-    "end" : 124,
+    "start" : 112,
+    "end" : 123,
     "text" : "Hymenoptera",
     "category" : "UNINOMIAL",
     "context" : "Amazoboea, a new genus of Darwin wasps («Hymenoptera», Ichneumonidae) from western Amazonia. "
@@ -442,11 +442,11 @@
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
     "blockId" : "b6",
-    "start" : 55,
-    "end" : 76,
+    "start" : 54,
+    "end" : 75,
     "text" : "Dryopteris pycnolepis",
     "category" : "BINOMIAL",
-    "context" : "-J, Zhou L-X, Zuo Z-Y, Dong S-Y (2025) ﻿«Dryopteris pycnolepis», a new fern species from northern Vietn"
+    "context" : "X-J, Zhou L-X, Zuo Z-Y, Dong S-Y (2025) «Dryopteris pycnolepis», a new fern species from northern Vietn"
   }, {
     "docId" : "pensoft:mycokeys.141.209886",
     "blockId" : "b4",
@@ -642,8 +642,8 @@
   }, {
     "docId" : "pensoft:zookeys.1254.168429",
     "blockId" : "b6",
-    "start" : 126,
-    "end" : 139,
+    "start" : 125,
+    "end" : 138,
     "text" : "Ichneumonidae",
     "category" : "UNINOMIAL",
     "context" : "new genus of Darwin wasps (Hymenoptera, «Ichneumonidae») from western Amazonia. ZooKeys 1254: 2"
@@ -674,8 +674,8 @@
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
     "blockId" : "b6",
-    "start" : 148,
-    "end" : 158,
+    "start" : 147,
+    "end" : 157,
     "text" : "Dryopteris",
     "category" : "UNINOMIAL",
     "context" : "rn Vietnam, with miscellaneous notes on «Dryopteris» sect. Splendentes (Dryopteridaceae). Ph"
@@ -874,8 +874,8 @@
   }, {
     "docId" : "pensoft:zookeys.1254.168429",
     "blockId" : "b6",
-    "start" : 154,
-    "end" : 162,
+    "start" : 153,
+    "end" : 161,
     "text" : "Amazonia",
     "category" : "UNINOMIAL",
     "context" : "ymenoptera, Ichneumonidae) from western «Amazonia». ZooKeys 1254: 207–215. https://doi.org"
@@ -906,8 +906,8 @@
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
     "blockId" : "b6",
-    "start" : 165,
-    "end" : 176,
+    "start" : 164,
+    "end" : 175,
     "text" : "Splendentes",
     "category" : "UNINOMIAL",
     "context" : "miscellaneous notes on Dryopteris sect. «Splendentes» (Dryopteridaceae). PhytoKeys 263: 1–15."
@@ -1138,8 +1138,8 @@
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
     "blockId" : "b6",
-    "start" : 178,
-    "end" : 193,
+    "start" : 177,
+    "end" : 192,
     "text" : "Dryopteridaceae",
     "category" : "UNINOMIAL",
     "context" : " notes on Dryopteris sect. Splendentes («Dryopteridaceae»). PhytoKeys 263: 1–15. https://doi.org/"
@@ -1694,7 +1694,7 @@
     "end" : 11,
     "text" : "Rai",
     "category" : "UNINOMIAL",
-    "context" : "Ojha R, «Rai» S, Schneider H (2025) ﻿Typhonium morang"
+    "context" : "Ojha R, «Rai» S, Schneider H (2025) Typhonium morange"
   }, {
     "docId" : "pensoft:zookeys.1276.183701",
     "blockId" : "b12",
@@ -1922,11 +1922,11 @@
   }, {
     "docId" : "pensoft:phytokeys.252.134081",
     "blockId" : "b6",
-    "start" : 35,
-    "end" : 55,
+    "start" : 34,
+    "end" : 54,
     "text" : "Typhonium morangense",
     "category" : "BINOMIAL",
-    "context" : "Ojha R, Rai S, Schneider H (2025) ﻿«Typhonium morangense» (Araceae), a new species from the tropi"
+    "context" : "Ojha R, Rai S, Schneider H (2025) «Typhonium morangense» (Araceae), a new species from the tropi"
   }, {
     "docId" : "pensoft:zookeys.1276.183701",
     "blockId" : "b12",
@@ -2154,11 +2154,11 @@
   }, {
     "docId" : "pensoft:phytokeys.252.134081",
     "blockId" : "b6",
-    "start" : 57,
-    "end" : 64,
+    "start" : 56,
+    "end" : 63,
     "text" : "Araceae",
     "category" : "UNINOMIAL",
-    "context" : "hneider H (2025) ﻿Typhonium morangense («Araceae»), a new species from the tropical fores"
+    "context" : "chneider H (2025) Typhonium morangense («Araceae»), a new species from the tropical fores"
   }, {
     "docId" : "pensoft:zookeys.1276.183701",
     "blockId" : "b12",
@@ -2386,8 +2386,8 @@
   }, {
     "docId" : "pensoft:phytokeys.252.134081",
     "blockId" : "b6",
-    "start" : 117,
-    "end" : 122,
+    "start" : 116,
+    "end" : 121,
     "text" : "Nepal",
     "category" : "UNINOMIAL",
     "context" : "ies from the tropical forest of Eastern «Nepal». PhytoKeys 252: 1–7. https://doi.org/10"
@@ -5530,11 +5530,11 @@
   }, {
     "docId" : "pensoft:zookeys.1218.126535",
     "blockId" : "b19",
-    "start" : 1,
-    "end" : 10,
+    "start" : 0,
+    "end" : 9,
     "text" : "Taxonomic",
     "category" : "UNINOMIAL",
-    "context" : "﻿«Taxonomic» accounts"
+    "context" : "«Taxonomic» accounts"
   }, {
     "docId" : "pensoft:phytokeys.247.131353",
     "blockId" : "b197",
@@ -5722,11 +5722,11 @@
   }, {
     "docId" : "pensoft:zookeys.1195.115889",
     "blockId" : "b36",
-    "start" : 1,
-    "end" : 10,
+    "start" : 0,
+    "end" : 9,
     "text" : "Taxonomic",
     "category" : "UNINOMIAL",
-    "context" : "﻿«Taxonomic» account"
+    "context" : "«Taxonomic» account"
   }, {
     "docId" : "pensoft:zookeys.1217.125780",
     "blockId" : "b8",
@@ -6794,11 +6794,11 @@
   }, {
     "docId" : "pensoft:phytokeys.252.134081",
     "blockId" : "b12",
-    "start" : 1,
-    "end" : 10,
+    "start" : 0,
+    "end" : 9,
     "text" : "Taxonomic",
     "category" : "UNINOMIAL",
-    "context" : "﻿«Taxonomic» treatment"
+    "context" : "«Taxonomic» treatment"
   }, {
     "docId" : "pensoft:zookeys.1276.183701",
     "blockId" : "b69",
@@ -6858,11 +6858,11 @@
   }, {
     "docId" : "pensoft:zookeys.1251.145353",
     "blockId" : "b20",
-    "start" : 1,
-    "end" : 10,
+    "start" : 0,
+    "end" : 9,
     "text" : "Taxonomic",
     "category" : "UNINOMIAL",
-    "context" : "﻿«Taxonomic» account"
+    "context" : "«Taxonomic» account"
   }, {
     "docId" : "pensoft:mycokeys.113.140932",
     "blockId" : "b43",
@@ -9962,11 +9962,11 @@
   }, {
     "docId" : "pensoft:zookeys.1260.167263",
     "blockId" : "b22",
-    "start" : 1,
-    "end" : 10,
+    "start" : 0,
+    "end" : 9,
     "text" : "Taxonomic",
     "category" : "UNINOMIAL",
-    "context" : "﻿«Taxonomic» account"
+    "context" : "«Taxonomic» account"
   }, {
     "docId" : "pensoft:mycokeys.136.188385",
     "blockId" : "b309",
@@ -10962,11 +10962,11 @@
   }, {
     "docId" : "pensoft:zookeys.1195.115889",
     "blockId" : "b74",
-    "start" : 19,
-    "end" : 35,
+    "start" : 18,
+    "end" : 34,
     "text" : "Leptogenys found",
     "category" : "BINOMIAL",
-    "context" : "﻿Key to species of «Leptogenys found» in China based on the worker caste"
+    "context" : "Key to species of «Leptogenys found» in China based on the worker caste"
   }, {
     "docId" : "pensoft:zookeys.1217.125780",
     "blockId" : "b27",
@@ -11010,11 +11010,11 @@
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
     "blockId" : "b130",
-    "start" : 1,
-    "end" : 10,
+    "start" : 0,
+    "end" : 9,
     "text" : "Taxonomic",
     "category" : "UNINOMIAL",
-    "context" : "﻿«Taxonomic» treatment"
+    "context" : "«Taxonomic» treatment"
   }, {
     "docId" : "pensoft:mycokeys.141.209886",
     "blockId" : "b270",
@@ -11722,8 +11722,8 @@
   }, {
     "docId" : "pensoft:zookeys.1232.141693",
     "blockId" : "b54",
-    "start" : 69,
-    "end" : 77,
+    "start" : 68,
+    "end" : 76,
     "text" : "Colombia",
     "category" : "UNINOMIAL",
     "context" : "species from the tropical dry forest in «Colombia»"
@@ -20530,11 +20530,11 @@
   }, {
     "docId" : "pensoft:zookeys.1257.165617",
     "blockId" : "b607",
-    "start" : 1,
-    "end" : 10,
+    "start" : 0,
+    "end" : 9,
     "text" : "Taxonomic",
     "category" : "UNINOMIAL",
-    "context" : "﻿«Taxonomic» account"
+    "context" : "«Taxonomic» account"
   }, {
     "docId" : "pensoft:bdj.12.e72511",
     "blockId" : "b74",
@@ -40171,11 +40171,11 @@
   }, {
     "docId" : "pensoft:zookeys.1254.168429",
     "blockId" : "b1",
-    "start" : 1,
-    "end" : 10,
+    "start" : 0,
+    "end" : 9,
     "text" : "Amazoboea",
     "category" : "UNINOMIAL",
-    "context" : "﻿«Amazoboea», a new genus of Darwin wasps (Hymenopte"
+    "context" : "«Amazoboea», a new genus of Darwin wasps (Hymenopte"
   }, {
     "docId" : "pensoft:bdj.12.e132915",
     "blockId" : "b994",
@@ -40372,10 +40372,10 @@
     "docId" : "pensoft:zookeys.1204.123909",
     "blockId" : "b4",
     "start" : 247,
-    "end" : 273,
-    "text" : "Paradelius (Sculptomyriola",
+    "end" : 274,
+    "text" : "Paradelius (Sculptomyriola)",
     "category" : "UNINOMIAL",
-    "context" : "ing species are transferred to subgenus «Paradelius (Sculptomyriola»): P. (Sc.) extremiorientalis (Belokobyl"
+    "context" : "ing species are transferred to subgenus «Paradelius (Sculptomyriola)»: P. (Sc.) extremiorientalis (Belokobyls"
   }, {
     "docId" : "pensoft:zookeys.1201.123141",
     "blockId" : "b4",
@@ -40395,8 +40395,8 @@
   }, {
     "docId" : "pensoft:zookeys.1258.145290",
     "blockId" : "b1",
-    "start" : 54,
-    "end" : 66,
+    "start" : 53,
+    "end" : 65,
     "text" : "siligorensis",
     "category" : "UNINOMIAL",
     "context" : " of Myotis from China with notes on the «siligorensis» species group (Chiroptera, Vespertilion"
@@ -40443,11 +40443,11 @@
   }, {
     "docId" : "pensoft:zookeys.1253.157027",
     "blockId" : "b1",
-    "start" : 2,
-    "end" : 15,
+    "start" : 0,
+    "end" : 13,
     "text" : "Serralanguria",
     "category" : "UNINOMIAL",
-    "context" : "﻿ «Serralanguria», a new genus of Languriini (Coleoptera,"
+    "context" : "«Serralanguria», a new genus of Languriini (Coleoptera,"
   }, {
     "docId" : "pensoft:zookeys.1251.157981",
     "blockId" : "b37",
@@ -40483,8 +40483,8 @@
   }, {
     "docId" : "pensoft:mycokeys.118.152880",
     "blockId" : "b1",
-    "start" : 89,
-    "end" : 101,
+    "start" : 88,
+    "end" : 100,
     "text" : "Populus alba",
     "category" : "BINOMIAL",
     "context" : "iaporthales, Valsaceae) associated with «Populus alba» subsp. pyramidalis canker and dieback i"
@@ -41188,10 +41188,10 @@
     "docId" : "pensoft:zookeys.1259.168521",
     "blockId" : "b4",
     "start" : 710,
-    "end" : 734,
-    "text" : "Papuanatula (Fijifiliola",
+    "end" : 735,
+    "text" : "Papuanatula (Fijifiliola)",
     "category" : "UNINOMIAL",
-    "context" : "a-2 parameter). A key to all species of «Papuanatula (Fijifiliola»)subgen. nov. is provided. Amongst the n"
+    "context" : "a-2 parameter). A key to all species of «Papuanatula (Fijifiliola)»subgen. nov. is provided. Amongst the ne"
   }, {
     "docId" : "pensoft:zookeys.1253.157027",
     "blockId" : "b4",
@@ -41235,8 +41235,8 @@
   }, {
     "docId" : "pensoft:mycokeys.118.152880",
     "blockId" : "b1",
-    "start" : 109,
-    "end" : 120,
+    "start" : 108,
+    "end" : 119,
     "text" : "pyramidalis",
     "category" : "UNINOMIAL",
     "context" : "ae) associated with Populus alba subsp. «pyramidalis» canker and dieback in China"
@@ -41748,10 +41748,10 @@
     "docId" : "pensoft:bdj.12.e72511",
     "blockId" : "b83",
     "start" : 0,
-    "end" : 23,
-    "text" : "Forcipomyia (Lasiohelea",
+    "end" : 24,
+    "text" : "Forcipomyia (Lasiohelea)",
     "category" : "UNINOMIAL",
-    "context" : "«Forcipomyia (Lasiohelea») sp. Meta: Vistahermosa (n = 1); Guavia"
+    "context" : "«Forcipomyia (Lasiohelea)» sp. Meta: Vistahermosa (n = 1); Guaviar"
   }, {
     "docId" : "pensoft:zookeys.1260.167263",
     "blockId" : "b4",
@@ -41844,10 +41844,10 @@
     "docId" : "pensoft:zookeys.1204.123909",
     "blockId" : "b4",
     "start" : 865,
-    "end" : 887,
-    "text" : "Paradelius (Sinadelius",
+    "end" : 888,
+    "text" : "Paradelius (Sinadelius)",
     "category" : "UNINOMIAL",
-    "context" : "cans He & Chen, 2000 are transferred to «Paradelius (Sinadelius») (comb. nov.). A key for determination "
+    "context" : "cans He & Chen, 2000 are transferred to «Paradelius (Sinadelius)» (comb. nov.). A key for determination o"
   }, {
     "docId" : "pensoft:zookeys.1201.123141",
     "blockId" : "b66",
@@ -41908,10 +41908,10 @@
     "docId" : "pensoft:zookeys.1259.168521",
     "blockId" : "b4",
     "start" : 788,
-    "end" : 812,
-    "text" : "Papuanatula (Fijifiliola",
+    "end" : 813,
+    "text" : "Papuanatula (Fijifiliola)",
     "category" : "UNINOMIAL",
-    "context" : "is provided. Amongst the new species of «Papuanatula (Fijifiliola»)subgen. nov., a case of parthenogenesis"
+    "context" : "is provided. Amongst the new species of «Papuanatula (Fijifiliola)»subgen. nov., a case of parthenogenesis "
   }, {
     "docId" : "pensoft:zookeys.1253.157027",
     "blockId" : "b4",
@@ -42811,11 +42811,11 @@
   }, {
     "docId" : "pensoft:zookeys.1251.144156",
     "blockId" : "b14",
-    "start" : 14,
-    "end" : 24,
+    "start" : 13,
+    "end" : 23,
     "text" : "Nephrotoma",
     "category" : "UNINOMIAL",
-    "context" : "﻿Checklist of «Nephrotoma» crane flies from Northwest China"
+    "context" : "Checklist of «Nephrotoma» crane flies from Northwest China"
   }, {
     "docId" : "pensoft:zookeys.1285.190753",
     "blockId" : "b4",
@@ -43772,10 +43772,10 @@
     "docId" : "pensoft:zookeys.1259.168521",
     "blockId" : "b9",
     "start" : 568,
-    "end" : 592,
-    "text" : "Papuanatula (Fijifiliola",
+    "end" : 593,
+    "text" : "Papuanatula (Fijifiliola)",
     "category" : "UNINOMIAL",
-    "context" : "A”, which is described in this study as «Papuanatula (Fijifiliola») subgen. nov.; and Isca, which was base"
+    "context" : "A”, which is described in this study as «Papuanatula (Fijifiliola)» subgen. nov.; and Isca, which was based"
   }, {
     "docId" : "pensoft:zookeys.1253.157027",
     "blockId" : "b37",
@@ -44131,11 +44131,11 @@
   }, {
     "docId" : "pensoft:zookeys.1195.115889",
     "blockId" : "b74",
-    "start" : 19,
-    "end" : 29,
+    "start" : 18,
+    "end" : 28,
     "text" : "Leptogenys",
     "category" : "UNINOMIAL",
-    "context" : "﻿Key to species of «Leptogenys» found in China based on the worker cast"
+    "context" : "Key to species of «Leptogenys» found in China based on the worker cast"
   }, {
     "docId" : "pensoft:bdj.12.e130385",
     "blockId" : "b4",
@@ -44364,10 +44364,10 @@
     "docId" : "pensoft:zookeys.1259.168521",
     "blockId" : "b9",
     "start" : 1538,
-    "end" : 1562,
-    "text" : "Papuanatula (Fijifiliola",
+    "end" : 1563,
+    "text" : "Papuanatula (Fijifiliola)",
     "category" : "UNINOMIAL",
-    "context" : "cies; New Genus “A” described herein as «Papuanatula (Fijifiliola») subgen. nov. with eight species; and N"
+    "context" : "cies; New Genus “A” described herein as «Papuanatula (Fijifiliola)» subgen. nov. with eight species; and Ne"
   }, {
     "docId" : "pensoft:zookeys.1253.157027",
     "blockId" : "b53",
@@ -44547,8 +44547,8 @@
   }, {
     "docId" : "pensoft:zookeys.1266.161903",
     "blockId" : "b827",
-    "start" : 42,
-    "end" : 50,
+    "start" : 41,
+    "end" : 49,
     "text" : "agrestis",
     "category" : "UNINOMIAL",
     "context" : "he generic re-assignment of the species «agrestis» to Metaphire"
@@ -46404,10 +46404,10 @@
     "docId" : "pensoft:zookeys.1255.162247",
     "blockId" : "b147",
     "start" : 135,
-    "end" : 151,
-    "text" : "Sillago (Sillago",
+    "end" : 152,
+    "text" : "Sillago (Sillago)",
     "category" : "UNINOMIAL",
-    "context" : "rsica is classified within the subgenus «Sillago (Sillago») due to the presence of two posterior e"
+    "context" : "rsica is classified within the subgenus «Sillago (Sillago)» due to the presence of two posterior ex"
   }, {
     "docId" : "pensoft:zookeys.1259.168521",
     "blockId" : "b24",
@@ -50563,11 +50563,11 @@
   }, {
     "docId" : "pensoft:phytokeys.248.130311",
     "blockId" : "b64",
-    "start" : 25,
-    "end" : 53,
+    "start" : 24,
+    "end" : 52,
     "text" : "Garcinia section Macrostigma",
     "category" : "TRINOMIAL",
-    "context" : "﻿A key to the species of «Garcinia section Macrostigma» in Thailand"
+    "context" : "A key to the species of «Garcinia section Macrostigma» in Thailand"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b1534",
@@ -51691,11 +51691,11 @@
   }, {
     "docId" : "pensoft:zookeys.1259.168521",
     "blockId" : "b555",
-    "start" : 21,
-    "end" : 32,
+    "start" : 20,
+    "end" : 31,
     "text" : "Fijifiliola",
     "category" : "UNINOMIAL",
-    "context" : "﻿Species included in «Fijifiliola» subgen. nov."
+    "context" : "Species included in «Fijifiliola» subgen. nov."
   }, {
     "docId" : "pensoft:phytokeys.277.195893",
     "blockId" : "b1329",
@@ -51740,10 +51740,10 @@
     "docId" : "pensoft:phytokeys.248.130311",
     "blockId" : "b132",
     "start" : 56,
-    "end" : 102,
-    "text" : "G. section Xanthochymus (subgenus Xanthochymus",
+    "end" : 103,
+    "text" : "G. section Xanthochymus (subgenus Xanthochymus)",
     "category" : "ABBREVIATED",
-    "context" : "aced Garcinia prainiana with species of «G. section Xanthochymus (subgenus Xanthochymus»), and this placement was followed by Jo"
+    "context" : "aced Garcinia prainiana with species of «G. section Xanthochymus (subgenus Xanthochymus)», and this placement was followed by Jon"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b1928",
@@ -52772,10 +52772,10 @@
     "docId" : "pensoft:bdj.13.e163127",
     "blockId" : "b55",
     "start" : 1324,
-    "end" : 1354,
-    "text" : "Metapocyrtus (Sphenomorphoidea",
+    "end" : 1355,
+    "text" : "Metapocyrtus (Sphenomorphoidea)",
     "category" : "UNINOMIAL",
-    "context" : "apocyrtus sp. 1; Metapocyrtus sp. 2 and «Metapocyrtus (Sphenomorphoidea») sp. To better understand the evolution"
+    "context" : "apocyrtus sp. 1; Metapocyrtus sp. 2 and «Metapocyrtus (Sphenomorphoidea)» sp. To better understand the evolutiona"
   }, {
     "docId" : "pensoft:zookeys.1254.158678",
     "blockId" : "b33",
@@ -54484,10 +54484,10 @@
     "docId" : "pensoft:bdj.13.e163127",
     "blockId" : "b95",
     "start" : 0,
-    "end" : 30,
-    "text" : "Metapocyrtus (Sphenomorphoidea",
+    "end" : 31,
+    "text" : "Metapocyrtus (Sphenomorphoidea)",
     "category" : "UNINOMIAL",
-    "context" : "«Metapocyrtus (Sphenomorphoidea») sp."
+    "context" : "«Metapocyrtus (Sphenomorphoidea)» sp."
   }, {
     "docId" : "pensoft:zookeys.1254.158678",
     "blockId" : "b39",
@@ -54515,11 +54515,11 @@
   }, {
     "docId" : "pensoft:mycokeys.119.143714",
     "blockId" : "b1348",
-    "start" : 27,
-    "end" : 37,
+    "start" : 26,
+    "end" : 36,
     "text" : "Latisporum",
     "category" : "UNINOMIAL",
-    "context" : "﻿Key to the species of the «Latisporum» group"
+    "context" : "Key to the species of the «Latisporum» group"
   }, {
     "docId" : "pensoft:bdj.12.e120304",
     "blockId" : "b72",
@@ -56307,11 +56307,11 @@
   }, {
     "docId" : "pensoft:zookeys.1259.168521",
     "blockId" : "b903",
-    "start" : 23,
+    "start" : 22,
     "end" : 47,
-    "text" : "Papuanatula (Fijifiliola",
+    "text" : "Papuanatula (Fijifiliola)",
     "category" : "UNINOMIAL",
-    "context" : "﻿Key to the species of «Papuanatula (Fijifiliola») (larvae)"
+    "context" : "Key to the species of «Papuanatula (Fijifiliola)» (larvae)"
   }, {
     "docId" : "pensoft:phytokeys.277.195893",
     "blockId" : "b2298",
@@ -56899,11 +56899,11 @@
   }, {
     "docId" : "pensoft:zookeys.1259.168521",
     "blockId" : "b966",
-    "start" : 15,
-    "end" : 26,
+    "start" : 14,
+    "end" : 25,
     "text" : "Fijifiliola",
     "category" : "UNINOMIAL",
-    "context" : "﻿Assignment of «Fijifiliola» subgen. nov. to Papuanatula, and affini"
+    "context" : "Assignment of «Fijifiliola» subgen. nov. to Papuanatula, and affini"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b2020",
@@ -57587,11 +57587,11 @@
   }, {
     "docId" : "pensoft:zookeys.1259.168521",
     "blockId" : "b969",
-    "start" : 38,
+    "start" : 37,
     "end" : 62,
-    "text" : "Papuanatula (Fijifiliola",
+    "text" : "Papuanatula (Fijifiliola)",
     "category" : "UNINOMIAL",
-    "context" : "﻿Parthenogenesis and ovoviviparity in «Papuanatula (Fijifiliola») subgen. nov."
+    "context" : "Parthenogenesis and ovoviviparity in «Papuanatula (Fijifiliola)» subgen. nov."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b2071",
@@ -58148,10 +58148,10 @@
     "docId" : "pensoft:zookeys.1259.168521",
     "blockId" : "b978",
     "start" : 235,
-    "end" : 259,
-    "text" : "Papuanatula (Fijifiliola",
+    "end" : 260,
+    "text" : "Papuanatula (Fijifiliola)",
     "category" : "UNINOMIAL",
-    "context" : "probably uncover further new species of «Papuanatula (Fijifiliola») subgen. nov. in the Fiji Islands."
+    "context" : "probably uncover further new species of «Papuanatula (Fijifiliola)» subgen. nov. in the Fiji Islands."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b2111",
@@ -60188,10 +60188,10 @@
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b2560",
     "start" : 147,
-    "end" : 161,
-    "text" : "Dero (Allodero",
+    "end" : 162,
+    "text" : "Dero (Allodero)",
     "category" : "UNINOMIAL",
-    "context" : "substrata, or endozoic (some species of «Dero (Allodero») are internal parasites of frogs; other"
+    "context" : "substrata, or endozoic (some species of «Dero (Allodero)» are internal parasites of frogs; others"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b1562",
@@ -60772,18 +60772,18 @@
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b2701",
     "start" : 369,
-    "end" : 384,
-    "text" : "Aricidea (Allia",
+    "end" : 385,
+    "text" : "Aricidea (Allia)",
     "category" : "UNINOMIAL",
-    "context" : " Neuropodial capillary from chaetiger 6 «Aricidea (Allia») sp. G. Notopodial lyrate chaeta from p"
+    "context" : " Neuropodial capillary from chaetiger 6 «Aricidea (Allia)» sp. G. Notopodial lyrate chaeta from po"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b2701",
     "start" : 548,
-    "end" : 564,
-    "text" : "Aricidea (Acmira",
+    "end" : 565,
+    "text" : "Aricidea (Acmira)",
     "category" : "UNINOMIAL",
-    "context" : "ropodial spine from posterior chaetiger «Aricidea (Acmira») sp. J. Neuropodial spine from posterio"
+    "context" : "ropodial spine from posterior chaetiger «Aricidea (Acmira)» sp. J. Neuropodial spine from posterior"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b2701",
@@ -60796,18 +60796,18 @@
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b2701",
     "start" : 690,
-    "end" : 705,
-    "text" : "Aricidea (Allia",
+    "end" : 706,
+    "text" : "Aricidea (Allia)",
     "category" : "UNINOMIAL",
-    "context" : "ed neurochaeta from posterior chaetiger «Aricidea (Allia») sp.; L. Neuropodial hook from posterio"
+    "context" : "ed neurochaeta from posterior chaetiger «Aricidea (Allia)» sp.; L. Neuropodial hook from posterior"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b2701",
     "start" : 819,
-    "end" : 834,
-    "text" : "Aricidea (Allia",
+    "end" : 835,
+    "text" : "Aricidea (Allia)",
     "category" : "UNINOMIAL",
-    "context" : ". Capillary from posterior chaetiger of «Aricidea (Allia») sp. Abbreviations: bra branchia brci b"
+    "context" : ". Capillary from posterior chaetiger of «Aricidea (Allia)» sp. Abbreviations: bra branchia brci br"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b2701",
@@ -61323,11 +61323,11 @@
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b2900",
-    "start" : 19,
-    "end" : 35,
+    "start" : 18,
+    "end" : 34,
     "text" : "Scalibregmatinae",
     "category" : "UNINOMIAL",
-    "context" : "﻿Scalibregmatidae, «Scalibregmatinae» Malmgren, 1867 [polychaete]"
+    "context" : "Scalibregmatidae, «Scalibregmatinae» Malmgren, 1867 [polychaete]"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b2905",
@@ -62147,11 +62147,11 @@
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b3162",
-    "start" : 18,
-    "end" : 29,
+    "start" : 17,
+    "end" : 28,
     "text" : "Bonelliinae",
     "category" : "UNINOMIAL",
-    "context" : "﻿Thalassematidae, «Bonelliinae» Lacaze-Duthiers, 1858 [echiuran; altern"
+    "context" : "Thalassematidae, «Bonelliinae» Lacaze-Duthiers, 1858 [echiuran; altern"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b3166",
@@ -62275,19 +62275,19 @@
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b3184",
-    "start" : 1,
-    "end" : 16,
+    "start" : 0,
+    "end" : 15,
     "text" : "Thalassematidae",
     "category" : "UNINOMIAL",
-    "context" : "﻿«Thalassematidae»,Thalassematinae Forbes & Goodsir, 1841 "
+    "context" : "«Thalassematidae»,Thalassematinae Forbes & Goodsir, 1841 "
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b3184",
-    "start" : 17,
-    "end" : 32,
+    "start" : 16,
+    "end" : 31,
     "text" : "Thalassematinae",
     "category" : "UNINOMIAL",
-    "context" : "﻿Thalassematidae,«Thalassematinae» Forbes & Goodsir, 1841 [echiuran; alter"
+    "context" : "Thalassematidae,«Thalassematinae» Forbes & Goodsir, 1841 [echiuran; alter"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b3189",
@@ -62299,11 +62299,11 @@
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b3191",
-    "start" : 18,
-    "end" : 27,
+    "start" : 17,
+    "end" : 26,
     "text" : "Urechinae",
     "category" : "UNINOMIAL",
-    "context" : "﻿Thalassematidae, «Urechinae» Monro, 1927 [echiuran; alternative repr"
+    "context" : "Thalassematidae, «Urechinae» Monro, 1927 [echiuran; alternative repr"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b3195",

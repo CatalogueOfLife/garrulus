@@ -1,4 +1,4 @@
-# italics on pensoft / dev (mode A)
+# italics on pensoft / dev (mode A, match STRICT)
 
 Date: 2026-11-14
 
@@ -24,68 +24,68 @@ Finder: italics 0.1, config `italics-1-3-words`
 | contexts | 0 | 0 | 1296 | 0.000 | 0.000 | 0.000 |
 | main subject | 91 | 8 | 148 | 0.919 | 0.381 | 0.538 |
 
-## False positives (30 of 500 recorded)
+## False positives (30 of 2399 recorded)
 
 - `pensoft:mycokeys.128.172807` [UNINOMIAL]  phylogenetic analyses of the ITS, LSU, «RPB1», and RPB2 regions. The results of the c
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] tic analyses of the ITS, LSU, RPB1, and «RPB2» regions. The results of the concatenate
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] Telleria MT (2026) Revisiting the genus «Hyphodermella» (Basidiomycota, Polyporales) with descr
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] igene study of five markers — ITS, LSU, «RPB1», RPB2, and tef1-α — on the phlebioid cl
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] study of five markers — ITS, LSU, RPB1, «RPB2», and tef1-α — on the phlebioid clade of
-- `pensoft:mycokeys.128.172807` [UNINOMIAL]  LSU, two additional molecular markers, «RPB1» and RPB2, were analyzed. Morphological 
-- `pensoft:mycokeys.128.172807` [UNINOMIAL]  additional molecular markers, RPB1 and «RPB2», were analyzed. Morphological character
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] d-largest subunit of RNA polymerase II («RPB2»), and the gene region for the largest s
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] e largest subunit of RNA polymerase II («RPB1»)—were amplified with the primer pairs I
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] «RPB»2
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] «RPB»1
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] gruence of the four datasets (ITS, LSU, «RPB2», and RPB1) was evaluated using a prelim
-- `pensoft:mycokeys.128.172807` [UNINOMIAL]  the four datasets (ITS, LSU, RPB2, and «RPB1») was evaluated using a preliminary pars
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] tion: dataset 1 (ITS + LSU), dataset 2 («RPB2» + RPB1), and dataset 3 (ITS + LSU + RPB
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] ataset 1 (ITS + LSU), dataset 2 (RPB2 + «RPB1»), and dataset 3 (ITS + LSU + RPB2 + RPB
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] PB2 + RPB1), and dataset 3 (ITS + LSU + «RPB2» + RPB1), except for two specimens from 
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] PB1), and dataset 3 (ITS + LSU + RPB2 + «RPB1»), except for two specimens from Colombi
-- `pensoft:mycokeys.128.172807` [UNINOMIAL]  ITS2 under the HKY+I+G model, and LSU, «RPB2», and RPB1 under the GTR+I+G model. ML a
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] r the HKY+I+G model, and LSU, RPB2, and «RPB1» under the GTR+I+G model. ML analyses we
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] rated in this study: 79 ITS, 72 LSU, 44 «RPB2», and 39 RPB1. All sequences were deposi
-- `pensoft:mycokeys.128.172807` [UNINOMIAL]  study: 79 ITS, 72 LSU, 44 RPB2, and 39 «RPB1». All sequences were deposited in GenBan
-- `pensoft:mycokeys.128.172807` [UNINOMIAL]  LSU sequences with 1,380 positions, 51 «RPB2» sequences with 702 positions, and 45 RP
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] B2 sequences with 702 positions, and 45 «RPB1» sequences with 1,318 positions. After p
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] ITS (Fig. 1), LSU (data not shown), and «RPB2» (data not shown) trees showed similar t
-- `pensoft:mycokeys.128.172807` [UNINOMIAL]  similar terminal branches, whereas the «RPB1» tree differed in the placement of four 
-- `pensoft:mycokeys.128.172807` [UNINOMIAL]  clade as observed in the ITS, LSU, and «RPB2» analyses.
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] 19 taxa and 1,316 positions, dataset 2 («RPB2» + RPB1) consisted of 45 taxa and 2,020 
-- `pensoft:mycokeys.128.172807` [UNINOMIAL]  and 1,316 positions, dataset 2 (RPB2 + «RPB1») consisted of 45 taxa and 2,020 positio
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] 0 positions, and dataset 3 (ITS + LSU + «RPB2» + RPB1) consisted of 38 taxa and 3,222 
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] ions, and dataset 3 (ITS + LSU + RPB2 + «RPB1») consisted of 38 taxa and 3,222 positio
+- `pensoft:mycokeys.104.117872` [BINOMIAL] , Al-Rejaie S, Tanaka K, Dai D-Q (2024) «Paramphibambusa bambusicola» gen. et. sp. nov., Arecophila xishuangb
+- `pensoft:phytokeys.275.192014` [UNINOMIAL] y two holoparasitic plants were listed: «Mystropetalum» from Balanophoraceae (Lengyel et al. 20
+- `pensoft:zookeys.1251.145353` [UNINOMIAL]  (2025) A taxonomic review of the genus «Eversmannia» Staudinger, 1871 (Lepidoptera, Uraniida
+- `pensoft:mycokeys.113.140932` [UNINOMIAL] «Wumengshanensis» (Lat.) refers to the locality “Wumengsh
+- `pensoft:zookeys.1273.176856` [UNINOMIAL] «Holotype» • 1♀ (MABIK CR00259503) dissected on fi
+- `pensoft:zookeys.1195.115889` [UNINOMIAL] (2024) Two new ant species of the genus «Leptogenys» (Hymenoptera, Formicidae) from Hainan, 
+- `pensoft:zookeys.1217.125780` [UNINOMIAL] S (2024) Three new species of the genus «Bambusiphaga» Huang & Ding, 1979 (Hemiptera, Fulgoroi
+- `pensoft:bdj.12.e130385` [ABBREVIATED] cular markers has hampered the study of «D. mun’s» genetic diversity and population struct
+- `pensoft:zookeys.1254.168429` [UNINOMIAL] inen A, Österman EM, Kaunisto KM (2025) «Amazoboea», a new genus of Darwin wasps (Hymenopte
+- `pensoft:zookeys.1218.126535` [UNINOMIAL] omic Odyssey: An annotated checklist of «Peromyscus» (Cricetidae, Rodentia) in Honduras. Zoo
+- `pensoft:phytokeys.247.131353` [UNINOMIAL] 24) Nomenclature and systematics of two «Cocconeis» species (Bacillariophyta) from Lake Bai
+- `pensoft:phytokeys.263.163351` [BINOMIAL] X-J, Zhou L-X, Zuo Z-Y, Dong S-Y (2025) «Dryopteris pycnolepis», a new fern species from northern Vietn
+- `pensoft:mycokeys.141.209886` [UNINOMIAL] .000000; proportion of invariable sites «I» = 0.642117; gamma distribution shape pa
+- `pensoft:zookeys.1293.199475` [UNINOMIAL] nomic approach combining morphology and «COI» sequences, with ASAP and GMYC methods: 
+- `pensoft:zookeys.1219.134970` [BINOMIAL] o K, Motomura H (2024) Redescription of «Parascorpaena moultoni» (Whitley, 1961) (Actinopterygii, Scorpa
+- `pensoft:mycokeys.123.161540` [UNINOMIAL] d taxa. Based on multi-locus (ITS, LSU, «TEF1», and RBP1) and single-locus (ITS) phylo
+- `pensoft:zookeys.1232.141693` [UNINOMIAL] do BS, Guerrero RJ (2025) The ant genus «Nesomyrmex» Wheeler (Formicidae, Myrmicinae) from t
+- `pensoft:mycokeys.126.174148` [UNINOMIAL] «Saprobic» on decaying wood in a terrestrial habit
+- `pensoft:zookeys.1257.165617` [UNINOMIAL] ylogenetic analysis of the 16S rRNA and «CO1» genes, as well as morphological examina
+- `pensoft:zookeys.1260.167263` [BINOMIAL] oni F (2025) A new reef-dwelling coral, «Pavona giannii» sp. nov. (Scleractinia, Agariciidae), w
+- `pensoft:mycokeys.136.188385` [BINOMIAL] of this unexplored diversity, the class «Agaricomycetes (Basidiomycota») is highly diverse and occupies nearly 
+- `pensoft:phytokeys.252.134081` [BINOMIAL] Ojha R, Rai S, Schneider H (2025) «Typhonium morangense» (Araceae), a new species from the tropi
+- `pensoft:zookeys.1276.183701` [ABBREVIATED] Burr (1902: 479) as Anisolabis stali: “«A. Ståli» Dohrn. – Singapore (Biró)”
+- `pensoft:zookeys.1283.169111` [UNINOMIAL] «Cephalothorax» (Fig. 13). Basal segment of the 2- to 4
+- `pensoft:bdj.12.e115464` [BINOMIAL] m, Sonchus daltonii, Tolpis farinulosa, «Umbilicus schmidtii»). Other mountainous regions, such as Pi
+- `pensoft:mycokeys.127.173361` [UNINOMIAL] of the former Verticillium Nees section «Albo-erecta», established the genus Leptobacillium. 
+- `pensoft:zookeys.1264.140174` [UNINOMIAL] «Cc»
+- `pensoft:phytokeys.252.135155` [BINOMIAL] Wang T, Yuan Y, Zhou T-H, Gao Y (2025) «Lilium huanglongense» (Liliaceae): a newly-discovered species
+- `pensoft:zookeys.1223.138220` [UNINOMIAL] al and Australasian diving beetle genus «Sandracottus» Sharp, 1882 (Coleoptera, Dytiscidae, Dy
 
-## False negatives (30 of 500 recorded)
+## False negatives (30 of 5000 recorded)
 
 - `pensoft:mycokeys.128.172807` [UNINOMIAL] Revisiting the genus Hyphodermella («Basidiomycota», Polyporales) with descriptions of thre
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] the genus Hyphodermella (Basidiomycota, «Polyporales») with descriptions of three new species
-- `pensoft:mycokeys.128.172807` [UNINOMIAL]  and tef1-α — on the phlebioid clade of «Phanerochaetaceae», included H. corrugata, H. rosae, and H
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] namorph was identified as a pathogen on «Rosaceae» fruits (Babaeizad et al. 2012; Sayari e
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] H. corrugata, deposited in the CANB, MA-«Fungi», O, and PDD herbaria, as well as the le
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 5527, 817Tell.
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 5529, 759Tell.
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 7653, 4638Tell.
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 11076, 3349MD
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 24238, 3969IM
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 26185, 11457Tell.
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 26186, 11459Tell.
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 38073, 3500IS
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 39201, 73Tell.
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 61382, 13285Tell.
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 61395, 13299Tell.
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 94244, 14453MD
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 94247, 14462MD
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 94256, 15126MD
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 94257, 15146MD
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 94266, 15223MD
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 94271, 15247MD
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 94291, 20535Tell.
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 94293, 20589Tell.
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 94296, 20593Tell.
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 94302, 20603Tell.
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 94272, 576JFL
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 94273, 582JFL
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 1103
-- `pensoft:mycokeys.128.172807` [UNINOMIAL] MA-«Fungi» 1556
+- `pensoft:mycokeys.104.117872` [UNINOMIAL] ensis and A. zhaotongensis spp. nov. in «Cainiaceae» from Yunnan, China
+- `pensoft:phytokeys.275.192014` [UNINOMIAL] ionary trajectories among holoparasitic «Orobanchaceae» and their animal associates: a global p
+- `pensoft:zookeys.1251.145353` [UNINOMIAL] the genus Eversmannia Staudinger, 1871 («Lepidoptera», Uraniidae) from China, with descriptio
+- `pensoft:mycokeys.113.140932` [UNINOMIAL] tic analyses revealed four new species («Basidiomycota») in the Yunnan-Guizhou Plateau, China
+- `pensoft:zookeys.1273.176856` [UNINOMIAL] Three new species of the family «Canuellidae» Lang, 1944 (Copepoda, Canuelloida) from
+- `pensoft:zookeys.1195.115889` [UNINOMIAL] ew ant species of the genus Leptogenys («Hymenoptera», Formicidae) from Hainan, China, with a
+- `pensoft:zookeys.1217.125780` [UNINOMIAL]  genus Bambusiphaga Huang & Ding, 1979 («Hemiptera», Fulgoroidea, Delphacidae, Tropidocepha
+- `pensoft:bdj.12.e130385` [UNINOMIAL] is of Diospyros mun A.Chev. ex Lecomte («Ebenaceae») based on EST-SSR markers derived from 
+- `pensoft:zookeys.1254.168429` [UNINOMIAL] Amazoboea, a new genus of Darwin wasps («Hymenoptera», Ichneumonidae) from western Amazonia
+- `pensoft:bdj.12.e132915` [UNINOMIAL] al studies and a checklist of the ants («Hymenoptera», Formicidae) of the Democratic Republic
+- `pensoft:zookeys.1218.126535` [UNINOMIAL] : An annotated checklist of Peromyscus («Cricetidae», Rodentia) in Honduras
+- `pensoft:phytokeys.247.131353` [UNINOMIAL] d systematics of two Cocconeis species («Bacillariophyta») from Lake Baikal: Cocconeis baicalensi
+- `pensoft:phytokeys.263.163351` [UNINOMIAL]  notes on Dryopteris sect. Splendentes («Dryopteridaceae»)
+- `pensoft:mycokeys.141.209886` [UNINOMIAL] «Macadamia»-growing regions provide favorable habit
+- `pensoft:zookeys.1293.199475` [UNINOMIAL]  new species of Eucorydia Hebard, 1929 («Blattodea», Corydioidea, Corydiidae) from China, w
+- `pensoft:zookeys.1219.134970` [UNINOMIAL] Parascorpaena moultoni (Whitley, 1961) («Actinopterygii», Scorpaenidae), with new distribution r
+- `pensoft:mycokeys.123.161540` [UNINOMIAL] Phylogeny of Phyllozyma («Spiculogloeaceae», Spiculogloeales) with description of f
+- `pensoft:zookeys.1232.141693` [UNINOMIAL] The ant genus Nesomyrmex Wheeler («Formicidae», Myrmicinae) from the threatened Colomb
+- `pensoft:mycokeys.126.174148` [UNINOMIAL] Novel Helicotubeufia and Tubeufia («Tubeufiaceae», Tubeufiales) species from terrestrial 
+- `pensoft:zookeys.1257.165617` [UNINOMIAL] a new subspecies of Amolops Cope, 1865 («Anura», Ranidae) from northeastern Yunnan, Chi
+- `pensoft:bdj.12.e72511` [UNINOMIAL] Culicoides Latreille («Diptera», Ceratopogonidae) of Colombia: records 
+- `pensoft:zookeys.1260.167263` [UNINOMIAL] welling coral, Pavona giannii sp. nov. («Scleractinia», Agariciidae), with an overview of the 
+- `pensoft:mycokeys.136.188385` [UNINOMIAL] «Fungi», encompassing mushrooms, molds, lichens
+- `pensoft:phytokeys.252.134081` [UNINOMIAL] Typhonium morangense («Araceae»), a new species from the tropical fores
+- `pensoft:zookeys.1276.183701` [UNINOMIAL] Annotated checklist of «Dermaptera» and Zoraptera (Insecta) of Singapore, w
+- `pensoft:zookeys.1283.169111` [UNINOMIAL] ry, taxonomy and keys to the species of «Mysidae» (Crustacea, Mysida) from marine caves o
+- `pensoft:bdj.12.e115464` [UNINOMIAL] Standardised inventories of spiders («Arachnida», Araneae) of Macaronesia III: dry habit
+- `pensoft:mycokeys.127.173361` [UNINOMIAL] pecies, Ophiocordyceps ramosa sp. nov. («Ophiocordycipitaceae») and Leptobacillium hepiali sp. nov. (C
+- `pensoft:zookeys.1264.140174` [UNINOMIAL] Heterocypris exodonta sp. nov. («Ostracoda», Cyprididae), morphological and molecul
