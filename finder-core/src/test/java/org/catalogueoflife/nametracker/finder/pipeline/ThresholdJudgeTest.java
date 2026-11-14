@@ -122,7 +122,7 @@ class ThresholdJudgeTest {
   @Test
   void defaultsNeedMoreThanItalicsForAnAmbiguousGenus() {
     // weakest italic case: sentence initial, empty document, no gnfinder odds, only italics and dictionary. Italics raise
-    // the score but do not decide alone (ADR-0002: GROBID text has none), so the tuned defaults reject it ...
+    // the score, but with the tuned weights they do not decide alone, so the defaults reject it ...
     CandidateFeatures weak = new CandidateFeatures(true, false, false, null, DictHit.AMBIGUOUS_WORD, false, true, 0.0,
         BlockType.PARAGRAPH, true, false, 2, 0);
     assertThat(defaults().judge(MAJOR, weak).accepted()).isFalse();

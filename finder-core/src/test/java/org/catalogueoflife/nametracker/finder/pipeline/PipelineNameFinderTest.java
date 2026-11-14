@@ -65,6 +65,8 @@ class PipelineNameFinderTest {
       107\taccepted\tOphiocordyceps Petch, 1931\tgenus\tOphiocordyceps\t\t\t\t\tbotanical\t\t\t\t\tFungi\t
       108\taccepted\tXenus fungi Smith, 1900\tspecies\t\tXenus\t\tfungi\t\tzoological\tXenus\t\t\t\tAnimalia\t
       109\taccepted\tParamphibambusa bambusicola Dai, 2024\tspecies\t\tParamphibambusa\t\tbambusicola\t\tbotanical\tParamphibambusa\t\t\t\tFungi\t
+      110\taccepted\tViola L.\tgenus\tViola\t\t\t\t\tbotanical\t\tViolaceae\t\t\tPlantae\t
+      111\taccepted\tViolaceae\tfamily\tViolaceae\t\t\t\t\tbotanical\t\t\t\t\tPlantae\t
       """;
   private static final ColDictionary DICT;
   private static final NameParserRust PARSER = new NameParserRust();
@@ -352,6 +354,24 @@ class PipelineNameFinderTest {
   }
 
   @Test
+  void newNameHintNeedsFullSupportAndSeveralWords() {
+    Set<Generator> gd = Set.of(Generator.GNFINDER, Generator.DICTIONARY);
+    PipelineNameFinder.Hints newName = new PipelineNameFinder.Hints(true);
+    ParsedCandidate viola = pc(NameKind.BINOMIAL, "Viola yuelingensis", gd, Set.of(Generator.GNFINDER));
+    CandidateFeatures f = feats(false, false, -0.3, DictHit.AMBIGUOUS_WORD, true, viola);
+    assertThat(PipelineNameFinder.isCertain(viola, f, 8.0)).isFalse();
+    assertThat(PipelineNameFinder.isCertain(viola, f, 8.0, newName)).isTrue();
+    assertThat(PipelineNameFinder.certainConfidence(viola, f, newName)).isEqualTo(PipelineNameFinder.NEW_NAME_CONFIDENCE);
+
+    ParsedCandidate dictOnly = pc(NameKind.BINOMIAL, "Viola yuelingensis", Set.of(Generator.DICTIONARY), Set.of(Generator.DICTIONARY));
+    assertThat(PipelineNameFinder.isCertain(dictOnly, feats(false, false, null, DictHit.EPITHET, true, dictOnly), 8.0, newName))
+        .as("no full support").isFalse();
+    ParsedCandidate genus = pc(NameKind.UNINOMIAL, "Viola", gd, gd);
+    assertThat(PipelineNameFinder.isCertain(genus, feats(true, false, 9.0, DictHit.GENUS, true, genus), 8.0, newName))
+        .as("uninomials are always judged").isFalse();
+  }
+
+  @Test
   void compoundActWithDottedEt() {
     // the exact dev string; the compound "gen. et. sp. nov." is SP_NOV and "gen" is no epithet
     String text = "Paramphibambusa bambusicola gen. et. sp. nov.";
@@ -378,9 +398,79 @@ class PipelineNameFinderTest {
     assertThat(r.acts()).singleElement().satisfies(a -> assertThat(a.type()).isEqualTo(ActType.SSP_NOV));
   }
 
+  // ---- new names (Ruling Z6): a new species is never a COL pair, and "Viola" is also an ordinary word
+
+  /** gnfinder sees "Viola yuelingensis" exactly, with the odds it gave in the PhytoKeys spot-check. */
+  private static RecordedGnfinder violaGnfinder(String text, String annotationType) {
+    int at = text.indexOf("Viola yuelingensis");
+    return new RecordedGnfinder().answer(text, new GnfinderResponse(Map.of(), List.of(
+        new GnName(2, "Viola yuelingensis", "Viola yuelingensis", null, -0.3, at, at + 18, null, annotationType))));
+  }
+
+  private static Document violaDoc(BlockType type, String text, boolean italic) {
+    int at = text.indexOf("Viola yuelingensis");
+    StyleSpan[] styles = italic ? new StyleSpan[] {new StyleSpan(at, at + 18, Style.ITALIC)} : new StyleSpan[0];
+    return doc(block("b1", type, text, styles));
+  }
+
+  static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> newSpeciesOfAnOrdinaryWordGenus() {
+    return java.util.stream.Stream.of(
+        args("title, italic", BlockType.TITLE, "Viola yuelingensis (Violaceae), a new species from Guangxi, China", true,
+            "new species"),
+        args("treatment heading", BlockType.HEADING, "Viola yuelingensis Y.S.Chen & Ju H.Huang sp. nov.", false, "sp. nov."),
+        args("abstract without italics", BlockType.ABSTRACT,
+            "This study describes Viola yuelingensis Y.S.Chen & Ju H.Huang, sp. nov., from Guangxi, China.", false, "sp. nov."));
+  }
+
+  @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
+  @org.junit.jupiter.params.provider.MethodSource
+  void newSpeciesOfAnOrdinaryWordGenus(String label, BlockType type, String text, boolean italic, String marker) {
+    Document d = violaDoc(type, text, italic);
+    FinderResult r = finder(violaGnfinder(text, "NO_ANNOT")).find(d, new FinderOptions(true, null));
+    List<Mention> viola = named(r, "Viola yuelingensis");
+    assertThat(viola).as("accepted").hasSize(1);
+    Mention m = viola.get(0);
+    assertThat(m.evidence().judge()).as("certain, not judged").isNull();
+    assertThat(m.confidence()).isEqualTo(PipelineNameFinder.NEW_NAME_CONFIDENCE);
+    assertThat(m.actId()).isNotNull();
+    Act a = r.acts().stream().filter(x -> x.id().equals(m.actId())).findFirst().orElseThrow();
+    assertThat(a.type()).isEqualTo(ActType.SP_NOV);
+    assertThat(a.marker()).isEqualTo(marker);
+    assertThat(a.mentionId()).isEqualTo(m.id());
+  }
+
+  @Test
+  void gnfinderNovAnnotationMakesANewNameCertain() {
+    // no marker within reach of the name, but gnfinder annotated it as a new species
+    String text = "Viola yuelingensis Y.S.Chen & Ju H.Huang is described and illustrated from Guangxi, China.";
+    Document d = violaDoc(BlockType.ABSTRACT, text, false);
+    Mention m = named(finder(violaGnfinder(text, "SP_NOV")).find(d, FinderOptions.defaults()), "Viola yuelingensis").get(0);
+    assertThat(m.evidence().judge()).isNull();
+    assertThat(m.confidence()).isEqualTo(PipelineNameFinder.NEW_NAME_CONFIDENCE);
+  }
+
+  @Test
+  void otherActsOrNoFullSupportStayJudged() {
+    // a new synonymy is no new name, so the ambiguous genus is judged as before
+    String syn = "Viola yuelingensis Y.S.Chen, syn. nov.";
+    FinderResult r = finder(violaGnfinder(syn, "NO_ANNOT")).find(violaDoc(BlockType.PARAGRAPH, syn, false),
+        new FinderOptions(true, null));
+    List<Mention> all = new ArrayList<>(r.mentions());
+    all.addAll(r.rejected());
+    assertThat(all).filteredOn(x -> x.verbatim().equals("Viola yuelingensis")).singleElement()
+        .satisfies(x -> assertThat(x.evidence().judge()).isNotNull());
+
+    // without gnfinder on the span and without italics the marker certifies nothing
+    String text = "Viola yuelingensis sp. nov. grows on limestone.";
+    Document d = violaDoc(BlockType.PARAGRAPH, text, false);
+    FinderResult plain = finder(new RecordedGnfinder().nothingIn(d)).find(d, new FinderOptions(true, null));
+    assertThat(plain.mentions()).extracting(Mention::verbatim).doesNotContain("Viola yuelingensis");
+  }
+
   @Test
   void italicAmbiguousGenusIsJudgedOnMoreThanItsItalics() {
-    // sentence initial, and gnfinder gives it negative odds: italics and the dictionary alone do not carry it (ADR-0002)
+    // sentence initial, and gnfinder gives it negative odds: with the tuned judge weights, italics and the dictionary alone
+    // do not carry it
     RecordedGnfinder gn = new RecordedGnfinder("major-italic");
     Document d = doc(block("b1", BlockType.PARAGRAPH, "Major sp. was collected.", new StyleSpan(0, 5, Style.ITALIC)));
     FinderResult r = finder(gn).find(d, new FinderOptions(true, null));

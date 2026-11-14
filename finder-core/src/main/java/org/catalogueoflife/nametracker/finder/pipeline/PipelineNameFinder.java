@@ -1,6 +1,7 @@
 package org.catalogueoflife.nametracker.finder.pipeline;
 
 import org.catalogueoflife.nametracker.finder.api.Act;
+import org.catalogueoflife.nametracker.finder.api.ActType;
 import org.catalogueoflife.nametracker.finder.api.Block;
 import org.catalogueoflife.nametracker.finder.api.ClassificationContext;
 import org.catalogueoflife.nametracker.finder.api.Document;
@@ -27,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,8 +53,15 @@ import java.util.Set;
  * others may support it from a part, e.g. a dictionary pair inside a gnfinder trinomial. In order:
  * <ol>
  *   <li>publisher markup of exactly this span: certain;</li>
- *   <li><em>full support</em> is gnfinder on exactly this span or a wholly italic span. With it all generators count,
- *       without it only those that saw exactly this span. Fewer than two such generators and no italics: judged;</li>
+ *   <li><em>full support</em> is gnfinder on exactly this span or a wholly italic span. A <em>new name</em> with full
+ *       support is certain, whatever the dictionary says: a new species is never a COL pair, and its genus may be an
+ *       ordinary word ("Viola yuelingensis sp. nov."). It is a new name if gnfinder annotated exactly this span as new
+ *       (an {@code annotationNomenType} ending in {@code _NOV}), or if the {@link ActTagger}, run over the multi-word
+ *       candidates with full support, attaches a new-name act to it: SP_NOV, SSP_NOV, VAR_NOV, SUBGEN_NOV, COMB_NOV or
+ *       NOM_NOV, in any language {@link ActPatterns} knows, at most {@link PipelineConfig#actMaxDistance()} code points
+ *       after the name and of a fitting kind;</li>
+ *   <li>without full support only the generators that saw exactly this span count, with it all of them. Fewer than two
+ *       such generators and no italics: judged;</li>
  *   <li><em>strong gnfinder</em> is gnfinder on exactly this span with odds of at least
  *       {@link PipelineConfig#certainOdds()}. An ambiguous word (the genus is also an ordinary word) without it: judged;</li>
  *   <li>certain if strong gnfinder, or if the dictionary vouches: dictionary hit BINOMIAL (a known genus-epithet pair),
@@ -63,8 +72,8 @@ import java.util.Set;
  *
  * <p><b>Confidence.</b> Certain names take the maximum of the signals that may certify them, as defined above: markup on
  * exactly this span 1.0, the dictionary vouching 0.95 (its hit may come from a part of the span when gnfinder or italics
- * cover all of it), gnfinder on exactly this span {@code oddsLog10 / 10} clamped to [0, 1], wholly italic 0.9. Judged
- * names take the judge score. An act takes the confidence of its name.
+ * cover all of it), gnfinder on exactly this span {@code oddsLog10 / 10} clamped to [0, 1], wholly italic 0.9, a new name
+ * with full support 0.9. Judged names take the judge score. An act takes the confidence of its name.
  *
  * <p><b>Output.</b> Mention name is the expanded, verbatim-shaped name with the qualifier removed; the parser's lossy
  * canonical form is kept in hint {@code canonical}. Mention kind is ABBREVIATED when the verbatim is an abbreviation
@@ -87,6 +96,7 @@ public class PipelineNameFinder implements NameFinder {
   static final double MARKUP_CONFIDENCE = 1.0;
   static final double DICTIONARY_CONFIDENCE = 0.95;
   static final double ITALIC_CONFIDENCE = 0.9;
+  static final double NEW_NAME_CONFIDENCE = 0.9;
   private static final System.Logger LOG = System.getLogger(PipelineNameFinder.class.getName());
 
   private static final class DefaultCommonWords {
@@ -180,18 +190,20 @@ public class PipelineNameFinder implements NameFinder {
     private final List<ParsedCandidate> parsed;
     private final List<CandidateFeatures> features;
     private final boolean[] certain;
+    private final double[] confidence;
     private final int merged;
     private final long gnfinderMs;
     private final int misaligned;
     private final int gnTrimmed;
 
     private Prepared(Document doc, FinderOptions opts, List<ParsedCandidate> parsed, List<CandidateFeatures> features,
-                     boolean[] certain, int merged, long gnfinderMs, int misaligned, int gnTrimmed) {
+                     boolean[] certain, double[] confidence, int merged, long gnfinderMs, int misaligned, int gnTrimmed) {
       this.doc = doc;
       this.opts = opts;
       this.parsed = parsed;
       this.features = features;
       this.certain = certain;
+      this.confidence = confidence;
       this.merged = merged;
       this.gnfinderMs = gnfinderMs;
       this.misaligned = misaligned;
@@ -224,7 +236,7 @@ public class PipelineNameFinder implements NameFinder {
   public Prepared prepare(Document doc, FinderOptions opts) {
     FinderOptions o = opts == null ? FinderOptions.defaults() : opts;
     if (doc.blocks().stream().allMatch(b -> b.text().isBlank())) {
-      return new Prepared(doc, o, List.of(), List.of(), new boolean[0], 0, 0, 0, 0);
+      return new Prepared(doc, o, List.of(), List.of(), new boolean[0], new double[0], 0, 0, 0, 0);
     }
     Map<String, Block> blocks = new HashMap<>();
     doc.blocks().forEach(b -> blocks.putIfAbsent(b.id(), b));
@@ -268,13 +280,48 @@ public class PipelineNameFinder implements NameFinder {
     // features, and who bypasses the judge
     FeatureExtractor fx = new FeatureExtractor(doc, parsed.size());
     List<CandidateFeatures> features = new ArrayList<>(parsed.size());
+    for (ParsedCandidate p : parsed) features.add(fx.features(p));
+    Set<ParsedCandidate> newNames = newNames(parsed, features, doc);
     boolean[] certain = new boolean[parsed.size()];
+    double[] confidence = new double[parsed.size()];
     for (int i = 0; i < parsed.size(); i++) {
-      CandidateFeatures f = fx.features(parsed.get(i));
-      features.add(f);
-      certain[i] = isCertain(parsed.get(i), f, cfg.certainOdds());
+      Hints h = new Hints(newNames.contains(parsed.get(i)));
+      certain[i] = isCertain(parsed.get(i), features.get(i), cfg.certainOdds(), h);
+      if (certain[i]) confidence[i] = certainConfidence(parsed.get(i), features.get(i), h);
     }
-    return new Prepared(doc, o, List.copyOf(parsed), List.copyOf(features), certain, merged.size(), gnMs, misaligned, gnTrimmed);
+    return new Prepared(doc, o, List.copyOf(parsed), List.copyOf(features), certain, confidence, merged.size(), gnMs,
+        misaligned, gnTrimmed);
+  }
+
+  /** Act types whose name did not exist before: a following marker of one of these makes a new name. */
+  static final Set<ActType> NEW_NAME_ACTS = EnumSet.of(ActType.SP_NOV, ActType.SSP_NOV, ActType.VAR_NOV, ActType.SUBGEN_NOV,
+      ActType.COMB_NOV, ActType.NOM_NOV);
+
+  /**
+   * The new names among the candidates, see the class documentation, "Who is judged": the multi-word candidates with full
+   * support that gnfinder annotated as new or that a new-name act marker follows. Only those candidates take part in the
+   * act tagging here, so a doubtful candidate between a name and its marker cannot take the marker away.
+   */
+  private Set<ParsedCandidate> newNames(List<ParsedCandidate> parsed, List<CandidateFeatures> features, Document doc) {
+    Set<ParsedCandidate> out = new HashSet<>();
+    List<ParsedCandidate> eligible = new ArrayList<>();
+    for (int i = 0; i < parsed.size(); i++) {
+      ParsedCandidate p = parsed.get(i);
+      if (p.kind() == NameKind.UNINOMIAL || !fullSupport(p, features.get(i))) continue;
+      eligible.add(p);
+      if (gnfinderNov(p)) out.add(p);
+    }
+    if (eligible.isEmpty()) return out;
+    actTagger.tag(eligible, doc).forEach((p, m) -> {
+      if (NEW_NAME_ACTS.contains(m.type())) out.add(p);
+    });
+    return out;
+  }
+
+  /** gnfinder saw exactly this span and annotated it as a new name ("sp. nov.", "ssp. nov.", "comb. nov."). */
+  private static boolean gnfinderNov(ParsedCandidate p) {
+    return p.c().exactGenerators().contains(Generator.GNFINDER)
+        && p.c().features().get("annotationNomenType") instanceof String t && t.endsWith("_NOV");
   }
 
   /**
@@ -299,7 +346,7 @@ public class PipelineNameFinder implements NameFinder {
       CandidateFeatures f = prepared.features.get(i);
       if (prepared.certain[i]) {
         certain++;
-        accepted.add(new Judged(p, certainConfidence(p, f), null));
+        accepted.add(new Judged(p, prepared.confidence[i], null));
       } else {
         JudgeVerdict v = judge.judge(p, f);
         (v.accepted() ? accepted : rejected).add(new Judged(p, v.score(), v));
@@ -395,12 +442,26 @@ public class PipelineNameFinder implements NameFinder {
     }
   }
 
-  /** See the class documentation, "Who is judged". */
+  /**
+   * What the certainty rule needs besides the features, computed per document in {@link #prepare}.
+   *
+   * @param newName gnfinder annotated it as new, or a new-name act marker follows it (see "Who is judged")
+   */
+  record Hints(boolean newName) {
+    static final Hints NONE = new Hints(false);
+  }
+
   static boolean isCertain(ParsedCandidate p, CandidateFeatures f, double certainOdds) {
+    return isCertain(p, f, certainOdds, Hints.NONE);
+  }
+
+  /** See the class documentation, "Who is judged". */
+  static boolean isCertain(ParsedCandidate p, CandidateFeatures f, double certainOdds, Hints h) {
     if (p.kind() == NameKind.UNINOMIAL) return false;
     if (f.taxonMarkup()) return true;
     Set<Generator> exact = p.c().exactGenerators();
     boolean full = fullSupport(p, f);
+    if (full && h.newName()) return true;
     int support = full ? f.generatorCount() : exact.size();
     if (support <= 1 && !f.italic()) return false;
     boolean strongGn = exact.contains(Generator.GNFINDER) && f.gnfinderOdds() != null && f.gnfinderOdds() >= certainOdds;
@@ -408,10 +469,15 @@ public class PipelineNameFinder implements NameFinder {
     return strongGn || dictionaryVouches(p, f, full);
   }
 
-  /** The maximum of the signals that may certify a name, see the class documentation, "Confidence". */
   static double certainConfidence(ParsedCandidate p, CandidateFeatures f) {
+    return certainConfidence(p, f, Hints.NONE);
+  }
+
+  /** The maximum of the signals that may certify a name, see the class documentation, "Confidence". */
+  static double certainConfidence(ParsedCandidate p, CandidateFeatures f, Hints h) {
     double c = 0;
     if (f.taxonMarkup()) c = Math.max(c, MARKUP_CONFIDENCE);
+    if (h.newName() && fullSupport(p, f)) c = Math.max(c, NEW_NAME_CONFIDENCE);
     if (dictionaryVouches(p, f, fullSupport(p, f))) c = Math.max(c, DICTIONARY_CONFIDENCE);
     if (p.c().exactGenerators().contains(Generator.GNFINDER) && f.gnfinderOdds() != null) {
       c = Math.max(c, Math.max(0, Math.min(1, f.gnfinderOdds() / 10)));

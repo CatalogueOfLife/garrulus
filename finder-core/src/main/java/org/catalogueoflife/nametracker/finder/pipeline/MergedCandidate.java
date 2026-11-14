@@ -50,8 +50,12 @@ public record MergedCandidate(String blockId, int start, int end, String verbati
     return new MergedCandidate(blockId, start, end, verbatim, name, generators, exactGenerators, features, authorship, qualifier);
   }
 
-  /** How many generators saw only a part of this span. */
+  /**
+   * How many generators saw only a part of this span. The dictionary on just the leading genus does not count (feature
+   * {@link CandidateMerger#DICTIONARY_GENUS_ONLY}): it never knows the epithet of a new name.
+   */
   public int partialSupport() {
-    return generators.size() - exactGenerators.size();
+    int n = generators.size() - exactGenerators.size();
+    return Boolean.TRUE.equals(features.get(CandidateMerger.DICTIONARY_GENUS_ONLY)) ? n - 1 : n;
   }
 }

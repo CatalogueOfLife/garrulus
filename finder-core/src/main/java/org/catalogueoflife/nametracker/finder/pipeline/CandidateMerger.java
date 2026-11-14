@@ -33,11 +33,16 @@ import java.util.TreeMap;
  * <p>Generators may emit in any order (the markup generator does), so the input is sorted here. Output order is the
  * block order of the document, then start, then end. Feature union: {@code oddsLog10} takes the maximum; for any other key
  * present in several merged candidates the value of the generator that comes first in {@link Generator} declaration
- * order wins.
+ * order wins. The merger adds feature {@value #DICTIONARY_GENUS_ONLY} = true when the dictionary saw nothing of a
+ * multi-word span but its first word, the genus: a new species is never in COL, so the dictionary sees only the genus of
+ * every new name, and {@link MergedCandidate#partialSupport()} does not count that as support of a part.
  *
  * @throws IllegalArgumentException if a candidate's blockId is not a block of the document
  */
 public final class CandidateMerger {
+  /** Feature: every dictionary candidate of the span covers just its first word, and none covers the whole span. */
+  public static final String DICTIONARY_GENUS_ONLY = "dictionaryGenusOnly";
+
   private CandidateMerger() {}
 
   public static List<MergedCandidate> merge(List<Candidate> candidates, Document doc) {
@@ -105,7 +110,16 @@ public final class CandidateMerger {
         }
       }
     }
+    if (gens.contains(Generator.DICTIONARY) && !exact.contains(Generator.DICTIONARY)
+        && group.stream().filter(c -> c.generator() == Generator.DICTIONARY).allMatch(c -> leadingWord(head, c))) {
+      features.put(DICTIONARY_GENUS_ONLY, true);
+    }
     return new MergedCandidate(blockId, head.start(), head.end(), head.verbatim(), named.name(),
         new LinkedHashSet<>(gens), exact, features, null, null);
+  }
+
+  /** {@code c} is the first word of the longer {@code head}: same start, no whitespace in it. */
+  private static boolean leadingWord(Candidate head, Candidate c) {
+    return c.start() == head.start() && c.end() < head.end() && c.verbatim().codePoints().noneMatch(Character::isWhitespace);
   }
 }

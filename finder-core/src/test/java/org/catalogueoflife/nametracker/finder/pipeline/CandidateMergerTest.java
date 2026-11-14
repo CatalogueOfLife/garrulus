@@ -102,4 +102,25 @@ class CandidateMergerTest {
     assertThat(out).hasSize(1);
     assertThat(out.get(0).features()).containsEntry("oddsLog10", 4.0).containsEntry("suffixRank", "B");
   }
+
+  @Test
+  void dictionaryOnTheLeadingGenusOnlyIsNoPartialSupport() {
+    // a new species: the dictionary knows the genus, never the epithet, so it only ever sees "Carabus"
+    var genusOnly = merge(c("b1", 45, 59, Generator.GNFINDER, Map.of()), c("b1", 45, 52, Generator.DICTIONARY, Map.of()));
+    assertThat(genusOnly.get(0).generators()).containsExactlyInAnyOrder(Generator.GNFINDER, Generator.DICTIONARY);
+    assertThat(genusOnly.get(0).exactGenerators()).containsExactly(Generator.GNFINDER);
+    assertThat(genusOnly.get(0).partialSupport()).isZero();
+
+    // the dictionary on more than the genus, or another generator on the genus, still counts
+    var longer = merge(c("b1", 45, 64, Generator.GNFINDER, Map.of()), c("b1", 45, 59, Generator.DICTIONARY, Map.of()));
+    assertThat(longer.get(0).partialSupport()).isEqualTo(1);
+    var italicGenus = merge(c("b1", 45, 59, Generator.GNFINDER, Map.of()), c("b1", 45, 52, Generator.ITALIC, Map.of()));
+    assertThat(italicGenus.get(0).partialSupport()).isEqualTo(1);
+    var epithet = merge(c("b1", 45, 59, Generator.GNFINDER, Map.of()), c("b1", 53, 59, Generator.DICTIONARY, Map.of()));
+    assertThat(epithet.get(0).partialSupport()).isEqualTo(1);
+    // two dictionary candidates inside, one of them past the genus: counts
+    var both = merge(c("b1", 45, 64, Generator.GNFINDER, Map.of()), c("b1", 45, 52, Generator.DICTIONARY, Map.of()),
+        c("b1", 53, 64, Generator.DICTIONARY, Map.of()));
+    assertThat(both.get(0).partialSupport()).isEqualTo(1);
+  }
 }

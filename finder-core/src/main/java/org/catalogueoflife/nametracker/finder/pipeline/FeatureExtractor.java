@@ -42,7 +42,8 @@ import java.util.Set;
  *   <li>{@code authorshipFollows}: the authorship attacher found an authorship after the span.</li>
  *   <li>{@code generatorCount}: the number of distinct generators that saw the span or part of it; the markup generator
  *       counts once per kind (ITALIC, TAXON_MARKUP).</li>
- *   <li>{@code partialSupport}: how many of them saw only a part of the span ({@link MergedCandidate#partialSupport()}).
+ *   <li>{@code partialSupport}: how many of them saw only a part of the span ({@link MergedCandidate#partialSupport()}),
+ *       not counting the dictionary when it saw just the leading genus, as it does for every new species.
  *       {@code gnfinderOdds}, {@code dictHit} and {@code suffixRule} may come from such a part.</li>
  * </ul>
  */
