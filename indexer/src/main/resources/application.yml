@@ -2,7 +2,7 @@ spring:
   application:
     name: garrulus-indexer
   datasource:
-    url: ${NAMETRACKER_DB_URL:jdbc:postgresql://localhost:5432/nametracker}
+    url: ${NAMETRACKER_DB_URL:jdbc:postgresql://localhost:5434/nametracker}
     username: ${NAMETRACKER_DB_USER:nametracker}
     password: ${NAMETRACKER_DB_PASSWORD:nametracker}
   flyway:
