@@ -39,6 +39,7 @@ import java.util.Set;
  */
 public final class LabelStudioImporter {
   public static final String ACT_OF = "act_of";
+  private static final System.Logger LOG = System.getLogger(LabelStudioImporter.class.getName());
 
   private LabelStudioImporter() {}
 
@@ -51,11 +52,15 @@ public final class LabelStudioImporter {
     }
     if (!tasks.isArray()) throw new IllegalArgumentException(exportJson + " is not a Label Studio export: expected a JSON array of tasks");
     List<GoldDocument> out = new ArrayList<>();
+    boolean[] utf16 = new boolean[1];
     for (JsonNode task : tasks) {
       JsonNode ann = latest(task.path("annotations"));
       if (ann == null) continue;
-      GoldDocument g = convert(task.path("data"), ann.path("result"));
+      GoldDocument g = convert(task.path("data"), ann.path("result"), utf16);
       if (g != null) out.add(g);
+    }
+    if (utf16[0]) {
+      LOG.log(System.Logger.Level.INFO, "Label Studio offsets in {0} matched only as UTF-16 units and were converted to code points", exportJson);
     }
     return out;
   }
@@ -74,7 +79,7 @@ public final class LabelStudioImporter {
     return a.path("updated_at").asString(a.path("created_at").asString("")) + "|" + String.format("%012d", a.path("id").asLong(0));
   }
 
-  private static GoldDocument convert(JsonNode data, JsonNode results) {
+  private static GoldDocument convert(JsonNode data, JsonNode results, boolean[] utf16) {
     String docId = data.path("docId").asString("");
     Document doc = FinderJson.mapper().convertValue(data.path("document"), Document.class);
     FlatText flat = FlatText.of(doc);
@@ -118,7 +123,7 @@ public final class LabelStudioImporter {
     Map<String, GoldName> nameById = new LinkedHashMap<>();
     for (var e : regions.entrySet()) {
       if (label(e.getValue()).equals("Name")) {
-        GoldName n = span(docId, flat, e.getValue(), (b, s, en, t) -> new GoldName(b, s, en, t, null, null));
+        GoldName n = span(docId, flat, utf16, e.getValue(), (b, s, en, t) -> new GoldName(b, s, en, t, null, null));
         names.add(n);
         nameById.put(e.getKey(), n);
         if (mainSubject.contains(e.getKey())) subjects.add(n.text().replaceAll("\\s+", " ").trim());
@@ -136,13 +141,18 @@ public final class LabelStudioImporter {
         for (String[] rel : relations) {
           if (!rel[2].equals(ACT_OF)) continue;
           String other = rel[0].equals(id) ? rel[1] : rel[1].equals(id) ? rel[0] : null;
-          if (other != null && nameById.containsKey(other)) found = nameById.get(other);
+          if (other != null && nameById.containsKey(other)) {
+            if (found != null && found != nameById.get(other)) {
+              throw fail(docId, "the Act region '" + text(e.getValue()) + "' (id " + id + ") has more than one act_of relation to a Name");
+            }
+            found = nameById.get(other);
+          }
         }
         if (found == null) throw fail(docId, "the Act region '" + text(e.getValue()) + "' is not linked to a Name by act_of");
         GoldName target = found;
-        acts.add(span(docId, flat, e.getValue(), (b, s, en, t) -> new GoldAct(b, s, en, type, target.text())));
+        acts.add(span(docId, flat, utf16, e.getValue(), (b, s, en, t) -> new GoldAct(b, s, en, type, target.text())));
       } else if (label.equals("Context")) {
-        GoldContext c = span(docId, flat, e.getValue(), (b, s, en, t) -> new GoldContext(b, rankedNames(docId, t, ranks.get(id))));
+        GoldContext c = span(docId, flat, utf16, e.getValue(), (b, s, en, t) -> new GoldContext(b, rankedNames(docId, t, ranks.get(id))));
         contexts.merge(c.blockId(), c.ranks(), (a, b) -> {
           List<RankedName> all = new ArrayList<>(a);
           all.addAll(b);
@@ -163,25 +173,49 @@ public final class LabelStudioImporter {
     T make(String blockId, int start, int end, String text);
   }
 
-  private static <T> T span(String docId, FlatText flat, JsonNode region, Make<T> make) {
+  /**
+   * Maps a region to block offsets. Label Studio offsets are read as code points first; if value.text then differs from the
+   * text at that range they are tried as UTF-16 units (what a JavaScript string index is) and converted. The interpretation
+   * whose text equals value.text wins; if neither does, the import fails. Without value.text nothing can be verified and code
+   * points are used.
+   */
+  private static <T> T span(String docId, FlatText flat, boolean[] utf16, JsonNode region, Make<T> make) {
     JsonNode v = region.path("value");
+    String regionId = region.path("id").asString("?");
+    String text = flat.text();
+    int total = CodePoints.length(text);
     int start = v.path("start").asInt();
     int end = v.path("end").asInt();
+    String given = v.path("text").isMissingNode() || v.path("text").isNull() ? null : v.path("text").asString();
+    boolean cpOk = start >= 0 && start <= end && end <= total;
+    if (cpOk && (given == null || CodePoints.slice(text, start, end).equals(given))) {
+      return place(docId, flat, regionId, start, end, make);
+    }
+    if (given != null && start >= 0 && start <= end && end <= text.length()) {
+      int cs = CodePoints.toCodePoint(text, start);
+      int ce = CodePoints.toCodePoint(text, end);
+      if (CodePoints.slice(text, cs, ce).equals(given)) {
+        utf16[0] = true;
+        return place(docId, flat, regionId, cs, ce, make);
+      }
+    }
+    throw fail(docId, "region " + regionId + " has text '" + (given == null ? "" : given.replace('\n', ' ')) + "' at " + start + "-" + end
+        + ", which matches the document neither as code point nor as UTF-16 offsets");
+  }
+
+  private static <T> T place(String docId, FlatText flat, String regionId, int start, int end, Make<T> make) {
     FlatText.Position a;
     FlatText.Position b;
     try {
       a = flat.toBlock(start);
       b = flat.toBlock(end);
     } catch (IllegalArgumentException e) {
-      throw fail(docId, "region '" + v.path("text").asString("") + "' at " + start + "-" + end + " is outside the text");
+      throw fail(docId, "region " + regionId + " at " + start + "-" + end + " is outside the text");
     }
     if (!a.blockId().equals(b.blockId())) {
-      throw fail(docId, "region '" + v.path("text").asString("").replace('\n', ' ') + "' spans more than one block; tag each block separately");
+      throw fail(docId, "region " + regionId + " spans more than one block; tag each block separately");
     }
-    String text = CodePoints.slice(flat.text(), start, end);
-    String given = v.path("text").asString(text);
-    if (!given.equals(text)) throw fail(docId, "region text '" + given + "' differs from the document text '" + text + "' at " + start);
-    return make.make(a.blockId(), a.offset(), b.offset(), text);
+    return make.make(a.blockId(), a.offset(), b.offset(), CodePoints.slice(flat.text(), start, end));
   }
 
   private static String label(JsonNode region) {

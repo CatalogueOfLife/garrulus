@@ -76,7 +76,7 @@ public class CuratedSelector {
     return out;
   }
 
-  /** The first {@code dev} picks become dev, the others test; picks of different languages alternate so both splits mix them. */
+  /** The first {@code dev} picks become dev, the others test. NON_EN picks alternate es, pt, fr, de, so dev has es 2, pt 2, fr 1, de 1 (not balanced per language). */
   private static List<Pick> split(List<Pick> picks, int dev) {
     List<Pick> out = new ArrayList<>();
     for (int i = 0; i < picks.size(); i++) {

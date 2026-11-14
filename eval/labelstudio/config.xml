@@ -48,5 +48,5 @@
             placeholder="FAMILY: Opheliidae; ORDER: Phyllodocida"
             whenTagName="label" whenLabelValue="Context"/>
 
-  <Text name="text" value="$text" granularity="symbol" saveTextResult="no"/>
+  <Text name="text" value="$text" granularity="symbol" saveTextResult="yes"/>
 </View>

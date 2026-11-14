@@ -56,4 +56,18 @@ public record CuratedManifest(List<Row> rows) {
       throw new UncheckedIOException(e);
     }
   }
+
+  /** Fails, naming the docId, if an imported document is not in this manifest or its text hash differs from the manifest. */
+  public void check(List<org.catalogueoflife.nametracker.eval.corpus.GoldDocument> docs) {
+    java.util.Map<String, Row> byId = new java.util.HashMap<>();
+    rows.forEach(r -> byId.put(r.docId(), r));
+    for (var d : docs) {
+      Row r = byId.get(d.docId());
+      if (r == null) throw new IllegalStateException("Document " + d.docId() + " is not in the curated manifest");
+      if (!r.textSha256().equals(d.textSha256())) {
+        throw new IllegalStateException("Document " + d.docId() + " has text SHA-256 " + d.textSha256()
+            + " but the curated manifest expects " + r.textSha256() + ": the Label Studio task is not from this selection");
+      }
+    }
+  }
 }

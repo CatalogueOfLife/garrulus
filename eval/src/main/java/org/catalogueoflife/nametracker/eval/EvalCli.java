@@ -256,10 +256,12 @@ public class EvalCli implements Runnable {
   public static class LsImport implements Callable<Integer> {
     @Option(names = "--export", required = true, description = "the Label Studio JSON export") Path export;
     @Option(names = "--out", description = "gold.jsonl.gz to write, e.g. eval/corpus/curated/gold.jsonl.gz") Path out;
+    @Option(names = "--manifest", defaultValue = "eval/corpus/curated/manifest.tsv", description = "curated manifest whose text hashes the documents must match, default ${DEFAULT-VALUE}") Path manifest;
 
     @Override
     public Integer call() throws Exception {
       List<GoldDocument> docs = LabelStudioImporter.read(export);
+      CuratedManifest.read(manifest).check(docs);
       int names = 0, acts = 0, contexts = 0, subjects = 0;
       for (GoldDocument d : docs) {
         names += d.names().size();

@@ -275,3 +275,27 @@ A document whose abstract reads "Abstract not available. © 2025 Publisher" or `
 - [ ] Every `Context` has `ranks` text (unless it is a rank heading).
 - [ ] `main_subject` is ticked for the document's focal names.
 - [ ] `doc` is `ok`, or `bad_text` and nothing else is needed.
+
+## 11. Maintainer notes (not for annotators)
+
+**Offsets.** Our contract counts Unicode code points. Label Studio's Text tag runs in the browser, where string indices are
+most likely UTF-16 units; we have not verified this against the frontend source. The config therefore sets
+`saveTextResult="yes"` so every exported region carries `value.text`, and the importer checks it: offsets are read as code points
+first, and only if the text then differs they are tried as UTF-16 units and converted. If neither fits, the import fails with
+the docId and region id. One INFO line is logged per import when the UTF-16 reading was needed. Pre-tags are exported with
+code point offsets, so if LS counts UTF-16, pre-tag highlights after an astral character (an emoji, some rare script
+characters) may render shifted by one per such character. Annotators should fix shifted highlights; whatever they save is
+imported correctly either way.
+
+**Scripted Label Studio (1.23.x).** Legacy API tokens are disabled for new organizations (HTTP 401 "legacy token authentication has
+been disabled"). To drive LS through its REST API with `LABEL_STUDIO_USER_TOKEN`:
+
+1. Choose local-only values in your shell (or a git-ignored `.env`), never commit them:
+   `export LABEL_STUDIO_USERNAME=<email> LABEL_STUDIO_PASSWORD=<random> LABEL_STUDIO_USER_TOKEN=<random 40 hex>`.
+2. `docker compose --profile annotate up -d labelstudio` and wait for `http://127.0.0.1:8090/health`.
+3. Once per fresh LS volume, enable legacy tokens for the organization:
+   `docker compose --profile annotate exec -T labelstudio sh -c 'cd /label-studio/label_studio && python manage.py shell -c "from organizations.models import Organization; j=Organization.objects.first().jwt; j.legacy_api_tokens_enabled=True; j.save()"'`
+4. Call the API with `Authorization: Token $LABEL_STUDIO_USER_TOKEN`: `POST /api/projects` (JSON `title`, `label_config` =
+   contents of `eval/labelstudio/config.xml`), `POST /api/projects/<id>/import` (the tasks file),
+   `POST /api/tasks/<id>/annotations` (`result`, `was_cancelled:false`), `GET /api/projects/<id>/export?exportType=JSON`.
+5. `ls-import --export <file>` checks every document's text hash against `eval/corpus/curated/manifest.tsv`.

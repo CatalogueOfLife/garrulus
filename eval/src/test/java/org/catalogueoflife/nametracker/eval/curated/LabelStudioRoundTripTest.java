@@ -226,8 +226,11 @@ class LabelStudioRoundTripTest {
 
   @Test
   void regionsAcrossBlocksAreRejected() throws Exception {
-    String ann = "{\"id\":1,\"was_cancelled\":false,\"result\":[" + label("n1", 30, 40, "x", "Name") + "]}";
-    assertThatThrownBy(() -> LabelStudioImporter.read(write(task(data(true), ann)))).hasMessageContaining("openalex:W1");
+    String across = FLAT.text().codePoints().skip(30).limit(10).collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
+        .toString().replace("\n", "\\n");
+    String ann = "{\"id\":1,\"was_cancelled\":false,\"result\":[" + label("n1", 30, 40, across, "Name") + "]}";
+    assertThatThrownBy(() -> LabelStudioImporter.read(write(task(data(true), ann))))
+        .hasMessageContaining("openalex:W1").hasMessageContaining("more than one block");
   }
 
   @Test
@@ -238,5 +241,61 @@ class LabelStudioRoundTripTest {
     assertThat(g.document().blocks()).allSatisfy(b -> assertThat(b.text()).isEmpty());
     assertThat(g.textSha256()).isEqualTo(GoldDocument.textHash(DOC));
     assertThat(g.names()).hasSize(1);
+  }
+
+  private String annotation(String... items) {
+    return "{\"id\":1,\"was_cancelled\":false,\"result\":[" + String.join(",", items) + "]}";
+  }
+
+  @Test
+  void utf16OffsetsAreConvertedWhenTheTextOnlyMatchesThatWay() throws Exception {
+    // "Carabus" is at code point 10..17 of b2 (flat 45..52); after the emoji (two UTF-16 units) it is at 46..53
+    GoldDocument cp = LabelStudioImporter.read(write(task(data(true), annotation(label("n", 45, 52, "Carabus", "Name"))))).get(0);
+    GoldDocument u16 = LabelStudioImporter.read(write(task(data(true), annotation(label("n", 46, 53, "Carabus", "Name"))))).get(0);
+    assertThat(cp.names()).hasSize(1);
+    assertThat(u16.names()).isEqualTo(cp.names());
+    assertThat(u16.names().get(0).start()).isEqualTo(10);
+    assertThat(u16.names().get(0).end()).isEqualTo(17);
+  }
+
+  @Test
+  void textMatchingNeitherInterpretationFailsWithDocAndRegionId() throws Exception {
+    assertThatThrownBy(() -> LabelStudioImporter.read(write(task(data(true), annotation(label("reg7", 45, 52, "Carabuz", "Name"))))))
+        .isInstanceOf(IllegalStateException.class).hasMessageContaining("openalex:W1").hasMessageContaining("reg7")
+        .hasMessageContaining("Carabuz");
+  }
+
+  @Test
+  void severalActOfRelationsOnOneActFail() throws Exception {
+    String rel1 = "{\"from_id\":\"a1\",\"to_id\":\"n1\",\"type\":\"relation\",\"labels\":[\"act_of\"]}";
+    String rel2 = "{\"from_id\":\"a1\",\"to_id\":\"n2\",\"type\":\"relation\",\"labels\":[\"act_of\"]}";
+    String ann = annotation(label("n1", 0, 13, "Ophelia yangi", "Name"), label("n2", 45, 52, "Carabus", "Name"),
+        label("a1", 14, 22, "sp. nov.", "Act"), choice("a1", "act_type", "SP_NOV"), rel1, rel2);
+    assertThatThrownBy(() -> LabelStudioImporter.read(write(task(data(true), ann))))
+        .hasMessageContaining("openalex:W1").hasMessageContaining("a1").hasMessageContaining("more than one act_of");
+  }
+
+  private static String ranks(String id, String value) {
+    return "{\"id\":\"" + id + "\",\"from_name\":\"ranks\",\"to_name\":\"text\",\"type\":\"textarea\",\"value\":{\"text\":[" + value + "]}}";
+  }
+
+  @Test
+  void ranksTextAreaAcceptsLinesEntriesAndEqualsSign() throws Exception {
+    String ctx = label("c1", 0, 13, "Ophelia yangi", "Context");
+    List<GoldDocument> g = LabelStudioImporter.read(write(task(data(true),
+        annotation(ctx, ranks("c1", "\"phylum = Annelida\\nFAMILY: Opheliidae; order: Phyllodocida\"")))));
+    assertThat(g.get(0).contexts().get(0).ranks()).containsExactly(new RankedName(Rank.PHYLUM, "Annelida"),
+        new RankedName(Rank.FAMILY, "Opheliidae"), new RankedName(Rank.ORDER, "Phyllodocida"));
+    // several text entries are joined like several lines
+    List<GoldDocument> g2 = LabelStudioImporter.read(write(task(data(true),
+        annotation(ctx, ranks("c1", "\"FAMILY: Opheliidae\",\"ORDER: Phyllodocida\"")))));
+    assertThat(g2.get(0).contexts().get(0).ranks()).hasSize(2);
+  }
+
+  @Test
+  void unknownRankFails() throws Exception {
+    String ctx = label("c1", 0, 13, "Ophelia yangi", "Context");
+    assertThatThrownBy(() -> LabelStudioImporter.read(write(task(data(true), annotation(ctx, ranks("c1", "\"FAMLY: Opheliidae\""))))))
+        .hasMessageContaining("openalex:W1").hasMessageContaining("unknown rank").hasMessageContaining("FAMLY");
   }
 }
