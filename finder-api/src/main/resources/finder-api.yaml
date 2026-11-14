@@ -29,6 +29,67 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FinderResult'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '413': {$ref: '#/components/responses/TooLarge'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /v1/find/text:
+    post:
+      operationId: findText
+      description: |
+        Convenience form of /v1/find for plain text. The text becomes the single PARAGRAPH block `b1` of a document
+        with id `text`; mention offsets are code points into that text. Default options.
+      parameters:
+        - name: language
+          in: query
+          required: false
+          description: ISO 639-1 code of the text, e.g. `en`; unknown if absent
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema: {type: string}
+      responses:
+        '200':
+          description: Names found
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/FinderResult'}
+        '413': {$ref: '#/components/responses/TooLarge'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /v1/find/jats:
+    post:
+      operationId: findJats
+      description: |
+        Convenience form of /v1/find for a JATS or TaxPub article (UTF-8 or another ASCII-compatible encoding). The
+        server converts it into a document with id `jats`, keeping italics and TaxPub name markup as style spans; mention
+        block ids refer to that converted document. Default options.
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema: {type: string}
+          text/xml:
+            schema: {type: string}
+      responses:
+        '200':
+          description: Names found
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/FinderResult'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '413': {$ref: '#/components/responses/TooLarge'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /v1/openapi.yaml:
+    get:
+      operationId: openapi
+      description: This contract.
+      responses:
+        '200':
+          description: The OpenAPI document
+          content:
+            application/yaml:
+              schema: {type: string}
   /v1/info:
     get:
       operationId: info
@@ -39,7 +100,29 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/FinderInfo'}
 components:
+  responses:
+    BadRequest:
+      description: The request cannot be read (malformed JSON or XML, no document)
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    TooLarge:
+      description: The request body is larger than the service allows (20 MB for finder-service)
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Unavailable:
+      description: A helper service of the finder (gnfinder for the default pipeline) cannot be reached; retry later
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
   schemas:
+    Error:
+      type: object
+      required: [status, error]
+      properties:
+        status: {type: integer, description: the HTTP status}
+        error: {type: string, description: what went wrong}
     Document:
       type: object
       required: [id, blocks, meta]

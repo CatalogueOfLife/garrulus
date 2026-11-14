@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.catalogueoflife.nametracker.finder.api.*;
+import org.catalogueoflife.nametracker.finder.gnfinder.GnfinderUnavailableException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -139,16 +140,33 @@ class FindControllerTest {
 
   @Test
   void gnfinderDownIs503WithAJsonBody() throws Exception {
-    STUB.failure = new UncheckedIOException(new java.net.ConnectException("refused"));
+    STUB.failure = new GnfinderUnavailableException("gnfinder at http://x/api/v1/find is not available: ConnectException",
+        new java.net.ConnectException("refused"));
     mvc.perform(post("/v1/find").contentType(MediaType.APPLICATION_JSON).content(REQUEST))
         .andExpect(status().isServiceUnavailable()).andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.status").value(503)).andExpect(jsonPath("$.error").isNotEmpty());
+        .andExpect(jsonPath("$.status").value(503)).andExpect(jsonPath("$.error").value(org.hamcrest.Matchers.containsString("gnfinder")));
   }
 
   @Test
   void gnfinderErrorStatusIs503() throws Exception {
-    STUB.failure = new IllegalStateException("gnfinder at http://x/api/v1/find returned HTTP 500");
+    STUB.failure = new GnfinderUnavailableException("gnfinder at http://x/api/v1/find returned HTTP 500");
     mvc.perform(post("/v1/find/text").contentType(MediaType.TEXT_PLAIN).content("x")).andExpect(status().isServiceUnavailable());
+  }
+
+  @Test
+  void aWrappedGnfinderFailureIs503() throws Exception {
+    STUB.failure = new IllegalStateException("pipeline failed", new GnfinderUnavailableException("gnfinder at x returned HTTP 502"));
+    mvc.perform(post("/v1/find/text").contentType(MediaType.TEXT_PLAIN).content("x")).andExpect(status().isServiceUnavailable())
+        .andExpect(jsonPath("$.error").value("gnfinder at x returned HTTP 502"));
+  }
+
+  @Test
+  void otherIoProblemsAreNot503() {
+    // only the dedicated type means "gnfinder is down"; anything else is a server error
+    STUB.failure = new UncheckedIOException(new IOException("disk"));
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+        () -> mvc.perform(post("/v1/find/text").contentType(MediaType.TEXT_PLAIN).content("x")))
+        .hasRootCauseInstanceOf(IOException.class);
   }
 
   @Test
@@ -176,5 +194,14 @@ class FindControllerTest {
     MvcResult r = mvc.perform(get("/v1/openapi.yaml")).andExpect(status().isOk()).andReturn();
     assertThat(r.getResponse().getContentAsString(StandardCharsets.UTF_8)).contains("Garrulus finder API");
     assertThat(r.getResponse().getContentType()).contains("yaml");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void theContractDocumentsEveryEndpoint() throws Exception {
+    String yaml = mvc.perform(get("/v1/openapi.yaml")).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+    java.util.Map<String, Object> doc = new org.yaml.snakeyaml.Yaml().load(yaml);
+    assertThat(((java.util.Map<String, Object>) doc.get("paths")).keySet())
+        .containsExactlyInAnyOrder("/v1/find", "/v1/find/text", "/v1/find/jats", "/v1/openapi.yaml", "/v1/info");
   }
 }

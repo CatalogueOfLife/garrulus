@@ -1,20 +1,13 @@
 package org.catalogueoflife.nametracker.eval;
 
 import org.catalogueoflife.nametracker.finder.api.NameFinder;
-import org.catalogueoflife.nametracker.finder.dict.ColDictionary;
-import org.catalogueoflife.nametracker.finder.dict.ColDictionaryIO;
-import org.catalogueoflife.nametracker.finder.gnfinder.GnfinderClient;
 import org.catalogueoflife.nametracker.finder.gnfinder.GnfinderOnlyFinder;
 import org.catalogueoflife.nametracker.finder.pipeline.PipelineConfig;
+import org.catalogueoflife.nametracker.finder.pipeline.PipelineFactory;
 import org.catalogueoflife.nametracker.finder.remote.RemoteNameFinder;
-import org.catalogueoflife.nametracker.finder.pipeline.PipelineNameFinder;
-import org.gbif.nameparser.rust.NameParserRust;
 import org.jspecify.annotations.Nullable;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.URI;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.function.UnaryOperator;
@@ -27,7 +20,8 @@ import java.util.function.UnaryOperator;
  *   <li>{@code remote:<url>} calls a finder service (finder-service, or any implementation of finder-api.yaml), e.g.
  *       {@code remote:http://localhost:8095}.</li>
  *   <li>pipeline needs the COL dictionary file built by {@code eval build-dictionary}: the given path, else the environment
- *       variable FINDER_DICTIONARY. It runs with the defaults of {@link PipelineConfig}.</li>
+ *       variable FINDER_DICTIONARY. It runs with the defaults of {@link PipelineConfig} and is assembled by
+ *       {@link PipelineFactory}, as in the finder service.</li>
  * </ul>
  */
 public final class FinderFactory {
@@ -56,9 +50,8 @@ public final class FinderFactory {
     if (name.startsWith(REMOTE_PREFIX)) return remote(name.substring(REMOTE_PREFIX.length()));
     return switch (name) {
       case "italics" -> new ItalicsFinder();
-      case "gnfinder" -> new GnfinderOnlyFinder(gnfinder(env));
-      case "pipeline" -> new PipelineNameFinder(PipelineConfig.defaults(), gnfinder(env), dictionary(dictionary, env),
-          new NameParserRust());
+      case "gnfinder" -> new GnfinderOnlyFinder(PipelineFactory.gnfinder(env.apply(GNFINDER_ENV)));
+      case "pipeline" -> PipelineFactory.create(dictionaryFile(dictionary, env), env.apply(GNFINDER_ENV), null);
       default -> throw new IllegalArgumentException("Unknown finder '" + name + "'. Available finders: " + String.join(", ", available())
           + ", " + REMOTE_PREFIX + "<url>");
     };
@@ -77,12 +70,8 @@ public final class FinderFactory {
     return new RemoteNameFinder(u);
   }
 
-  private static GnfinderClient gnfinder(UnaryOperator<String> env) {
-    String url = env.apply(GNFINDER_ENV);
-    return new GnfinderClient(URI.create(url == null || url.isBlank() ? "http://localhost:8778" : url));
-  }
-
-  private static ColDictionary dictionary(@Nullable Path given, UnaryOperator<String> env) {
+  /** The dictionary file: the given one, else FINDER_DICTIONARY. */
+  static Path dictionaryFile(@Nullable Path given, UnaryOperator<String> env) {
     Path file = given;
     if (file == null) {
       String v = env.apply(DICTIONARY_ENV);
@@ -92,13 +81,6 @@ public final class FinderFactory {
       throw new IllegalArgumentException("The pipeline finder needs the COL dictionary: pass --dictionary <file> or set "
           + DICTIONARY_ENV + " (build one with: eval build-dictionary --xr <XR zip> --out eval/work)");
     }
-    if (!Files.isRegularFile(file)) {
-      throw new IllegalArgumentException("COL dictionary file " + file + " does not exist (build one with: eval build-dictionary)");
-    }
-    try {
-      return ColDictionaryIO.read(file);
-    } catch (IOException e) {
-      throw new UncheckedIOException("Cannot read COL dictionary " + file + ": " + e.getMessage(), e);
-    }
+    return file;
   }
 }

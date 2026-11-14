@@ -2,6 +2,7 @@ package org.catalogueoflife.nametracker.finder.service;
 
 import jakarta.servlet.http.HttpServletResponse;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
+import org.catalogueoflife.nametracker.finder.gnfinder.GnfinderUnavailableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -10,13 +11,14 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** Every error is a JSON object {@code {"status": 503, "error": "..."}}, never a stack trace. */
+/**
+ * Every error is a JSON object {@code {"status": 503, "error": "..."}}, never a stack trace. gnfinder being unavailable
+ * ({@link GnfinderUnavailableException}, also as a cause) is 503.
+ */
 @RestControllerAdvice
 public class ApiErrors {
   private static final System.Logger LOG = System.getLogger(ApiErrors.class.getName());
@@ -56,27 +58,26 @@ public class ApiErrors {
     return reply(HttpStatus.PAYLOAD_TOO_LARGE, e.getMessage());
   }
 
+  @ExceptionHandler(GnfinderUnavailableException.class)
+  ResponseEntity<Map<String, Object>> gnfinderUnavailable(GnfinderUnavailableException e) {
+    return unavailable(e);
+  }
+
   @ExceptionHandler(Exception.class)
   ResponseEntity<Map<String, Object>> other(Exception e) throws Exception {
     if (find(e, FinderWebConfig.BodyTooLargeException.class) != null) return reply(HttpStatus.PAYLOAD_TOO_LARGE, tooLarge());
-    if (gnfinderProblem(e)) {
-      LOG.log(System.Logger.Level.WARNING, "gnfinder is not available: {0}", root(e));
-      return reply(HttpStatus.SERVICE_UNAVAILABLE, "gnfinder is not available: " + root(e));
-    }
+    GnfinderUnavailableException gn = find(e, GnfinderUnavailableException.class);
+    if (gn != null) return unavailable(gn); // wrapped by someone on the way
     throw e; // Spring's own handling of the rest: 404, 405, 415 stay what they are, anything else is a logged 500
+  }
+
+  private static ResponseEntity<Map<String, Object>> unavailable(GnfinderUnavailableException e) {
+    LOG.log(System.Logger.Level.WARNING, "gnfinder is not available: {0}", e.getMessage());
+    return reply(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage());
   }
 
   private static String tooLarge() {
     return "Request body is larger than " + (FinderWebConfig.MAX_BODY / 1024 / 1024) + " MB";
-  }
-
-  /** A failed call to gnfinder: the client wraps I/O problems unchecked and reports a bad status as "gnfinder at ...". */
-  static boolean gnfinderProblem(Throwable e) {
-    for (Throwable t = e; t != null; t = t.getCause()) {
-      if (t instanceof UncheckedIOException || t instanceof HttpTimeoutException || t instanceof java.net.ConnectException) return true;
-      if (t instanceof IllegalStateException && t.getMessage() != null && t.getMessage().startsWith("gnfinder at ")) return true;
-    }
-    return false;
   }
 
   private static <T extends Throwable> T find(Throwable e, Class<T> type) {

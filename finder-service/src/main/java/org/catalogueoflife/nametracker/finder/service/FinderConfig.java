@@ -1,18 +1,13 @@
 package org.catalogueoflife.nametracker.finder.service;
 
 import org.catalogueoflife.nametracker.finder.api.NameFinder;
-import org.catalogueoflife.nametracker.finder.dict.ColDictionary;
-import org.catalogueoflife.nametracker.finder.dict.ColDictionaryIO;
-import org.catalogueoflife.nametracker.finder.gnfinder.GnfinderClient;
 import org.catalogueoflife.nametracker.finder.pipeline.PipelineConfig;
-import org.catalogueoflife.nametracker.finder.pipeline.PipelineNameFinder;
-import org.gbif.nameparser.rust.NameParserRust;
+import org.catalogueoflife.nametracker.finder.pipeline.PipelineFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.io.IOException;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,6 +15,7 @@ import java.nio.file.Path;
 /**
  * Assembles the pipeline finder. Environment: FINDER_DICTIONARY (required), GNFINDER_URL, FINDER_CONFIG (optional file
  * with a JSON object of overrides, see {@link PipelineConfig}). Any problem fails startup with a message that says what to fix.
+ * The finder itself is assembled by {@link PipelineFactory}, as in the eval CLI.
  */
 @Configuration
 public class FinderConfig {
@@ -34,15 +30,13 @@ public class FinderConfig {
     if (!Files.isRegularFile(dict)) {
       throw new IllegalStateException("FINDER_DICTIONARY " + dict + " does not exist. " + NO_DICTIONARY);
     }
-    ColDictionary d = ColDictionaryIO.read(dict); // an old format fails here with the rebuild hint
-
-    PipelineConfig cfg = PipelineConfig.defaults();
+    String overrides = null;
     if (configFile != null && !configFile.isBlank()) {
       Path f = Path.of(configFile);
       if (!Files.isRegularFile(f)) throw new IllegalStateException("FINDER_CONFIG " + f + " does not exist");
-      cfg = cfg.withOverrides(Files.readString(f, StandardCharsets.UTF_8));
+      overrides = Files.readString(f, StandardCharsets.UTF_8);
     }
-    String url = gnfinderUrl == null || gnfinderUrl.isBlank() ? "http://localhost:8778" : gnfinderUrl;
-    return new PipelineNameFinder(cfg, new GnfinderClient(URI.create(url)), d, new NameParserRust());
+    // an old dictionary format fails here with the rebuild hint
+    return PipelineFactory.create(dict, gnfinderUrl, overrides);
   }
 }

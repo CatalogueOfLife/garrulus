@@ -4,7 +4,6 @@ import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -12,7 +11,10 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
-/** Calls POST {base}/api/v1/find of a gnfinder service. Not final, so that tests can override {@link #find(String)}. */
+/**
+ * Calls POST {base}/api/v1/find of a gnfinder service. Not final, so that tests can override {@link #find(String)}.
+ * Connection and I/O failures, timeouts and any status other than 200 throw {@link GnfinderUnavailableException}.
+ */
 public class GnfinderClient {
   private static final JsonMapper MAPPER = FinderJson.mapper();
   private static final Duration TIMEOUT = Duration.ofMinutes(1);
@@ -33,22 +35,28 @@ public class GnfinderClient {
     this(baseUrl, HttpClient.newHttpClient());
   }
 
+  /** @throws GnfinderUnavailableException if gnfinder cannot be reached or does not answer with HTTP 200 */
   public GnfinderResponse find(String text) {
+    HttpResponse<String> resp;
     try {
       HttpRequest req = HttpRequest.newBuilder(endpoint).timeout(TIMEOUT)
           .header("Content-Type", "application/json").header("Accept", "application/json").header("User-Agent", userAgent)
           .POST(HttpRequest.BodyPublishers.ofString(MAPPER.writeValueAsString(GnfinderRequest.of(text)), StandardCharsets.UTF_8))
           .build();
-      HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-      if (resp.statusCode() != 200) {
-        throw new IllegalStateException("gnfinder at " + endpoint + " returned HTTP " + resp.statusCode());
-      }
-      return MAPPER.readValue(resp.body(), GnfinderResponse.class);
+      resp = http.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
     } catch (IOException e) {
-      throw new UncheckedIOException(e);
+      throw new GnfinderUnavailableException("gnfinder at " + endpoint + " is not available: " + describe(e), e);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new IllegalStateException("Interrupted while calling gnfinder", e);
     }
+    if (resp.statusCode() != 200) {
+      throw new GnfinderUnavailableException("gnfinder at " + endpoint + " returned HTTP " + resp.statusCode());
+    }
+    return MAPPER.readValue(resp.body(), GnfinderResponse.class);
+  }
+
+  private static String describe(IOException e) {
+    return e.getMessage() == null ? e.getClass().getSimpleName() : e.getClass().getSimpleName() + ": " + e.getMessage();
   }
 }
