@@ -42,4 +42,17 @@ class AbstractConverterTest {
     Document bad = AbstractConverter.fromParts("d", null, "fallback", "<jats:p>broken");
     assertThat(bad.blocks()).extracting(Block::text).containsExactly("fallback");
   }
+
+  @Test void structuredCrossrefAbstractKeepsNestedParagraphs() {
+    String jats = "<jats:sec><jats:title>Background</jats:title><jats:p>The genus <jats:italic>Carabus</jats:italic> is large.</jats:p></jats:sec>"
+      + "<jats:sec><jats:title>Results</jats:title><jats:p>Two species were found.</jats:p></jats:sec>";
+    Document d = AbstractConverter.fromParts("d2", "T", "plain", jats);
+    assertThat(d.blocks()).extracting(Block::type).containsExactly(BlockType.TITLE, BlockType.ABSTRACT, BlockType.ABSTRACT);
+    Block p = d.blocks().get(1);
+    assertThat(p.text()).isEqualTo("The genus Carabus is large.");
+    assertThat(p.styles()).hasSize(1);
+    assertThat(p.styles().get(0).style()).isEqualTo(Style.ITALIC);
+    assertThat(CodePoints.slice(p.text(), p.styles().get(0).start(), p.styles().get(0).end())).isEqualTo("Carabus");
+    assertThat(d.blocks().get(2).text()).isEqualTo("Two species were found.");
+  }
 }
