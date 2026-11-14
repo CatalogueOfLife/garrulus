@@ -11,6 +11,7 @@ import org.catalogueoflife.nametracker.finder.pipeline.Tokenizer.Token;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.IntPredicate;
 
 /**
  * Candidates from document markup. Inside each ITALIC span the maximal runs of name-shaped tokens become candidates
@@ -31,6 +32,7 @@ public class MarkupGenerator implements CandidateGenerator {
     for (Block b : doc.blocks()) {
       int[] cps = b.text().codePoints().toArray();
       List<StyleSpan> spans = mergeItalics(b.styles(), cps);
+      IntPredicate markers = null;
       for (StyleSpan s : spans) {
         int from = Math.max(0, s.start());
         int to = Math.min(cps.length, s.end());
@@ -39,7 +41,8 @@ public class MarkupGenerator implements CandidateGenerator {
           String v = new String(cps, from, to - from);
           if (!v.isBlank()) out.add(new Candidate(b.id(), from, to, v, NameShape.collapse(v.strip()), Generator.TAXON_MARKUP, Map.of()));
         } else if (s.style() == Style.ITALIC) {
-          italic(b, cps, from, to, out);
+          if (markers == null) markers = NameShape.actMarkerStarts(cps); // on the whole block: a marker may run past the italics
+          italic(b, cps, from, to, markers, out);
         }
       }
     }
@@ -76,9 +79,10 @@ public class MarkupGenerator implements CandidateGenerator {
     return true;
   }
 
-  private static void italic(Block b, int[] full, int from, int to, List<Candidate> out) {
+  private static void italic(Block b, int[] full, int from, int to, IntPredicate markers, List<Candidate> out) {
     int[] cps = java.util.Arrays.copyOfRange(full, from, to);
     List<Token> toks = Tokenizer.tokens(cps);
+    NameShape.Rules rules = new NameShape.Rules(x -> x.length() >= 3, k -> markers.test(from + k));
     int i = 0;
     while (i < toks.size()) {
       Token t = toks.get(i);
@@ -87,7 +91,7 @@ public class MarkupGenerator implements CandidateGenerator {
         i++;
         continue;
       }
-      NameShape.Run r = NameShape.follow(cps, toks, i, x -> x.length() >= 3);
+      NameShape.Run r = NameShape.follow(cps, toks, i, rules);
       boolean abbr = NameShape.isAbbreviation(w);
       boolean ok = abbr ? r.epithets() > 0 : (r.epithets() > 0 || r.subgenus() || w.length() >= 3);
       if (ok) {

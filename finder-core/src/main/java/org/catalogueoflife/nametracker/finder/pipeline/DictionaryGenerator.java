@@ -45,6 +45,7 @@ public class DictionaryGenerator implements CandidateGenerator {
   private void scan(Block b, List<Candidate> out) {
     int[] cps = b.text().codePoints().toArray();
     List<Token> toks = Tokenizer.tokens(cps);
+    NameShape.Rules rules = new NameShape.Rules(dict::isEpithet, NameShape.actMarkerStarts(cps));
     int i = 0;
     while (i < toks.size()) {
       Token t = toks.get(i);
@@ -55,7 +56,7 @@ public class DictionaryGenerator implements CandidateGenerator {
       }
       int next = i + 1;
       if (NameShape.isAbbreviation(w)) {
-        NameShape.Run r = NameShape.follow(cps, toks, i, dict::isEpithet);
+        NameShape.Run r = NameShape.follow(cps, toks, i, rules);
         if (r.epithets() > 0) {
           out.add(candidate(b, cps, t.start(), r.endCp(), DictHit.EPITHET, false));
           next = r.lastToken() + 1;
@@ -66,7 +67,7 @@ public class DictionaryGenerator implements CandidateGenerator {
           }
         }
       } else if (dict.isGenus(w) || dict.isUninomial(w)) {
-        NameShape.Run r = dict.isGenus(w) ? NameShape.follow(cps, toks, i, dict::isEpithet) : new NameShape.Run(i, t.end(), false, 0, -1);
+        NameShape.Run r = dict.isGenus(w) ? NameShape.follow(cps, toks, i, rules) : new NameShape.Run(i, t.end(), false, 0, -1);
         boolean amb = dict.isAmbiguousWord(w);
         out.add(candidate(b, cps, t.start(), r.endCp(), hitOf(w, r, toks), amb));
         next = r.lastToken() + 1;

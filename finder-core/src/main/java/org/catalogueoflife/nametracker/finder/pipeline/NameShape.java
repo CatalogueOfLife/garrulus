@@ -2,8 +2,10 @@ package org.catalogueoflife.nametracker.finder.pipeline;
 
 import org.catalogueoflife.nametracker.finder.pipeline.Tokenizer.Token;
 
+import java.util.BitSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.IntPredicate;
 import java.util.function.Predicate;
 
 /** Shared shape rules for the generators that follow a name over several tokens. */
@@ -22,6 +24,22 @@ final class NameShape {
 
   /** The end of a name run that starts at token {@code first}. */
   record Run(int lastToken, int endCp, boolean subgenus, int epithets, int firstEpithetToken) {}
+
+  /**
+   * What may continue a name.
+   *
+   * @param epithet which lower-case words count as bare epithets; the one after a rank marker is always taken
+   * @param markerAt whether a nomenclatural act marker ("gen. nov.", "comb. n.") starts at a code-point offset of the
+   *                 token array; a token there is never an epithet, whatever the dictionary says
+   */
+  record Rules(Predicate<String> epithet, IntPredicate markerAt) {}
+
+  /** Code-point offsets of {@code cps} at which an act marker of {@link ActPatterns} starts. */
+  static IntPredicate actMarkerStarts(int[] cps) {
+    BitSet starts = new BitSet();
+    for (ActPatterns.ActMatch m : ActPatterns.find(new String(cps, 0, cps.length))) starts.set(m.start());
+    return starts::get;
+  }
 
   static boolean isCapitalised(String t) {
     return !t.isEmpty() && Character.isUpperCase(t.codePointAt(0));
@@ -57,11 +75,10 @@ final class NameShape {
 
   /**
    * Follows the name that starts at token {@code i}: an optional "(Subgenus)", then up to two epithets (species and one
-   * infraspecific, which may follow a rank marker with its dot). A rank marker never counts as an epithet itself. Runs stop at any gap that is not plain whitespace.
-   *
-   * @param epithetOk decides which lower-case words count as bare epithets, the one after a rank marker is always taken
+   * infraspecific, which may follow a rank marker with its dot). A rank marker never counts as an epithet itself, nor does a
+   * word that starts an act marker ("gen. nov."). Runs stop at any gap that is not plain whitespace.
    */
-  static Run follow(int[] cps, List<Token> toks, int i, Predicate<String> epithetOk) {
+  static Run follow(int[] cps, List<Token> toks, int i, Rules rules) {
     int n = toks.size();
     int k = i;
     int end = toks.get(i).end();
@@ -79,14 +96,15 @@ final class NameShape {
     int first = -1;
     while (count < 2 && k + 1 < n) {
       Token t = toks.get(k + 1);
-      if (!spaceGap(cps, end, t.start())) break;
+      if (!spaceGap(cps, end, t.start()) || rules.markerAt().test(t.start())) break;
       String w = t.text();
       if (RANK_MARKERS.contains(w)) {
         if (count < 1 || k + 2 >= n) break;
         int mEnd = t.end();
         if (mEnd < cps.length && cps[mEnd] == '.') mEnd++;
         Token e = toks.get(k + 2);
-        if (spaceGap(cps, mEnd, e.start()) && isLowerWord(e.text()) && e.text().length() >= 3 && !STOP.contains(e.text())) {
+        if (spaceGap(cps, mEnd, e.start()) && isLowerWord(e.text()) && e.text().length() >= 3 && !STOP.contains(e.text())
+            && !rules.markerAt().test(e.start())) {
           k += 2;
           end = e.end();
           count++;
@@ -94,7 +112,7 @@ final class NameShape {
         }
         break;
       }
-      if (isLowerWord(w) && !STOP.contains(w) && epithetOk.test(w)) {
+      if (isLowerWord(w) && !STOP.contains(w) && rules.epithet().test(w)) {
         if (first < 0) first = k + 1;
         k++;
         end = t.end();

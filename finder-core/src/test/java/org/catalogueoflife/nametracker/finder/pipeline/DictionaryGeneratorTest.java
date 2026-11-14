@@ -105,6 +105,29 @@ class DictionaryGeneratorTest {
     assertThat(run("Carabus nigrus sensu lato").get(0).verbatim()).isEqualTo("Carabus nigrus");
   }
 
+  private static final String HEADER = "col:ID\tcol:rank\tcol:uninomial\tcol:genericName\tcol:specificEpithet\tcol:infraspecificEpithet\n";
+
+  private static List<Candidate> runWith(String tsvRows, String text) throws Exception {
+    ColDictionary d = ColDictionaryBuilder.fromNameUsageTsv(new java.io.StringReader(HEADER + tsvRows), "1", CommonWords.of(List.of()));
+    Document doc = new Document("d", null, List.of(new Block("b1", BlockType.PARAGRAPH, 0, text, List.of(), List.of())), null);
+    List<Candidate> cs = new DictionaryGenerator(d).generate(doc, FlatText.of(doc), new GenerationContext(null));
+    assertSpans(text, cs);
+    return cs;
+  }
+
+  @Test
+  void actMarkerWordsAreNeverEpithets() throws Exception {
+    // "gen" and "comb" are COL epithets, but here they start act markers (dev: "Gemenesis gen. nov.",
+    // "Paramphibambusa bambusicola gen. et sp. nov.")
+    String rows = "1\tgenus\tGemenesis\t\t\t\n2\tspecies\t\tAus\tgen\t\n3\tspecies\t\tAus\tcomb\t\n"
+        + "4\tspecies\t\tParamphibambusa\tbambusicola\t\n5\tspecies\t\tCarabus\tnigrus\t\n";
+    String t = "Gemenesis gen. nov. and Paramphibambusa bambusicola gen. et sp. nov. differ; Carabus nigrus comb. nov. is old.";
+    assertThat(runWith(rows, t)).extracting(Candidate::verbatim)
+        .containsExactly("Gemenesis", "Paramphibambusa bambusicola", "Carabus nigrus");
+    // without a marker following, the same word is an epithet
+    assertThat(runWith(rows, "Gemenesis gen is odd.")).extracting(Candidate::verbatim).containsExactly("Gemenesis gen");
+  }
+
   @Test
   void parenthesisedWordIsNotASubgenus() {
     assertThat(run("Carabus nigrus (see below)").get(0).verbatim()).isEqualTo("Carabus nigrus");

@@ -82,6 +82,15 @@ class MarkupGeneratorTest {
   }
 
   @Test
+  void actMarkerWordIsNotAnEpithet() {
+    // dev: "Serralanguria gen. nov." with the italics covering "Serralanguria gen."; the marker runs past the italics
+    String t = "Serralanguria gen. nov. differs";
+    assertThat(run(t, span(t, "Serralanguria gen.", Style.ITALIC))).extracting(Candidate::verbatim).containsExactly("Serralanguria");
+    String t2 = "Serralanguria sinensis gen. et sp. nov.";
+    assertThat(run(t2, span(t2, t2, Style.ITALIC))).extracting(Candidate::verbatim).containsExactly("Serralanguria sinensis");
+  }
+
+  @Test
   void adjacentItalicSpansFormOneRun() {
     String t = "Carabus nigrus";
     List<Candidate> cs = run(t, new StyleSpan(0, 7, Style.ITALIC), new StyleSpan(8, 14, Style.ITALIC));
