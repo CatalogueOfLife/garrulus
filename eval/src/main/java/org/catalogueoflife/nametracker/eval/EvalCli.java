@@ -91,7 +91,7 @@ public class EvalCli implements Runnable {
 
   @Command(name = "run", mixinStandardHelpOptions = true, description = "Runs a finder over a corpus split and writes a report")
   public static class Run implements Callable<Integer> {
-    @Option(names = "--finder", required = true, description = "italics (more arrive with later tasks)") String finder;
+    @Option(names = "--finder", required = true, description = "italics or gnfinder (more arrive with later tasks)") String finder;
     @Option(names = "--corpus", required = true, description = "corpus directory holding gold.jsonl.gz") Path corpus;
     @Option(names = "--split", required = true, description = "dev or test") String split;
     @Option(names = "--mode", required = true, description = "A (plain text) or B (documents from PDF)") String mode;
