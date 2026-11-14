@@ -13,6 +13,7 @@ import org.catalogueoflife.nametracker.finder.doc.JatsOptions;
 import org.catalogueoflife.nametracker.finder.doc.NamePart;
 import org.catalogueoflife.nametracker.finder.doc.StatusMarkup;
 import org.catalogueoflife.nametracker.finder.doc.TaxonMarkup;
+import org.catalogueoflife.nametracker.finder.pipeline.ActPatterns;
 import org.gbif.nameparser.api.Rank;
 import org.jspecify.annotations.Nullable;
 
@@ -76,7 +77,7 @@ public final class TaxPubGoldExtractor {
 
     List<GoldAct> acts = new ArrayList<>();
     for (StatusMarkup s : c.statusMarkup()) {
-      ActType type = statusToAct(s.status());
+      ActType type = s.status() == null ? null : ActPatterns.classify(s.status()).orElse(null);
       GoldName n = byMarkup.get(s.taxonMarkupIndex());
       if (type == null || n == null || s.end() <= s.start()) continue;
       acts.add(new GoldAct(s.blockId(), s.start(), s.end(), type, n.text()));
@@ -140,22 +141,5 @@ public final class TaxPubGoldExtractor {
     } catch (IllegalArgumentException e) {
       return null;
     }
-  }
-
-  @Nullable
-  private static ActType statusToAct(String status) {
-    if (status == null) return null;
-    String s = status.trim().toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
-    return switch (s) {
-      case "sp. nov.", "sp. n.", "sp. nov", "sp. n" -> ActType.SP_NOV;
-      case "ssp. nov.", "subsp. nov.", "ssp. n.", "subsp. n." -> ActType.SSP_NOV;
-      case "gen. nov.", "gen. n." -> ActType.GEN_NOV;
-      case "comb. nov.", "comb. n." -> ActType.COMB_NOV;
-      case "syn. nov.", "syn. n." -> ActType.SYN_NOV;
-      case "stat. nov.", "stat. n." -> ActType.STAT_NOV;
-      case "stat. rev." -> ActType.STAT_REV;
-      case "nom. nov.", "nom. n." -> ActType.NOM_NOV;
-      default -> null;
-    };
   }
 }
