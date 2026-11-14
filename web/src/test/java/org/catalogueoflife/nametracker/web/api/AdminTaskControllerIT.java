@@ -35,6 +35,37 @@ class AdminTaskControllerIT extends AbstractPostgresIT {
     return HttpClient.newHttpClient().send(b.build(), HttpResponse.BodyHandlers.ofString());
   }
 
+  /** Raw HTTP so that the request target stays exactly as written (HttpClient would normalise it). */
+  static String rawPost(int port, String target, String token) throws Exception {
+    try (java.net.Socket sock = new java.net.Socket("localhost", port)) {
+      String req =
+          "POST " + target + " HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\n"
+              + (token == null ? "" : "X-Admin-Token: " + token + "\r\n")
+              + "Content-Length: " + BODY.length() + "\r\nConnection: close\r\n\r\n" + BODY;
+      sock.getOutputStream().write(req.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      return new String(sock.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+    }
+  }
+
+  @Test
+  void oddPathsCannotBypassTheToken() throws Exception {
+    long before = jdbc.queryForObject("select count(*) from task", Long.class);
+    for (String target :
+        List.of(
+            "/api/%61dmin/tasks",
+            "/api//admin/tasks",
+            "/api/./admin/tasks",
+            "/api/admin/./tasks",
+            "/api/admin//tasks",
+            "/api/admin/tasks/",
+            "/api/admin/tasks;x=1",
+            "/api/%41dmin/tasks")) {
+      String status = rawPost(port, target, null).lines().findFirst().orElse("");
+      assertThat(status).as(target).doesNotContain(" 202").matches("HTTP/1.1 (401|404|400|403).*");
+    }
+    assertThat(jdbc.queryForObject("select count(*) from task", Long.class)).isEqualTo(before);
+  }
+
   @Test
   void ping() throws Exception {
     HttpResponse<String> r =
