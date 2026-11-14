@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xml:space="preserve" xmlns="http://www.tei-c.org/ns/1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.tei-c.org/ns/1.0 https://raw.githubusercontent.com/kermitt2/grobid/master/grobid-home/schemas/xsd/Grobid.xsd" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <teiHeader xml:lang="en">
+    <fileDesc>
+      <titleStmt>
+        <title level="a" type="main">A revision of the ground beetle genus Pterostichus in the Alps</title>
+      </titleStmt>
+      <publicationStmt><publisher/><availability status="unknown"><licence/></availability></publicationStmt>
+      <sourceDesc>
+        <biblStruct><analytic><author><persName><forename type="first">Anna</forename><surname>Example</surname></persName></author></analytic><monogr><imprint><date type="published" when="2020"/></imprint></monogr></biblStruct>
+      </sourceDesc>
+    </fileDesc>
+    <profileDesc>
+      <abstract>
+        <div><p>We revise the genus Pterostichus and describe two new species from the Alps.</p></div>
+      </abstract>
+    </profileDesc>
+  </teiHeader>
+  <text xml:lang="en">
+    <body>
+      <div><head n="1">Introduction</head>
+        <p>The genus Pterosti-
+chus niger is common in forests of northern Europe.</p>
+        <p>Specimens were deposited in the museum.<note place="foot" n="1">See also Carabus auratus.</note></p>
+      </div>
+      <div><head n="2">Results</head>
+        <p>Measurements are given in Table 1.</p>
+        <figure xml:id="fig_0"><head>Figure 1.</head><label>1</label><figDesc>Habitus of Pterostichus niger, male.</figDesc></figure>
+        <figure type="table"><head>Table 1.</head><figDesc>Measurements of Pterostichus species.</figDesc>
+          <table><row><cell>Species</cell><cell>Length</cell></row><row><cell>P. niger</cell><cell>12 mm</cell></row></table>
+        </figure>
+      </div>
+    </body>
+    <back>
+      <div type="references">
+        <listBibl>
+          <biblStruct xml:id="b0"><analytic><title level="a" type="main">Ground beetles of Europe</title><author><persName><forename type="first">John</forename><surname>Smith</surname></persName></author></analytic><monogr><title level="j">Zootaxa</title><imprint><date type="published" when="1999"/></imprint></monogr></biblStruct>
+          <biblStruct xml:id="b1"><monogr><title level="m">Carabidae of the World</title><author><persName><forename type="first">Jane</forename><surname>Doe</surname></persName></author><imprint><date type="published" when="2005"/></imprint></monogr></biblStruct>
+        </listBibl>
+      </div>
+    </back>
+  </text>
+</TEI>
