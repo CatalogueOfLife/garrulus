@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Trimmed excerpt of Xu et al., ZooKeys 1297, doi:10.3897/zookeys.1297.218447, CC BY 4.0
+     (https://creativecommons.org/licenses/by/4.0/). Source: https://zookeys.pensoft.net/article/218447/download/xml/
+     Only text is cut; no content was invented. -->
+<!DOCTYPE article PUBLIC "-//TaxonX//DTD Taxonomic Treatment Publishing DTD v0 20100105//EN" "https://zookeys.pensoft.net/nlm/tax-treatment-NS0.dtd">
+<article xmlns:tp="http://www.plazi.org/taxpub" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:mml="http://www.w3.org/1998/Math/MathML" article-type="research-article" xml:lang="en">
+  <front>
+    <article-meta>
+      <article-id pub-id-type="doi">10.3897/zookeys.1297.218447</article-id>
+      <title-group>
+        <article-title><italic><tp:taxon-name><tp:taxon-name-part taxon-name-part-type="genus" reg="Ophelia">Ophelia</tp:taxon-name-part> <tp:taxon-name-part taxon-name-part-type="species" reg="yangi">yangi</tp:taxon-name-part></tp:taxon-name></italic> sp. nov. (<tp:taxon-name><tp:taxon-name-part taxon-name-part-type="phylum" reg="Annelida">Annelida</tp:taxon-name-part></tp:taxon-name>, <tp:taxon-name><tp:taxon-name-part taxon-name-part-type="family" reg="Opheliidae">Opheliidae</tp:taxon-name-part></tp:taxon-name>), a new species from Chinese waters, with comments on the taxonomic characters of the genus</article-title>
+      </title-group>
+      <abstract>
+        <label>Abstract</label>
+                <p><italic><tp:taxon-name><tp:taxon-name-part taxon-name-part-type="genus" reg="Ophelia">Ophelia</tp:taxon-name-part> <tp:taxon-name-part taxon-name-part-type="species" reg="limacina">limacina</tp:taxon-name-part></tp:taxon-name></italic> (Rathke, 1843), originally described from Norway, is the only species of <italic><tp:taxon-name><tp:taxon-name-part taxon-name-part-type="genus" reg="Ophelia">Ophelia</tp:taxon-name-part></tp:taxon-name></italic> Savigny, 1822 recorded from Chinese waters, but these records have never been verified.</p>
+      </abstract>
+    </article-meta>
+  </front>
+  <body>
+    <sec sec-type="Introduction" id="sec1">
+      <title>Introduction</title>
+            <p><italic><tp:taxon-name><tp:taxon-name-part taxon-name-part-type="genus" reg="Ophelia">Ophelia</tp:taxon-name-part></tp:taxon-name></italic> Savigny, 1822 (<tp:taxon-name><tp:taxon-name-part taxon-name-part-type="family" reg="Opheliidae">Opheliidae</tp:taxon-name-part></tp:taxon-name> Malmgren, 1867) currently comprises 37 valid species (<xref ref-type="bibr" rid="B58">Read and Fauchald 2026</xref>).</p>
+            <p>In Chinese waters, only one species of <italic><tp:taxon-name><tp:taxon-name-part taxon-name-part-type="genus" reg="Ophelia">Ophelia</tp:taxon-name-part></tp:taxon-name></italic>, <italic><tp:taxon-name><tp:taxon-name-part taxon-name-part-type="genus" reg="Ophelia">O.</tp:taxon-name-part> <tp:taxon-name-part taxon-name-part-type="species" reg="limacina">limacina</tp:taxon-name-part></tp:taxon-name></italic> (Rathke, 1843), has been reported.</p>
+      <tp:taxon-treatment>
+          <tp:nomenclature>
+            <tp:taxon-name><object-id content-type="arpha">27C34456-B947-5BF2-8E19-D89A161A62E4</object-id>
+                    		<tp:taxon-name-part taxon-name-part-type="genus" reg="Ophelia">Ophelia</tp:taxon-name-part> <tp:taxon-name-part taxon-name-part-type="species" reg="yangi">yangi</tp:taxon-name-part>
+                    	
+                    		<object-id content-type="zoobank" xlink:type="simple">https://zoobank.org/6E06FB18-9F8E-48C6-963B-806E306AF48D</object-id>
+                    	</tp:taxon-name>
+            <tp:taxon-status>sp. nov.</tp:taxon-status>
+            <xref ref-type="fig" rid="F2">Figs 2</xref>
+            <xref ref-type="fig" rid="F3">, 3; Tables 1–3</xref>
+            <tp:nomenclature-citation-list>
+              <tp:nomenclature-citation>
+                <tp:taxon-name><tp:taxon-name-part taxon-name-part-type="genus" reg="Ophelia">Ophelia</tp:taxon-name-part> <tp:taxon-name-part taxon-name-part-type="uncertainty-rank">cf.</tp:taxon-name-part> <tp:taxon-name-part taxon-name-part-type="species" reg="limacina">limacina</tp:taxon-name-part></tp:taxon-name>
+                <comment>: <xref ref-type="bibr" rid="B77">Yang and Sun 1988</xref>: 247–248, fig. 114C, D.</comment>
+              </tp:nomenclature-citation>
+            </tp:nomenclature-citation-list>
+          </tp:nomenclature>
+          <tp:treatment-sec sec-type="Material examined">
+            <title>Material examined.</title>
+          </tp:treatment-sec>
+        <fig id="F2">
+          <label>Figure 2.</label>
+          <caption>
+                            <p><italic><tp:taxon-name><tp:taxon-name-part taxon-name-part-type="genus" reg="Ophelia">Ophelia</tp:taxon-name-part> <tp:taxon-name-part taxon-name-part-type="species" reg="yangi">yangi</tp:taxon-name-part></tp:taxon-name></italic> sp. nov., holotype (A003, YZZ001323).</p>
+          </caption>
+        </fig>
+        <table-wrap id="T1" position="float" orientation="portrait">
+          <label>Table 1.</label>
+          <caption>
+                <p>Descriptions of <italic><tp:taxon-name><tp:taxon-name-part taxon-name-part-type="genus" reg="Ophelia">Ophelia</tp:taxon-name-part> <tp:taxon-name-part taxon-name-part-type="species" reg="limacina">limacina</tp:taxon-name-part></tp:taxon-name></italic> (Rathke, 1843) by different authors.</p>
+          </caption>
+          <table>
+            <tbody>
+              <tr>
+                    <th rowspan="1" colspan="1">
+                      <bold>Character</bold>
+                    </th>
+                    <th rowspan="1" colspan="1">
+                      <bold>
+                        <xref ref-type="bibr" rid="B57">Rathke (1843)</xref>
+                      </bold>
+                    </th>
+              </tr>
+            </tbody>
+          </table>
+        </table-wrap>
+      </tp:taxon-treatment>
+    </sec>
+  </body>
+  <back>
+    <ref-list>
+      <title>References</title>
+      <ref id="B1">
+        <mixed-citation>Ageishi K, Kajihara H (2026) Systematic revision of the genus <italic><tp:taxon-name><tp:taxon-name-part taxon-name-part-type="genus">Thoracophelia</tp:taxon-name-part></tp:taxon-name></italic> (<tp:taxon-name><tp:taxon-name-part taxon-name-part-type="phylum">Annelida</tp:taxon-name-part></tp:taxon-name>: <tp:taxon-name><tp:taxon-name-part taxon-name-part-type="family">Opheliidae</tp:taxon-name-part></tp:taxon-name>) from Japan. Zootaxa 5853(4): 528–544. <ext-link xlink:href="10.11646/zootaxa.5853.4.4" ext-link-type="doi">https://doi.org/10.11646/zootaxa.5853.4.4</ext-link></mixed-citation>
+      </ref>
+      <ref id="B3">
+        <mixed-citation>Amoureux L, Dauvin JC (1981) <italic><tp:taxon-name><tp:taxon-name-part taxon-name-part-type="genus">Ophelia</tp:taxon-name-part> <tp:taxon-name-part taxon-name-part-type="species">celtica</tp:taxon-name-part></tp:taxon-name></italic> (Annélide Polychète), nouvelle espèce avec quelques remarques sur les diverses espèces du genre. Bulletin de la Société Zoologique de France 106(2): 189–194.</mixed-citation>
+      </ref>
+    </ref-list>
+  </back>
+</article>
