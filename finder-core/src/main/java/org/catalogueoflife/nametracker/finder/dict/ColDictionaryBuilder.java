@@ -10,13 +10,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -72,7 +69,7 @@ public final class ColDictionaryBuilder {
       while ((e = zin.getNextEntry()) != null) {
         String n = e.getName();
         if (n.endsWith("metadata.yaml")) {
-          key = releaseKeyFromYaml(new String(zin.readAllBytes(), StandardCharsets.UTF_8));
+          key = releaseKeyFromYaml(new BufferedReader(new InputStreamReader(zin, StandardCharsets.UTF_8)));
         } else if (n.endsWith("NameUsage.tsv") && !read) {
           // do not close zin: the reader wraps it and the zip is closed by try-with-resources
           b.read(new InputStreamReader(zin, StandardCharsets.UTF_8));
@@ -86,21 +83,33 @@ public final class ColDictionaryBuilder {
     return b.build(key);
   }
 
-  /** Top level scalar {@code key:}, else {@code version:}, of a metadata.yaml. */
+  /** Top level scalar {@code key:}, else {@code version:}, of a metadata.yaml, read line by line. */
   static String releaseKeyFromYaml(String yaml) {
-    Map<String, String> top = new HashMap<>();
-    for (String line : yaml.split("\\R")) {
+    try {
+      return releaseKeyFromYaml(new BufferedReader(new java.io.StringReader(yaml)));
+    } catch (IOException e) {
+      throw new java.io.UncheckedIOException(e);
+    }
+  }
+
+  static String releaseKeyFromYaml(BufferedReader r) throws IOException {
+    String key = null, version = null, line;
+    while ((line = r.readLine()) != null) {
       if (line.isEmpty() || Character.isWhitespace(line.charAt(0)) || line.charAt(0) == '#') continue;
       int c = line.indexOf(':');
       if (c <= 0) continue;
+      String name = line.substring(0, c).strip();
+      boolean isKey = name.equals("key");
+      if (!isKey && !name.equals("version")) continue;
       String v = line.substring(c + 1).strip();
       if (v.length() >= 2 && (v.charAt(0) == '"' || v.charAt(0) == '\'') && v.charAt(v.length() - 1) == v.charAt(0)) {
         v = v.substring(1, v.length() - 1);
       }
-      if (!v.isEmpty()) top.putIfAbsent(line.substring(0, c).strip(), v);
+      if (v.isEmpty()) continue;
+      if (isKey && key == null) key = v;
+      if (!isKey && version == null) version = v;
     }
-    String k = top.get("key");
-    return k != null ? k : top.get("version");
+    return key != null ? key : version;
   }
 
   public void read(Reader tsv) throws IOException {

@@ -10,6 +10,10 @@ import org.catalogueoflife.nametracker.eval.curated.LabelStudioExporter;
 import org.catalogueoflife.nametracker.eval.curated.LabelStudioImporter;
 import org.catalogueoflife.nametracker.eval.curated.PreTagger;
 import org.catalogueoflife.nametracker.finder.api.Mention;
+import org.catalogueoflife.nametracker.finder.dict.ColDictionary;
+import org.catalogueoflife.nametracker.finder.dict.ColDictionaryBuilder;
+import org.catalogueoflife.nametracker.finder.dict.ColDictionaryIO;
+import org.catalogueoflife.nametracker.finder.dict.CommonWords;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.eval.corpus.OpenAlexClient;
 import org.catalogueoflife.nametracker.eval.corpus.PensoftFetcher;
@@ -26,6 +30,12 @@ import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -69,7 +79,7 @@ public class EvalCli implements Runnable {
     @Override
     public Integer call() throws Exception {
       if (dev < 0 || dev > n) throw new IllegalArgumentException("--dev must be between 0 and --n");
-      java.net.http.HttpClient http = PensoftFetcher.defaultClient();
+      HttpClient http = PensoftFetcher.defaultClient();
       PensoftFetcher fetcher = new PensoftFetcher(http, new OpenAlexClient(http, System.getenv("OPENALEX_API_KEY")));
       List<CorpusManifest.Row> candidates = fetcher.candidates(seed);
       System.err.println(candidates.size() + " candidate documents with a CC-BY or CC0 licence");
@@ -108,7 +118,7 @@ public class EvalCli implements Runnable {
       CorpusManifest manifest = CorpusManifest.read(corpus.resolve("manifest.tsv"));
       Path gold = corpus.resolve("gold.jsonl.gz");
       List<GoldDocument> old = Files.exists(gold) ? CorpusStore.read(gold, null) : List.of();
-      java.net.http.HttpClient http = PensoftFetcher.defaultClient();
+      HttpClient http = PensoftFetcher.defaultClient();
       PensoftFetcher fetcher = new PensoftFetcher(http, new OpenAlexClient(http, System.getenv("OPENALEX_API_KEY")));
       System.err.println("Rebuilding " + manifest.rows().size() + " documents of " + corpus);
       CorpusRebuilder.Result r = CorpusRebuilder.rebuild(manifest, old, fetcher::fetch, System.err::println);
@@ -134,32 +144,31 @@ public class EvalCli implements Runnable {
     @Override
     public Integer call() throws Exception {
       Files.createDirectories(out);
-      Runtime rt = Runtime.getRuntime();
       long t0 = System.nanoTime();
-      org.catalogueoflife.nametracker.finder.dict.CommonWords common =
-          org.catalogueoflife.nametracker.finder.dict.CommonWords.load(org.catalogueoflife.nametracker.finder.dict.CommonWords.DEFAULT_LANGS);
-      org.catalogueoflife.nametracker.finder.dict.ColDictionary d;
+      CommonWords common =
+          CommonWords.load(CommonWords.DEFAULT_LANGS);
+      ColDictionary d;
       if (xr.startsWith("http://") || xr.startsWith("https://")) {
-        java.net.http.HttpClient http = java.net.http.HttpClient.newBuilder().followRedirects(java.net.http.HttpClient.Redirect.NORMAL).build();
-        java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder(java.net.URI.create(xr))
+        HttpClient http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).build();
+        HttpRequest req = HttpRequest.newBuilder(URI.create(xr))
             .header("User-Agent", "Garrulus-eval/0.1 (+https://www.catalogueoflife.org)").GET().build();
-        java.net.http.HttpResponse<java.io.InputStream> resp = http.send(req, java.net.http.HttpResponse.BodyHandlers.ofInputStream());
-        if (resp.statusCode() != 200) throw new java.io.IOException("HTTP " + resp.statusCode() + " for " + xr);
-        try (java.io.InputStream in = resp.body()) {
-          d = org.catalogueoflife.nametracker.finder.dict.ColDictionaryBuilder.fromXrZip(in, common);
+        HttpResponse<InputStream> resp = http.send(req, HttpResponse.BodyHandlers.ofInputStream());
+        if (resp.statusCode() != 200) throw new IOException("HTTP " + resp.statusCode() + " for " + xr);
+        try (InputStream in = resp.body()) {
+          d = ColDictionaryBuilder.fromXrZip(in, common);
         }
       } else {
-        d = org.catalogueoflife.nametracker.finder.dict.ColDictionaryBuilder.fromXrZip(Path.of(xr), common);
+        d = ColDictionaryBuilder.fromXrZip(Path.of(xr), common);
       }
       double buildSec = (System.nanoTime() - t0) / 1e9;
       Path file = out.resolve("dictionary-" + d.releaseKey() + ".bin");
-      org.catalogueoflife.nametracker.finder.dict.ColDictionaryIO.write(d, file);
+      ColDictionaryIO.write(d, file);
       long t1 = System.nanoTime();
-      org.catalogueoflife.nametracker.finder.dict.ColDictionary back = org.catalogueoflife.nametracker.finder.dict.ColDictionaryIO.read(file);
+      ColDictionary back = ColDictionaryIO.read(file);
       double loadSec = (System.nanoTime() - t1) / 1e9;
       System.out.println(back.stats());
-      System.out.printf(Locale.ROOT, "file %s, %.1f MB; built in %.0f s, loaded in %.2f s; heap in use after build %d MB%n",
-          file, Files.size(file) / 1048576.0, buildSec, loadSec, (rt.totalMemory() - rt.freeMemory()) / 1048576);
+      System.out.printf(Locale.ROOT, "file %s, %.1f MB; built in %.0f s, loaded in %.2f s%n",
+          file, Files.size(file) / 1048576.0, buildSec, loadSec);
       return 0;
     }
   }
@@ -182,7 +191,7 @@ public class EvalCli implements Runnable {
       if (!split.equals("dev") && !split.equals("test")) throw new IllegalArgumentException("--split must be dev or test");
       NameFinder f = FinderFactory.create(finder);
       // curated abstracts under a restrictive licence are stored without text and re-fetched from OpenAlex here
-      java.net.http.HttpClient http = PensoftFetcher.defaultClient();
+      HttpClient http = PensoftFetcher.defaultClient();
       List<GoldDocument> docs = CorpusStore.read(corpus.resolve("gold.jsonl.gz"),
           new org.catalogueoflife.nametracker.eval.corpus.OpenAlexAbstractRefetcher(new OpenAlexClient(http, System.getenv("OPENALEX_API_KEY")))).stream()
           .filter(d -> split.equals(d.split())).toList();
@@ -220,7 +229,7 @@ public class EvalCli implements Runnable {
 
     @Override
     public Integer call() throws Exception {
-      java.net.http.HttpClient http = PensoftFetcher.defaultClient();
+      HttpClient http = PensoftFetcher.defaultClient();
       OpenAlexClient oa = new OpenAlexClient(http, System.getenv("OPENALEX_API_KEY"));
       PensoftFetcher pf = new PensoftFetcher(http, oa);
       java.util.Set<String> excluded = new java.util.HashSet<>();
@@ -249,7 +258,7 @@ public class EvalCli implements Runnable {
     }
   }
 
-  static List<CuratedSelector.Pick> readPicks(Path picks) throws java.io.IOException {
+  static List<CuratedSelector.Pick> readPicks(Path picks) throws IOException {
     List<CuratedSelector.Pick> out = new ArrayList<>();
     try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(
         new java.util.zip.GZIPInputStream(Files.newInputStream(picks)), java.nio.charset.StandardCharsets.UTF_8))) {
