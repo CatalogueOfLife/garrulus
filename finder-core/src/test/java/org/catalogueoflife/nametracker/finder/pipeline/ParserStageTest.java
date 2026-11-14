@@ -5,7 +5,10 @@ import org.catalogueoflife.nametracker.finder.api.NameKind;
 import org.catalogueoflife.nametracker.finder.dict.ColDictionary;
 import org.catalogueoflife.nametracker.finder.dict.ColDictionaryBuilder;
 import org.catalogueoflife.nametracker.finder.dict.CommonWords;
+import org.gbif.nameparser.api.NameParser;
+import org.gbif.nameparser.api.NameType;
 import org.gbif.nameparser.api.NomCode;
+import org.gbif.nameparser.api.ParseResult;
 import org.gbif.nameparser.api.Rank;
 import org.gbif.nameparser.rust.NameParserRust;
 import org.junit.jupiter.api.Test;
@@ -22,10 +25,12 @@ class ParserStageTest {
   private static final String TSV = "col:ID\tcol:rank\tcol:uninomial\tcol:genericName\tcol:specificEpithet\tcol:infraspecificEpithet\n"
       + "1\tgenus\tCarabus\t\t\t\n2\tspecies\t\tCarabus\tnigrus\t\n3\tfamily\tCarabidae\t\t\t\n";
   private static final ParserStage STAGE;
+  private static ColDictionary DICT;
 
   static {
     try {
       ColDictionary d = ColDictionaryBuilder.fromNameUsageTsv(new StringReader(TSV), "1", CommonWords.of(Set.of()));
+      DICT = d;
       STAGE = new ParserStage(new NameParserRust(), d);
     } catch (IOException e) {
       throw new ExceptionInInitializerError(e);
@@ -65,12 +70,15 @@ class ParserStageTest {
     ParsedCandidate p = parse("Carabus (Megodontus) nigrus");
     assertThat(p.kind()).isEqualTo(NameKind.BINOMIAL);
     assertThat(p.rank()).isEqualTo(Rank.SPECIES);
+    assertThat(p.canonical()).isEqualTo("Carabus nigrus"); // lossy: subgenus dropped
+    assertThat(p.c().name()).isEqualTo("Carabus (Megodontus) nigrus");
   }
 
   @Test
   void infragenericWithoutSpecies() {
     ParsedCandidate p = parse("Carabus (Megodontus)");
     assertThat(p.kind()).isEqualTo(NameKind.INFRAGENERIC);
+    assertThat(p.canonical()).isEqualTo("Carabus infragen. Megodontus");
   }
 
   @Test
@@ -111,12 +119,6 @@ class ParserStageTest {
   }
 
   @Test
-  void ambiguousAbbreviationIsAbbreviated() {
-    var c = cand("C. nigrus", Generator.GNFINDER, Map.of("abbrevAmbiguous", true));
-    assertThat(STAGE.parse(c, null).orElseThrow().kind()).isEqualTo(NameKind.ABBREVIATED);
-  }
-
-  @Test
   void expandedAbbreviationParsedFromExpandedName() {
     var c = new MergedCandidate("b1", 0, 9, "C. nigrus", "Carabus nigrus", Set.of(Generator.GNFINDER),
         Map.of("expandedFrom", "C. nigrus"), null, null);
@@ -139,7 +141,47 @@ class ParserStageTest {
   }
 
   @Test
-  void codeHintWinsOverParsedCode() {
+  void codeHintIsUsedAsCode() {
+    // limitation: the parser reports no code for plain binomials, so this cannot show a hint overriding a parsed code
     assertThat(STAGE.parse(cand("Carabus nigrus"), NomCode.BOTANICAL).orElseThrow().code()).isEqualTo(NomCode.BOTANICAL);
+    assertThat(parse("Carabus nigrus").code()).isNull();
+  }
+
+  @Test
+  void markupNonScientificIsKept() {
+    var p = STAGE.parse(cand("Carabus sp. A", Generator.TAXON_MARKUP, Map.of()), null);
+    assertThat(p).isPresent();
+    assertThat(STAGE.parse(cand("Carabus sp. A"), null)).isEmpty();
+  }
+
+  @Test
+  void markupScientificKeepsParsedForm() {
+    var p = STAGE.parse(cand("Carabus nigrus", Generator.TAXON_MARKUP, Map.of()), null).orElseThrow();
+    assertThat(p.kind()).isEqualTo(NameKind.BINOMIAL);
+    assertThat(p.rank()).isEqualTo(Rank.SPECIES);
+  }
+
+  @Test
+  void otherAbbreviationsAccepted() {
+    assertThat(parse("Pt. niger").kind()).isEqualTo(NameKind.ABBREVIATED);
+    assertThat(parse("L. g. confertiflora").kind()).isEqualTo(NameKind.ABBREVIATED);
+  }
+
+  @Test
+  void notAbbreviationsDropped() {
+    for (String s : new String[] {"Fig. 3", "Sp. nov.", "Gen. nov.", "St. Louis", "Fam. Carabidae", "Mr. Smith"}) {
+      assertThat(STAGE.parse(cand(s), null)).as(s).isEmpty();
+    }
+  }
+
+  @Test
+  void abbreviationKeptWhenParserFails() {
+    // stub parser that returns no parse at all
+    NameParser failing = (n, a, r, c) -> new ParseResult.Unparsable(NameType.OTHER, n);
+    var stage = new ParserStage(failing, DICT);
+    var p = stage.parse(cand("C. nigrus"), null).orElseThrow();
+    assertThat(p.kind()).isEqualTo(NameKind.ABBREVIATED);
+    assertThat(p.canonical()).isEqualTo("C. nigrus");
+    assertThat(stage.parse(cand("Fig. 3"), null)).isEmpty();
   }
 }

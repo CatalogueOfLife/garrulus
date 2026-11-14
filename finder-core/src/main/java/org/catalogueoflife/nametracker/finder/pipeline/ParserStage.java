@@ -24,14 +24,21 @@ import java.util.regex.Pattern;
  * ("C. nigrus", not expanded or ambiguous) is ABBREVIATED; it is fed to the parser as is and, should the parser fail on
  * it, kept as ABBREVIATED anyway because abbreviations are valid mentions.
  *
+ * <p>An abbreviation needs an initial or short abbreviation followed by a lower case epithet ("C. nigrus", "Pt. niger",
+ * "L. g. confertiflora"); "Fig. 3", "Sp. nov." or "St. Louis" are not. Only the parser's INFORMAL typing of such a genuine
+ * abbreviation is exempt from the type filter.
+ *
  * <p>Dropped: candidates the parser cannot parse, and parsed ones whose name type is not SCIENTIFIC (informal,
- * placeholder, OTU, formula ...). TAXON_MARKUP candidates the parser cannot parse are kept as UNINOMIAL / UNRANKED.
+ * placeholder, OTU, formula ...). TAXON_MARKUP (publisher-tagged) candidates are never dropped: unparseable ones are kept
+ * as UNINOMIAL / UNRANKED, non-scientific ones with whatever the parser gave.
  *
  * <p>Rank: the parsed rank for binomials and below; for uninomials the dictionary rank, else the suffix rank, else GENUS
  * for a dictionary genus, else UNRANKED. The code is the hint if given, else the parser's (possibly null).
  */
 public class ParserStage {
-  private static final Pattern ABBREVIATED = Pattern.compile("^\\p{Lu}\\p{Ll}{0,2}\\.(\\s.*)?$", Pattern.DOTALL);
+  private static final Pattern ABBREVIATED = Pattern.compile(
+      "^\\p{Lu}\\p{Ll}{0,2}\\.\\s+(?:\\p{Ll}{1,3}\\.\\s+)?\\p{Ll}[\\p{Ll}-]+(?:\\s.*)?$", Pattern.DOTALL);
+  private static final Pattern LEADING_DOT_WORD = Pattern.compile("^\\p{Lu}\\p{Ll}{0,2}\\.");
   private static final System.Logger LOG = System.getLogger(ParserStage.class.getName());
 
   private final NameParser parser;
@@ -45,25 +52,32 @@ public class ParserStage {
   public Optional<ParsedCandidate> parse(MergedCandidate c, @Nullable NomCode codeHint) {
     String name = c.name().strip();
     boolean abbreviated = ABBREVIATED.matcher(name).matches();
+    boolean markup = c.generators().contains(Generator.TAXON_MARKUP);
+    // a leading "Xx." that is not a genuine abbreviation ("Fig. 3", "St. Louis") is no name, whatever the parser makes of it
+    if (!abbreviated && !markup && LEADING_DOT_WORD.matcher(name).find()) return Optional.empty();
+    String bare = withoutAuthorship(name, c.authorship());
     ParseResult result = run(c, name, codeHint);
     Optional<ParsedName> parsed = result == null ? Optional.empty() : result.parsed();
     if (parsed.isEmpty()) {
-      if (abbreviated) return Optional.of(new ParsedCandidate(c, name, NameKind.ABBREVIATED, Rank.UNRANKED, codeHint));
-      if (c.generators().contains(Generator.TAXON_MARKUP)) {
-        return Optional.of(new ParsedCandidate(c, name, NameKind.UNINOMIAL, Rank.UNRANKED, codeHint));
-      }
+      // an abbreviation the parser cannot handle is still a valid mention; publisher-tagged names are never dropped
+      if (abbreviated) return Optional.of(new ParsedCandidate(c, bare, NameKind.ABBREVIATED, Rank.UNRANKED, codeHint));
+      if (markup) return Optional.of(new ParsedCandidate(c, bare, NameKind.UNINOMIAL, Rank.UNRANKED, codeHint));
       return Optional.empty();
     }
     ParsedName pn = parsed.get();
-    // the parser types an abbreviated genus ("C. nigrus") as INFORMAL, which is no reason to drop a valid abbreviated mention
     NameType type = pn.getType() != null ? pn.getType() : result.type();
-    if (!abbreviated && type != null && type != NameType.SCIENTIFIC) return Optional.empty();
+    boolean scientific = type == null || type == NameType.SCIENTIFIC;
+    // the parser types an abbreviated genus ("C. nigrus") as INFORMAL; only that case is exempt from the type filter
+    boolean genuineAbbreviation = abbreviated && type == NameType.INFORMAL && pn.isAbbreviated();
+    if (!scientific && !genuineAbbreviation && !markup) return Optional.empty();
     NomCode code = codeHint != null ? codeHint : pn.getCode() != null ? pn.getCode() : result.code();
     String canonical = pn.canonicalNameWithoutAuthorship();
-    if (canonical == null || canonical.isBlank()) canonical = name;
-    if (abbreviated) return Optional.of(new ParsedCandidate(c, canonical, NameKind.ABBREVIATED, pn.getRank(), code));
+    if (canonical == null || canonical.isBlank()) canonical = bare;
+    Rank rank = pn.getRank() != null ? pn.getRank() : Rank.UNRANKED;
+    if (abbreviated && (scientific || genuineAbbreviation || markup)) {
+      return Optional.of(new ParsedCandidate(c, canonical, NameKind.ABBREVIATED, rank, code));
+    }
     NameKind kind;
-    Rank rank = pn.getRank();
     if (pn.getInfraspecificEpithet() != null) {
       kind = NameKind.TRINOMIAL;
     } else if (pn.getSpecificEpithet() != null) {
@@ -72,10 +86,19 @@ public class ParserStage {
       kind = NameKind.INFRAGENERIC;
     } else {
       kind = NameKind.UNINOMIAL;
-      String word = pn.getUninomial() != null ? pn.getUninomial() : canonical;
-      rank = uninomialRank(word, code);
+      if (scientific) {
+        String word = pn.getUninomial() != null ? pn.getUninomial() : canonical;
+        rank = uninomialRank(word, code);
+      }
     }
     return Optional.of(new ParsedCandidate(c, canonical, kind, rank, code));
+  }
+
+  private static String withoutAuthorship(String name, @Nullable String authorship) {
+    if (authorship != null && !authorship.isBlank() && name.endsWith(authorship.strip())) {
+      return name.substring(0, name.length() - authorship.strip().length()).strip();
+    }
+    return name;
   }
 
   private Rank uninomialRank(String word, @Nullable NomCode code) {
