@@ -1,0 +1,11 @@
+{
+  "id": "doc-1",
+  "language": "en",
+  "blocks": [
+    {"id": "b0", "type": "HEADING", "level": 1, "text": "Coleoptera: Carabidae", "styles": [], "sectionPath": []},
+    {"id": "b1", "type": "PARAGRAPH", "level": 0, "text": "Carabus nigrus sp. nov. differs from C. nigrus in size.",
+     "styles": [{"start": 0, "end": 14, "style": "ITALIC"}, {"start": 37, "end": 46, "style": "ITALIC"}],
+     "sectionPath": ["Taxonomy"]}
+  ],
+  "meta": {"doi": "10.0000/example"}
+}

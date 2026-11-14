@@ -1,0 +1,151 @@
+openapi: 3.1.0
+info:
+  title: "Garrulus finder API"
+  version: 0.1.0
+  description: |
+    Contract of a scientific name finder. A document is split into blocks; the finder returns name mentions,
+    nomenclatural acts and classification contexts.
+
+    All offsets (`start`, `end`, style spans) are Unicode code-point indices into `Block.text`, with `end`
+    exclusive. They are not UTF-16 units and not bytes. This is the same convention as gnfinder (default) and
+    Label Studio. All lists are present and never null; null properties are omitted.
+paths:
+  /v1/find:
+    post:
+      operationId: find
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [document]
+              properties:
+                document: {$ref: '#/components/schemas/Document'}
+                options: {$ref: '#/components/schemas/FinderOptions'}
+      responses:
+        '200':
+          description: Names found
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/FinderResult'}
+  /v1/info:
+    get:
+      operationId: info
+      responses:
+        '200':
+          description: Identity of the finder
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/FinderInfo'}
+components:
+  schemas:
+    Document:
+      type: object
+      required: [id, blocks, meta]
+      properties:
+        id: {type: string}
+        language: {type: string}
+        blocks: {type: array, items: {$ref: '#/components/schemas/Block'}}
+        meta: {type: object, additionalProperties: {type: string}}
+    Block:
+      type: object
+      required: [id, type, level, text, styles, sectionPath]
+      properties:
+        id: {type: string}
+        type: {type: string, enum: [TITLE, ABSTRACT, HEADING, PARAGRAPH, CAPTION, TABLE_CELL, FOOTNOTE, REFERENCE]}
+        level: {type: integer}
+        text: {type: string}
+        styles: {type: array, items: {$ref: '#/components/schemas/StyleSpan'}}
+        sectionPath: {type: array, items: {type: string}}
+    StyleSpan:
+      type: object
+      required: [start, end, style]
+      properties:
+        start: {type: integer, description: code point, inclusive}
+        end: {type: integer, description: code point, exclusive}
+        style: {type: string, enum: [ITALIC, BOLD, SMALLCAPS, TAXON_NAME], description: TAXON_NAME marks a name tagged by the publisher (TaxPub)}
+    FinderOptions:
+      type: object
+      properties:
+        includeRejected: {type: boolean}
+        codeHint: {type: string, description: org.gbif.nameparser.api.NomCode name}
+    FinderInfo:
+      type: object
+      required: [name, version, configHash]
+      properties:
+        name: {type: string}
+        version: {type: string}
+        configHash: {type: string}
+        dictionaryKey: {type: string}
+    FinderResult:
+      type: object
+      required: [info, mentions, acts, contexts, rejected, diagnostics]
+      properties:
+        info: {$ref: '#/components/schemas/FinderInfo'}
+        mentions: {type: array, items: {$ref: '#/components/schemas/Mention'}}
+        acts: {type: array, items: {$ref: '#/components/schemas/Act'}}
+        contexts: {type: array, items: {$ref: '#/components/schemas/ClassificationContext'}}
+        rejected: {type: array, items: {$ref: '#/components/schemas/Mention'}}
+        diagnostics: {type: object, additionalProperties: {type: string}}
+    Mention:
+      type: object
+      required: [id, blockId, start, end, verbatim, name, kind, confidence, evidence, hints]
+      properties:
+        id: {type: string}
+        blockId: {type: string}
+        start: {type: integer, description: code point index into Block.text}
+        end: {type: integer, description: code point index into Block.text, exclusive}
+        verbatim: {type: string, description: exactly Block.text sliced by start and end}
+        name: {type: string, description: normalised name, abbreviations expanded}
+        kind: {type: string, enum: [UNINOMIAL, BINOMIAL, TRINOMIAL, INFRAGENERIC, ABBREVIATED]}
+        rank: {type: string, description: org.gbif.nameparser.api.Rank name}
+        authorship: {type: string}
+        qualifier: {type: string}
+        confidence: {type: number}
+        evidence: {$ref: '#/components/schemas/Evidence'}
+        actId: {type: string}
+        contextId: {type: string}
+        hints: {type: object, additionalProperties: {type: string}}
+    Evidence:
+      type: object
+      required: [generators]
+      properties:
+        generators:
+          type: array
+          items: {type: string, enum: [GNFINDER, DICTIONARY, SUFFIX, ITALIC, TAXON_MARKUP]}
+        gnfinderOddsLog10: {type: number}
+        judge: {$ref: '#/components/schemas/JudgeVerdict'}
+    JudgeVerdict:
+      type: object
+      required: [judge, score, accepted]
+      properties:
+        judge: {type: string}
+        score: {type: number}
+        accepted: {type: boolean}
+        correctedName: {type: string}
+    Act:
+      type: object
+      required: [id, type, marker, mentionId, confidence]
+      properties:
+        id: {type: string}
+        type: {type: string, enum: [SP_NOV, SSP_NOV, VAR_NOV, GEN_NOV, SUBGEN_NOV, FAM_NOV, COMB_NOV, STAT_NOV, STAT_REV, SYN_NOV, NOM_NOV, TYPE_DESIGNATION]}
+        marker: {type: string}
+        mentionId: {type: string}
+        confidence: {type: number}
+    ClassificationContext:
+      type: object
+      required: [id, verbatim, ranks, scope, blockId]
+      properties:
+        id: {type: string}
+        verbatim: {type: string}
+        ranks: {type: array, items: {$ref: '#/components/schemas/RankedName'}}
+        scope: {type: string, enum: [DOCUMENT, SECTION, TREATMENT]}
+        blockId: {type: string}
+        untilBlockId: {type: string}
+    RankedName:
+      type: object
+      required: [rank, name]
+      properties:
+        rank: {type: string}
+        name: {type: string}

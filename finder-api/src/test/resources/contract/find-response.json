@@ -1,0 +1,29 @@
+{
+  "info": {"name": "garrulus-finder", "version": "0.1.0", "configHash": "abc123", "dictionaryKey": "col-xr-2026"},
+  "mentions": [
+    {
+      "id": "m1", "blockId": "b1", "start": 0, "end": 14, "verbatim": "Carabus nigrus",
+      "name": "Carabus nigrus", "kind": "BINOMIAL", "rank": "SPECIES", "confidence": 0.98,
+      "evidence": {"generators": ["GNFINDER", "DICTIONARY"], "gnfinderOddsLog10": 12.5},
+      "actId": "a1", "contextId": "c1", "hints": {}
+    },
+    {
+      "id": "m2", "blockId": "b1", "start": 37, "end": 46, "verbatim": "C. nigrus",
+      "name": "Carabus nigrus", "kind": "ABBREVIATED", "rank": "SPECIES", "confidence": 0.9,
+      "evidence": {"generators": ["GNFINDER"]},
+      "contextId": "c1", "hints": {"expandedFrom": "m1"}
+    }
+  ],
+  "acts": [
+    {"id": "a1", "type": "SP_NOV", "marker": "sp. nov.", "mentionId": "m1", "confidence": 0.95}
+  ],
+  "contexts": [
+    {
+      "id": "c1", "verbatim": "Coleoptera: Carabidae",
+      "ranks": [{"rank": "ORDER", "name": "Coleoptera"}, {"rank": "FAMILY", "name": "Carabidae"}],
+      "scope": "DOCUMENT", "blockId": "b0"
+    }
+  ],
+  "rejected": [],
+  "diagnostics": {"blocks": "2"}
+}
