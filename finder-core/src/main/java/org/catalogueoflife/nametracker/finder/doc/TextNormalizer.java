@@ -16,7 +16,7 @@ public final class TextNormalizer {
     boolean space = false;
     for (int i = 0; i < n.length(); i++) {
       char c = n.charAt(i);
-      if (c == '­') continue;
+      if (c == '\u00AD') continue;
       if (Character.isWhitespace(c) || Character.isSpaceChar(c)) {
         if (!space) sb.append(' ');
         space = true;

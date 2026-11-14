@@ -21,8 +21,6 @@ public final class JatsConverter {
   private static final Set<String> SECTIONS = Set.of("sec", "treatment-sec");
   private static final Set<String> NOMENCLATURE_KEEP = Set.of("taxon-name", "taxon-status", "taxon-authority");
 
-  private final XMLInputFactory factory = newFactory();
-
   private static XMLInputFactory newFactory() {
     XMLInputFactory f = XMLInputFactory.newFactory();
     f.setProperty(XMLInputFactory.SUPPORT_DTD, false);
@@ -42,7 +40,10 @@ public final class JatsConverter {
 
   public Conversion convert(InputStream xml, String docId, JatsOptions opts) {
     try {
-      XMLStreamReader r = factory.createXMLStreamReader(new ByteArrayInputStream(blankUnknownEntities(xml.readAllBytes())));
+      byte[] bytes = xml.readAllBytes();
+      rejectUtf16(bytes, docId);
+      // a factory per call: XMLInputFactory is not guaranteed to be thread safe and converters run concurrently
+      XMLStreamReader r = newFactory().createXMLStreamReader(new ByteArrayInputStream(blankUnknownEntities(bytes)));
       try {
         return new Run(r, docId, opts).run();
       } finally {
@@ -53,16 +54,33 @@ public final class JatsConverter {
     }
   }
 
+  private static void rejectUtf16(byte[] b, String docId) {
+    if (b.length >= 2 && ((b[0] & 0xFF) == 0xFE && (b[1] & 0xFF) == 0xFF || (b[0] & 0xFF) == 0xFF && (b[1] & 0xFF) == 0xFE)) {
+      throw new IllegalArgumentException("Cannot parse JATS XML of " + docId + ": UTF-16 input is not supported, use UTF-8");
+    }
+  }
+
   private static final Set<String> PREDEFINED = Set.of("amp", "lt", "gt", "quot", "apos");
 
   /**
    * Replaces named entity references other than the five predefined ones (e.g. &amp;nbsp; without a DTD) by a space, as the
-   * parser would otherwise fail. Works on bytes, so it assumes an ASCII compatible encoding, which JATS exports are.
+   * parser would otherwise fail. CDATA sections are copied unchanged. Works on bytes, so it assumes an ASCII compatible
+   * encoding (UTF-8, ISO-8859-x); UTF-16 is rejected by {@link #convert}.
    */
   static byte[] blankUnknownEntities(byte[] in) {
     byte[] out = new byte[in.length];
     int o = 0;
+    byte[] cdata = "<![CDATA[".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
     for (int i = 0; i < in.length; i++) {
+      if (in[i] == '<' && startsWith(in, i, cdata)) {
+        int end = i + cdata.length;
+        while (end < in.length && !(in[end] == ']' && startsWith(in, end, new byte[]{']', ']', '>'}))) end++;
+        end = Math.min(end + 3, in.length);
+        System.arraycopy(in, i, out, o, end - i);
+        o += end - i;
+        i = end - 1;
+        continue;
+      }
       if (in[i] == '&' && i + 1 < in.length && Character.isLetter(in[i + 1])) {
         int j = i + 1;
         while (j < in.length && j - i < 40 && (Character.isLetterOrDigit(in[j]) || in[j] == '.' || in[j] == '-' || in[j] == '_')) j++;
@@ -75,6 +93,12 @@ public final class JatsConverter {
       out[o++] = in[i];
     }
     return Arrays.copyOf(out, o);
+  }
+
+  private static boolean startsWith(byte[] in, int at, byte[] prefix) {
+    if (at + prefix.length > in.length) return false;
+    for (int k = 0; k < prefix.length; k++) if (in[at + k] != prefix[k]) return false;
+    return true;
   }
 
   /** State of a single conversion. */

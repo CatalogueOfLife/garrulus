@@ -10,11 +10,11 @@ class TextNormalizerTest {
   }
 
   @Test void removesSoftHyphen() {
-    assertThat(TextNormalizer.normalize("Ophe­lia")).isEqualTo("Ophelia");
+    assertThat(TextNormalizer.normalize("Ophe\u00ADlia")).isEqualTo("Ophelia");
   }
 
   @Test void collapsesWhitespaceAndNbsp() {
-    assertThat(TextNormalizer.normalize("a  b \n\t c")).isEqualTo("a b c");
+    assertThat(TextNormalizer.normalize("a\u00A0\u00A0b \n\t c")).isEqualTo("a b c");
     assertThat(TextNormalizer.normalize("\n  ")).isEqualTo(" ");
   }
 

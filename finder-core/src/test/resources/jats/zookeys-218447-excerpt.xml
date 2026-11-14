@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Trimmed excerpt of Xu et al., ZooKeys 1297, doi:10.3897/zookeys.1297.218447, CC BY 4.0
      (https://creativecommons.org/licenses/by/4.0/). Source: https://zookeys.pensoft.net/article/218447/download/xml/
-     Only text is cut; no content was invented. -->
+     Text is cut and the structure was condensed (the taxon treatment sits directly under Introduction, whereas the
+     original has it in a separate Taxonomy section); no content was invented. -->
 <!DOCTYPE article PUBLIC "-//TaxonX//DTD Taxonomic Treatment Publishing DTD v0 20100105//EN" "https://zookeys.pensoft.net/nlm/tax-treatment-NS0.dtd">
 <article xmlns:tp="http://www.plazi.org/taxpub" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:mml="http://www.w3.org/1998/Math/MathML" article-type="research-article" xml:lang="en">
   <front>

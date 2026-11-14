@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JatsConverterTest {
   private static final String FIXTURE = "/jats/zookeys-218447-excerpt.xml";
@@ -116,7 +117,7 @@ class JatsConverterTest {
 
   @Test void spansStayAlignedAfterLigatureAndNbsp() {
     // ligature fi expands to two chars, soft hyphen vanishes, NBSP collapses: the later spans must still slice correctly
-    Conversion c = convertXml("<article><body><p>ﬁnd the­  <italic>Ophelia</italic> and ﬃx <bold>Ab­c</bold></p></body></article>");
+    Conversion c = convertXml("<article><body><p>ﬁnd\u00A0the\u00AD\u00A0 <italic>Ophelia</italic> and ﬃx <bold>Ab\u00ADc</bold></p></body></article>");
     Block b = c.document().blocks().get(0);
     assertThat(b.text()).isEqualTo("find the Ophelia and ffix Abc");
     assertThat(spans(b, Style.ITALIC)).containsExactly("Ophelia");
@@ -141,5 +142,35 @@ class JatsConverterTest {
       + "<article><body><p>Hello <italic>world</italic></p></body></article>";
     Conversion c = convertXml(xml);
     assertThat(c.document().blocks().get(0).text()).isEqualTo("Hello world");
+  }
+
+  @Test void markupStaysAlignedAfterLigatureAndNbsp() {
+    Conversion c = convertXml("<article xmlns:tp=\"http://www.plazi.org/taxpub\"><body><sec><title>S</title><tp:taxon-treatment><tp:nomenclature>"
+      + "\uFB01nd\u00A0\u00A0the\u00AD <tp:taxon-name><tp:taxon-name-part taxon-name-part-type=\"genus\" reg=\"Ophelia\">Ophe\u00ADlia</tp:taxon-name-part></tp:taxon-name>"
+      + " \uFB03x <tp:taxon-status>sp.\u00A0nov.</tp:taxon-status></tp:nomenclature></tp:taxon-treatment></sec></body></article>");
+    Block h = first(c, BlockType.HEADING, "find");
+    assertThat(h.text()).isEqualTo("find the Ophelia ffix sp. nov.");
+    assertThat(c.taxonMarkup()).hasSize(1);
+    TaxonMarkup t = c.taxonMarkup().get(0);
+    assertThat(slice(h, t.start(), t.end())).isEqualTo("Ophelia");
+    assertThat(spans(h, Style.TAXON_NAME)).containsExactly("Ophelia");
+    assertThat(c.statusMarkup()).hasSize(1);
+    StatusMarkup s = c.statusMarkup().get(0);
+    assertThat(slice(h, s.start(), s.end())).isEqualTo("sp. nov.");
+    assertThat(s.status()).isEqualTo("sp. nov.");
+  }
+
+  @Test void entityLookalikeInCdataSurvives() {
+    Conversion c = convertXml("<article><body><p>a <![CDATA[x &foo; y]]> b &nbsp; c</p></body></article>");
+    assertThat(c.document().blocks().get(0).text()).isEqualTo("a x &foo; y b c");
+  }
+
+  @Test void utf16InputIsRejected() {
+    byte[] be = "\uFEFF<article><body><p>x</p></body></article>".getBytes(StandardCharsets.UTF_16BE);
+    byte[] le = "\uFEFF<article><body><p>x</p></body></article>".getBytes(StandardCharsets.UTF_16LE);
+    assertThatThrownBy(() -> new JatsConverter().convert(new ByteArrayInputStream(be), "d", JatsOptions.defaults()))
+      .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("UTF-16");
+    assertThatThrownBy(() -> new JatsConverter().convert(new ByteArrayInputStream(le), "d", JatsOptions.defaults()))
+      .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("UTF-16");
   }
 }
