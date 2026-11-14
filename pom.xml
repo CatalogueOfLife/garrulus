@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>4.1.0</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>org.catalogueoflife</groupId>
+  <artifactId>nametracker-parent</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <modules>
+    <module>finder-api</module>
+    <module>finder-core</module>
+    <module>finder-service</module>
+    <module>store</module>
+    <module>indexer</module>
+    <module>web</module>
+    <module>eval</module>
+  </modules>
+
+  <properties>
+    <java.version>25</java.version>
+    <mybatis-starter.version>4.0.1</mybatis-starter.version>
+    <clb.version>1.7.1-SNAPSHOT</clb.version>
+  </properties>
+
+  <!-- The CLB modules and the name parser pair they are built with come from the backend's BOM. -->
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.catalogueoflife</groupId>
+        <artifactId>clb-bom</artifactId>
+        <version>${clb.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.catalogueoflife</groupId>
+        <artifactId>nametracker-finder-api</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.catalogueoflife</groupId>
+        <artifactId>nametracker-finder-core</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.catalogueoflife</groupId>
+        <artifactId>nametracker-finder-service</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.catalogueoflife</groupId>
+        <artifactId>nametracker-store</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.catalogueoflife</groupId>
+        <artifactId>nametracker-indexer</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.catalogueoflife</groupId>
+        <artifactId>nametracker-web</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.catalogueoflife</groupId>
+        <artifactId>nametracker-eval</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <repositories>
+    <repository>
+      <id>gbif-releases</id>
+      <url>https://repository.gbif.org/repository/releases/</url>
+    </repository>
+    <repository>
+      <id>gbif-snapshot</id>
+      <snapshots><enabled>true</enabled></snapshots>
+      <url>https://repository-snapshots.gbif.org/repository/snapshots/</url>
+    </repository>
+  </repositories>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <configuration>
+            <parameters>true</parameters>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-failsafe-plugin</artifactId>
+          <executions>
+            <execution>
+              <goals>
+                <goal>integration-test</goal>
+                <goal>verify</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+</project>
