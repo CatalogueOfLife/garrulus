@@ -48,6 +48,20 @@ class ActTaggerTest {
   }
 
   @Test
+  void noActsInReferences() {
+    // dev: a cited title "Ophelia celtica (Annélide Polychète), nouvelle espèce ..." is no act of this paper
+    Block ref = block("r1", BlockType.REFERENCE,
+        "Amoureux L (1981) Ophelia celtica (Annélide Polychète), nouvelle espèce. Heterocypris exodonta sp. nov. (Ostracoda)");
+    Block p = block("p1", BlockType.PARAGRAPH, "Carabus nigrus sp. nov. is new.");
+    ParsedCandidate celtica = pc(ref, "Ophelia celtica", NameKind.BINOMIAL, Rank.SPECIES);
+    ParsedCandidate exodonta = pc(ref, "Heterocypris exodonta", NameKind.BINOMIAL, Rank.SPECIES);
+    ParsedCandidate nigrus = pc(p, "Carabus nigrus", NameKind.BINOMIAL, Rank.SPECIES);
+    ActTagger.Result r = tagger.tagWithDiagnostics(List.of(celtica, exodonta, nigrus), doc(ref, p));
+    assertThat(r.acts()).containsOnlyKeys(nigrus);
+    assertThat(r.actsUnattached()).as("reference markers are skipped, not unattached").isZero();
+  }
+
+  @Test
   void combNovOnBinomial() {
     Block b = block("b1", BlockType.PARAGRAPH, "Bar baz (Smith, 1900) comb. nov. is moved");
     ParsedCandidate p = pc(b, "Bar baz", NameKind.BINOMIAL, Rank.SPECIES);

@@ -20,6 +20,8 @@ import java.util.Map;
  * Attaches nomenclatural act markers to the nearest preceding name of a fitting kind in the same block. A marker that
  * is a whole HEADING block ("sp. nov.") attaches to the last fitting name of the immediately preceding HEADING block.
  * Each name carries at most one act, the first marker attached; later markers that find only taken names are unattached.
+ * Markers in REFERENCE blocks are skipped (neither attached nor counted as unattached): a cited title that says "sp. nov."
+ * reports an act of another paper.
  */
 public class ActTagger {
   public static final int DEFAULT_MAX_DISTANCE = 40;
@@ -52,6 +54,7 @@ public class ActTagger {
     List<Block> blocks = document.blocks();
     for (int bi = 0; bi < blocks.size(); bi++) {
       Block block = blocks.get(bi);
+      if (block.type() == BlockType.REFERENCE) continue;
       for (ActMatch m : ActPatterns.find(block.text())) {
         ParsedCandidate target = null;
         if (block.type() == BlockType.HEADING && isWholeMarker(block.text(), m)) {
