@@ -18,6 +18,21 @@
       <artifactId>nametracker-finder-api</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.gbif.nameparser</groupId>
+      <artifactId>name-parser-rust</artifactId>
+    </dependency>
+    <!-- Native FFI libraries, one classifier jar per platform (as in Blixa). -->
+    <dependency>
+      <groupId>org.gbif.nameparser</groupId>
+      <artifactId>name-parser-rust</artifactId>
+      <classifier>linux-x86_64</classifier>
+    </dependency>
+    <dependency>
+      <groupId>org.gbif.nameparser</groupId>
+      <artifactId>name-parser-rust</artifactId>
+      <classifier>osx-aarch_64</classifier>
+    </dependency>
+    <dependency>
       <groupId>it.unimi.dsi</groupId>
       <artifactId>fastutil</artifactId>
     </dependency>
