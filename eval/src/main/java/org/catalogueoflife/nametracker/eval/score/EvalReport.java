@@ -14,7 +14,7 @@ public record EvalReport(String finder, FinderInfo info, String corpus, String s
                          Map<String, Metrics> byCategory, Metrics acts, Metrics contexts, Metrics mainSubject,
                          List<ErrorSample> falsePositives, List<ErrorSample> falseNegatives) {
   public EvalReport {
-    byCategory = byCategory == null ? Map.of() : Map.copyOf(byCategory);
+    byCategory = byCategory == null ? Map.of() : java.util.Collections.unmodifiableMap(new java.util.TreeMap<>(byCategory));
     falsePositives = falsePositives == null ? List.of() : List.copyOf(falsePositives);
     falseNegatives = falseNegatives == null ? List.of() : List.copyOf(falseNegatives);
   }
