@@ -7,7 +7,7 @@ import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,7 +19,7 @@ import tools.jackson.databind.JsonNode;
 
 /** Temporary admin endpoint (shared-secret header, constant-time compare, until ORCID admin roles in M4); not mapped at all (404) unless nametracker.admin.token is set. */
 @RestController
-@ConditionalOnExpression("!'${nametracker.admin.token:}'.isBlank()")
+@Conditional(AdminTokenConfigured.class)
 public class AdminTaskController {
 
   public record EnqueueRequest(

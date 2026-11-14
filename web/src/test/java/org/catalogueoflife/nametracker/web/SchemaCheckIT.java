@@ -42,6 +42,38 @@ class SchemaCheckIT {
   }
 
   @Test
+  void checksumMismatchGivesTheOtherMessage() {
+    try (PostgreSQLContainer db = new PostgreSQLContainer("postgres:17")) {
+      db.start();
+      Flyway flyway = Flyway.configure()
+          .dataSource(db.getJdbcUrl(), db.getUsername(), db.getPassword())
+          .locations("classpath:db/migration")
+          .load();
+      flyway.migrate();
+      try (var c = java.sql.DriverManager.getConnection(db.getJdbcUrl(), db.getUsername(), db.getPassword());
+           var st = c.createStatement()) {
+        st.executeUpdate("UPDATE flyway_schema_history SET checksum = 12345 WHERE version = '1'");
+      } catch (java.sql.SQLException e) {
+        throw new IllegalStateException(e);
+      }
+      Throwable failure = null;
+      try (ConfigurableApplicationContext ctx = run(db)) {
+        // must not get here
+      } catch (Exception e) {
+        failure = e;
+      }
+      assertThat(failure).as("startup failure").isNotNull();
+      StringBuilder messages = new StringBuilder();
+      for (Throwable t = failure; t != null; t = t.getCause()) {
+        messages.append(t.getMessage()).append('\n');
+      }
+      assertThat(messages.toString())
+          .contains("database schema does not match this web build")
+          .doesNotContain("is behind this web build");
+    }
+  }
+
+  @Test
   void startsWhenDatabaseIsAhead() {
     try (PostgreSQLContainer db = new PostgreSQLContainer("postgres:17")) {
       db.start();

@@ -5,9 +5,14 @@ spring:
     url: ${NAMETRACKER_DB_URL:jdbc:postgresql://localhost:5434/nametracker}
     username: ${NAMETRACKER_DB_USER:nametracker}
     password: ${NAMETRACKER_DB_PASSWORD:nametracker}
+  config:
+    # local .env (see .env.example); the second entry covers running from a module directory (spring-boot:run)
+    import: optional:file:.env[.properties],optional:file:../.env[.properties]
   flyway:
-    # the indexer owns migrations; web only validates (see SchemaCheck)
-    enabled: false
+    # the indexer owns migrations; web only validates: SchemaCheck replaces the migration strategy and never migrates
+    enabled: true
+    locations: classpath:db/migration
+    ignore-migration-patterns: "*:future"
 
 mybatis:
   configuration:
