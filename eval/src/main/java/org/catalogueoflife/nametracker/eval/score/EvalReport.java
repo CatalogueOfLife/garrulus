@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The outcome of one run. byCategory keys: kind:UNINOMIAL|BINOMIAL|..., block:{@code <BlockType>}, lang:{@code <language>}.
+ * The outcome of one run. byCategory keys: kind:UNINOMIAL|BINOMIAL|..., block:{@code <BlockType>}, lang:{@code <language>}, and for curated documents stratum:BROAD_EN|NON_EN|PENSOFT (from the document meta "stratum").
  * mainSubject compares the gold main subject names with the names of the predicted mentions in TITLE blocks plus those
  * that carry a predicted act. matchMode and documentLevel record how the names were scored.
  */

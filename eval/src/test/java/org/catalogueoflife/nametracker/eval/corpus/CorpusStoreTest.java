@@ -66,4 +66,25 @@ class CorpusStoreTest {
         .isInstanceOf(IllegalStateException.class).hasMessageContaining("pensoft:x");
     assertThatThrownBy(() -> CorpusStore.read(f, null)).hasMessageContaining("pensoft:x");
   }
+
+  @Test
+  void failedWriteLeavesTheOldFileIntactAndNoTempFile() throws Exception {
+    GoldDocument g = doc();
+    Path f = dir.resolve("gold.jsonl.gz");
+    CorpusStore.write(f, List.of(g.withoutText(), g.withoutText()));
+    byte[] before = java.nio.file.Files.readAllBytes(f);
+    // a source that fails after the first document breaks the write in the middle
+    List<GoldDocument> failing = new java.util.AbstractList<>() {
+      @Override public GoldDocument get(int i) {
+        if (i > 0) throw new IllegalStateException("boom");
+        return g;
+      }
+      @Override public int size() { return 2; }
+    };
+    assertThatThrownBy(() -> CorpusStore.write(f, failing)).isInstanceOf(IllegalStateException.class).hasMessage("boom");
+    assertThat(java.nio.file.Files.readAllBytes(f)).isEqualTo(before);
+    try (var files = java.nio.file.Files.list(dir)) {
+      assertThat(files.map(p -> p.getFileName().toString())).containsExactly("gold.jsonl.gz");
+    }
+  }
 }

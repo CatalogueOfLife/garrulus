@@ -9,8 +9,10 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
@@ -20,19 +22,39 @@ import java.util.zip.GZIPOutputStream;
 public final class CorpusStore {
   private CorpusStore() {}
 
-  /** Writes the documents as given; call {@link GoldDocument#withoutText()} first for licences that forbid storing text. */
+  /**
+   * Writes the documents as given; call {@link GoldDocument#withoutText()} first for licences that forbid storing text. The
+   * file is written next to its target and moved into place, so a failed write leaves an existing corpus intact.
+   */
   public static void write(Path jsonlGz, List<GoldDocument> docs) {
+    Path tmp = null;
     try {
-      if (jsonlGz.getParent() != null) Files.createDirectories(jsonlGz.getParent());
+      Path dir = jsonlGz.toAbsolutePath().getParent();
+      Files.createDirectories(dir);
+      tmp = Files.createTempFile(dir, jsonlGz.getFileName().toString(), ".tmp");
       try (BufferedWriter w = new BufferedWriter(new java.io.OutputStreamWriter(
-          new GZIPOutputStream(Files.newOutputStream(jsonlGz)), StandardCharsets.UTF_8))) {
+          new GZIPOutputStream(Files.newOutputStream(tmp)), StandardCharsets.UTF_8))) {
         for (GoldDocument d : docs) {
           w.write(FinderJson.mapper().writeValueAsString(d));
           w.write('\n');
         }
       }
+      try {
+        Files.move(tmp, jsonlGz, StandardCopyOption.ATOMIC_MOVE);
+      } catch (AtomicMoveNotSupportedException e) {
+        Files.move(tmp, jsonlGz, StandardCopyOption.REPLACE_EXISTING);
+      }
+      tmp = null;
     } catch (IOException e) {
       throw new UncheckedIOException(e);
+    } finally {
+      if (tmp != null) {
+        try {
+          Files.deleteIfExists(tmp);
+        } catch (IOException ignored) {
+          // best effort
+        }
+      }
     }
   }
 

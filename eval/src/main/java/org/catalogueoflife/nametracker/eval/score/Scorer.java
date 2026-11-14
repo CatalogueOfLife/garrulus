@@ -15,6 +15,8 @@ import org.catalogueoflife.nametracker.finder.api.Mention;
 import org.catalogueoflife.nametracker.finder.api.NameKind;
 import org.catalogueoflife.nametracker.finder.api.RankedName;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -34,6 +36,8 @@ import java.util.regex.Pattern;
  * (rank, normalised name) per document. A document without a result counts all its gold as missed.
  */
 public final class Scorer {
+  /** Document meta key holding the curated stratum (BROAD_EN, NON_EN, PENSOFT); it adds a stratum:X category to the name metrics. */
+  public static final String STRATUM = "stratum";
   private static final int SAMPLE_CONTEXT = 40;
   private static final int MAX_SAMPLES = 5000;
   private static final Pattern WS = Pattern.compile("\\s+");
@@ -63,6 +67,7 @@ public final class Scorer {
       if (split == null) split = d.split();
       else if (!split.equals(d.split())) split = "mixed";
       String lang = d.document().language() == null ? "und" : d.document().language();
+      String stratum = d.document().meta().get(STRATUM);
       Map<String, Block> blocks = new HashMap<>();
       for (Block b : d.document().blocks()) blocks.put(b.id(), b);
 
@@ -71,9 +76,9 @@ public final class Scorer {
           : r.mentions().stream().filter(m -> !excluded(blocks, m.blockId(), opts)).toList();
 
       if (opts.documentLevel()) {
-        scoreDocumentLevel(d, gold, pred, lang, names, cats, fps, fns);
+        scoreDocumentLevel(d, gold, pred, lang, stratum, names, cats, fps, fns);
       } else {
-        scoreSpans(d, blocks, gold, pred, lang, opts.mode(), names, cats, fps, fns);
+        scoreSpans(d, blocks, gold, pred, lang, stratum, opts.mode(), names, cats, fps, fns);
       }
       scoreActs(d, r, opts, blocks, acts);
       scoreContexts(d, r, opts, blocks, ctxs);
@@ -93,7 +98,7 @@ public final class Scorer {
   // ---- names
 
   private static void scoreSpans(GoldDocument d, Map<String, Block> blocks, List<GoldName> gold, List<Mention> pred,
-                                 String lang, MatchMode mode, Acc names, Map<String, Acc> cats,
+                                 String lang, @Nullable String stratum, MatchMode mode, Acc names, Map<String, Acc> cats,
                                  List<ErrorSample> fps, List<ErrorSample> fns) {
     boolean[] goldUsed = new boolean[gold.size()];
     boolean[] predUsed = new boolean[pred.size()];
@@ -111,7 +116,7 @@ public final class Scorer {
           if (hit) {
             goldUsed[g] = true;
             predUsed[p] = true;
-            hitCats(cats, gn, blocks, lang);
+            hitCats(cats, gn, blocks, lang, stratum);
             names.tp++;
             break;
           }
@@ -122,23 +127,23 @@ public final class Scorer {
       if (goldUsed[g]) continue;
       GoldName gn = gold.get(g);
       names.fn++;
-      for (String c : categories(goldKind(gn), blockType(blocks, gn.blockId()), lang)) cats.computeIfAbsent(c, k -> new Acc()).fn++;
+      for (String c : categories(goldKind(gn), blockType(blocks, gn.blockId()), lang, stratum)) cats.computeIfAbsent(c, k -> new Acc()).fn++;
       sample(fns, d.docId(), blocks.get(gn.blockId()), gn.blockId(), gn.start(), gn.end(), gn.text(), goldKind(gn).name());
     }
     for (int p = 0; p < pred.size(); p++) {
       if (predUsed[p]) continue;
       Mention m = pred.get(p);
       names.fp++;
-      for (String c : categories(m.kind(), blockType(blocks, m.blockId()), lang)) cats.computeIfAbsent(c, k -> new Acc()).fp++;
+      for (String c : categories(m.kind(), blockType(blocks, m.blockId()), lang, stratum)) cats.computeIfAbsent(c, k -> new Acc()).fp++;
       sample(fps, d.docId(), blocks.get(m.blockId()), m.blockId(), m.start(), m.end(), m.verbatim(), m.kind().name());
     }
   }
 
-  private static void hitCats(Map<String, Acc> cats, GoldName gn, Map<String, Block> blocks, String lang) {
-    for (String c : categories(goldKind(gn), blockType(blocks, gn.blockId()), lang)) cats.computeIfAbsent(c, k -> new Acc()).tp++;
+  private static void hitCats(Map<String, Acc> cats, GoldName gn, Map<String, Block> blocks, String lang, @Nullable String stratum) {
+    for (String c : categories(goldKind(gn), blockType(blocks, gn.blockId()), lang, stratum)) cats.computeIfAbsent(c, k -> new Acc()).tp++;
   }
 
-  private static void scoreDocumentLevel(GoldDocument d, List<GoldName> gold, List<Mention> pred, String lang, Acc names,
+  private static void scoreDocumentLevel(GoldDocument d, List<GoldName> gold, List<Mention> pred, String lang, @Nullable String stratum, Acc names,
                                          Map<String, Acc> cats, List<ErrorSample> fps, List<ErrorSample> fns) {
     Map<String, NameKind> goldSet = new LinkedHashMap<>();
     for (GoldName g : gold) goldSet.putIfAbsent(norm(g.fullName() != null ? g.fullName() : g.text()), goldKind(g));
@@ -149,10 +154,12 @@ public final class Scorer {
         names.tp++;
         cats.computeIfAbsent("kind:" + e.getValue(), k -> new Acc()).tp++;
         cats.computeIfAbsent("lang:" + lang, k -> new Acc()).tp++;
+        if (stratum != null) cats.computeIfAbsent("stratum:" + stratum, k -> new Acc()).tp++;
       } else {
         names.fn++;
         cats.computeIfAbsent("kind:" + e.getValue(), k -> new Acc()).fn++;
         cats.computeIfAbsent("lang:" + lang, k -> new Acc()).fn++;
+        if (stratum != null) cats.computeIfAbsent("stratum:" + stratum, k -> new Acc()).fn++;
         add(fns, new ErrorSample(d.docId(), null, -1, -1, e.getKey(), e.getValue().name(), null));
       }
     }
@@ -161,6 +168,7 @@ public final class Scorer {
       names.fp++;
       cats.computeIfAbsent("kind:" + e.getValue(), k -> new Acc()).fp++;
       cats.computeIfAbsent("lang:" + lang, k -> new Acc()).fp++;
+      if (stratum != null) cats.computeIfAbsent("stratum:" + stratum, k -> new Acc()).fp++;
       add(fps, new ErrorSample(d.docId(), null, -1, -1, e.getKey(), e.getValue().name(), null));
     }
   }
@@ -181,8 +189,9 @@ public final class Scorer {
     return b == null ? null : b.type();
   }
 
-  private static List<String> categories(NameKind kind, BlockType block, String lang) {
-    List<String> l = new ArrayList<>(3);
+  private static List<String> categories(NameKind kind, BlockType block, String lang, @Nullable String stratum) {
+    List<String> l = new ArrayList<>(4);
+    if (stratum != null) l.add("stratum:" + stratum);
     l.add("kind:" + kind);
     if (block != null) l.add("block:" + block);
     l.add("lang:" + lang);

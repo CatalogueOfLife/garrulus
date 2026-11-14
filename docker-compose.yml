@@ -45,6 +45,12 @@ services:
     profiles: [annotate]
     ports:
       - "127.0.0.1:8090:8080"
+    environment:
+      # Optional first-run account and API token for scripted use: set them in your shell or a git-ignored .env, never here.
+      LABEL_STUDIO_USERNAME: ${LABEL_STUDIO_USERNAME:-}
+      LABEL_STUDIO_PASSWORD: ${LABEL_STUDIO_PASSWORD:-}
+      LABEL_STUDIO_USER_TOKEN: ${LABEL_STUDIO_USER_TOKEN:-}
+      LABEL_STUDIO_DISABLE_SIGNUP_WITHOUT_LINK: "true"
     volumes:
       - ls:/label-studio/data
 

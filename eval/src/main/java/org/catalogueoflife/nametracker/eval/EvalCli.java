@@ -4,6 +4,13 @@ import org.catalogueoflife.nametracker.eval.corpus.CorpusManifest;
 import org.catalogueoflife.nametracker.eval.corpus.CorpusRebuilder;
 import org.catalogueoflife.nametracker.eval.corpus.CorpusStore;
 import org.catalogueoflife.nametracker.eval.corpus.GoldDocument;
+import org.catalogueoflife.nametracker.eval.curated.CuratedManifest;
+import org.catalogueoflife.nametracker.eval.curated.CuratedSelector;
+import org.catalogueoflife.nametracker.eval.curated.LabelStudioExporter;
+import org.catalogueoflife.nametracker.eval.curated.LabelStudioImporter;
+import org.catalogueoflife.nametracker.eval.curated.PreTagger;
+import org.catalogueoflife.nametracker.finder.api.Mention;
+import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.eval.corpus.OpenAlexClient;
 import org.catalogueoflife.nametracker.eval.corpus.PensoftFetcher;
 import org.catalogueoflife.nametracker.eval.score.EvalReport;
@@ -28,8 +35,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
-/** The evaluation command line. More subcommands (curated-select, ls-export, ls-import, build-dictionary) arrive with later tasks. */
-@Command(name = "eval", mixinStandardHelpOptions = true, subcommands = {EvalCli.FetchPensoft.class, EvalCli.RebuildPensoft.class, EvalCli.Run.class},
+/** The evaluation command line. More subcommands (build-dictionary) arrive with later tasks. */
+@Command(name = "eval", mixinStandardHelpOptions = true, subcommands = {EvalCli.FetchPensoft.class, EvalCli.RebuildPensoft.class, EvalCli.Run.class, EvalCli.CuratedSelect.class,
+    EvalCli.LsExport.class, EvalCli.LsImport.class},
     description = "Name finder evaluation")
 public class EvalCli implements Runnable {
   public static void main(String[] args) {
@@ -134,7 +142,10 @@ public class EvalCli implements Runnable {
       if (!m.equals("A")) throw new IllegalArgumentException("--mode must be A or B");
       if (!split.equals("dev") && !split.equals("test")) throw new IllegalArgumentException("--split must be dev or test");
       NameFinder f = FinderFactory.create(finder);
-      List<GoldDocument> docs = CorpusStore.read(corpus.resolve("gold.jsonl.gz"), null).stream()
+      // curated abstracts under a restrictive licence are stored without text and re-fetched from OpenAlex here
+      java.net.http.HttpClient http = PensoftFetcher.defaultClient();
+      List<GoldDocument> docs = CorpusStore.read(corpus.resolve("gold.jsonl.gz"),
+          new org.catalogueoflife.nametracker.eval.corpus.OpenAlexAbstractRefetcher(new OpenAlexClient(http, System.getenv("OPENALEX_API_KEY")))).stream()
           .filter(d -> split.equals(d.split())).toList();
       if (docs.isEmpty()) throw new IllegalArgumentException("No documents in split " + split + " of " + corpus);
       Map<String, FinderResult> results = new LinkedHashMap<>();
@@ -142,7 +153,7 @@ public class EvalCli implements Runnable {
       String corpusName = corpus.toAbsolutePath().normalize().getFileName().toString();
       ScoreOptions opts = corpusName.equals("pensoft")
           ? new ScoreOptions(match, ScoreOptions.pensoft(match).excludedBlocks(), docLevel)
-          : new ScoreOptions(match, java.util.Set.of(), docLevel);
+          : new ScoreOptions(match, ScoreOptions.curated(match).excludedBlocks(), docLevel);
       EvalReport r = Scorer.score(docs, results, opts, finder, corpusName, m);
       Path md = ReportWriter.write(r, out);
       System.out.println(docs.size() + " documents, match " + match + (docLevel ? ", document level" : ""));
@@ -157,6 +168,115 @@ public class EvalCli implements Runnable {
     private static void line(String label, Metrics x) {
       System.out.printf(Locale.ROOT, "%-12s P=%.3f R=%.3f F1=%.3f (tp %d, fp %d, fn %d)%n", label, x.precision(), x.recall(),
           x.f1(), x.tp(), x.fp(), x.fn());
+    }
+  }
+
+  @Command(name = "curated-select", mixinStandardHelpOptions = true,
+      description = "Selects the 100 curated documents (50 English abstracts, 20 non-English, 30 Pensoft excerpts) and writes manifest.tsv plus a local picks file")
+  public static class CuratedSelect implements Callable<Integer> {
+    @Option(names = "--seed", defaultValue = "42", description = "seed, default ${DEFAULT-VALUE}") long seed;
+    @Option(names = "--out", defaultValue = "eval/corpus/curated", description = "corpus directory for manifest.tsv, default ${DEFAULT-VALUE}") Path out;
+    @Option(names = "--picks", defaultValue = "eval/work/curated-picks.jsonl.gz", description = "local file with the full picks, default ${DEFAULT-VALUE}") Path picks;
+    @Option(names = "--silver", defaultValue = "eval/corpus/pensoft/manifest.tsv", description = "manifest of the silver corpus to exclude, default ${DEFAULT-VALUE}") Path silver;
+
+    @Override
+    public Integer call() throws Exception {
+      java.net.http.HttpClient http = PensoftFetcher.defaultClient();
+      OpenAlexClient oa = new OpenAlexClient(http, System.getenv("OPENALEX_API_KEY"));
+      PensoftFetcher pf = new PensoftFetcher(http, oa);
+      java.util.Set<String> excluded = new java.util.HashSet<>();
+      CorpusManifest.read(silver).rows().forEach(r -> excluded.add(r.docId()));
+      List<CuratedSelector.Pick> selected = new CuratedSelector(oa, () -> pf.candidates(seed), pf::fetch, excluded).select(seed);
+      Files.createDirectories(out);
+      CuratedManifest.of(selected).write(out.resolve("manifest.tsv"));
+      Files.createDirectories(picks.toAbsolutePath().getParent());
+      try (java.io.BufferedWriter w = new java.io.BufferedWriter(new java.io.OutputStreamWriter(
+          new java.util.zip.GZIPOutputStream(Files.newOutputStream(picks)), java.nio.charset.StandardCharsets.UTF_8))) {
+        for (CuratedSelector.Pick p : selected) {
+          w.write(FinderJson.mapper().writeValueAsString(p));
+          w.write('\n');
+        }
+      }
+      System.out.println(selected.size() + " documents, seed " + seed);
+      Map<String, Long> counts = new java.util.TreeMap<>();
+      for (CuratedSelector.Pick p : selected) {
+        counts.merge("stratum " + p.stratum() + " / " + p.split(), 1L, Long::sum);
+        counts.merge("licence " + p.license() + (p.textRetained() ? " (text stored)" : " (text re-fetched)"), 1L, Long::sum);
+        if (!p.stratum().equals("PENSOFT")) counts.merge("language " + p.language(), 1L, Long::sum);
+      }
+      counts.forEach((k, v) -> System.out.println("  " + k + ": " + v));
+      System.out.println("Wrote " + out.resolve("manifest.tsv") + " and " + picks);
+      return 0;
+    }
+  }
+
+  static List<CuratedSelector.Pick> readPicks(Path picks) throws java.io.IOException {
+    List<CuratedSelector.Pick> out = new ArrayList<>();
+    try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(
+        new java.util.zip.GZIPInputStream(Files.newInputStream(picks)), java.nio.charset.StandardCharsets.UTF_8))) {
+      String line;
+      while ((line = r.readLine()) != null) {
+        if (!line.isBlank()) out.add(FinderJson.mapper().readValue(line, CuratedSelector.Pick.class));
+      }
+    }
+    return out;
+  }
+
+  @Command(name = "ls-export", mixinStandardHelpOptions = true,
+      description = "Pre-tags the picks of curated-select with name finders and writes the Label Studio tasks file")
+  public static class LsExport implements Callable<Integer> {
+    @Option(names = "--picks", defaultValue = "eval/work/curated-picks.jsonl.gz", description = "default ${DEFAULT-VALUE}") Path picks;
+    @Option(names = "--finders", split = ",", defaultValue = "italics,gnfinder", description = "pre-tagging finders, default ${DEFAULT-VALUE}") List<String> finders;
+    @Option(names = "--out", defaultValue = "eval/work/curated-tasks.json", description = "default ${DEFAULT-VALUE}") Path out;
+
+    @Override
+    public Integer call() throws Exception {
+      List<CuratedSelector.Pick> selected = readPicks(picks);
+      List<NameFinder> fs = finders.stream().map(FinderFactory::create).toList();
+      Map<String, List<Mention>> pretags = new LinkedHashMap<>();
+      int total = 0;
+      for (CuratedSelector.Pick p : selected) {
+        List<Mention> ms = PreTagger.pretag(p.document(), fs);
+        pretags.put(p.docId(), ms);
+        total += ms.size();
+        if (pretags.size() % 25 == 0) System.err.println(pretags.size() + "/" + selected.size() + " pre-tagged");
+      }
+      LabelStudioExporter.write(selected, pretags, out);
+      System.out.println(selected.size() + " tasks, " + total + " pre-tagged names (" + String.join(" + ", finders) + ")");
+      Map<String, Integer> byStratum = new java.util.TreeMap<>();
+      for (CuratedSelector.Pick p : selected) byStratum.merge(p.stratum(), pretags.get(p.docId()).size(), Integer::sum);
+      byStratum.forEach((k, v) -> System.out.println("  " + k + ": " + v + " names"));
+      System.out.println("Wrote " + out);
+      return 0;
+    }
+  }
+
+  @Command(name = "ls-import", mixinStandardHelpOptions = true,
+      description = "Reads a Label Studio JSON export and prints the gold documents, optionally writing them to a gold.jsonl.gz")
+  public static class LsImport implements Callable<Integer> {
+    @Option(names = "--export", required = true, description = "the Label Studio JSON export") Path export;
+    @Option(names = "--out", description = "gold.jsonl.gz to write, e.g. eval/corpus/curated/gold.jsonl.gz") Path out;
+
+    @Override
+    public Integer call() throws Exception {
+      List<GoldDocument> docs = LabelStudioImporter.read(export);
+      int names = 0, acts = 0, contexts = 0, subjects = 0;
+      for (GoldDocument d : docs) {
+        names += d.names().size();
+        acts += d.acts().size();
+        contexts += d.contexts().stream().mapToInt(c -> c.ranks().size()).sum();
+        subjects += d.mainSubjectNames().size();
+      }
+      System.out.println(docs.size() + " gold documents: " + names + " names, " + acts + " acts, " + contexts
+          + " context ranks, " + subjects + " main subject names");
+      for (GoldDocument d : docs) {
+        System.out.println("  " + d.docId() + " [" + d.split() + "]: " + d.names().size() + " names, " + d.acts().size() + " acts");
+      }
+      if (out != null) {
+        CorpusStore.write(out, docs);
+        System.out.println("Wrote " + out);
+      }
+      return 0;
     }
   }
 }

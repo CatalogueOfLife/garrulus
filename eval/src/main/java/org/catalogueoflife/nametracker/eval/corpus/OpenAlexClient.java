@@ -73,6 +73,25 @@ public class OpenAlexClient {
     return out;
   }
 
+  /**
+   * A reproducible random sample of n works matching the filter (OpenAlex sample + seed), in the order OpenAlex returns them.
+   * The same seed and filter give the same works as long as the underlying data does not change.
+   */
+  public List<JsonNode> sampleWorks(String filter, int n, long seed, @Nullable String select) {
+    List<JsonNode> out = new ArrayList<>();
+    for (int page = 1; out.size() < n; page++) {
+      String url = base + "/works?filter=" + enc(filter) + "&sample=" + n + "&seed=" + seed + "&per-page=" + Math.min(100, n)
+          + "&page=" + page + (select == null ? "" : "&select=" + enc(select)) + keyParam();
+      JsonNode results = get(url).path("results");
+      if (results.isEmpty()) break;
+      for (JsonNode w : results) {
+        if (out.size() >= n) break;
+        out.add(w);
+      }
+    }
+    return out;
+  }
+
   public JsonNode getWork(String openAlexId) {
     String id = openAlexId.substring(openAlexId.lastIndexOf('/') + 1);
     return get(base + "/works/" + id + (apiKey == null ? "" : "?api_key=" + enc(apiKey)));

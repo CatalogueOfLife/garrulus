@@ -1,0 +1,52 @@
+<View>
+  <!-- Garrulus curated set annotation. Read eval/GUIDELINES.md first. -->
+  <Header value="Document: $docId  |  stratum: $stratum  |  language: $language"/>
+
+  <!-- Task level: is the text itself usable? bad_text drops the whole document from the gold set. -->
+  <Choices name="doc" toName="text" choice="single" showInline="true">
+    <Choice value="ok"/>
+    <Choice value="bad_text"/>
+  </Choices>
+
+  <Labels name="label" toName="text">
+    <Label value="Name" background="#1b7f3b" hotkey="n"/>
+    <Label value="Act" background="#c2570c" hotkey="a"/>
+    <Label value="Context" background="#5b3fb5" hotkey="c"/>
+  </Labels>
+
+  <!-- Link an Act region to the Name region it applies to: act_of. abbrev_of is optional help for abbreviated names. -->
+  <Relations>
+    <Relation value="act_of"/>
+    <Relation value="abbrev_of"/>
+  </Relations>
+
+  <!-- Per region choices. They appear in the region panel once a region of the matching label is selected. -->
+  <Choices name="act_type" toName="text" perRegion="true" choice="single"
+           whenTagName="label" whenLabelValue="Act">
+    <Choice value="sp. nov."/>
+    <Choice value="ssp. nov."/>
+    <Choice value="var. nov."/>
+    <Choice value="gen. nov."/>
+    <Choice value="subgen. nov."/>
+    <Choice value="fam. nov."/>
+    <Choice value="comb. nov."/>
+    <Choice value="stat. nov."/>
+    <Choice value="stat. rev."/>
+    <Choice value="syn. nov."/>
+    <Choice value="nom. nov."/>
+    <Choice value="type designation"/>
+  </Choices>
+
+  <Choices name="main_subject" toName="text" perRegion="true" choice="multiple"
+           whenTagName="label" whenLabelValue="Name">
+    <Choice value="yes"/>
+  </Choices>
+
+  <!-- Context regions: the ranks of the classification string, e.g. "FAMILY: Opheliidae; ORDER: Phyllodocida".
+       Not needed when the region is a rank heading such as "Family Opheliidae". -->
+  <TextArea name="ranks" toName="text" perRegion="true" rows="2" editable="true"
+            placeholder="FAMILY: Opheliidae; ORDER: Phyllodocida"
+            whenTagName="label" whenLabelValue="Context"/>
+
+  <Text name="text" value="$text" granularity="symbol" saveTextResult="no"/>
+</View>

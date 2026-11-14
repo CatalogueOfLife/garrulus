@@ -197,4 +197,20 @@ class ScorerTest {
     assertThat(ReportWriter.write(overlap, tmp).getFileName().toString()).endsWith("-x-pensoft-dev-A-OVERLAP.md");
     assertThat(ReportWriter.write(docLevel, tmp).getFileName().toString()).endsWith("-x-pensoft-dev-A-STRICT-doc.md");
   }
+
+  @Test
+  void stratumFromDocumentMetaBecomesACategory() {
+    Document d = new Document("d1", "en", List.of(new Block("b1", BlockType.PARAGRAPH, 0, TEXT, List.of(), List.of())),
+        Map.of("stratum", "BROAD_EN"));
+    GoldDocument g = new GoldDocument("d1", "curated", "dev", "CC-BY", true, GoldDocument.textHash(d), d,
+        List.of(new GoldName("b1", 0, 16, "Ophelia limacina", null, null)), List.of(), List.of(), Set.of());
+    FinderResult r = result(m("1", "b1", 0, 16, "Ophelia limacina", "Ophelia limacina"), m("2", "b1", 21, 32, "O. limacina", "O. limacina"));
+    EvalReport rep = Scorer.score(List.of(g), Map.of("d1", r), opts(MatchMode.STRICT, false));
+    assertThat(rep.byCategory().get("stratum:BROAD_EN")).isEqualTo(new Metrics(1, 1, 0));
+    // an untagged document adds no stratum category
+    EvalReport plain = Scorer.score(List.of(doc()), Map.of("d1", r), opts(MatchMode.STRICT, false));
+    assertThat(plain.byCategory().keySet()).noneMatch(k -> k.startsWith("stratum:"));
+    EvalReport docLevel = Scorer.score(List.of(g), Map.of("d1", r), opts(MatchMode.STRICT, true));
+    assertThat(docLevel.byCategory().get("stratum:BROAD_EN")).isEqualTo(new Metrics(1, 1, 0));
+  }
 }
