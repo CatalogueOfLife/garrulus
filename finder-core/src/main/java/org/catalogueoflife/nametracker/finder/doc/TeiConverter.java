@@ -11,6 +11,7 @@ import javax.xml.stream.XMLStreamReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
+import java.util.function.Predicate;
 
 /**
  * Converts GROBID TEI into a {@link Document}. GROBID emits no italics, so blocks never carry style spans. Line-break
@@ -20,11 +21,20 @@ import java.util.*;
  */
 public final class TeiConverter {
 
+  /** Without a dictionary: line-break hyphens are kept as real hyphens and only the line break is removed. */
   public Document convert(InputStream tei, String docId) {
+    return convert(tei, docId, w -> false);
+  }
+
+  /**
+   * De-hyphenates every block on its raw text (real line breaks still present) before whitespace is normalised, see
+   * {@link Dehyphenator#join}.
+   */
+  public Document convert(InputStream tei, String docId, Predicate<String> isKnownWord) {
     try {
       XMLStreamReader r = XmlSupport.open(tei, docId, "TEI");
       try {
-        return new Run(r, docId).run();
+        return new Run(r, docId, isKnownWord).run();
       } finally {
         r.close();
       }
@@ -53,13 +63,15 @@ public final class TeiConverter {
   private static final class Run {
     private final XMLStreamReader r;
     private final String docId;
+    private final Predicate<String> isKnownWord;
     private final Deque<String> path = new ArrayDeque<>(); // innermost first
     private final Deque<Open> open = new ArrayDeque<>();
     private final List<Block> blocks = new ArrayList<>();   // null while a block is still open
     private String language;
     private boolean titleDone;
 
-    Run(XMLStreamReader r, String docId) {
+    Run(XMLStreamReader r, String docId, Predicate<String> isKnownWord) {
+      this.isKnownWord = isKnownWord;
       this.r = r;
       this.docId = docId;
     }
@@ -139,16 +151,13 @@ public final class TeiConverter {
     }
 
     private void addSpace(Open o) {
-      if (!o.text.isEmpty() && o.text.charAt(o.text.length() - 1) != ' ') o.text.append(' ');
+      if (!o.text.isEmpty() && !Character.isWhitespace(o.text.charAt(o.text.length() - 1))) o.text.append(' ');
     }
 
     private void chars(String raw) {
       Open o = open.peek();
       if (o == null) return;
-      String t = TextNormalizer.normalize(raw);
-      if (t.isEmpty()) return;
-      if (t.charAt(0) == ' ' && (o.text.isEmpty() || o.text.charAt(o.text.length() - 1) == ' ')) t = t.substring(1);
-      o.text.append(t);
+      o.text.append(raw); // raw: line breaks must survive until Dehyphenator has run
     }
 
     private void end() {
@@ -156,7 +165,7 @@ public final class TeiConverter {
       if (o != null) {
         if (o.depth == path.size()) {
           open.pop();
-          String text = o.text.toString().strip();
+          String text = TextNormalizer.normalize(Dehyphenator.join(o.text.toString(), isKnownWord)).strip();
           if (!text.isEmpty()) {
             blocks.set(o.slot, new Block("", o.type, o.level, text, List.of(), List.of()));
             if (o.type == BlockType.TITLE) titleDone = true;
