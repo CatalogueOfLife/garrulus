@@ -93,7 +93,8 @@ public class GnfinderGenerator implements CandidateGenerator {
 
   /**
    * Code-point range [start, end) of the name inside the verbatim: leading and trailing non-letters are cut, except a
-   * trailing dot that follows a single upper case letter (an abbreviated genus such as "C.").
+   * trailing dot that follows a single upper case letter (an abbreviated genus such as "C.") and a closing parenthesis
+   * whose opening one is inside the span ("Crematogaster (Oxygyne)", but "Carabidae)" loses it).
    */
   public static int[] trimOffsets(String verbatim) {
     int[] cps = verbatim.codePoints().toArray();
@@ -107,7 +108,18 @@ public class GnfinderGenerator implements CandidateGenerator {
         && (e - 1 == s || !Character.isLetter(cps[e - 2]))) {
       e++;
     }
+    if (e > s && e < cps.length && cps[e] == ')' && openParentheses(cps, s, e) > 0) e++;
     if (e < s) e = s;
     return new int[] {s, e};
+  }
+
+  /** Opening minus closing parentheses in cps[from, to). */
+  private static int openParentheses(int[] cps, int from, int to) {
+    int open = 0;
+    for (int i = from; i < to; i++) {
+      if (cps[i] == '(') open++;
+      else if (cps[i] == ')') open--;
+    }
+    return open;
   }
 }

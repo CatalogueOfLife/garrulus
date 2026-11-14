@@ -14,7 +14,19 @@ class SpanTrimTest {
     assertThat(GnfinderGenerator.trim("Pterostichus niger.")).isEqualTo("Pterostichus niger");
     // the dot of an abbreviated genus stays
     assertThat(GnfinderGenerator.trim("(C.")).isEqualTo("C.");
-    assertThat(GnfinderGenerator.trim("Carabus (C.)")).isEqualTo("Carabus (C.");
+    assertThat(GnfinderGenerator.trim("Carabus (C.)")).isEqualTo("Carabus (C.)");
+  }
+
+  @Test
+  void keepsAClosingParenthesisOnlyWhenItsOpeningOneIsInTheSpan() {
+    assertThat(GnfinderGenerator.trim("Crematogaster (Oxygyne)")).isEqualTo("Crematogaster (Oxygyne)");
+    assertThat(GnfinderGenerator.trim("Crematogaster (Oxygyne),")).isEqualTo("Crematogaster (Oxygyne)");
+    assertThat(GnfinderGenerator.trim("(Crematogaster (Oxygyne))")).isEqualTo("Crematogaster (Oxygyne)");
+    // unmatched: the opening parenthesis is outside the span or there is none
+    assertThat(GnfinderGenerator.trim("Carabidae)")).isEqualTo("Carabidae");
+    assertThat(GnfinderGenerator.trim("(Oxygyne)")).isEqualTo("Oxygyne");
+    assertThat(GnfinderGenerator.trim("Carabus (Carabus) nigrus)")).isEqualTo("Carabus (Carabus) nigrus");
+    assertThat(GnfinderGenerator.trimOffsets("Crematogaster (Oxygyne)")).containsExactly(0, 23);
   }
 
   @Test
