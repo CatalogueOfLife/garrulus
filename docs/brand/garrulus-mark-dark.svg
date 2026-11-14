@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-labelledby="t">
+  <title id="t">Garrulus</title>
+  <defs>
+    <clipPath id="vane">
+      <path d="M16 2C21.6 3.8 23.4 11 20.9 18C19.7 21.4 18 23.8 16.7 25H15.3C13 22.6 10.3 18 10.2 12.6C10.1 7.4 12.4 3.3 16 2Z"/>
+    </clipPath>
+  </defs>
+  <g transform="rotate(35 16 16)">
+    <g clip-path="url(#vane)">
+      <rect x="9" y="1" width="15" height="25" fill="#2A6FBA"/>
+      <rect x="9" y="1" width="15" height="2.4" fill="#100F0F"/>
+      <rect x="9" y="3.4" width="15" height="2.1" fill="#A8CEF2"/>
+      <rect x="9" y="7.5" width="15" height="1.5" fill="#100F0F"/>
+      <rect x="9" y="9" width="15" height="2.1" fill="#A8CEF2"/>
+      <rect x="9" y="13.1" width="15" height="1.5" fill="#100F0F"/>
+      <rect x="9" y="14.6" width="15" height="2.1" fill="#A8CEF2"/>
+      <rect x="9" y="18.7" width="15" height="7.3" fill="#6B6662"/>
+    </g>
+    <path d="M16 4.5V30.5" stroke="#D3E6F8" stroke-width="1.1" stroke-linecap="round"/>
+  </g>
+</svg>

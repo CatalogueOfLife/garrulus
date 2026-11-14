@@ -1,13 +1,20 @@
-# Nametracker — system design (v0.1, 2026-11-14)
+# Garrulus — system design (v0.1, 2026-11-14)
 
-> **"Nametracker" is a working title.** The final name is not settled. Until it is, no Java packages, artifactIds,
-> database, service or domain names are fixed; plans use the placeholder `{{app}}`. Package names and paths
-> written below as `org.catalogueoflife.nametracker`, `col-nametracker-*` or `github.com/CatalogueOfLife/nametracker`
-> mean `{{app}}`.
+> **Naming (decided 2026-11-14).** The public name is **Garrulus**, after the European jay, *Garrulus glandarius*.
+> It is used for the UI, logo, page titles, emails, feeds, public URLs and the outgoing User-Agent.
+>
+> The internal id stays `nametracker`:
+> - Java packages `org.catalogueoflife.nametracker.*`
+> - Maven artifactIds `nametracker-*`
+> - the database
+> - systemd units `col-nametracker-*`
+> - the repository
+>
+> The brand (logo, jay colour palette, Mantine theme) is in `docs/brand/README.md`.
 
 ## Context
 
-uBio's uBioRSS once followed journal feeds, found scientific names in new articles and let people subscribe to taxa. Nothing like it runs today. ChecklistBank has no free-text name finding at all (the backend has matching, parsing and a Crossref DOI resolver, but no text mining). **Nametracker** is a new, standalone CoL application that:
+uBio's uBioRSS once followed journal feeds, found scientific names in new articles and let people subscribe to taxa. Nothing like it runs today. ChecklistBank has no free-text name finding at all (the backend has matching, parsing and a Crossref DOI resolver, but no text mining). **Garrulus** (internally `nametracker`) is a new, standalone CoL application that:
 
 1. continuously follows the journals of biodiversity science,
 2. fetches article metadata and abstracts, and open-access full text where available,
@@ -484,6 +491,7 @@ The taxon picker uses the CLB suggest API on the pinned XR key.
 
 - **Deployment** follows Blixa (`deploy/blixa/`, Blixa's `Jenkinsfile`):
   - Jenkins → two jars → two systemd units, `col-nametracker-web` and `col-nametracker-indexer`, on a GBIF VM. Each is deployed and restarted independently.
+  - Public URL: proposed `garrulus.catalogueoflife.org`, to be confirmed when deployment is set up in M2.
   - Apache vhost serving the SPA and proxying `/api`, `/oauth2`, `/login`, `/feeds` to `web` only
   - native Postgres 17
   - gnfinder as a systemd-run Go binary; GROBID as a Docker or Java service

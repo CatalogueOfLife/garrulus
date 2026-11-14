@@ -1,11 +1,16 @@
 # CLAUDE.md
 
-**Nametracker** follows the journals of biodiversity science, finds scientific names (plus nomenclatural acts and the
+**Garrulus** (internal id `nametracker`) follows the journals of biodiversity science, finds scientific names (plus nomenclatural acts and the
 article's verbatim classification) in abstracts and open-access full text, organises them on the latest COL XR, and
 notifies users who follow taxa, journals or names. It also builds a public name–literature index.
 
-**Name:** "nametracker" is a **working title only**. The final name is not settled, so do not write Java code or fix
-packages, artifactIds, DB/service/domain names until it is. Plans use the placeholder `{{app}}`.
+**Naming:**
+- **Internal id `nametracker`:** Java packages `org.catalogueoflife.nametracker.*`, artifactIds `nametracker-*`, the
+  database, systemd units `col-nametracker-*`, the repo.
+- **Public name "Garrulus"** (the European jay): everything users see. That covers the UI, logo, page titles, emails,
+  feeds, public URLs and the outgoing HTTP User-Agent `Garrulus/<version> (+https://www.catalogueoflife.org)`.
+- **Brand:** logo, jay colour palette and the Mantine theme are in `docs/brand/`. Take colours from there; never invent
+  new ones.
 
 **Status:** design approved 2026-11-14; implementation starts with milestones M0 (foundations) and M1 (finder v1).
 Commands and module details get filled in here as M0 lands.
