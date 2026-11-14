@@ -14,6 +14,8 @@
 
   <properties>
     <picocli.version>4.7.6</picocli.version>
+    <!-- GrobidIT needs the 1.2 GB GROBID image: it runs only with -Pgrobid -->
+    <grobid.it.exclude>**/GrobidIT.java</grobid.it.exclude>
   </properties>
 
   <dependencies>
@@ -42,10 +44,29 @@
       <version>3.13.2</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers-junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <configuration>
+          <excludes>
+            <exclude>${grobid.it.exclude}</exclude>
+          </excludes>
+        </configuration>
+      </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
@@ -56,4 +77,14 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <!-- mvn -B -pl eval -am verify -Pgrobid: also runs GrobidIT against the real GROBID image -->
+      <id>grobid</id>
+      <properties>
+        <grobid.it.exclude>nothing-excluded</grobid.it.exclude>
+      </properties>
+    </profile>
+  </profiles>
 </project>

@@ -213,4 +213,39 @@ class ScorerTest {
     EvalReport docLevel = Scorer.score(List.of(g), Map.of("d1", r), opts(MatchMode.STRICT, true));
     assertThat(docLevel.byCategory().get("stratum:BROAD_EN")).isEqualTo(new Metrics(1, 1, 0));
   }
+
+  @Test
+  void predictedDocumentsDecideWhichPredictionsAreExcluded() {
+    // mode B: the finder ran on a converted document with its own blocks; its REFERENCE block is left out like the gold's
+    Document gold = new Document("d1", "en", List.of(
+        new Block("b1", BlockType.PARAGRAPH, 0, TEXT, List.of(), List.of()),
+        new Block("r1", BlockType.REFERENCE, 0, "Carabus nigrus Smith 1900", List.of(), List.of())), Map.of());
+    GoldDocument g = new GoldDocument("d1", "pensoft", "dev", "CC-BY", true, GoldDocument.textHash(gold), gold,
+        List.of(new GoldName("b1", 0, 16, "Ophelia limacina", null, null), new GoldName("r1", 0, 14, "Carabus nigrus", null, null)),
+        List.of(), List.of(), Set.of("Ophelia limacina"));
+    Document converted = new Document("d1", "en", List.of(
+        new Block("b1", BlockType.TITLE, 0, "Ophelia limacina", List.of(), List.of()),
+        new Block("b2", BlockType.PARAGRAPH, 0, "Carabus nigrus and Pterostichus niger", List.of(), List.of()),
+        new Block("b3", BlockType.REFERENCE, 0, "Abax ater Smith", List.of(), List.of())), Map.of());
+    FinderResult r = result(m("1", "b1", 0, 16, "Ophelia limacina", "Ophelia limacina"),
+        m("2", "b3", 0, 9, "Abax ater", "Abax ater"), m("3", "b2", 0, 14, "Carabus nigrus", "Carabus nigrus"));
+    ScoreOptions o = new ScoreOptions(MatchMode.STRICT, Set.of(BlockType.REFERENCE), true);
+
+    EvalReport rep = Scorer.score(List.of(g), Map.of("d1", r), o, "x", "pensoft", "B", Map.of("d1", converted));
+    // "Carabus nigrus" is gold only in the excluded reference, so it is a false positive; "Abax ater" is not counted
+    assertThat(rep.names()).isEqualTo(new Metrics(1, 1, 0));
+    // TITLE is the converted document's block type
+    assertThat(rep.mainSubject()).isEqualTo(new Metrics(1, 0, 0));
+    assertThat(rep.documents()).isEqualTo(1);
+
+    // without the converted documents, b3 is unknown to the gold document and its mention would count
+    assertThat(Scorer.score(List.of(g), Map.of("d1", r), o, "x", "pensoft", "B").names()).isEqualTo(new Metrics(1, 2, 0));
+  }
+
+  @Test
+  void notesAreWrittenIntoTheReport() {
+    EvalReport rep = Scorer.score(List.of(doc()), Map.of(), opts(MatchMode.STRICT, true)).withNotes(List.of("3 PDFs failed"));
+    assertThat(rep.notes()).containsExactly("3 PDFs failed");
+    assertThat(ReportWriter.markdown(rep, java.time.LocalDate.of(2026, 11, 14))).contains("Documents: 1").contains("- 3 PDFs failed");
+  }
 }

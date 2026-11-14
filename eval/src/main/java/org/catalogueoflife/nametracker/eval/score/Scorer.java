@@ -9,6 +9,7 @@ import org.catalogueoflife.nametracker.finder.api.Block;
 import org.catalogueoflife.nametracker.finder.api.BlockType;
 import org.catalogueoflife.nametracker.finder.api.ClassificationContext;
 import org.catalogueoflife.nametracker.finder.api.CodePoints;
+import org.catalogueoflife.nametracker.finder.api.Document;
 import org.catalogueoflife.nametracker.finder.api.FinderInfo;
 import org.catalogueoflife.nametracker.finder.api.FinderResult;
 import org.catalogueoflife.nametracker.finder.api.Mention;
@@ -51,6 +52,17 @@ public final class Scorer {
 
   public static EvalReport score(List<GoldDocument> docs, Map<String, FinderResult> results, ScoreOptions opts,
                                  String finderName, String corpus, String mode) {
+    return score(docs, results, opts, finderName, corpus, mode, Map.of());
+  }
+
+  /**
+   * @param predicted by document id, the document the finder ran on when it is not the gold one (mode B: converted from
+   *                  the PDF). Predicted mentions, acts and contexts are then looked up in its blocks: excluded block
+   *                  types, the TITLE blocks of the main subject, error sample context. Only document-level name scoring
+   *                  makes sense for such documents, since their spans cannot be compared with the gold spans.
+   */
+  public static EvalReport score(List<GoldDocument> docs, Map<String, FinderResult> results, ScoreOptions opts,
+                                 String finderName, String corpus, String mode, Map<String, Document> predicted) {
     Acc names = new Acc();
     Map<String, Acc> cats = new TreeMap<>();
     Acc acts = new Acc();
@@ -68,26 +80,33 @@ public final class Scorer {
       else if (!split.equals(d.split())) split = "mixed";
       String lang = d.document().language() == null ? "und" : d.document().language();
       String stratum = d.document().meta().get(STRATUM);
-      Map<String, Block> blocks = new HashMap<>();
-      for (Block b : d.document().blocks()) blocks.put(b.id(), b);
+      Map<String, Block> blocks = blocks(d.document());
+      Document p = predicted.get(d.docId());
+      Map<String, Block> predBlocks = p == null ? blocks : blocks(p);
 
       List<GoldName> gold = d.names().stream().filter(n -> !excluded(blocks, n.blockId(), opts)).toList();
       List<Mention> pred = r == null ? List.of()
-          : r.mentions().stream().filter(m -> !excluded(blocks, m.blockId(), opts)).toList();
+          : r.mentions().stream().filter(m -> !excluded(predBlocks, m.blockId(), opts)).toList();
 
       if (opts.documentLevel()) {
         scoreDocumentLevel(d, gold, pred, lang, stratum, names, cats, fps, fns);
       } else {
-        scoreSpans(d, blocks, gold, pred, lang, stratum, opts.mode(), names, cats, fps, fns);
+        scoreSpans(d, blocks, predBlocks, gold, pred, lang, stratum, opts.mode(), names, cats, fps, fns);
       }
-      scoreActs(d, r, opts, blocks, acts);
-      scoreContexts(d, r, opts, blocks, ctxs);
-      scoreSubjects(d, r, opts, blocks, subj);
+      scoreActs(d, r, opts, blocks, predBlocks, acts);
+      scoreContexts(d, r, opts, blocks, predBlocks, ctxs);
+      scoreSubjects(d, r, opts, predBlocks, subj);
     }
     Map<String, Metrics> byCat = new LinkedHashMap<>();
     cats.forEach((k, v) -> byCat.put(k, v.metrics()));
-    return new EvalReport(finderName, info, corpus, split == null ? "" : split, mode, names.metrics(), byCat,
-        acts.metrics(), ctxs.metrics(), subj.metrics(), spread(fps), spread(fns), opts.mode(), opts.documentLevel());
+    return new EvalReport(finderName, info, corpus, split == null ? "" : split, mode, docs.size(), names.metrics(), byCat,
+        acts.metrics(), ctxs.metrics(), subj.metrics(), spread(fps), spread(fns), opts.mode(), opts.documentLevel(), List.of());
+  }
+
+  private static Map<String, Block> blocks(Document doc) {
+    Map<String, Block> m = new HashMap<>();
+    for (Block b : doc.blocks()) m.put(b.id(), b);
+    return m;
   }
 
   private static boolean excluded(Map<String, Block> blocks, String blockId, ScoreOptions opts) {
@@ -97,7 +116,7 @@ public final class Scorer {
 
   // ---- names
 
-  private static void scoreSpans(GoldDocument d, Map<String, Block> blocks, List<GoldName> gold, List<Mention> pred,
+  private static void scoreSpans(GoldDocument d, Map<String, Block> blocks, Map<String, Block> predBlocks, List<GoldName> gold, List<Mention> pred,
                                  String lang, @Nullable String stratum, MatchMode mode, Acc names, Map<String, Acc> cats,
                                  List<ErrorSample> fps, List<ErrorSample> fns) {
     boolean[] goldUsed = new boolean[gold.size()];
@@ -134,8 +153,8 @@ public final class Scorer {
       if (predUsed[p]) continue;
       Mention m = pred.get(p);
       names.fp++;
-      for (String c : categories(m.kind(), blockType(blocks, m.blockId()), lang, stratum)) cats.computeIfAbsent(c, k -> new Acc()).fp++;
-      sample(fps, d.docId(), blocks.get(m.blockId()), m.blockId(), m.start(), m.end(), m.verbatim(), m.kind().name());
+      for (String c : categories(m.kind(), blockType(predBlocks, m.blockId()), lang, stratum)) cats.computeIfAbsent(c, k -> new Acc()).fp++;
+      sample(fps, d.docId(), predBlocks.get(m.blockId()), m.blockId(), m.start(), m.end(), m.verbatim(), m.kind().name());
     }
   }
 
@@ -200,7 +219,8 @@ public final class Scorer {
 
   // ---- acts, contexts, subjects
 
-  private static void scoreActs(GoldDocument d, FinderResult r, ScoreOptions opts, Map<String, Block> blocks, Acc acc) {
+  private static void scoreActs(GoldDocument d, FinderResult r, ScoreOptions opts, Map<String, Block> blocks,
+                                Map<String, Block> predBlocks, Acc acc) {
     Set<String> goldKeys = new LinkedHashSet<>();
     for (GoldAct a : d.acts()) {
       if (!excluded(blocks, a.blockId(), opts)) goldKeys.add(a.type() + "|" + norm(a.nameText()));
@@ -213,7 +233,7 @@ public final class Scorer {
       Set<String> seen = new HashSet<>();
       for (var a : r.acts()) {
         Mention m = byId.get(a.mentionId());
-        if (m == null || excluded(blocks, m.blockId(), opts)) continue;
+        if (m == null || excluded(predBlocks, m.blockId(), opts)) continue;
         if (!seen.add(a.type() + "|" + norm(m.verbatim()))) continue;
         preds.add(new HashSet<>(List.of(a.type() + "|" + norm(m.verbatim()), a.type() + "|" + norm(m.name()))));
       }
@@ -227,7 +247,8 @@ public final class Scorer {
     }
   }
 
-  private static void scoreContexts(GoldDocument d, FinderResult r, ScoreOptions opts, Map<String, Block> blocks, Acc acc) {
+  private static void scoreContexts(GoldDocument d, FinderResult r, ScoreOptions opts, Map<String, Block> blocks,
+                                    Map<String, Block> predBlocks, Acc acc) {
     Set<String> goldKeys = new LinkedHashSet<>();
     for (GoldContext c : d.contexts()) {
       if (excluded(blocks, c.blockId(), opts)) continue;
@@ -236,7 +257,7 @@ public final class Scorer {
     Set<String> predKeys = new LinkedHashSet<>();
     if (r != null) {
       for (ClassificationContext c : r.contexts()) {
-        if (excluded(blocks, c.blockId(), opts)) continue;
+        if (excluded(predBlocks, c.blockId(), opts)) continue;
         for (RankedName rn : c.ranks()) predKeys.add(rn.rank() + "|" + norm(rn.name()));
       }
     }

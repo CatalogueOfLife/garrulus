@@ -46,11 +46,16 @@ public final class ReportWriter {
         .append(" (mode ").append(r.mode()).append(", match ").append(r.matchMode())
         .append(r.documentLevel() ? ", document level" : "").append(")\n\n");
     sb.append("Date: ").append(date).append("\n\n");
+    sb.append("Documents: ").append(r.documents()).append("\n\n");
     if (r.info() != null) {
       sb.append("Finder: ").append(r.info().name()).append(' ').append(r.info().version())
           .append(", config `").append(r.info().configHash()).append("`");
       if (r.info().dictionaryKey() != null) sb.append(", dictionary `").append(r.info().dictionaryKey()).append('`');
       sb.append("\n\n");
+    }
+    if (!r.notes().isEmpty()) {
+      for (String n : r.notes()) sb.append("- ").append(n).append('\n');
+      sb.append('\n');
     }
     sb.append("| Metric | TP | FP | FN | Precision | Recall | F1 |\n|---|---:|---:|---:|---:|---:|---:|\n");
     row(sb, "names", r.names());

@@ -59,16 +59,22 @@ class ItalicsFinderTest {
   }
 
   @Test
-  void modeBFailsClearly() {
+  void badModeSplitOrTuneSplitFailClearly() {
+    assertThat(runErr("run", "--finder", "italics", "--corpus", "x", "--split", "dev", "--mode", "C")).contains("--mode must be A or B");
+    assertThat(runErr("run", "--finder", "italics", "--corpus", "x", "--split", "train", "--mode", "B")).contains("--split must be dev or test");
+    // tuning on test would leak the held-out split into the defaults
+    assertThat(runErr("tune", "--corpus", "x", "--split", "test")).contains("dev split only");
+  }
+
+  private static String runErr(String... args) {
     java.io.ByteArrayOutputStream err = new java.io.ByteArrayOutputStream();
     java.io.PrintStream old = System.err;
     System.setErr(new java.io.PrintStream(err));
     try {
-      int code = EvalCli.commandLine().execute("run", "--finder", "italics", "--corpus", "x", "--split", "dev", "--mode", "B");
-      assertThat(code).isNotZero();
+      assertThat(EvalCli.commandLine().execute(args)).isNotZero();
     } finally {
       System.setErr(old);
     }
-    assertThat(err.toString()).contains("mode B arrives in Task 18");
+    return err.toString();
   }
 }
