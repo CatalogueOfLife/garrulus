@@ -1,0 +1,52 @@
+# Local helper services for Garrulus (internal id nametracker).
+#
+#   docker compose up -d db gnfinder          # what the app and tests need day to day
+#   docker compose --profile grobid up -d     # + GROBID (PDF/TEI parsing)
+#   docker compose --profile annotate up -d   # + Label Studio (annotation)
+#
+# Local use only: the database credentials below are throwaway development values.
+name: nametracker
+services:
+  db:
+    image: postgres:17
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_DB: nametracker
+      POSTGRES_USER: nametracker
+      POSTGRES_PASSWORD: nametracker
+    volumes:
+      - pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nametracker -d nametracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  gnfinder:
+    image: gnames/gnfinder:v1.4.0   # v1.5.0 is tagged but has no image yet
+    platform: linux/amd64           # v1.4.0 is published for amd64 only; runs emulated on arm64
+    command: ["-p", "8999"]          # the image default, spelled out
+    ports:
+      - "8778:8999"
+
+  grobid:
+    image: grobid/grobid:0.9.1-crf
+    profiles: [grobid]
+    init: true
+    ulimits:
+      core: 0
+    ports:
+      - "8070:8070"
+
+  labelstudio:
+    image: heartexlabs/label-studio:1.23.2
+    profiles: [annotate]
+    ports:
+      - "8090:8080"
+    volumes:
+      - ls:/label-studio/data
+
+volumes:
+  pg:
+  ls:
