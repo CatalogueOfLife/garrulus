@@ -58,6 +58,9 @@ on any command lists its options.
 - **Corpora** (committed): `eval/corpus/pensoft` is the silver set (300 CC-BY articles, 100 dev / 200 test, rebuilt by
   `rebuild-pensoft`). `eval/corpus/curated` holds only the manifest until it is annotated; then `ls-import --out
   eval/corpus/curated/gold.jsonl.gz`.
+  - `ls-export` writes the Label Studio tasks (`eval/work/curated-tasks.json`, not committed). Its pre-tags are the union
+    of italics, gnfinder and pipeline, rejected pipeline candidates included, each region scored (judge score, else
+    1.0). It needs gnfinder and the dictionary.
 - **Runs:** `run --finder italics|gnfinder|pipeline|remote:<url> --corpus eval/corpus/pensoft --split dev|test --mode A|B`
   (`--match STRICT|OVERLAP`, `--doc-level`).
   - Reports land in `eval/reports/{date}-{finder}-{corpus}-{split}-{mode}-{match}[-doc].md` plus `.json`, and are

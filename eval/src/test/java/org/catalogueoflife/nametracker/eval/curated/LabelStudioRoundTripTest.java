@@ -81,7 +81,7 @@ class LabelStudioRoundTripTest {
 
   @Test
   void exportThenImportOfPredictionsReproducesPretags() throws Exception {
-    List<Mention> pre = PreTagger.pretag(DOC, List.of(
+    List<PreTagger.PreTag> pre = PreTagger.pretag(DOC, List.of(
         finder(m("a", "b1", 0, 13), m("b", "b2", 10, 17)),
         finder(m("c", "b1", 0, 13), m("d", "b2", 30, 40))));
     assertThat(pre).hasSize(3);
@@ -96,6 +96,7 @@ class LabelStudioRoundTripTest {
     assertThat(r0.path("type").asString()).isEqualTo("labels");
     assertThat(r0.path("value").path("labels").get(0).asString()).isEqualTo("Name");
     assertThat(r0.path("value").path("text").asString()).isEqualTo("Ophelia yangi");
+    assertThat(r0.path("score").asDouble()).as("no judge score: 1.0").isEqualTo(1.0);
     // the second block starts after the blank line (33 + 2); "Carabus" follows "Seen in " and an emoji, which is one code point
     JsonNode r1 = t.path("predictions").get(0).path("result").get(1);
     assertThat(r1.path("value").path("start").asInt()).isEqualTo(T1.length() + 2 + 10);
@@ -108,7 +109,8 @@ class LabelStudioRoundTripTest {
     assertThat(g.textRetained()).isTrue();
     assertThat(g.textSha256()).isEqualTo(GoldDocument.textHash(DOC));
     assertThat(g.names()).extracting(n -> n.blockId() + ":" + n.start() + "-" + n.end() + ":" + n.text())
-        .containsExactlyElementsOf(pre.stream().map(p -> p.blockId() + ":" + p.start() + "-" + p.end() + ":" + p.verbatim()).toList());
+        .containsExactlyElementsOf(pre.stream().map(PreTagger.PreTag::mention)
+            .map(p -> p.blockId() + ":" + p.start() + "-" + p.end() + ":" + p.verbatim()).toList());
     assertThat(g.document()).isEqualTo(DOC);
     assertThat(g.acts()).isEmpty();
   }

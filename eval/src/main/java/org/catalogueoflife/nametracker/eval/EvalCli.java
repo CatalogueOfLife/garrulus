@@ -9,7 +9,6 @@ import org.catalogueoflife.nametracker.eval.curated.CuratedSelector;
 import org.catalogueoflife.nametracker.eval.curated.LabelStudioExporter;
 import org.catalogueoflife.nametracker.eval.curated.LabelStudioImporter;
 import org.catalogueoflife.nametracker.eval.curated.PreTagger;
-import org.catalogueoflife.nametracker.finder.api.Mention;
 import org.catalogueoflife.nametracker.finder.dict.ColDictionary;
 import org.catalogueoflife.nametracker.finder.dict.ColDictionaryBuilder;
 import org.catalogueoflife.nametracker.finder.dict.ColDictionaryIO;
@@ -498,29 +497,33 @@ public class EvalCli implements Runnable {
   }
 
   @Command(name = "ls-export", mixinStandardHelpOptions = true,
-      description = "Pre-tags the picks of curated-select with name finders and writes the Label Studio tasks file")
+      description = "Pre-tags the picks of curated-select with name finders (their union, rejected pipeline candidates included) and writes the Label Studio tasks file")
   public static class LsExport implements Callable<Integer> {
     @Option(names = "--picks", defaultValue = "eval/work/curated-picks.jsonl.gz", description = "default ${DEFAULT-VALUE}") Path picks;
-    @Option(names = "--finders", split = ",", defaultValue = "italics,gnfinder", description = "pre-tagging finders, default ${DEFAULT-VALUE}") List<String> finders;
+    @Option(names = "--finders", split = ",", defaultValue = "italics,gnfinder,pipeline", description = "pre-tagging finders, default ${DEFAULT-VALUE}") List<String> finders;
+    @Option(names = "--dictionary", description = "COL dictionary file for the pipeline finder, default $FINDER_DICTIONARY") Path dictionary;
     @Option(names = "--out", defaultValue = "eval/work/curated-tasks.json", description = "default ${DEFAULT-VALUE}") Path out;
 
     @Override
     public Integer call() throws Exception {
       List<CuratedSelector.Pick> selected = readPicks(picks);
-      List<NameFinder> fs = finders.stream().map(FinderFactory::create).toList();
-      Map<String, List<Mention>> pretags = new LinkedHashMap<>();
+      List<NameFinder> fs = finders.stream().map(f -> FinderFactory.create(f, dictionary)).toList();
+      Map<String, List<PreTagger.PreTag>> pretags = new LinkedHashMap<>();
       int total = 0;
+      int low = 0;
       for (CuratedSelector.Pick p : selected) {
-        List<Mention> ms = PreTagger.pretag(p.document(), fs);
+        List<PreTagger.PreTag> ms = PreTagger.pretag(p.document(), fs);
         pretags.put(p.docId(), ms);
         total += ms.size();
+        low += (int) ms.stream().filter(t -> t.score() < 0.5).count();
         if (pretags.size() % 25 == 0) System.err.println(pretags.size() + "/" + selected.size() + " pre-tagged");
       }
       LabelStudioExporter.write(selected, pretags, out);
-      System.out.println(selected.size() + " tasks, " + total + " pre-tagged names (" + String.join(" + ", finders) + ")");
+      System.out.println(selected.size() + " tasks, " + total + " pre-tag regions (" + String.join(" + ", finders)
+          + ", rejected pipeline candidates included); " + low + " with a score below 0.5");
       Map<String, Integer> byStratum = new java.util.TreeMap<>();
       for (CuratedSelector.Pick p : selected) byStratum.merge(p.stratum(), pretags.get(p.docId()).size(), Integer::sum);
-      byStratum.forEach((k, v) -> System.out.println("  " + k + ": " + v + " names"));
+      byStratum.forEach((k, v) -> System.out.println("  " + k + ": " + v + " regions"));
       System.out.println("Wrote " + out);
       return 0;
     }

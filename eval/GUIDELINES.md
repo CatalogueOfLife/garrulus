@@ -4,9 +4,15 @@ The 100 curated documents are the gold standard we tune and measure the name fin
 finder is judged against, so **consistency matters more than cleverness**. When a case is not covered below, take the
 closest rule, and note the case in the comment field of the task so we can add it here.
 
-You see a pre-tagged text. Machines (an italics rule and gnfinder) have already marked many names. Their output is a
-starting point, often wrong: they miss names, add common words ("China", "Holotype"), and cut spans in the wrong place.
+You see a pre-tagged text. Machines have already marked many names: the union of an italics rule, gnfinder and our
+pipeline finder, including every candidate the pipeline's judge turned down. Their output is a starting point, often
+wrong: they miss names, add common words ("China", "Holotype"), and cut spans in the wrong place.
 **Check every span and the text between the spans.** Delete wrong regions, fix the span boundaries, and add what is missing.
+
+Each pre-tag region has a score. It is the pipeline judge's score where the pipeline judged that span, and 1.0 otherwise
+(italics, gnfinder and names the pipeline was certain of). Regions with a low score are mostly wrong: they are there for
+recall, so that no candidate of any generator is hidden from you. Delete every region that is not a name; a score of 1.0
+does not make a region right either.
 
 What counts is the document text exactly as shown. Do not correct spelling, OCR errors or old spellings, tag what is printed.
 
@@ -180,7 +186,8 @@ The project uses `eval/labelstudio/config.xml`. What you see:
 - **Relations:** select the `Act` region, click the relation button in the region panel, click the `Name` region, then set
   the relation label to `act_of`. The other relation, `abbrev_of`, is optional help for abbreviations and is not scored.
 - **Pre-tags** are shown as regions of the first prediction. Use "Add as annotation" to copy them into your annotation, then
-  edit. Nothing counts that is not in your submitted annotation.
+  edit. Nothing counts that is not in your submitted annotation. The region list can be sorted by score, which brings the
+  doubtful low-score regions together.
 
 Keep the text untouched. The document is the blocks title, abstract, headings and so on joined by one blank line, and a
 region may not run across a blank line. If one name sits at the end of one block and one at the start of the next, they are two

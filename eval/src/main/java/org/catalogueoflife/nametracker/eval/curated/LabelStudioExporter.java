@@ -18,7 +18,8 @@ import java.util.Map;
 /**
  * Writes the Label Studio import file: one task per document. {@code data.text} is the flat text of the document (blocks
  * joined by a blank line), so Label Studio offsets are flat code points; {@code data.document} carries the document itself, so
- * the later import does not need anything else. The pre-tags are one prediction of Name regions.
+ * the later import does not need anything else. The pre-tags are one prediction of Name regions, each with the
+ * {@code score} of {@link PreTagger.PreTag} (Label Studio shows it per region and can sort by it).
  */
 public final class LabelStudioExporter {
   public static final String MODEL_VERSION = "pretag";
@@ -26,7 +27,7 @@ public final class LabelStudioExporter {
 
   private LabelStudioExporter() {}
 
-  public static void write(List<CuratedSelector.Pick> picks, Map<String, List<Mention>> pretags, Path tasksJson) {
+  public static void write(List<CuratedSelector.Pick> picks, Map<String, List<PreTagger.PreTag>> pretags, Path tasksJson) {
     ArrayNode tasks = MAPPER.createArrayNode();
     for (CuratedSelector.Pick p : picks) {
       FlatText flat = FlatText.of(p.document());
@@ -44,7 +45,8 @@ public final class LabelStudioExporter {
       prediction.put("model_version", MODEL_VERSION);
       ArrayNode result = prediction.putArray("result");
       int n = 0;
-      for (Mention m : pretags.getOrDefault(p.docId(), List.of())) {
+      for (PreTagger.PreTag tag : pretags.getOrDefault(p.docId(), List.of())) {
+        Mention m = tag.mention();
         int start = flat.toFlat(m.blockId(), m.start());
         int end = flat.toFlat(m.blockId(), m.end());
         ObjectNode r = result.addObject();
@@ -57,6 +59,7 @@ public final class LabelStudioExporter {
         v.put("end", end);
         v.put("text", CodePoints.slice(flat.text(), start, end));
         v.putArray("labels").add("Name");
+        r.put("score", tag.score());
       }
     }
     try {
