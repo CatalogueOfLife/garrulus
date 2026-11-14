@@ -59,6 +59,13 @@ class PensoftFetcherTest {
         .willReturn(okJson("{\"meta\":{\"next_cursor\":\"c2\"},\"results\":[" + p1 + "]}")));
     wm.stubFor(get(urlPathEqualTo("/works")).withQueryParam("cursor", equalTo("c2"))
         .willReturn(okJson("{\"meta\":{\"next_cursor\":null},\"results\":[" + p2 + "]}")));
+    // without an API key the client pages by number; pages are padded to 100 entries so it asks for the next one
+    StringBuilder pad = new StringBuilder(p1);
+    for (int i = 0; i < 100 - 15 - (reversed ? 1 : 0); i++) pad.append(",").append(work(2000 + i, "cc-by-nc"));
+    wm.stubFor(get(urlPathEqualTo("/works")).withQueryParam("page", equalTo("1"))
+        .willReturn(okJson("{\"meta\":{},\"results\":[" + pad + "]}")));
+    wm.stubFor(get(urlPathEqualTo("/works")).withQueryParam("page", equalTo("2"))
+        .willReturn(okJson("{\"meta\":{},\"results\":[" + p2 + "]}")));
   }
 
   @Test
@@ -77,7 +84,7 @@ class PensoftFetcherTest {
     assertThat(a).extracting(CorpusManifest.Row::doi).doesNotHaveDuplicates().noneMatch(d -> d.contains(".x")).noneMatch(d -> d.endsWith(".9"));
     wm.verify(getRequestedFor(urlPathEqualTo("/works")).withQueryParam("per-page", equalTo("100")).withQueryParam("select", equalTo("doi,primary_location"))
         .withQueryParam("api_key", equalTo("secret")).withHeader("User-Agent", equalTo(OpenAlexClient.USER_AGENT)));
-    wm.verify(getRequestedFor(urlPathEqualTo("/works")).withQueryParam("cursor", equalTo("*")).withoutQueryParam("api_key"));
+    wm.verify(getRequestedFor(urlPathEqualTo("/works")).withQueryParam("page", equalTo("2")).withoutQueryParam("api_key"));
   }
 
   @Test

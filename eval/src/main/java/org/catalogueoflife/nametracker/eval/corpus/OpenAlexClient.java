@@ -43,18 +43,28 @@ public class OpenAlexClient {
   /** As {@link #listWorks(String, int)}, restricted to the given comma separated fields (OpenAlex select) if not null. */
   public List<JsonNode> listWorks(String filter, int max, @Nullable String select) {
     List<JsonNode> out = new ArrayList<>();
+    // OpenAlex only allows cursor paging with an API key; without one, plain page numbers do (up to 10000 results)
     String cursor = "*";
-    while (out.size() < max && cursor != null) {
-      String url = base + "/works?filter=" + enc(filter) + "&per-page=100&cursor=" + enc(cursor)
+    int page = 1;
+    boolean more = true;
+    while (out.size() < max && more) {
+      String paging = apiKey != null ? "&cursor=" + enc(cursor) : "&page=" + page;
+      String url = base + "/works?filter=" + enc(filter) + "&per-page=100" + paging
           + (select == null ? "" : "&select=" + enc(select)) + keyParam();
-      JsonNode page = get(url);
-      JsonNode results = page.path("results");
+      JsonNode result = get(url);
+      JsonNode results = result.path("results");
       for (JsonNode w : results) {
         if (out.size() >= max) break;
         out.add(w);
       }
-      JsonNode next = page.path("meta").path("next_cursor");
-      cursor = results.isEmpty() || next.isNull() || next.isMissingNode() ? null : next.asString();
+      if (apiKey != null) {
+        JsonNode next = result.path("meta").path("next_cursor");
+        more = !(results.isEmpty() || next.isNull() || next.isMissingNode());
+        if (more) cursor = next.asString();
+      } else {
+        more = !results.isEmpty() && results.size() >= 100 && page * 100 < 10000;
+        page++;
+      }
     }
     return out;
   }
