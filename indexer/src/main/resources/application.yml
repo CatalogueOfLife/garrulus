@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: garrulus-indexer
+  datasource:
+    url: ${NAMETRACKER_DB_URL:jdbc:postgresql://localhost:5432/nametracker}
+    username: ${NAMETRACKER_DB_USER:nametracker}
+    password: ${NAMETRACKER_DB_PASSWORD:nametracker}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+
+server:
+  port: ${NAMETRACKER_INDEXER_PORT:8081}
+  address: 127.0.0.1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+nametracker:
+  indexer:
+    workers: ${NAMETRACKER_INDEXER_WORKERS:8}
+    poll-interval: ${NAMETRACKER_INDEXER_POLL_INTERVAL:2s}
+    max-attempts: ${NAMETRACKER_INDEXER_MAX_ATTEMPTS:5}
+    backoff: ${NAMETRACKER_INDEXER_BACKOFF:1m}

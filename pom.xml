@@ -29,6 +29,7 @@
   <properties>
     <java.version>25</java.version>
     <mybatis-starter.version>4.0.1</mybatis-starter.version>
+    <shedlock.version>7.11.0</shedlock.version>
     <clb.version>1.7.1-SNAPSHOT</clb.version>
   </properties>
 
