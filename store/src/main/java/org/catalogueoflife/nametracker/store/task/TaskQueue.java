@@ -1,6 +1,7 @@
 package org.catalogueoflife.nametracker.store.task;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -39,18 +40,33 @@ public class TaskQueue {
     return mapper.claim(types, workerId, limit);
   }
 
-  public void complete(long id) {
-    mapper.complete(id);
+  /**
+   * Marks the task DONE. The attempt number from the claim is a fencing token: if the task has been requeued and
+   * claimed again in the meantime, nothing changes and false is returned.
+   */
+  public boolean complete(long id, int attempt) {
+    return mapper.complete(id, attempt) > 0;
   }
 
-  /** Back to QUEUED with run_after = now + baseBackoff * 2^(attempts-1) while attempts &lt; maxAttempts, else DEAD. */
-  public void fail(long id, String error, int maxAttempts, Duration baseBackoff) {
-    mapper.fail(id, error, maxAttempts, baseBackoff.toMillis() / 1000.0);
+  /**
+   * Back to QUEUED with run_after = now + baseBackoff * 2^(attempts-1) while attempts &lt; maxAttempts, else DEAD.
+   * The exponent is capped at 16. Fenced by the attempt number like {@link #complete}; false when it did not apply.
+   */
+  public boolean fail(long id, int attempt, String error, int maxAttempts, Duration baseBackoff) {
+    return mapper.fail(id, attempt, error, maxAttempts, baseBackoff.toMillis() / 1000.0) > 0;
   }
 
-  /** RUNNING to QUEUED: all of them when null, else those locked for longer than the given duration. */
-  public int requeueRunning(@Nullable Duration lockedLongerThan) {
-    return mapper.requeueRunning(lockedLongerThan == null ? null : lockedLongerThan.toMillis() / 1000.0);
+  /** Refreshes the lock time of tasks this process is still working on, so they are not seen as stale. */
+  public int heartbeat(Collection<Long> ids) {
+    return ids.isEmpty() ? 0 : mapper.heartbeat(ids);
+  }
+
+  /**
+   * RUNNING to QUEUED: all of them when null, else those locked for longer than the given duration. A task that
+   * already used maxAttempts attempts is set DEAD instead (it probably kills the worker).
+   */
+  public int requeueRunning(@Nullable Duration lockedLongerThan, int maxAttempts) {
+    return mapper.requeueRunning(lockedLongerThan == null ? null : lockedLongerThan.toMillis() / 1000.0, maxAttempts);
   }
 
   public Map<TaskState, Long> countByState() {

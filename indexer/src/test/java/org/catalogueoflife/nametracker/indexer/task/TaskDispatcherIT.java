@@ -85,6 +85,16 @@ class TaskDispatcherIT extends AbstractPostgresIT {
   }
 
   @Test
+  void taskThatUsedAllAttemptsAndWasRunningAtStartupIsDead() {
+    jdbc.update("INSERT INTO task (id, type, priority, state, attempts, locked_by, locked_at) "
+        + "VALUES (778, 'PING', 0, 'RUNNING', 5, 'dead-worker', now())"); // max-attempts default is 5
+    dispatcher.onStartup();
+    Task t = mapper.get(778);
+    assertThat(t.state()).isEqualTo(TaskState.DEAD);
+    assertThat(t.lastError()).isEqualTo("worker died during attempt 5");
+  }
+
+  @Test
   void failingHandlerDoesNotStopDispatcher() {
     long boom = queue.enqueue("BOOM", "{}", TaskPriority.LIVE, null);
     long ping = queue.enqueue("PING", "{}", TaskPriority.LIVE, null);

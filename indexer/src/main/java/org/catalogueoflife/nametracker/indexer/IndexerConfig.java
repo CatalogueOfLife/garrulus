@@ -2,6 +2,7 @@ package org.catalogueoflife.nametracker.indexer;
 
 import javax.sql.DataSource;
 import net.javacrumbs.shedlock.core.LockProvider;
+import net.javacrumbs.shedlock.spring.annotation.EnableSchedulerLock;
 import net.javacrumbs.shedlock.provider.jdbctemplate.JdbcTemplateLockProvider;
 import org.catalogueoflife.nametracker.store.task.TaskMapper;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
@@ -10,6 +11,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 @Configuration
+@EnableSchedulerLock(defaultLockAtMostFor = "PT30M")
 public class IndexerConfig {
 
   @Bean

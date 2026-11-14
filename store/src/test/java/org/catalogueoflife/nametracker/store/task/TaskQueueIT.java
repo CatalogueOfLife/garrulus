@@ -97,7 +97,7 @@ class TaskQueueIT extends AbstractPostgresIT {
     queue.claim(Set.of("ONBOARD"), "w1", 1);
     assertThat(queue.enqueue("ONBOARD", "{}", TaskPriority.LIVE, "onboard:S1")).isEqualTo(a);
     // a finished task no longer blocks a new one
-    queue.complete(a);
+    queue.complete(a, 1);
     assertThat(queue.enqueue("ONBOARD", "{}", TaskPriority.LIVE, "onboard:S1")).isNotEqualTo(a);
   }
 
@@ -111,7 +111,7 @@ class TaskQueueIT extends AbstractPostgresIT {
   void completeMarksDone() {
     long id = queue.enqueue("PING", "{}", TaskPriority.LIVE, null);
     queue.claim(Set.of("PING"), "w1", 1);
-    queue.complete(id);
+    queue.complete(id, 1);
     assertThat(queue.countByState()).containsEntry(TaskState.DONE, 1L);
     assertThat(queue.claim(Set.of("PING"), "w1", 1)).isEmpty();
   }
@@ -123,7 +123,7 @@ class TaskQueueIT extends AbstractPostgresIT {
       List<Task> got = queue.claim(Set.of("PING"), "w1", 1);
       assertThat(got).extracting(Task::id).containsExactly(id);
       assertThat(got.getFirst().attempts()).isEqualTo(i);
-      queue.fail(id, "boom " + i, 3, Duration.ZERO);
+      queue.fail(id, i, "boom " + i, 3, Duration.ZERO);
     }
     assertThat(queue.claim(Set.of("PING"), "w1", 1)).isEmpty();
     assertThat(queue.countByState()).containsEntry(TaskState.DEAD, 1L);
@@ -134,7 +134,7 @@ class TaskQueueIT extends AbstractPostgresIT {
   void failBacksOffExponentially() {
     long id = queue.enqueue("PING", "{}", TaskPriority.LIVE, null);
     queue.claim(Set.of("PING"), "w1", 1);
-    queue.fail(id, "e1", 5, Duration.ofSeconds(100));
+    queue.fail(id, 1, "e1", 5, Duration.ofSeconds(100));
     // attempts=1 -> now + 100s
     Double secs = jdbc.queryForObject(
         "SELECT extract(epoch FROM run_after - now()) FROM task WHERE id=?", Double.class, id);
@@ -144,7 +144,7 @@ class TaskQueueIT extends AbstractPostgresIT {
     // make it due, claim again (attempts=2) and fail: now + 200s
     jdbc.update("UPDATE task SET run_after = now() WHERE id=?", id);
     queue.claim(Set.of("PING"), "w1", 1);
-    queue.fail(id, "e2", 5, Duration.ofSeconds(100));
+    queue.fail(id, 2, "e2", 5, Duration.ofSeconds(100));
     secs = jdbc.queryForObject("SELECT extract(epoch FROM run_after - now()) FROM task WHERE id=?", Double.class, id);
     assertThat(secs).isBetween(190.0, 201.0);
     assertThat(jdbc.queryForObject("SELECT locked_by FROM task WHERE id=?", String.class, id)).isNull();
@@ -154,7 +154,7 @@ class TaskQueueIT extends AbstractPostgresIT {
   void requeueRunningResetsLockedTasks() {
     long id = queue.enqueue("PING", "{}", TaskPriority.LIVE, null);
     queue.claim(Set.of("PING"), "w1", 1);
-    assertThat(queue.requeueRunning(null)).isEqualTo(1);
+    assertThat(queue.requeueRunning(null, 5)).isEqualTo(1);
     assertThat(queue.claim(Set.of("PING"), "w2", 1)).extracting(Task::id).containsExactly(id);
   }
 
@@ -162,9 +162,9 @@ class TaskQueueIT extends AbstractPostgresIT {
   void requeueRunningHonoursLockAge() {
     long id = queue.enqueue("PING", "{}", TaskPriority.LIVE, null);
     queue.claim(Set.of("PING"), "w1", 1);
-    assertThat(queue.requeueRunning(Duration.ofHours(1))).isZero();
+    assertThat(queue.requeueRunning(Duration.ofHours(1), 5)).isZero();
     jdbc.update("UPDATE task SET locked_at = now() - interval '2 hours' WHERE id=?", id);
-    assertThat(queue.requeueRunning(Duration.ofHours(1))).isEqualTo(1);
+    assertThat(queue.requeueRunning(Duration.ofHours(1), 5)).isEqualTo(1);
     assertThat(queue.claim(Set.of("PING"), "w1", 1)).extracting(Task::id).containsExactly(id);
   }
 
@@ -172,21 +172,64 @@ class TaskQueueIT extends AbstractPostgresIT {
   void completeAndFailIgnoreTasksThatAreNotRunning() {
     long id = queue.enqueue("PING", "{}", TaskPriority.LIVE, null);
     // QUEUED: a stale worker's late result must not touch it
-    queue.complete(id);
-    queue.fail(id, "late", 5, Duration.ofSeconds(100));
+    queue.complete(id, 1);
+    queue.fail(id, 1, "late", 5, Duration.ofSeconds(100));
     assertThat(jdbc.queryForObject("SELECT state FROM task WHERE id=?", String.class, id)).isEqualTo("QUEUED");
     assertThat(jdbc.queryForObject("SELECT last_error FROM task WHERE id=?", String.class, id)).isNull();
     // DONE stays DONE
     queue.claim(Set.of("PING"), "w1", 1);
-    queue.complete(id);
-    queue.fail(id, "late", 5, Duration.ofSeconds(100));
+    queue.complete(id, 1);
+    queue.fail(id, 1, "late", 5, Duration.ofSeconds(100));
     assertThat(jdbc.queryForObject("SELECT state FROM task WHERE id=?", String.class, id)).isEqualTo("DONE");
     assertThat(jdbc.queryForObject("SELECT last_error FROM task WHERE id=?", String.class, id)).isNull();
     // DEAD is left alone too
     long dead = queue.enqueue("PING", "{}", TaskPriority.LIVE, null);
     queue.claim(Set.of("PING"), "w1", 1);
-    queue.fail(dead, "x", 1, Duration.ZERO);
-    queue.complete(dead);
+    queue.fail(dead, 1, "x", 1, Duration.ZERO);
+    queue.complete(dead, 1);
     assertThat(jdbc.queryForObject("SELECT state FROM task WHERE id=?", String.class, dead)).isEqualTo("DEAD");
+  }
+
+  @Test
+  void lateCompleteAndFailWithOldAttemptAreNoOps() {
+    long id = queue.enqueue("PING", "{}", TaskPriority.LIVE, null);
+    queue.claim(Set.of("PING"), "w1", 1); // attempt 1
+    queue.requeueRunning(null, 5);
+    queue.claim(Set.of("PING"), "w1", 1); // attempt 2, RUNNING again
+    assertThat(queue.complete(id, 1)).isFalse();
+    assertThat(queue.fail(id, 1, "late", 5, Duration.ZERO)).isFalse();
+    assertThat(jdbc.queryForObject("SELECT state FROM task WHERE id=?", String.class, id)).isEqualTo("RUNNING");
+    assertThat(jdbc.queryForObject("SELECT last_error FROM task WHERE id=?", String.class, id)).isNull();
+    assertThat(queue.complete(id, 2)).isTrue();
+    assertThat(jdbc.queryForObject("SELECT state FROM task WHERE id=?", String.class, id)).isEqualTo("DONE");
+  }
+
+  @Test
+  void heartbeatKeepsTaskFromBeingStale() {
+    long id = queue.enqueue("PING", "{}", TaskPriority.LIVE, null);
+    queue.claim(Set.of("PING"), "w1", 1);
+    jdbc.update("UPDATE task SET locked_at = now() - interval '2 hours' WHERE id=?", id);
+    assertThat(queue.heartbeat(List.of(id))).isEqualTo(1);
+    assertThat(queue.requeueRunning(Duration.ofHours(1), 5)).isZero();
+  }
+
+  @Test
+  void requeueRunningKillsTasksThatUsedAllAttempts() {
+    long id = queue.enqueue("PING", "{}", TaskPriority.LIVE, null);
+    jdbc.update("UPDATE task SET state='RUNNING', attempts=3, locked_by='w', locked_at=now() WHERE id=?", id);
+    assertThat(queue.requeueRunning(null, 3)).isEqualTo(1);
+    assertThat(jdbc.queryForObject("SELECT state FROM task WHERE id=?", String.class, id)).isEqualTo("DEAD");
+    assertThat(jdbc.queryForObject("SELECT last_error FROM task WHERE id=?", String.class, id))
+        .isEqualTo("worker died during attempt 3");
+  }
+
+  @Test
+  void backoffExponentIsCapped() {
+    long id = queue.enqueue("PING", "{}", TaskPriority.LIVE, null);
+    jdbc.update("UPDATE task SET state='RUNNING', attempts=1000, locked_by='w', locked_at=now() WHERE id=?", id);
+    assertThat(queue.fail(id, 1000, "e", 2000, Duration.ofSeconds(1))).isTrue();
+    Double secs = jdbc.queryForObject(
+        "SELECT extract(epoch FROM run_after - now()) FROM task WHERE id=?", Double.class, id);
+    assertThat(secs).isBetween(65000.0, 65600.0); // 2^16 = 65536
   }
 }

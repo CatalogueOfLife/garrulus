@@ -5,6 +5,9 @@ spring:
     url: ${NAMETRACKER_DB_URL:jdbc:postgresql://localhost:5434/nametracker}
     username: ${NAMETRACKER_DB_USER:nametracker}
     password: ${NAMETRACKER_DB_PASSWORD:nametracker}
+  config:
+    # local .env (see .env.example); the second entry covers running from a module directory (spring-boot:run)
+    import: optional:file:.env[.properties],optional:file:../.env[.properties]
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -29,3 +32,7 @@ nametracker:
     poll-interval: ${NAMETRACKER_INDEXER_POLL_INTERVAL:2s}
     max-attempts: ${NAMETRACKER_INDEXER_MAX_ATTEMPTS:5}
     backoff: ${NAMETRACKER_INDEXER_BACKOFF:1m}
+    # a RUNNING task whose lock is older than stale-after is requeued; the heartbeat keeps live tasks fresh
+    stale-after: ${NAMETRACKER_INDEXER_STALE_AFTER:1h}
+    requeue-interval: ${NAMETRACKER_INDEXER_REQUEUE_INTERVAL:10m}
+    heartbeat-interval: ${NAMETRACKER_INDEXER_HEARTBEAT_INTERVAL:2m}

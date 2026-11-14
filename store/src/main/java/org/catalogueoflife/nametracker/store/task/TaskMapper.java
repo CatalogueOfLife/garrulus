@@ -1,5 +1,6 @@
 package org.catalogueoflife.nametracker.store.task;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,12 +20,18 @@ public interface TaskMapper {
 
   List<Task> claim(@Param("types") Set<String> types, @Param("workerId") String workerId, @Param("limit") int limit);
 
-  void complete(@Param("id") long id);
+  /** Returns the number of rows changed: 0 when the task is not RUNNING with that attempt number any more. */
+  int complete(@Param("id") long id, @Param("attempt") int attempt);
 
-  void fail(@Param("id") long id, @Param("error") String error, @Param("maxAttempts") int maxAttempts,
-            @Param("backoffSeconds") double backoffSeconds);
+  /** Returns the number of rows changed: 0 when the task is not RUNNING with that attempt number any more. */
+  int fail(@Param("id") long id, @Param("attempt") int attempt, @Param("error") String error,
+           @Param("maxAttempts") int maxAttempts, @Param("backoffSeconds") double backoffSeconds);
 
-  int requeueRunning(@Param("lockedLongerThanSeconds") Double lockedLongerThanSeconds);
+  /** Refreshes locked_at of the given RUNNING tasks. */
+  int heartbeat(@Param("ids") Collection<Long> ids);
+
+  int requeueRunning(@Param("lockedLongerThanSeconds") Double lockedLongerThanSeconds,
+                     @Param("maxAttempts") int maxAttempts);
 
   List<Map<String, Object>> countByState();
 }

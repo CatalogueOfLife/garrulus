@@ -50,7 +50,7 @@
 
   <update id="complete">
     UPDATE task SET state = 'DONE', finished = now(), locked_by = NULL, locked_at = NULL
-    WHERE id = #{id} AND state = 'RUNNING'
+    WHERE id = #{id} AND state = 'RUNNING' AND attempts = #{attempt}
   </update>
 
   <update id="fail">
@@ -61,13 +61,23 @@
       state = CASE WHEN attempts &lt; #{maxAttempts} THEN 'QUEUED' ELSE 'DEAD' END,
       finished = CASE WHEN attempts &lt; #{maxAttempts} THEN NULL ELSE now() END,
       run_after = CASE WHEN attempts &lt; #{maxAttempts}
-                       THEN now() + make_interval(secs => #{backoffSeconds} * power(2, attempts - 1))
+                       THEN now() + make_interval(secs => #{backoffSeconds} * power(2, LEAST(attempts - 1, 16)))
                        ELSE run_after END
-    WHERE id = #{id} AND state = 'RUNNING'
+    WHERE id = #{id} AND state = 'RUNNING' AND attempts = #{attempt}
   </update>
 
+  <update id="heartbeat">
+    UPDATE task SET locked_at = now()
+    WHERE state = 'RUNNING' AND id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+  </update>
+
+  <!-- A task already at maxAttempts that is still RUNNING took its worker down: dead, not endlessly retried. -->
   <update id="requeueRunning">
-    UPDATE task SET state = 'QUEUED', locked_by = NULL, locked_at = NULL
+    UPDATE task SET
+      state = CASE WHEN attempts &gt;= #{maxAttempts} THEN 'DEAD' ELSE 'QUEUED' END,
+      last_error = CASE WHEN attempts &gt;= #{maxAttempts} THEN 'worker died during attempt ' || attempts ELSE last_error END,
+      finished = CASE WHEN attempts &gt;= #{maxAttempts} THEN now() ELSE finished END,
+      locked_by = NULL, locked_at = NULL
     WHERE state = 'RUNNING'
     <if test="lockedLongerThanSeconds != null">
       AND locked_at &lt; now() - make_interval(secs => #{lockedLongerThanSeconds})

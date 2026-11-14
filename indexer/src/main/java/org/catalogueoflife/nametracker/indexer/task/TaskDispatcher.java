@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -24,7 +25,9 @@ import org.springframework.stereotype.Component;
 /**
  * Polls the task queue and runs the claimed tasks of all registered {@link TaskHandler}s on virtual threads,
  * at most {@code nametracker.indexer.workers} at a time. There is a single indexer instance, so every RUNNING
- * task found at startup belongs to a dead process and is requeued.
+ * task found at startup belongs to a dead process and is requeued (or set DEAD when it already used all its
+ * attempts). While a handler runs, a heartbeat refreshes the task's lock time, so the periodic stale requeue only
+ * catches tasks whose process stopped heartbeating. Completion and failure are fenced by the attempt number.
  */
 @Component
 public class TaskDispatcher implements DisposableBean {
@@ -38,6 +41,8 @@ public class TaskDispatcher implements DisposableBean {
   private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
   /** Claimed but not yet finished. Only polling increments it, so a stale read just under-claims. */
   private final AtomicInteger inFlight = new AtomicInteger();
+  /** Ids of tasks being handled right now, for the heartbeat. */
+  private final Set<Long> running = ConcurrentHashMap.newKeySet();
   private final int workers;
   private final int maxAttempts;
   private final Duration backoff;
@@ -65,9 +70,9 @@ public class TaskDispatcher implements DisposableBean {
   /** Requeues what a previous process left RUNNING; polling only starts after this. */
   @EventListener(ApplicationReadyEvent.class)
   public void onStartup() {
-    int n = queue.requeueRunning(null);
+    int n = queue.requeueRunning(null, maxAttempts);
     if (n > 0) {
-      LOG.info("Requeued {} tasks left RUNNING by a previous process", n);
+      LOG.info("Requeued or killed {} tasks left RUNNING by a previous process", n);
     }
     ready = true;
   }
@@ -83,6 +88,7 @@ public class TaskDispatcher implements DisposableBean {
     }
     for (Task task : queue.claim(Set.copyOf(handlers.keySet()), workerId, free)) {
       inFlight.incrementAndGet();
+      running.add(task.id());
       executor.submit(() -> run(task));
     }
   }
@@ -93,24 +99,39 @@ public class TaskDispatcher implements DisposableBean {
     if (!ready) {
       return;
     }
-    int n = queue.requeueRunning(staleAfter);
+    int n = queue.requeueRunning(staleAfter, maxAttempts);
     if (n > 0) {
-      LOG.warn("Requeued {} tasks that were RUNNING for more than {}", n, staleAfter);
+      LOG.warn("Requeued or killed {} tasks that were RUNNING for more than {}", n, staleAfter);
+    }
+  }
+
+  /** Keeps the lock time of this process's live tasks fresh. */
+  @Scheduled(fixedDelayString = "${nametracker.indexer.heartbeat-interval:2m}")
+  void heartbeat() {
+    if (!running.isEmpty()) {
+      queue.heartbeat(Set.copyOf(running));
     }
   }
 
   private void run(Task task) {
     try {
       handlers.get(task.type()).handle(task);
-      queue.complete(task.id());
+      if (!queue.complete(task.id(), task.attempts())) {
+        LOG.warn("Task {} ({}) attempt {} finished, but it was requeued or claimed again meanwhile; result ignored",
+            task.id(), task.type(), task.attempts());
+      }
     } catch (Throwable e) { // an Error must not leave the task RUNNING either
       LOG.warn("Task {} ({}) failed on attempt {}", task.id(), task.type(), task.attempts(), e);
       try {
-        queue.fail(task.id(), truncate(e.toString()), maxAttempts, backoff);
+        if (!queue.fail(task.id(), task.attempts(), truncate(e.toString()), maxAttempts, backoff)) {
+          LOG.warn("Task {} ({}) attempt {} failed, but it was requeued or claimed again meanwhile; result ignored",
+              task.id(), task.type(), task.attempts());
+        }
       } catch (Throwable e2) {
         LOG.error("Could not record failure of task {}", task.id(), e2);
       }
     } finally {
+      running.remove(task.id());
       inFlight.decrementAndGet();
     }
   }
