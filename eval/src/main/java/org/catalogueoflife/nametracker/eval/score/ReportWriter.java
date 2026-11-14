@@ -11,7 +11,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
 
-/** Writes {date}-{finder}-{corpus}-{split}-{mode}.md and .json into a directory. */
+/** Writes {date}-{finder}-{corpus}-{split}-{mode}-{STRICT|OVERLAP}[-doc].md and .json into a directory. */
 public final class ReportWriter {
   static final int SAMPLES = 30;
 
@@ -24,7 +24,8 @@ public final class ReportWriter {
   static Path write(EvalReport r, Path dir, LocalDate date) {
     try {
       Files.createDirectories(dir);
-      String base = date + "-" + safe(r.finder()) + "-" + safe(r.corpus()) + "-" + safe(r.split()) + "-" + safe(r.mode());
+      String base = date + "-" + safe(r.finder()) + "-" + safe(r.corpus()) + "-" + safe(r.split()) + "-" + safe(r.mode())
+          + "-" + r.matchMode() + (r.documentLevel() ? "-doc" : "");
       Path md = dir.resolve(base + ".md");
       Files.writeString(md, markdown(r, date), StandardCharsets.UTF_8);
       Files.writeString(dir.resolve(base + ".json"),
@@ -42,7 +43,8 @@ public final class ReportWriter {
   static String markdown(EvalReport r, LocalDate date) {
     StringBuilder sb = new StringBuilder();
     sb.append("# ").append(r.finder()).append(" on ").append(r.corpus()).append(" / ").append(r.split())
-        .append(" (mode ").append(r.mode()).append(")\n\n");
+        .append(" (mode ").append(r.mode()).append(", match ").append(r.matchMode())
+        .append(r.documentLevel() ? ", document level" : "").append(")\n\n");
     sb.append("Date: ").append(date).append("\n\n");
     if (r.info() != null) {
       sb.append("Finder: ").append(r.info().name()).append(' ').append(r.info().version())

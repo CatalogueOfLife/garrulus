@@ -48,7 +48,7 @@ public class OpenAlexClient {
     int page = 1;
     boolean more = true;
     while (out.size() < max && more) {
-      String paging = apiKey != null ? "&cursor=" + enc(cursor) : "&page=" + page;
+      String paging = apiKey != null ? "&cursor=" + enc(cursor) : "&page=" + page + "&sort=publication_date,display_name";
       String url = base + "/works?filter=" + enc(filter) + "&per-page=100" + paging
           + (select == null ? "" : "&select=" + enc(select)) + keyParam();
       JsonNode result = get(url);
@@ -63,6 +63,10 @@ public class OpenAlexClient {
         if (more) cursor = next.asString();
       } else {
         more = !results.isEmpty() && results.size() >= 100 && page * 100 < 10000;
+        if (!results.isEmpty() && results.size() >= 100 && page * 100 >= 10000 && out.size() < max) {
+          System.err.println("WARNING: OpenAlex page paging reached its 10000 result cap for filter " + filter
+              + "; the list is truncated. Set OPENALEX_API_KEY to page by cursor.");
+        }
         page++;
       }
     }

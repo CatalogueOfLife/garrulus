@@ -35,7 +35,7 @@ import java.util.regex.Pattern;
  */
 public final class Scorer {
   private static final int SAMPLE_CONTEXT = 40;
-  private static final int MAX_SAMPLES = 500;
+  private static final int MAX_SAMPLES = 5000;
   private static final Pattern WS = Pattern.compile("\\s+");
   private static final Pattern INITIAL = Pattern.compile("\\p{Lu}\\.(\\s.*)?");
 
@@ -82,7 +82,7 @@ public final class Scorer {
     Map<String, Metrics> byCat = new LinkedHashMap<>();
     cats.forEach((k, v) -> byCat.put(k, v.metrics()));
     return new EvalReport(finderName, info, corpus, split == null ? "" : split, mode, names.metrics(), byCat,
-        acts.metrics(), ctxs.metrics(), subj.metrics(), fps, fns);
+        acts.metrics(), ctxs.metrics(), subj.metrics(), spread(fps), spread(fns), opts.mode(), opts.documentLevel());
   }
 
   private static boolean excluded(Map<String, Block> blocks, String blockId, ScoreOptions opts) {
@@ -206,7 +206,7 @@ public final class Scorer {
         Mention m = byId.get(a.mentionId());
         if (m == null || excluded(blocks, m.blockId(), opts)) continue;
         if (!seen.add(a.type() + "|" + norm(m.verbatim()))) continue;
-        preds.add(Set.of(a.type() + "|" + norm(m.verbatim()), a.type() + "|" + norm(m.name())));
+        preds.add(new HashSet<>(List.of(a.type() + "|" + norm(m.verbatim()), a.type() + "|" + norm(m.name()))));
       }
     }
     for (String g : goldKeys) {
@@ -279,6 +279,19 @@ public final class Scorer {
       ctx = ctx.replaceAll("\\s+", " ");
     }
     add(into, new ErrorSample(docId, blockId, start, end, text, category, ctx));
+  }
+
+  /** Interleaves the samples round-robin over the documents, so that the first ones shown come from many documents. */
+  static List<ErrorSample> spread(List<ErrorSample> in) {
+    Map<String, List<ErrorSample>> byDoc = new LinkedHashMap<>();
+    for (ErrorSample s : in) byDoc.computeIfAbsent(s.docId(), k -> new ArrayList<>()).add(s);
+    List<ErrorSample> out = new ArrayList<>(in.size());
+    for (int i = 0; out.size() < in.size(); i++) {
+      for (List<ErrorSample> l : byDoc.values()) {
+        if (i < l.size()) out.add(l.get(i));
+      }
+    }
+    return out;
   }
 
   private static void add(List<ErrorSample> into, ErrorSample s) {
