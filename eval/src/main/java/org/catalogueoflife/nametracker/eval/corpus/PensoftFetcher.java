@@ -160,7 +160,7 @@ public class PensoftFetcher {
     }
   }
 
-  static HttpClient defaultClient() {
+  public static HttpClient defaultClient() {
     return HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).connectTimeout(Duration.ofSeconds(20)).build();
   }
 

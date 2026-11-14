@@ -12,7 +12,16 @@
 
   <artifactId>nametracker-eval</artifactId>
 
+  <properties>
+    <picocli.version>4.7.6</picocli.version>
+  </properties>
+
   <dependencies>
+    <dependency>
+      <groupId>info.picocli</groupId>
+      <artifactId>picocli</artifactId>
+      <version>${picocli.version}</version>
+    </dependency>
     <dependency>
       <groupId>org.catalogueoflife</groupId>
       <artifactId>nametracker-finder-core</artifactId>
@@ -34,4 +43,17 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>3.5.0</version>
+        <configuration>
+          <mainClass>org.catalogueoflife.nametracker.eval.EvalCli</mainClass>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 </project>
