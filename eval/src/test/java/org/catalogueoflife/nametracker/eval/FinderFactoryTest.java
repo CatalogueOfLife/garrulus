@@ -38,6 +38,15 @@ class FinderFactoryTest {
   }
 
   @Test
+  void remoteFinderTakesAUrl() {
+    NameFinder f = FinderFactory.create("remote:http://localhost:8095");
+    assertThat(f).isInstanceOf(org.catalogueoflife.nametracker.finder.remote.RemoteNameFinder.class);
+    assertThatThrownBy(() -> FinderFactory.create("remote:")).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("http(s) URL");
+    assertThatThrownBy(() -> FinderFactory.create("remote:localhost:8095")).isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("http(s) URL");
+  }
+
+  @Test
   void pipelineWithoutDictionaryFailsClearly() {
     assertThatThrownBy(() -> FinderFactory.create("pipeline", null, k -> null)).isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("--dictionary").hasMessageContaining("FINDER_DICTIONARY").hasMessageContaining("build-dictionary");

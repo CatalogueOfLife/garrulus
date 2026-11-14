@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: garrulus-finder-service
+  config:
+    import: optional:file:.env[.properties],optional:file:../.env[.properties]
+
+server:
+  port: ${FINDER_SERVICE_PORT:8095}
+  address: 0.0.0.0
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+finder:
+  # required: a dictionary built by `eval build-dictionary`
+  dictionary: ${FINDER_DICTIONARY:}
+  gnfinder-url: ${GNFINDER_URL:http://localhost:8778}
+  # optional: a file with a JSON object of pipeline config overrides
+  config: ${FINDER_CONFIG:}
