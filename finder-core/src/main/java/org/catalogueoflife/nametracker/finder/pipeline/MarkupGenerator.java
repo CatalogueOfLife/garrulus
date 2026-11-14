@@ -18,7 +18,7 @@ import java.util.function.Predicate;
 /**
  * Candidates from document markup. Inside each ITALIC span the maximal runs of name-shaped tokens become candidates
  * (generator ITALIC): a capitalised word or abbreviated genus, an optional "(Subgenus)", then lower-case epithets and rank
- * markers. Runs end at anything but whitespace between tokens. Each TAXON_NAME span becomes a candidate that covers the
+ * markers. Italics say little about a third word, so a bare infraspecific epithet must be a COL epithet. Runs end at anything but whitespace between tokens. Each TAXON_NAME span becomes a candidate that covers the
  * span exactly (generator TAXON_MARKUP).
  */
 public class MarkupGenerator implements CandidateGenerator {
@@ -89,11 +89,11 @@ public class MarkupGenerator implements CandidateGenerator {
     return true;
   }
 
-  private static void italic(Block b, int[] full, int from, int to, Predicate<String> subgenus, IntPredicate markers,
-                             List<Candidate> out) {
+  private void italic(Block b, int[] full, int from, int to, Predicate<String> subgenus, IntPredicate markers,
+                      List<Candidate> out) {
     int[] cps = java.util.Arrays.copyOfRange(full, from, to);
     List<Token> toks = Tokenizer.tokens(cps);
-    NameShape.Rules rules = new NameShape.Rules(x -> x.length() >= 3, subgenus, k -> markers.test(from + k));
+    NameShape.Rules rules = new NameShape.Rules(x -> x.length() >= 3, dict::isEpithet, subgenus, k -> markers.test(from + k));
     int i = 0;
     while (i < toks.size()) {
       Token t = toks.get(i);

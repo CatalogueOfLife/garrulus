@@ -129,6 +129,15 @@ class DictionaryGeneratorTest {
   }
 
   @Test
+  void englishParticiplesAreNoEpithets() throws Exception {
+    // dev: "China based", "Arecophila based", "Diplatys ridleyi described"; COL has "based" and "described" as epithets
+    String rows = "1\tspecies\t\tAus\tbased\t\n2\tspecies\t\tAus\tdescribed\t\n3\tspecies\t\tDiplatys\tridleyi\t\n"
+        + "4\tgenus\tArecophila\t\t\t\n";
+    assertThat(runWith(rows, "Arecophila based on molecular data")).extracting(Candidate::verbatim).containsExactly("Arecophila");
+    assertThat(runWith(rows, "Diplatys ridleyi described by Kirby")).extracting(Candidate::verbatim).containsExactly("Diplatys ridleyi");
+  }
+
+  @Test
   void higherTaxonInParenthesesIsNoSubgenus() throws Exception {
     // dev: "Luperomorpha (Chrysomelidae)", "Mentha (Lamiaceae)", "Zoraptera (Insecta)", "Russia (G)", "Anchieta (PACA)"
     assertThat(run("Carabus (Carabidae) are beetles")).extracting(Candidate::verbatim).containsExactly("Carabus", "Carabidae");

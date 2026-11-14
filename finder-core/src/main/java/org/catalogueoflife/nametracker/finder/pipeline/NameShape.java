@@ -25,7 +25,9 @@ final class NameShape {
       "un", "una", "une", "ein", "eine", "mit", "bei", "sp", "spp", "cf", "aff", "nov", "not", "also", "see",
       "that", "this", "but", "were", "has", "had", "have", "can", "may", "will", "would", "should", "could", "be", "been",
       "which", "who", "when", "where", "than", "then", "these", "those", "its", "their", "into", "over", "under", "between",
-      "after", "before", "if", "so", "no", "all", "some", "both", "each", "other", "sensu", "group", "complex", "species");
+      "after", "before", "if", "so", "no", "all", "some", "both", "each", "other", "sensu", "group", "complex", "species",
+      // English participles that COL also has as epithets, seen extending names on Pensoft dev ("Arecophila based")
+      "based", "described", "known");
 
   /** The end of a name run that starts at token {@code first}. */
   record Run(int lastToken, int endCp, boolean subgenus, int epithets, int firstEpithetToken) {}
@@ -34,11 +36,13 @@ final class NameShape {
    * What may continue a name.
    *
    * @param epithet which lower-case words count as bare epithets; the one after a rank marker is always taken
+   * @param bareInfraspecific which words may be a second bare epithet (no rank marker before it): a COL epithet, so that
+   *                          "Aphrodes bicincta nymph" stays a binomial
    * @param subgenus which capitalised words in parentheses count as a subgenus, see {@link #subgenusRule}
    * @param markerAt whether a nomenclatural act marker ("gen. nov.", "comb. n.") starts at a code-point offset of the
    *                 token array; a token there is never an epithet, whatever the dictionary says
    */
-  record Rules(Predicate<String> epithet, Predicate<String> subgenus, IntPredicate markerAt) {}
+  record Rules(Predicate<String> epithet, Predicate<String> bareInfraspecific, Predicate<String> subgenus, IntPredicate markerAt) {}
 
   private static final Pattern SUBGENUS_SHAPE = Pattern.compile("\\p{Lu}\\p{Ll}+");
 
@@ -131,7 +135,7 @@ final class NameShape {
         }
         break;
       }
-      if (isLowerWord(w) && !STOP.contains(w) && rules.epithet().test(w)) {
+      if (isLowerWord(w) && !STOP.contains(w) && rules.epithet().test(w) && (count == 0 || rules.bareInfraspecific().test(w))) {
         if (first < 0) first = k + 1;
         k++;
         end = t.end();

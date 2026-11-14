@@ -47,7 +47,7 @@ public class DictionaryGenerator implements CandidateGenerator {
   private void scan(Block b, Predicate<String> subgenus, List<Candidate> out) {
     int[] cps = b.text().codePoints().toArray();
     List<Token> toks = Tokenizer.tokens(cps);
-    NameShape.Rules rules = new NameShape.Rules(dict::isEpithet, subgenus, NameShape.actMarkerStarts(cps));
+    NameShape.Rules rules = new NameShape.Rules(dict::isEpithet, dict::isEpithet, subgenus, NameShape.actMarkerStarts(cps));
     int i = 0;
     while (i < toks.size()) {
       Token t = toks.get(i);

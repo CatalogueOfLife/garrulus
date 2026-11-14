@@ -37,7 +37,8 @@ import java.util.Set;
  * tagging and classification contexts, in that order. Thread safe: {@link #find} keeps all per-call state local; the
  * dictionary, parser and stages are shared read-only.
  *
- * <p><b>Generators.</b> gnfinder, the COL dictionary, rank suffixes and markup, as enabled by
+ * <p><b>Generators.</b> gnfinder (its spans checked by the {@link EpithetGuard}), the COL dictionary, rank suffixes and
+ * markup, as enabled by
  * {@link PipelineConfig#enabledGenerators()}. Rule for the markup generator, whose {@code id()} is ITALIC but which emits
  * both ITALIC and TAXON_MARKUP candidates: a generator runs if any generator value it emits is enabled, and every
  * candidate whose own {@link Candidate#generator()} is not enabled is dropped. So {@code [ITALIC]} yields italic candidates
@@ -71,7 +72,8 @@ import java.util.Set;
  * or context. Diagnostics (all counts as strings): {@code candidates} merged spans, {@code unparsed} dropped by the
  * parser, {@code certain}, {@code accepted} (certain included), {@code rejected}, {@code actsUnattached} markers without a
  * name, {@code gnfinderMs} time spent in gnfinder, {@code gnfinderMisaligned} gnfinder names dropped because their
- * offsets did not match their text. {@code candidates = unparsed + accepted + rejected}.
+ * offsets did not match their text, {@code gnfinderTrimmed} gnfinder names cut or dropped by the {@link EpithetGuard}.
+ * {@code candidates = unparsed + accepted + rejected}.
  */
 public class PipelineNameFinder implements NameFinder {
   public static final String NAME = "pipeline";
@@ -90,6 +92,7 @@ public class PipelineNameFinder implements NameFinder {
   private final PipelineConfig cfg;
   private final @Nullable GnfinderClient gnfinder;
   private final List<Gen> generators;
+  private final EpithetGuard epithetGuard;
   private final AuthorshipAttacher authorship;
   private final AbbreviationExpander abbreviations = new AbbreviationExpander();
   private final ParserStage parserStage;
@@ -122,6 +125,7 @@ public class PipelineNameFinder implements NameFinder {
       gens.add(new Gen(new MarkupGenerator(dict), EnumSet.of(Generator.ITALIC, Generator.TAXON_MARKUP)));
     }
     this.generators = List.copyOf(gens);
+    this.epithetGuard = new EpithetGuard(dict);
     this.authorship = new AuthorshipAttacher(parser);
     this.parserStage = new ParserStage(parser, dict);
     this.judge = new ThresholdJudge(cfg.judgeWeights(), cfg.judgeBias(), cfg.judgeThreshold());
@@ -154,7 +158,7 @@ public class PipelineNameFinder implements NameFinder {
     FinderOptions o = opts == null ? FinderOptions.defaults() : opts;
     Map<String, String> diag = new LinkedHashMap<>();
     if (doc.blocks().stream().allMatch(b -> b.text().isBlank())) {
-      diagnostics(diag, 0, 0, 0, 0, 0, 0, 0, 0);
+      diagnostics(diag, 0, 0, 0, 0, 0, 0, 0, 0, 0);
       return new FinderResult(info, List.of(), List.of(), List.of(), List.of(), diag);
     }
     Map<String, Block> blocks = new HashMap<>();
@@ -166,12 +170,16 @@ public class PipelineNameFinder implements NameFinder {
     List<Candidate> cands = new ArrayList<>();
     long gnMs = 0;
     int misaligned = 0;
+    int gnTrimmed = 0;
     if (cfg.enabledGenerators().contains(Generator.GNFINDER)) {
       // one generator per call: its misaligned counter is per document then, and nothing is shared between threads
       GnfinderGenerator g = new GnfinderGenerator(gnfinder, cfg.maxChunkCodePoints());
       long t0 = System.nanoTime();
-      cands.addAll(g.generate(doc, flat, ctx));
+      List<Candidate> gnCands = g.generate(doc, flat, ctx);
       gnMs = (System.nanoTime() - t0) / 1_000_000;
+      EpithetGuard.Result guarded = epithetGuard.apply(gnCands, doc);
+      cands.addAll(guarded.candidates());
+      gnTrimmed = guarded.trimmed();
       misaligned = g.misaligned();
       if (misaligned > 0) {
         LOG.log(System.Logger.Level.WARNING, "Dropped {0} gnfinder name(s) of document {1} whose offsets did not match their text",
@@ -239,12 +247,12 @@ public class PipelineNameFinder implements NameFinder {
       for (Judged j : rejected) rejectedMentions.add(mention("r" + (rejectedMentions.size() + 1), j, null, null, idBySpan));
     }
     diagnostics(diag, merged.size(), merged.size() - parsed.size(), certain, accepted.size(), rejected.size(),
-        actResult.actsUnattached(), gnMs, misaligned);
+        actResult.actsUnattached(), gnMs, misaligned, gnTrimmed);
     return new FinderResult(info, mentions, acts, contexts, rejectedMentions, diag);
   }
 
   private static void diagnostics(Map<String, String> d, int candidates, int unparsed, int certain, int accepted, int rejected,
-                                  int actsUnattached, long gnfinderMs, int gnfinderMisaligned) {
+                                  int actsUnattached, long gnfinderMs, int gnfinderMisaligned, int gnfinderTrimmed) {
     d.put("candidates", String.valueOf(candidates));
     d.put("unparsed", String.valueOf(unparsed));
     d.put("certain", String.valueOf(certain));
@@ -253,6 +261,7 @@ public class PipelineNameFinder implements NameFinder {
     d.put("actsUnattached", String.valueOf(actsUnattached));
     d.put("gnfinderMs", String.valueOf(gnfinderMs));
     d.put("gnfinderMisaligned", String.valueOf(gnfinderMisaligned));
+    d.put("gnfinderTrimmed", String.valueOf(gnfinderTrimmed));
   }
 
   private static Mention mention(String id, Judged j, @Nullable String actId, @Nullable String contextId,

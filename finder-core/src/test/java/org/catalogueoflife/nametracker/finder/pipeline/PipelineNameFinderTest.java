@@ -227,7 +227,8 @@ class PipelineNameFinderTest {
     assertThat(r.mentions()).allSatisfy(m -> assertThat(m.contextId()).isNotNull().isIn(ctxIds));
 
     assertThat(r.rejected()).isEmpty();
-    assertThat(r.diagnostics()).containsKeys("candidates", "accepted", "rejected", "actsUnattached", "gnfinderMs", "gnfinderMisaligned");
+    assertThat(r.diagnostics()).containsKeys("candidates", "accepted", "rejected", "actsUnattached", "gnfinderMs", "gnfinderMisaligned",
+        "gnfinderTrimmed");
     assertThat(r.diagnostics()).containsEntry("accepted", String.valueOf(r.mentions().size())).containsEntry("gnfinderMisaligned", "0");
   }
 

@@ -108,6 +108,17 @@ class MarkupGeneratorTest {
   }
 
   @Test
+  void bareThirdWordMustBeAnEpithet() {
+    // dev: "Aphrodes bicincta nymph"; montanus is an epithet of the dictionary, nymph is not
+    String t = "Carabus nigrus nymph and Carabus nigrus montanus";
+    assertThat(run(t, span(t, t, Style.ITALIC))).extracting(Candidate::verbatim)
+        .containsExactly("Carabus nigrus", "Carabus nigrus montanus");
+    // after a rank marker any word of three letters or more is taken
+    String t2 = "Rosa canina var. novella";
+    assertThat(run(t2, span(t2, t2, Style.ITALIC))).extracting(Candidate::verbatim).containsExactly(t2);
+  }
+
+  @Test
   void familyInParenthesesIsNoSubgenus() {
     // dev: "Luperomorpha (Chrysomelidae)" in italics; Coleoptera is an order in the dictionary
     String t = "Carabus (Carabidae) and Carabus (Coleoptera) nigrus";
