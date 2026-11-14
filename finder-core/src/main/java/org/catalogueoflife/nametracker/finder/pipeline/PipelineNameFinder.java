@@ -45,8 +45,10 @@ import java.util.Set;
  * only and {@code [TAXON_MARKUP]} publisher-tagged ones only.
  *
  * <p><b>Who is judged.</b> Only multi-word names (BINOMIAL, TRINOMIAL, INFRAGENERIC; ABBREVIATED) can be <em>certain</em>
- * and bypass the judge; everything else, all uninomials included, is judged. Evidence counts only if it covers the whole
- * span: a generator that saw just a part (see {@link MergedCandidate#exactGenerators()}) never certifies it. In order:
+ * and bypass the judge; everything else, all uninomials included, is judged. A generator that saw just a part of the span
+ * (see {@link MergedCandidate#exactGenerators()}) never certifies it on its own: a certain name needs markup, gnfinder or
+ * italics on the whole span, or the dictionary on exactly this span. Once gnfinder or italics cover the whole span, the
+ * others may support it from a part, e.g. a dictionary pair inside a gnfinder trinomial. In order:
  * <ol>
  *   <li>publisher markup of exactly this span: certain;</li>
  *   <li><em>full support</em> is gnfinder on exactly this span or a wholly italic span. With it all generators count,
@@ -59,9 +61,10 @@ import java.util.Set;
  *       baculum" also satisfies, so it does not vouch.</li>
  * </ol>
  *
- * <p><b>Confidence.</b> Certain names take the maximum of their whole-span signals: markup 1.0, the dictionary vouching
- * 0.95, gnfinder on exactly this span {@code oddsLog10 / 10} clamped to [0, 1], wholly italic 0.9. Judged names take the
- * judge score. An act takes the confidence of its name.
+ * <p><b>Confidence.</b> Certain names take the maximum of the signals that may certify them, as defined above: markup on
+ * exactly this span 1.0, the dictionary vouching 0.95 (its hit may come from a part of the span when gnfinder or italics
+ * cover all of it), gnfinder on exactly this span {@code oddsLog10 / 10} clamped to [0, 1], wholly italic 0.9. Judged
+ * names take the judge score. An act takes the confidence of its name.
  *
  * <p><b>Output.</b> Mention name is the expanded, verbatim-shaped name with the qualifier removed; the parser's lossy
  * canonical form is kept in hint {@code canonical}. Mention kind is ABBREVIATED when the verbatim is an abbreviation
@@ -318,7 +321,7 @@ public class PipelineNameFinder implements NameFinder {
     return strongGn || dictionaryVouches(p, f, full);
   }
 
-  /** The maximum of the whole-span signals of a certain name. */
+  /** The maximum of the signals that may certify a name, see the class documentation, "Confidence". */
   static double certainConfidence(ParsedCandidate p, CandidateFeatures f) {
     double c = 0;
     if (f.taxonMarkup()) c = Math.max(c, MARKUP_CONFIDENCE);
