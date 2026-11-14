@@ -30,7 +30,8 @@ public class MarkupGenerator implements CandidateGenerator {
     List<Candidate> out = new ArrayList<>();
     for (Block b : doc.blocks()) {
       int[] cps = b.text().codePoints().toArray();
-      for (StyleSpan s : b.styles()) {
+      List<StyleSpan> spans = mergeItalics(b.styles(), cps);
+      for (StyleSpan s : spans) {
         int from = Math.max(0, s.start());
         int to = Math.min(cps.length, s.end());
         if (from >= to) continue;
@@ -43,6 +44,36 @@ public class MarkupGenerator implements CandidateGenerator {
       }
     }
     return out;
+  }
+
+  /** ITALIC spans that touch or are separated only by whitespace are one run ("*Carabus* *nigrus*"). */
+  private static List<StyleSpan> mergeItalics(List<StyleSpan> styles, int[] cps) {
+    List<StyleSpan> out = new ArrayList<>();
+    List<StyleSpan> italics = new ArrayList<>();
+    for (StyleSpan s : styles) {
+      if (s.style() == Style.ITALIC) italics.add(s);
+      else out.add(s);
+    }
+    italics.sort(java.util.Comparator.comparingInt(StyleSpan::start));
+    StyleSpan cur = null;
+    for (StyleSpan s : italics) {
+      if (cur != null && s.start() <= cur.end() || cur != null && onlySpace(cps, cur.end(), s.start())) {
+        cur = new StyleSpan(cur.start(), Math.max(cur.end(), s.end()), Style.ITALIC);
+      } else {
+        if (cur != null) out.add(cur);
+        cur = s;
+      }
+    }
+    if (cur != null) out.add(cur);
+    return out;
+  }
+
+  private static boolean onlySpace(int[] cps, int from, int to) {
+    to = Math.min(to, cps.length);
+    for (int i = Math.max(0, from); i < to; i++) {
+      if (!Character.isWhitespace(cps[i]) && !Character.isSpaceChar(cps[i])) return false;
+    }
+    return true;
   }
 
   private static void italic(Block b, int[] full, int from, int to, List<Candidate> out) {

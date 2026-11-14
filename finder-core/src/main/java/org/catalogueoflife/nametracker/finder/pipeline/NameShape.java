@@ -15,7 +15,10 @@ final class NameShape {
   /** Function words that must never count as an epithet, although a permissive dictionary may know them. */
   static final Set<String> STOP = Set.of("and", "the", "of", "in", "on", "for", "with", "from", "by", "to", "is", "are", "was",
       "as", "at", "or", "et", "der", "die", "das", "und", "von", "de", "la", "le", "les", "du", "des", "el", "los", "las", "en",
-      "un", "una", "une", "ein", "eine", "mit", "bei", "sp", "spp", "cf", "aff", "nov", "not", "also", "see");
+      "un", "una", "une", "ein", "eine", "mit", "bei", "sp", "spp", "cf", "aff", "nov", "not", "also", "see",
+      "that", "this", "but", "were", "has", "had", "have", "can", "may", "will", "would", "should", "could", "be", "been",
+      "which", "who", "when", "where", "than", "then", "these", "those", "its", "their", "into", "over", "under", "between",
+      "after", "before", "if", "so", "no", "all", "some", "both", "each", "other", "sensu", "group", "complex", "species");
 
   /** The end of a name run that starts at token {@code first}. */
   record Run(int lastToken, int endCp, boolean subgenus, int epithets, int firstEpithetToken) {}
@@ -53,8 +56,8 @@ final class NameShape {
   }
 
   /**
-   * Follows the name that starts at token {@code i}: an optional "(Subgenus)", then up to three epithets, where a rank
-   * marker with its dot may stand before an epithet. Runs stop at any gap that is not plain whitespace.
+   * Follows the name that starts at token {@code i}: an optional "(Subgenus)", then up to two epithets (species and one
+   * infraspecific, which may follow a rank marker with its dot). A rank marker never counts as an epithet itself. Runs stop at any gap that is not plain whitespace.
    *
    * @param epithetOk decides which lower-case words count as bare epithets, the one after a rank marker is always taken
    */
@@ -74,11 +77,12 @@ final class NameShape {
     }
     int count = 0;
     int first = -1;
-    while (count < 3 && k + 1 < n) {
+    while (count < 2 && k + 1 < n) {
       Token t = toks.get(k + 1);
       if (!spaceGap(cps, end, t.start())) break;
       String w = t.text();
-      if (count >= 1 && RANK_MARKERS.contains(w) && k + 2 < n) {
+      if (RANK_MARKERS.contains(w)) {
+        if (count < 1 || k + 2 >= n) break;
         int mEnd = t.end();
         if (mEnd < cps.length && cps[mEnd] == '.') mEnd++;
         Token e = toks.get(k + 2);

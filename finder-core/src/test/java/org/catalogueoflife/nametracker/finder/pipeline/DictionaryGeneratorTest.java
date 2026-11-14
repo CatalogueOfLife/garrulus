@@ -85,4 +85,39 @@ class DictionaryGeneratorTest {
     assertThat(cs).extracting(Candidate::verbatim).containsExactly("Carabidae", "Coleoptera");
     assertThat(cs.get(0).start()).isEqualTo(2);
   }
+
+  @Test
+  void spanEndsAfterTwoEpithetsAndStopWords() {
+    assertThat(run("Carabus nigrus and").get(0).verbatim()).isEqualTo("Carabus nigrus");
+    assertThat(run("Carabus nigrus montanus alpinus").get(0).verbatim()).isEqualTo("Carabus nigrus montanus");
+    assertThat(run("Carabus nigrus that was").get(0).verbatim()).isEqualTo("Carabus nigrus");
+    assertThat(run("Carabus nigrus sensu lato").get(0).verbatim()).isEqualTo("Carabus nigrus");
+  }
+
+  @Test
+  void parenthesisedWordIsNotASubgenus() {
+    assertThat(run("Carabus nigrus (see below)").get(0).verbatim()).isEqualTo("Carabus nigrus");
+    assertThat(run("Carabus (see below)").get(0).verbatim()).isEqualTo("Carabus");
+  }
+
+  @Test
+  void sentenceFinalShortGenusKeepsNoDot() throws Exception {
+    String tsv = "col:ID\tcol:status\tcol:scientificName\tcol:rank\tcol:uninomial\tcol:genericName\tcol:infragenericEpithet\tcol:specificEpithet\tcol:infraspecificEpithet\tcol:code\n"
+        + "1\taccepted\tPoa L.\tgenus\tPoa\t\t\t\t\tbotanical\n";
+    ColDictionary d = ColDictionaryBuilder.fromNameUsageTsv(new java.io.StringReader(tsv), "1", CommonWords.of(List.of()));
+    String t = "We studied Poa. Then more.";
+    Document doc = new Document("d", null, List.of(new Block("b1", BlockType.PARAGRAPH, 0, t, List.of(), List.of())), null);
+    List<Candidate> cs = new DictionaryGenerator(d).generate(doc, FlatText.of(doc), new GenerationContext(null));
+    assertThat(cs).extracting(Candidate::verbatim).containsExactly("Poa");
+    assertSpans(t, cs);
+  }
+
+  @Test
+  void nonAsciiTokensKeepCodePointOffsets() {
+    String t = "\uD83E\uDEB2 Stra\u00dfe \u00c4pfel caf\u00e9 K\u00e4fer";
+    List<Tokenizer.Token> toks = Tokenizer.tokens(t);
+    assertThat(toks).extracting(Tokenizer.Token::text).containsExactly("Stra\u00dfe", "\u00c4pfel", "caf\u00e9", "K\u00e4fer");
+    for (Tokenizer.Token k : toks) assertThat(CodePoints.slice(t, k.start(), k.end())).isEqualTo(k.text());
+    assertThat(toks.get(0).start()).isEqualTo(2);
+  }
 }

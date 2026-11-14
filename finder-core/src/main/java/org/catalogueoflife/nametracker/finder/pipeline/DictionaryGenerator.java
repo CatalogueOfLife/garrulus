@@ -18,7 +18,8 @@ import java.util.Map;
  * (the dictionary is permissive about lower-case words, so those never start one), or at an abbreviated genus "X." / "Xy."
  * followed by a known epithet. It then grows to binomial, "(Subgenus)" and trinomial forms. Abbreviations are not
  * expanded here. Features: dictHit (a {@link DictHit}) and ambiguousWord (Boolean, the genus is also an ordinary word).
- * A bare ambiguous word has dictHit AMBIGUOUS_WORD, a name with an epithet BINOMIAL, an abbreviation EPITHET.
+ * A bare ambiguous word has dictHit AMBIGUOUS_WORD, a name with an epithet BINOMIAL. An abbreviation plus epithet is tagged dictHit=EPITHET: DictHit has no ABBREVIATED
+ * value, the kind ABBREVIATED is derived later.
  */
 public class DictionaryGenerator implements CandidateGenerator {
   private final ColDictionary dict;

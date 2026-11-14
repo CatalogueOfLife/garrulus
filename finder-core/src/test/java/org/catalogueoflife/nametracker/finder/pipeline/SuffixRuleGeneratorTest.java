@@ -32,6 +32,19 @@ class SuffixRuleGeneratorTest {
   }
 
   @Test
+  void moreSuffixes() {
+    assertThat(SuffixRules.rankFor("Rosineae", null)).contains(Rank.SUBORDER);
+    assertThat(SuffixRules.rankFor("Rosales", null)).contains(Rank.ORDER);
+    assertThat(SuffixRules.rankFor("Caraboidea", NomCode.ZOOLOGICAL)).contains(Rank.SUPERFAMILY);
+    assertThat(SuffixRules.rankFor("Caraboidea", null)).contains(Rank.SUPERFAMILY);
+    assertThat(SuffixRules.rankFor("Carabini", null)).contains(Rank.TRIBE);
+    assertThat(SuffixRules.rankFor("Carabina", null)).contains(Rank.SUBTRIBE);
+    assertThat(SuffixRules.rankFor("Bacillales", NomCode.BACTERIAL)).contains(Rank.ORDER);
+    assertThat(SuffixRules.rankFor("Bacillineae", NomCode.BACTERIAL)).contains(Rank.SUBORDER);
+    assertThat(SuffixRules.rankFor("Carabidae", NomCode.BACTERIAL)).isEmpty();
+  }
+
+  @Test
   void generatorEmitsAndSkipsCommonWords() {
     String t = "Carabidae and Rosaceae, but Argentina is common.";
     Document d = new Document("d", null, List.of(new Block("b1", BlockType.PARAGRAPH, 0, t, List.of(), List.of())), null);

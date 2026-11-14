@@ -65,4 +65,35 @@ class MarkupGeneratorTest {
     assertThat(cs.get(0).start()).isEqualTo(2);
     assertThat(CodePoints.slice(t, cs.get(0).start(), cs.get(0).end())).isEqualTo("Carabus nigrus");
   }
+
+  @Test
+  void overlongItalicRunIsAtMostATrinomial() {
+    String t = "Notes on the Carabus nigrus group and Carabus nigrus montanus alpinus";
+    List<Candidate> cs = run(t, span(t, t, Style.ITALIC));
+    assertThat(cs).extracting(Candidate::verbatim).containsExactly("Notes", "Carabus nigrus", "Carabus nigrus montanus");
+  }
+
+  @Test
+  void trailingRankMarkerIsNotAnEpithet() {
+    String t = "Rosa canina var";
+    assertThat(run(t, span(t, t, Style.ITALIC))).extracting(Candidate::verbatim).containsExactly("Rosa canina");
+    String t2 = "Rosa canina var.";
+    assertThat(run(t2, span(t2, t2, Style.ITALIC))).extracting(Candidate::verbatim).containsExactly("Rosa canina");
+  }
+
+  @Test
+  void adjacentItalicSpansFormOneRun() {
+    String t = "Carabus nigrus";
+    List<Candidate> cs = run(t, new StyleSpan(0, 7, Style.ITALIC), new StyleSpan(8, 14, Style.ITALIC));
+    assertThat(cs).extracting(Candidate::verbatim).containsExactly("Carabus nigrus");
+  }
+
+  @Test
+  void nonAsciiItalicOffsets() {
+    String t = "\uD83E\uDEB2 M\u00fcllerella stra\u00dfii x";
+    List<Candidate> cs = run(t, span(t, "M\u00fcllerella stra\u00dfii", Style.ITALIC));
+    assertThat(cs).extracting(Candidate::verbatim).containsExactly("M\u00fcllerella stra\u00dfii");
+    assertThat(cs.get(0).start()).isEqualTo(2);
+    assertThat(CodePoints.slice(t, cs.get(0).start(), cs.get(0).end())).isEqualTo(cs.get(0).verbatim());
+  }
 }
