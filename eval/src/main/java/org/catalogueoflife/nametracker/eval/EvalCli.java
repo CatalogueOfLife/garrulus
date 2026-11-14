@@ -175,13 +175,14 @@ public class EvalCli implements Runnable {
 
   @Command(name = "run", mixinStandardHelpOptions = true, description = "Runs a finder over a corpus split and writes a report")
   public static class Run implements Callable<Integer> {
-    @Option(names = "--finder", required = true, description = "italics or gnfinder (more arrive with later tasks)") String finder;
+    @Option(names = "--finder", required = true, description = "italics, gnfinder or pipeline") String finder;
     @Option(names = "--corpus", required = true, description = "corpus directory holding gold.jsonl.gz") Path corpus;
     @Option(names = "--split", required = true, description = "dev or test") String split;
     @Option(names = "--mode", required = true, description = "A (plain text) or B (documents from PDF)") String mode;
     @Option(names = "--out", defaultValue = "eval/reports", description = "report directory, default ${DEFAULT-VALUE}") Path out;
     @Option(names = "--match", defaultValue = "STRICT", description = "STRICT or OVERLAP, default ${DEFAULT-VALUE}") MatchMode match;
     @Option(names = "--doc-level", description = "compare the set of names per document instead of spans") boolean docLevel;
+    @Option(names = "--dictionary", description = "COL dictionary file for the pipeline finder, default $FINDER_DICTIONARY") Path dictionary;
 
     @Override
     public Integer call() throws Exception {
@@ -189,7 +190,7 @@ public class EvalCli implements Runnable {
       if (m.equals("B")) throw new IllegalArgumentException("mode B arrives in Task 18");
       if (!m.equals("A")) throw new IllegalArgumentException("--mode must be A or B");
       if (!split.equals("dev") && !split.equals("test")) throw new IllegalArgumentException("--split must be dev or test");
-      NameFinder f = FinderFactory.create(finder);
+      NameFinder f = FinderFactory.create(finder, dictionary);
       // curated abstracts under a restrictive licence are stored without text and re-fetched from OpenAlex here
       HttpClient http = PensoftFetcher.defaultClient();
       List<GoldDocument> docs = CorpusStore.read(corpus.resolve("gold.jsonl.gz"),
@@ -209,8 +210,25 @@ public class EvalCli implements Runnable {
       line("acts", r.acts());
       line("contexts", r.contexts());
       line("mainSubject", r.mainSubject());
+      String diag = diagnosticTotals(results.values());
+      if (!diag.isEmpty()) System.out.println("Diagnostics (sum over documents): " + diag);
       System.out.println("Report: " + md);
       return 0;
+    }
+
+    /** Sums the integer diagnostics of all results, in first-seen key order. */
+    static String diagnosticTotals(java.util.Collection<FinderResult> results) {
+      Map<String, Long> sums = new LinkedHashMap<>();
+      for (FinderResult r : results) {
+        r.diagnostics().forEach((k, v) -> {
+          try {
+            sums.merge(k, Long.parseLong(v), Long::sum);
+          } catch (NumberFormatException e) {
+            // not a count
+          }
+        });
+      }
+      return sums.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).collect(java.util.stream.Collectors.joining(", "));
     }
 
     private static void line(String label, Metrics x) {
