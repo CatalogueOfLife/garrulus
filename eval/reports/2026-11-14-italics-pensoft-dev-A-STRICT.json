@@ -15518,7 +15518,7 @@
     "end" : 3,
     "text" : "FIS",
     "category" : "UNINOMIAL",
-    "context" : "«FIS» = 0.046*FST = 0.045**FIT = 0.089**"
+    "context" : "«FIS» = 0.046* FST = 0.045** FIT = 0.089**"
   }, {
     "docId" : "pensoft:mycokeys.141.209886",
     "blockId" : "b778",
@@ -15562,11 +15562,11 @@
   }, {
     "docId" : "pensoft:bdj.12.e130385",
     "blockId" : "b659",
-    "start" : 12,
-    "end" : 15,
+    "start" : 13,
+    "end" : 16,
     "text" : "FST",
     "category" : "UNINOMIAL",
-    "context" : "FIS = 0.046*«FST» = 0.045**FIT = 0.089**"
+    "context" : "FIS = 0.046* «FST» = 0.045** FIT = 0.089**"
   }, {
     "docId" : "pensoft:mycokeys.141.209886",
     "blockId" : "b778",
@@ -15610,11 +15610,11 @@
   }, {
     "docId" : "pensoft:bdj.12.e130385",
     "blockId" : "b659",
-    "start" : 25,
-    "end" : 28,
+    "start" : 27,
+    "end" : 30,
     "text" : "FIT",
     "category" : "UNINOMIAL",
-    "context" : "FIS = 0.046*FST = 0.045**«FIT» = 0.089**"
+    "context" : "FIS = 0.046* FST = 0.045** «FIT» = 0.089**"
   }, {
     "docId" : "pensoft:mycokeys.141.209886",
     "blockId" : "b778",
