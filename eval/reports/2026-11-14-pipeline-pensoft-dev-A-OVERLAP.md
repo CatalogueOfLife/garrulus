@@ -6,22 +6,22 @@ Finder: pipeline 0.1.0-SNAPSHOT, config `2336d1485d911fb345c53c9046d193de2a8ea42
 
 | Metric | TP | FP | FN | Precision | Recall | F1 |
 |---|---:|---:|---:|---:|---:|---:|
-| names | 26230 | 5956 | 886 | 0.815 | 0.967 | 0.885 |
-| &nbsp;&nbsp;block:ABSTRACT | 896 | 47 | 25 | 0.950 | 0.973 | 0.961 |
-| &nbsp;&nbsp;block:CAPTION | 2102 | 369 | 68 | 0.851 | 0.969 | 0.906 |
+| names | 26251 | 5957 | 865 | 0.815 | 0.968 | 0.885 |
+| &nbsp;&nbsp;block:ABSTRACT | 899 | 47 | 22 | 0.950 | 0.976 | 0.963 |
+| &nbsp;&nbsp;block:CAPTION | 2095 | 369 | 75 | 0.850 | 0.965 | 0.904 |
 | &nbsp;&nbsp;block:FOOTNOTE | 69 | 25 | 0 | 0.734 | 1.000 | 0.847 |
 | &nbsp;&nbsp;block:HEADING | 793 | 58 | 7 | 0.932 | 0.991 | 0.961 |
-| &nbsp;&nbsp;block:PARAGRAPH | 14250 | 4384 | 495 | 0.765 | 0.966 | 0.854 |
-| &nbsp;&nbsp;block:TABLE_CELL | 7828 | 1058 | 286 | 0.881 | 0.965 | 0.921 |
+| &nbsp;&nbsp;block:PARAGRAPH | 14273 | 4385 | 472 | 0.765 | 0.968 | 0.855 |
+| &nbsp;&nbsp;block:TABLE_CELL | 7830 | 1058 | 284 | 0.881 | 0.965 | 0.921 |
 | &nbsp;&nbsp;block:TITLE | 292 | 15 | 5 | 0.951 | 0.983 | 0.967 |
 | &nbsp;&nbsp;kind:ABBREVIATED | 7616 | 33 | 210 | 0.996 | 0.973 | 0.984 |
-| &nbsp;&nbsp;kind:BINOMIAL | 6972 | 663 | 24 | 0.913 | 0.997 | 0.953 |
+| &nbsp;&nbsp;kind:BINOMIAL | 6968 | 664 | 28 | 0.913 | 0.996 | 0.953 |
 | &nbsp;&nbsp;kind:INFRAGENERIC | 0 | 8 | 0 | 0.000 | 0.000 | 0.000 |
-| &nbsp;&nbsp;kind:TRINOMIAL | 414 | 3 | 2 | 0.993 | 0.995 | 0.994 |
-| &nbsp;&nbsp;kind:UNINOMIAL | 11228 | 5249 | 650 | 0.681 | 0.945 | 0.792 |
-| &nbsp;&nbsp;lang:en | 20250 | 4884 | 717 | 0.806 | 0.966 | 0.879 |
+| &nbsp;&nbsp;kind:TRINOMIAL | 414 | 2 | 2 | 0.995 | 0.995 | 0.995 |
+| &nbsp;&nbsp;kind:UNINOMIAL | 11253 | 5250 | 625 | 0.682 | 0.947 | 0.793 |
+| &nbsp;&nbsp;lang:en | 20271 | 4885 | 696 | 0.806 | 0.967 | 0.879 |
 | &nbsp;&nbsp;lang:und | 5980 | 1072 | 169 | 0.848 | 0.973 | 0.906 |
-| acts | 153 | 131 | 10 | 0.539 | 0.939 | 0.685 |
+| acts | 153 | 132 | 10 | 0.537 | 0.939 | 0.683 |
 | contexts | 190 | 474 | 1106 | 0.286 | 0.147 | 0.194 |
 | main subject | 216 | 321 | 23 | 0.402 | 0.904 | 0.557 |
 
@@ -58,10 +58,10 @@ Finder: pipeline 0.1.0-SNAPSHOT, config `2336d1485d911fb345c53c9046d193de2a8ea42
 - `pensoft:mycokeys.127.173361` [BINOMIAL]  and morphology reveal two new species, «Ophiocordyceps ramosa» sp. nov. (Ophiocordycipitaceae) and Lep
 - `pensoft:zookeys.1264.140174` [BINOMIAL] r N, Dulias K, Wang J, Schwalb A (2025) «Heterocypris exodonta» sp. nov. (Ostracoda, Cyprididae), morph
 
-## False negatives (30 of 886 recorded)
+## False negatives (30 of 865 recorded)
 
 - `pensoft:mycokeys.128.172807` [UNINOMIAL] H. corrugata, deposited in the CANB, MA-«Fungi», O, and PDD herbaria, as well as the le
-- `pensoft:phytokeys.275.192014` [UNINOMIAL]  forests in northeastern North America. «Boschniakia» s.l., which formerly included four spec
+- `pensoft:phytokeys.275.192014` [UNINOMIAL] sima, Georgia; N. Xeropicta derbentina («Stylommatophora», Geomitridae) on C. fissa, Azerbaijan; 
 - `pensoft:zookeys.1273.176856` [UNINOMIAL] tionships among the copepod families of «Harpacticoida», originally grouped these families into
 - `pensoft:zookeys.1217.125780` [UNINOMIAL] es name is derived from the Latin word “«striola»”, referring to forewing with a dark bro
 - `pensoft:bdj.12.e130385` [ABBREVIATED] cular markers has hampered the study of «D. mun»’s genetic diversity and population stru

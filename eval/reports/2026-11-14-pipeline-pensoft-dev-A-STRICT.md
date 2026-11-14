@@ -6,29 +6,29 @@ Finder: pipeline 0.1.0-SNAPSHOT, config `2336d1485d911fb345c53c9046d193de2a8ea42
 
 | Metric | TP | FP | FN | Precision | Recall | F1 |
 |---|---:|---:|---:|---:|---:|---:|
-| names | 25702 | 6484 | 1414 | 0.799 | 0.948 | 0.867 |
-| &nbsp;&nbsp;block:ABSTRACT | 881 | 62 | 40 | 0.934 | 0.957 | 0.945 |
-| &nbsp;&nbsp;block:CAPTION | 1856 | 615 | 314 | 0.751 | 0.855 | 0.800 |
+| names | 25787 | 6421 | 1329 | 0.801 | 0.951 | 0.869 |
+| &nbsp;&nbsp;block:ABSTRACT | 885 | 61 | 36 | 0.936 | 0.961 | 0.948 |
+| &nbsp;&nbsp;block:CAPTION | 1865 | 599 | 305 | 0.757 | 0.859 | 0.805 |
 | &nbsp;&nbsp;block:FOOTNOTE | 64 | 30 | 5 | 0.681 | 0.928 | 0.785 |
 | &nbsp;&nbsp;block:HEADING | 785 | 66 | 15 | 0.922 | 0.981 | 0.951 |
-| &nbsp;&nbsp;block:PARAGRAPH | 14054 | 4580 | 691 | 0.754 | 0.953 | 0.842 |
-| &nbsp;&nbsp;block:TABLE_CELL | 7773 | 1113 | 341 | 0.875 | 0.958 | 0.914 |
-| &nbsp;&nbsp;block:TITLE | 289 | 18 | 8 | 0.941 | 0.973 | 0.957 |
-| &nbsp;&nbsp;kind:ABBREVIATED | 7537 | 108 | 289 | 0.986 | 0.963 | 0.974 |
-| &nbsp;&nbsp;kind:BINOMIAL | 6702 | 972 | 294 | 0.873 | 0.958 | 0.914 |
+| &nbsp;&nbsp;block:PARAGRAPH | 14108 | 4550 | 637 | 0.756 | 0.957 | 0.845 |
+| &nbsp;&nbsp;block:TABLE_CELL | 7790 | 1098 | 324 | 0.876 | 0.960 | 0.916 |
+| &nbsp;&nbsp;block:TITLE | 290 | 17 | 7 | 0.945 | 0.976 | 0.960 |
+| &nbsp;&nbsp;kind:ABBREVIATED | 7577 | 68 | 249 | 0.991 | 0.968 | 0.980 |
+| &nbsp;&nbsp;kind:BINOMIAL | 6725 | 967 | 271 | 0.874 | 0.961 | 0.916 |
 | &nbsp;&nbsp;kind:INFRAGENERIC | 0 | 19 | 0 | 0.000 | 0.000 | 0.000 |
-| &nbsp;&nbsp;kind:TRINOMIAL | 339 | 58 | 77 | 0.854 | 0.815 | 0.834 |
-| &nbsp;&nbsp;kind:UNINOMIAL | 11124 | 5327 | 754 | 0.676 | 0.937 | 0.785 |
-| &nbsp;&nbsp;lang:en | 19764 | 5370 | 1203 | 0.786 | 0.943 | 0.857 |
-| &nbsp;&nbsp;lang:und | 5938 | 1114 | 211 | 0.842 | 0.966 | 0.900 |
-| acts | 153 | 131 | 10 | 0.539 | 0.939 | 0.685 |
+| &nbsp;&nbsp;kind:TRINOMIAL | 336 | 39 | 80 | 0.896 | 0.808 | 0.850 |
+| &nbsp;&nbsp;kind:UNINOMIAL | 11149 | 5328 | 729 | 0.677 | 0.939 | 0.786 |
+| &nbsp;&nbsp;lang:en | 19840 | 5316 | 1127 | 0.789 | 0.946 | 0.860 |
+| &nbsp;&nbsp;lang:und | 5947 | 1105 | 202 | 0.843 | 0.967 | 0.901 |
+| acts | 153 | 132 | 10 | 0.537 | 0.939 | 0.683 |
 | contexts | 190 | 474 | 1106 | 0.286 | 0.147 | 0.194 |
 | main subject | 216 | 321 | 23 | 0.402 | 0.904 | 0.557 |
 
 ## False positives (30 of 5000 recorded)
 
 - `pensoft:mycokeys.128.172807` [UNINOMIAL]  phylogenetic analyses of the ITS, LSU, «RPB»1, and RPB2 regions. The results of the 
-- `pensoft:mycokeys.104.117872` [TRINOMIAL] «Paramphibambusa bambusicola gen». et. sp. nov., Arecophila xishuangbanna
+- `pensoft:mycokeys.104.117872` [UNINOMIAL] otongensis spp. nov. in Cainiaceae from «Yunnan», China
 - `pensoft:phytokeys.275.192014` [UNINOMIAL] ated in terms of trophic relationships («Westwood» et al. 2010), thus constituting a conve
 - `pensoft:zookeys.1251.145353` [UNINOMIAL]  (2025) A taxonomic review of the genus «Eversmannia» Staudinger, 1871 (Lepidoptera, Uraniida
 - `pensoft:mycokeys.113.140932` [UNINOMIAL] ulata (Xenasmataceae, Russulales), from «Yunnan» Province in China, are proposed, based 
@@ -58,10 +58,10 @@ Finder: pipeline 0.1.0-SNAPSHOT, config `2336d1485d911fb345c53c9046d193de2a8ea42
 - `pensoft:mycokeys.127.173361` [BINOMIAL]  During the natural infection of hosts, «Ophiocordyceps fungi», along with other fungal species, form 
 - `pensoft:zookeys.1264.140174` [BINOMIAL] r N, Dulias K, Wang J, Schwalb A (2025) «Heterocypris exodonta» sp. nov. (Ostracoda, Cyprididae), morph
 
-## False negatives (30 of 1414 recorded)
+## False negatives (30 of 1329 recorded)
 
 - `pensoft:mycokeys.128.172807` [UNINOMIAL] six clades and one singleton within the «Hyphodermella» core; three of these correspond to spec
-- `pensoft:mycokeys.104.117872` [BINOMIAL] «Paramphibambusa bambusicola» gen. et. sp. nov., Arecophila xishuangb
+- `pensoft:mycokeys.104.117872` [BINOMIAL] nstitute of Botany Academia Sinica; LF: «Lopadostoma fagi»L; LT: Lopadostoma turgidum; MFLU: Mae F
 - `pensoft:phytokeys.275.192014` [UNINOMIAL]  J.L. Contr., Gleadovia Gamble & Prain, «Kopsiopsis» (Beck) Beck, Mannagettaea Harry Sm., Or
 - `pensoft:zookeys.1251.145353` [UNINOMIAL] ake and transferred it to the new genus «Eversmannia.» The distribution of Eversmannia is main
 - `pensoft:mycokeys.113.140932` [ABBREVIATED]  X. guttulatasp. nov. is clustered with «X. pruinosum.» The morphology and multi-gene phylogene
@@ -76,7 +76,7 @@ Finder: pipeline 0.1.0-SNAPSHOT, config `2336d1485d911fb345c53c9046d193de2a8ea42
 - `pensoft:phytokeys.263.163351` [UNINOMIAL] form a small natural group (i.e., sect. «Splendentes») within the Dryopteris clade of this ge
 - `pensoft:mycokeys.141.209886` [UNINOMIAL] «Macadamia»-growing regions provide favorable habit
 - `pensoft:zookeys.1293.199475` [UNINOMIAL] Although genetic divergence between the «zonata» population of E. dasytoides and E. qinl
-- `pensoft:zookeys.1232.141693` [ABBREVIATED] sper var. antoniensis (Forel, 1912) and «N. asper» s. str, to recognize N. antoniensis (Fo
+- `pensoft:zookeys.1232.141693` [UNINOMIAL] The word «konina» means smooth and shiny in the Sikuani a
 - `pensoft:mycokeys.126.174148` [UNINOMIAL] Hainan Province, China. Thus, the genus «Helicotubeufia» now encapsulates four recognised specie
 - `pensoft:zookeys.1257.165617` [ABBREVIATED]  a close phylogenetic relationship with «A. d. dafangensis» and is differentiated from the nominal 
 - `pensoft:bdj.12.e72511` [ABBREVIATED] «C. (Hoffmania) hylas» Macfie, 1940 https://www.gbif.org/speci
@@ -88,5 +88,5 @@ Finder: pipeline 0.1.0-SNAPSHOT, config `2336d1485d911fb345c53c9046d193de2a8ea42
 - `pensoft:mycokeys.127.173361` [UNINOMIAL]  During the natural infection of hosts, «Ophiocordyceps» fungi, along with other fungal species,
 - `pensoft:zookeys.1264.140174` [TRINOMIAL]  to specimens previously referred to as «Heterocypris aff. salina» by Vences et al. (2024) and as Heterocy
 - `pensoft:phytokeys.252.135155` [BINOMIAL] f floral structures of similar species A«Lilium huanglongense» flower B tepals of Lilium huanglongense
-- `pensoft:zookeys.1223.138220` [UNINOMIAL] totype: Male, “Australia ? Adelaide 984 «guttatus»”, “Lectotype”, “Sharp Coll. 1905-313.”,
+- `pensoft:zookeys.1223.138220` [TRINOMIAL] = «Sandracottus rotundus ab. reductus» Zimmermann, 1926
 - `pensoft:zookeys.1293.201884` [UNINOMIAL] examination of many museum collections, «Nipponomyia» crane flies from the Korean Peninsula w

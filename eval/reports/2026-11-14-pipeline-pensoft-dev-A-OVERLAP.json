@@ -10,20 +10,20 @@
   "split" : "dev",
   "mode" : "A",
   "names" : {
-    "tp" : 26230,
-    "fp" : 5956,
-    "fn" : 886
+    "tp" : 26251,
+    "fp" : 5957,
+    "fn" : 865
   },
   "byCategory" : {
     "block:ABSTRACT" : {
-      "tp" : 896,
+      "tp" : 899,
       "fp" : 47,
-      "fn" : 25
+      "fn" : 22
     },
     "block:CAPTION" : {
-      "tp" : 2102,
+      "tp" : 2095,
       "fp" : 369,
-      "fn" : 68
+      "fn" : 75
     },
     "block:FOOTNOTE" : {
       "tp" : 69,
@@ -36,14 +36,14 @@
       "fn" : 7
     },
     "block:PARAGRAPH" : {
-      "tp" : 14250,
-      "fp" : 4384,
-      "fn" : 495
+      "tp" : 14273,
+      "fp" : 4385,
+      "fn" : 472
     },
     "block:TABLE_CELL" : {
-      "tp" : 7828,
+      "tp" : 7830,
       "fp" : 1058,
-      "fn" : 286
+      "fn" : 284
     },
     "block:TITLE" : {
       "tp" : 292,
@@ -56,9 +56,9 @@
       "fn" : 210
     },
     "kind:BINOMIAL" : {
-      "tp" : 6972,
-      "fp" : 663,
-      "fn" : 24
+      "tp" : 6968,
+      "fp" : 664,
+      "fn" : 28
     },
     "kind:INFRAGENERIC" : {
       "tp" : 0,
@@ -67,18 +67,18 @@
     },
     "kind:TRINOMIAL" : {
       "tp" : 414,
-      "fp" : 3,
+      "fp" : 2,
       "fn" : 2
     },
     "kind:UNINOMIAL" : {
-      "tp" : 11228,
-      "fp" : 5249,
-      "fn" : 650
+      "tp" : 11253,
+      "fp" : 5250,
+      "fn" : 625
     },
     "lang:en" : {
-      "tp" : 20250,
-      "fp" : 4884,
-      "fn" : 717
+      "tp" : 20271,
+      "fp" : 4885,
+      "fn" : 696
     },
     "lang:und" : {
       "tp" : 5980,
@@ -88,7 +88,7 @@
   },
   "acts" : {
     "tp" : 153,
-    "fp" : 131,
+    "fp" : 132,
     "fn" : 10
   },
   "contexts" : {
@@ -753,10 +753,10 @@
     "docId" : "pensoft:mycokeys.104.117872",
     "blockId" : "b6",
     "start" : 114,
-    "end" : 145,
-    "text" : "Paramphibambusa bambusicola gen",
-    "category" : "TRINOMIAL",
-    "context" : ", Al-Rejaie S, Tanaka K, Dai D-Q (2024) «Paramphibambusa bambusicola gen». et. sp. nov., Arecophila xishuangbanna"
+    "end" : 141,
+    "text" : "Paramphibambusa bambusicola",
+    "category" : "BINOMIAL",
+    "context" : ", Al-Rejaie S, Tanaka K, Dai D-Q (2024) «Paramphibambusa bambusicola» gen. et. sp. nov., Arecophila xishuangb"
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
     "blockId" : "b12",
@@ -40112,12 +40112,12 @@
     "context" : "H. corrugata, deposited in the CANB, MA-«Fungi», O, and PDD herbaria, as well as the le"
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b22",
-    "start" : 1034,
-    "end" : 1045,
-    "text" : "Boschniakia",
+    "blockId" : "b39",
+    "start" : 1188,
+    "end" : 1203,
+    "text" : "Stylommatophora",
     "category" : "UNINOMIAL",
-    "context" : " forests in northeastern North America. «Boschniakia» s.l., which formerly included four spec"
+    "context" : "sima, Georgia; N. Xeropicta derbentina («Stylommatophora», Geomitridae) on C. fissa, Azerbaijan; "
   }, {
     "docId" : "pensoft:zookeys.1273.176856",
     "blockId" : "b6",
@@ -40640,12 +40640,12 @@
     "context" : "MA-«Fungi» 5527, 817Tell."
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b39",
-    "start" : 1188,
-    "end" : 1203,
-    "text" : "Stylommatophora",
+    "blockId" : "b183",
+    "start" : 0,
+    "end" : 11,
+    "text" : "Spirobolida",
     "category" : "UNINOMIAL",
-    "context" : "sima, Georgia; N. Xeropicta derbentina («Stylommatophora», Geomitridae) on C. fissa, Azerbaijan; "
+    "context" : "«Spirobolida»"
   }, {
     "docId" : "pensoft:zookeys.1273.176856",
     "blockId" : "b6",
@@ -40694,14 +40694,6 @@
     "text" : "Splendentes",
     "category" : "UNINOMIAL",
     "context" : "ikkimensis in northern Vietnam. Section «Splendentes» is shown to be geographically restricte"
-  }, {
-    "docId" : "pensoft:mycokeys.141.209886",
-    "blockId" : "b637",
-    "start" : 99,
-    "end" : 116,
-    "text" : "Citrus reticulata",
-    "category" : "BINOMIAL",
-    "context" : "a pathogen associated with the trunk of «Citrus reticulata» cv. Ponkan and confirmed its pathogenic"
   }, {
     "docId" : "pensoft:zookeys.1293.199475",
     "blockId" : "b128",
@@ -40848,12 +40840,12 @@
     "context" : "«P. (F.) claudia» sp. nov."
   }, {
     "docId" : "pensoft:mycokeys.118.152880",
-    "blockId" : "b4",
-    "start" : 406,
-    "end" : 421,
-    "text" : "Malus domestica",
-    "category" : "BINOMIAL",
-    "context" : "ity on Populus alba subsp. pyramidalis, «Malus domestica» cv. ‘Fuji’ and Pyrus bretschneideri. Ba"
+    "blockId" : "b669",
+    "start" : 497,
+    "end" : 502,
+    "text" : "Valsa",
+    "category" : "UNINOMIAL",
+    "context" : " C. mali 03-8, a pathogen causing Apple «Valsa» Canker from our laboratory culture coll"
   }, {
     "docId" : "pensoft:zookeys.1287.187795",
     "blockId" : "b1019",
@@ -41048,12 +41040,12 @@
     "context" : "MA-«Fungi» 5529, 759Tell."
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b183",
+    "blockId" : "b221",
     "start" : 0,
-    "end" : 11,
-    "text" : "Spirobolida",
+    "end" : 15,
+    "text" : "Stylommatophora",
     "category" : "UNINOMIAL",
-    "context" : "«Spirobolida»"
+    "context" : "«Stylommatophora»"
   }, {
     "docId" : "pensoft:zookeys.1273.176856",
     "blockId" : "b6",
@@ -41198,14 +41190,6 @@
     "text" : "P. (F.) crussetae",
     "category" : "ABBREVIATED",
     "context" : "«P. (F.) crussetae» sp. nov."
-  }, {
-    "docId" : "pensoft:mycokeys.118.152880",
-    "blockId" : "b4",
-    "start" : 902,
-    "end" : 917,
-    "text" : "Malus domestica",
-    "category" : "BINOMIAL",
-    "context" : "5). In contrast, their pathogenicity on «Malus domestica» cv. ‘Fuji’ and Pyrus bretschneideri was"
   }, {
     "docId" : "pensoft:zookeys.1228.129419",
     "blockId" : "b8",
@@ -41368,12 +41352,12 @@
     "context" : "MA-«Fungi» 7653, 4638Tell."
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b221",
+    "blockId" : "b228",
     "start" : 0,
-    "end" : 15,
-    "text" : "Stylommatophora",
+    "end" : 4,
+    "text" : "Aves",
     "category" : "UNINOMIAL",
-    "context" : "«Stylommatophora»"
+    "context" : "«Aves»"
   }, {
     "docId" : "pensoft:zookeys.1273.176856",
     "blockId" : "b7",
@@ -41408,12 +41392,12 @@
     "context" : " and traits of Cocconeis skvortzowii (≡ «var. baikalensis» Skvortzow, 1937) in published sources."
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
-    "blockId" : "b8",
-    "start" : 491,
-    "end" : 501,
-    "text" : "Dryopteris",
+    "blockId" : "b9",
+    "start" : 833,
+    "end" : 844,
+    "text" : "Splendentes",
     "category" : "UNINOMIAL",
-    "context" : "ins (1989), approximately 76 species of «Dryopteris» s. str., excluding species traditionall"
+    "context" : "a few eastern species, constitute sect. «Splendentes» Fraser-Jenkins under Dryopteris subg. D"
   }, {
     "docId" : "pensoft:zookeys.1293.199475",
     "blockId" : "b130",
@@ -41502,14 +41486,6 @@
     "text" : "P. (F.) sekawa",
     "category" : "ABBREVIATED",
     "context" : "«P. (F.) sekawa» sp. nov."
-  }, {
-    "docId" : "pensoft:mycokeys.118.152880",
-    "blockId" : "b668",
-    "start" : 99,
-    "end" : 114,
-    "text" : "Malus domestica",
-    "category" : "BINOMIAL",
-    "context" : "er) of Populus alba subsp. pyramidalis, «Malus domestica» cv. ‘Fuji’ and Pyrus bretschneideri wer"
   }, {
     "docId" : "pensoft:zookeys.1228.129419",
     "blockId" : "b8",
@@ -41648,12 +41624,12 @@
     "context" : "MA-«Fungi» 11076, 3349MD"
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b228",
-    "start" : 0,
-    "end" : 4,
-    "text" : "Aves",
+    "blockId" : "b302",
+    "start" : 181,
+    "end" : 196,
+    "text" : "Stylommatophora",
     "category" : "UNINOMIAL",
-    "context" : "«Aves»"
+    "context" : "(12%), Coleoptera (12%), Diptera (11%), «Stylommatophora» (8%), Thysanoptera (7%), Araneae (6%), "
   }, {
     "docId" : "pensoft:zookeys.1273.176856",
     "blockId" : "b7",
@@ -41681,11 +41657,11 @@
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
     "blockId" : "b9",
-    "start" : 833,
-    "end" : 844,
+    "start" : 1142,
+    "end" : 1153,
     "text" : "Splendentes",
     "category" : "UNINOMIAL",
-    "context" : "a few eastern species, constitute sect. «Splendentes» Fraser-Jenkins under Dryopteris subg. D"
+    "context" : "is unknown species and members of sect. «Splendentes». The results are reported here."
   }, {
     "docId" : "pensoft:zookeys.1293.199475",
     "blockId" : "b131",
@@ -41766,14 +41742,6 @@
     "text" : "P. (F.) gattolliati",
     "category" : "ABBREVIATED",
     "context" : "«P. (F.) gattolliati» sp. nov."
-  }, {
-    "docId" : "pensoft:mycokeys.118.152880",
-    "blockId" : "b669",
-    "start" : 497,
-    "end" : 502,
-    "text" : "Valsa",
-    "category" : "UNINOMIAL",
-    "context" : " C. mali 03-8, a pathogen causing Apple «Valsa» Canker from our laboratory culture coll"
   }, {
     "docId" : "pensoft:zookeys.1228.129419",
     "blockId" : "b8",
@@ -41905,11 +41873,11 @@
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
     "blockId" : "b302",
-    "start" : 181,
-    "end" : 196,
+    "start" : 443,
+    "end" : 458,
     "text" : "Stylommatophora",
     "category" : "UNINOMIAL",
-    "context" : "(12%), Coleoptera (12%), Diptera (11%), «Stylommatophora» (8%), Thysanoptera (7%), Araneae (6%), "
+    "context" : "ries), Diptera (17%), Coleoptera (11%), «Stylommatophora» (9%), Hemiptera (8%), Lepidoptera (8%),"
   }, {
     "docId" : "pensoft:bdj.12.e132915",
     "blockId" : "b496",
@@ -41928,12 +41896,12 @@
     "context" : "erica, approximately 15 species of deer «mice» have been documented (Musser 1969; Brad"
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
-    "blockId" : "b9",
-    "start" : 1142,
-    "end" : 1153,
+    "blockId" : "b16",
+    "start" : 444,
+    "end" : 455,
     "text" : "Splendentes",
     "category" : "UNINOMIAL",
-    "context" : "is unknown species and members of sect. «Splendentes». The results are reported here."
+    "context" : "ese are characters distinguishing sect. «Splendentes» from other groups of Dryopteris with no"
   }, {
     "docId" : "pensoft:zookeys.1293.199475",
     "blockId" : "b132",
@@ -42014,14 +41982,6 @@
     "text" : "P. (F.) grisea",
     "category" : "ABBREVIATED",
     "context" : "«P. (F.) grisea» sp. nov."
-  }, {
-    "docId" : "pensoft:mycokeys.118.152880",
-    "blockId" : "b705",
-    "start" : 254,
-    "end" : 269,
-    "text" : "Malus domestica",
-    "category" : "BINOMIAL",
-    "context" : " Populus alba subsp. pyramidalis; B. on «Malus domestica» cv. ‘Fuji’; C. and Pyrus bretschneideri"
   }, {
     "docId" : "pensoft:zookeys.1193.115831",
     "blockId" : "b178",
@@ -42128,12 +42088,12 @@
     "context" : "MA-«Fungi» 26185, 11457Tell."
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b302",
-    "start" : 443,
-    "end" : 458,
+    "blockId" : "b320",
+    "start" : 0,
+    "end" : 15,
     "text" : "Stylommatophora",
     "category" : "UNINOMIAL",
-    "context" : "ries), Diptera (17%), Coleoptera (11%), «Stylommatophora» (9%), Hemiptera (8%), Lepidoptera (8%),"
+    "context" : "«Stylommatophora»"
   }, {
     "docId" : "pensoft:bdj.12.e132915",
     "blockId" : "b558",
@@ -42152,12 +42112,12 @@
     "context" : "«P. b. sacarensis» was maintained as a subspecies"
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
-    "blockId" : "b16",
-    "start" : 444,
-    "end" : 455,
-    "text" : "Splendentes",
+    "blockId" : "b81",
+    "start" : 253,
+    "end" : 263,
+    "text" : "Fragrantes",
     "category" : "UNINOMIAL",
-    "context" : "ese are characters distinguishing sect. «Splendentes» from other groups of Dryopteris with no"
+    "context" : "is) were well resolved into six clades: «Fragrantes», Nothoperanema, Acrorumohra, Erythrovar"
   }, {
     "docId" : "pensoft:zookeys.1293.199475",
     "blockId" : "b249",
@@ -42200,12 +42160,12 @@
     "context" : "Holotype: Female: “Borneo 986 «ornatus»”, “Type H.T.”, “Sharp coll. 1905-313”, "
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b4",
-    "start" : 991,
-    "end" : 1001,
-    "text" : "Paradelius",
-    "category" : "UNINOMIAL",
-    "context" : "elius species from three its subgenera, «Paradelius» s.str., Sculptomyriola Belokobylskij an"
+    "blockId" : "b43",
+    "start" : 51,
+    "end" : 70,
+    "text" : "P. (P.) ghesquierei",
+    "category" : "ABBREVIATED",
+    "context" : "(Paradelius) chinensis He & Chen, 2000, «P. (P.) ghesquierei» De Saeger, 1942; P. (Sculptomyriola) ex"
   }, {
     "docId" : "pensoft:zookeys.1229.135950",
     "blockId" : "b307",
@@ -42230,14 +42190,6 @@
     "text" : "P. (F.) flowersi",
     "category" : "ABBREVIATED",
     "context" : "«P. (F.) flowersi» sp. nov."
-  }, {
-    "docId" : "pensoft:zookeys.1193.115831",
-    "blockId" : "b178",
-    "start" : 2243,
-    "end" : 2252,
-    "text" : "Eurytenes",
-    "category" : "UNINOMIAL",
-    "context" : "t lacks the typical derived venation of «Eurytenes» s. str.). The new species differs by ha"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b26",
@@ -42328,12 +42280,12 @@
     "context" : "MA-«Fungi» 26186, 11459Tell."
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b320",
-    "start" : 0,
-    "end" : 15,
-    "text" : "Stylommatophora",
+    "blockId" : "b323",
+    "start" : 575,
+    "end" : 586,
+    "text" : "Spirobolida",
     "category" : "UNINOMIAL",
-    "context" : "«Stylommatophora»"
+    "context" : ", Psocodea (Lachesillidae, Lachesilla), «Spirobolida» (Pseudospirobolellidae, Pseudospirobole"
   }, {
     "docId" : "pensoft:bdj.12.e132915",
     "blockId" : "b567",
@@ -42353,11 +42305,11 @@
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
     "blockId" : "b81",
-    "start" : 253,
-    "end" : 263,
-    "text" : "Fragrantes",
+    "start" : 293,
+    "end" : 306,
+    "text" : "Erythrovariae",
     "category" : "UNINOMIAL",
-    "context" : "is) were well resolved into six clades: «Fragrantes», Nothoperanema, Acrorumohra, Erythrovar"
+    "context" : "Fragrantes, Nothoperanema, Acrorumohra, «Erythrovariae», Yoroii, and Dryopteris (Fig. 2). The F"
   }, {
     "docId" : "pensoft:zookeys.1293.199475",
     "blockId" : "b254",
@@ -42401,11 +42353,11 @@
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
     "blockId" : "b43",
-    "start" : 51,
-    "end" : 70,
-    "text" : "P. (P.) ghesquierei",
+    "start" : 161,
+    "end" : 179,
+    "text" : "P. (Sc.) ghilarovi",
     "category" : "ABBREVIATED",
-    "context" : "(Paradelius) chinensis He & Chen, 2000, «P. (P.) ghesquierei» De Saeger, 1942; P. (Sculptomyriola) ex"
+    "context" : "alis (Belokobylskij, 1988), comb. nov., «P. (Sc.) ghilarovi» (Belokobylskij, 1988), comb. nov., P. ("
   }, {
     "docId" : "pensoft:zookeys.1229.135950",
     "blockId" : "b307",
@@ -42504,12 +42456,12 @@
     "context" : "MA-«Fungi» 38073, 3500IS"
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b323",
-    "start" : 575,
-    "end" : 586,
-    "text" : "Spirobolida",
+    "blockId" : "b325",
+    "start" : 0,
+    "end" : 4,
+    "text" : "Aves",
     "category" : "UNINOMIAL",
-    "context" : ", Psocodea (Lachesillidae, Lachesilla), «Spirobolida» (Pseudospirobolellidae, Pseudospirobole"
+    "context" : "«Aves»"
   }, {
     "docId" : "pensoft:zookeys.1218.126535",
     "blockId" : "b35",
@@ -42521,11 +42473,11 @@
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
     "blockId" : "b81",
-    "start" : 293,
-    "end" : 306,
-    "text" : "Erythrovariae",
+    "start" : 345,
+    "end" : 355,
+    "text" : "Fragrantes",
     "category" : "UNINOMIAL",
-    "context" : "Fragrantes, Nothoperanema, Acrorumohra, «Erythrovariae», Yoroii, and Dryopteris (Fig. 2). The F"
+    "context" : "e, Yoroii, and Dryopteris (Fig. 2). The «Fragrantes» formed the most basal clade of the genu"
   }, {
     "docId" : "pensoft:zookeys.1293.199475",
     "blockId" : "b266",
@@ -42569,11 +42521,11 @@
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
     "blockId" : "b43",
-    "start" : 161,
-    "end" : 179,
-    "text" : "P. (Sc.) ghilarovi",
+    "start" : 215,
+    "end" : 232,
+    "text" : "P. (Sc.) koreanus",
     "category" : "ABBREVIATED",
-    "context" : "alis (Belokobylskij, 1988), comb. nov., «P. (Sc.) ghilarovi» (Belokobylskij, 1988), comb. nov., P. ("
+    "context" : "rovi (Belokobylskij, 1988), comb. nov., «P. (Sc.) koreanus» Belokobylskij & Ku, sp. nov., P. (Sc.) "
   }, {
     "docId" : "pensoft:zookeys.1229.135950",
     "blockId" : "b308",
@@ -42592,12 +42544,12 @@
     "context" : "and senior name for the M. nipalensis / «aurascens» complex (Benda et al. 2012), placing it"
   }, {
     "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b481",
-    "start" : 86,
-    "end" : 97,
-    "text" : "Papuanatula",
-    "category" : "UNINOMIAL",
-    "context" : "ription of genus Papuanatula; subgenera «Papuanatula» s. str. and Papuafiliola Kaltenbach, Kl"
+    "blockId" : "b906",
+    "start" : 0,
+    "end" : 17,
+    "text" : "P. (F.) crussetae",
+    "category" : "ABBREVIATED",
+    "context" : "«P. (F.) crussetae» sp. nov."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b27",
@@ -42672,12 +42624,12 @@
     "context" : "MA-«Fungi» 39201, 73Tell."
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b325",
-    "start" : 0,
-    "end" : 4,
-    "text" : "Aves",
+    "blockId" : "b336",
+    "start" : 934,
+    "end" : 949,
+    "text" : "Stylommatophora",
     "category" : "UNINOMIAL",
-    "context" : "«Aves»"
+    "context" : "wever based on single observations) and «Stylommatophora» in Africa, may reflect regional ecologi"
   }, {
     "docId" : "pensoft:zookeys.1218.126535",
     "blockId" : "b36",
@@ -42689,11 +42641,11 @@
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
     "blockId" : "b81",
-    "start" : 345,
-    "end" : 355,
-    "text" : "Fragrantes",
+    "start" : 495,
+    "end" : 508,
+    "text" : "Erythrovariae",
     "category" : "UNINOMIAL",
-    "context" : "e, Yoroii, and Dryopteris (Fig. 2). The «Fragrantes» formed the most basal clade of the genu"
+    "context" : "lades – Nothoperanema, Acrorumohra, and «Erythrovariae» – formed a well-supported group, which "
   }, {
     "docId" : "pensoft:zookeys.1293.199475",
     "blockId" : "b297",
@@ -42737,11 +42689,11 @@
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
     "blockId" : "b43",
-    "start" : 215,
-    "end" : 232,
-    "text" : "P. (Sc.) koreanus",
+    "start" : 263,
+    "end" : 285,
+    "text" : "P. (Sc.) neotropicalis",
     "category" : "ABBREVIATED",
-    "context" : "rovi (Belokobylskij, 1988), comb. nov., «P. (Sc.) koreanus» Belokobylskij & Ku, sp. nov., P. (Sc.) "
+    "context" : " koreanus Belokobylskij & Ku, sp. nov., «P. (Sc.) neotropicalis» Shimbori & Shaw, 2019, P. (Sc.) nigrus "
   }, {
     "docId" : "pensoft:zookeys.1258.145290",
     "blockId" : "b11",
@@ -42752,12 +42704,12 @@
     "context" : "et al. 2012), placing it apart from the «siligorensis» species group. Ruedi et al. (2021) also"
   }, {
     "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b487",
-    "start" : 75,
-    "end" : 86,
-    "text" : "Papuanatula",
-    "category" : "UNINOMIAL",
-    "context" : "racters between subgenera: left column: «Papuanatula» s. str.; middle column: Papuafiliola; r"
+    "blockId" : "b912",
+    "start" : 0,
+    "end" : 16,
+    "text" : "P. (F.) tenebris",
+    "category" : "ABBREVIATED",
+    "context" : "«P. (F.) tenebris» sp. nov."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b49",
@@ -42832,12 +42784,12 @@
     "context" : "MA-«Fungi» 61382, 13285Tell."
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b336",
-    "start" : 934,
-    "end" : 949,
+    "blockId" : "b340",
+    "start" : 1651,
+    "end" : 1666,
     "text" : "Stylommatophora",
     "category" : "UNINOMIAL",
-    "context" : "wever based on single observations) and «Stylommatophora» in Africa, may reflect regional ecologi"
+    "context" : "obanche was overwhelmingly dominated by «Stylommatophora» (61.1%), indicating a strong associatio"
   }, {
     "docId" : "pensoft:zookeys.1218.126535",
     "blockId" : "b60",
@@ -42849,11 +42801,11 @@
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
     "blockId" : "b81",
-    "start" : 495,
-    "end" : 508,
-    "text" : "Erythrovariae",
+    "start" : 617,
+    "end" : 628,
+    "text" : "Splendentes",
     "category" : "UNINOMIAL",
-    "context" : "lades – Nothoperanema, Acrorumohra, and «Erythrovariae» – formed a well-supported group, which "
+    "context" : "ii and Dryopteris. The members of sect. «Splendentes», including the new species D. pycnolepi"
   }, {
     "docId" : "pensoft:zookeys.1257.165617",
     "blockId" : "b576",
@@ -42889,11 +42841,11 @@
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
     "blockId" : "b43",
-    "start" : 263,
-    "end" : 285,
-    "text" : "P. (Sc.) neotropicalis",
+    "start" : 309,
+    "end" : 324,
+    "text" : "P. (Sc.) nigrus",
     "category" : "ABBREVIATED",
-    "context" : " koreanus Belokobylskij & Ku, sp. nov., «P. (Sc.) neotropicalis» Shimbori & Shaw, 2019, P. (Sc.) nigrus "
+    "context" : ".) neotropicalis Shimbori & Shaw, 2019, «P. (Sc.) nigrus» Whitfield, 1988, P. (Sc.) rubrus Whitfi"
   }, {
     "docId" : "pensoft:zookeys.1258.145290",
     "blockId" : "b12",
@@ -42904,12 +42856,12 @@
     "context" : ", thumbs and wing attachment as in true «daubentonii», the skull with full braincase, large a"
   }, {
     "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b490",
+    "blockId" : "b918",
     "start" : 0,
-    "end" : 11,
-    "text" : "Papuanatula",
-    "category" : "UNINOMIAL",
-    "context" : "«Papuanatula» s. str."
+    "end" : 17,
+    "text" : "P. (F.) aurantica",
+    "category" : "ABBREVIATED",
+    "context" : "«P. (F.) aurantica» sp. nov."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b54",
@@ -42985,11 +42937,11 @@
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
     "blockId" : "b340",
-    "start" : 1651,
-    "end" : 1666,
+    "start" : 1852,
+    "end" : 1867,
     "text" : "Stylommatophora",
     "category" : "UNINOMIAL",
-    "context" : "obanche was overwhelmingly dominated by «Stylommatophora» (61.1%), indicating a strong associatio"
+    "context" : "schniakia showed a high contribution of «Stylommatophora» (30.8%) and Carnivora (38.5%), reflecti"
   }, {
     "docId" : "pensoft:zookeys.1218.126535",
     "blockId" : "b63",
@@ -43001,11 +42953,11 @@
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
     "blockId" : "b81",
-    "start" : 617,
-    "end" : 628,
+    "start" : 983,
+    "end" : 994,
     "text" : "Splendentes",
     "category" : "UNINOMIAL",
-    "context" : "ii and Dryopteris. The members of sect. «Splendentes», including the new species D. pycnolepi"
+    "context" : "s morphologically from members of sect. «Splendentes» by its stipe base densely covered with "
   }, {
     "docId" : "pensoft:zookeys.1257.165617",
     "blockId" : "b582",
@@ -43041,11 +42993,11 @@
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
     "blockId" : "b43",
-    "start" : 309,
-    "end" : 324,
-    "text" : "P. (Sc.) nigrus",
+    "start" : 342,
+    "end" : 357,
+    "text" : "P. (Sc.) rubrus",
     "category" : "ABBREVIATED",
-    "context" : ".) neotropicalis Shimbori & Shaw, 2019, «P. (Sc.) nigrus» Whitfield, 1988, P. (Sc.) rubrus Whitfi"
+    "context" : " 2019, P. (Sc.) nigrus Whitfield, 1988, «P. (Sc.) rubrus» Whitfield, 1988, P. (Sc.) sinevi (Belok"
   }, {
     "docId" : "pensoft:zookeys.1258.145290",
     "blockId" : "b12",
@@ -43056,12 +43008,12 @@
     "context" : " ‘M. davidii’ are definitely within the «siligorensis» group (clade IX sensu Ruedi et al. 2013"
   }, {
     "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b906",
+    "blockId" : "b924",
     "start" : 0,
-    "end" : 17,
-    "text" : "P. (F.) crussetae",
+    "end" : 16,
+    "text" : "P. (F.) flowersi",
     "category" : "ABBREVIATED",
-    "context" : "«P. (F.) crussetae» sp. nov."
+    "context" : "«P. (F.) flowersi» sp. nov."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b59",
@@ -43128,12 +43080,12 @@
     "context" : "MA-«Fungi» 94244, 14453MD"
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b340",
-    "start" : 1852,
-    "end" : 1867,
+    "blockId" : "b348",
+    "start" : 699,
+    "end" : 714,
     "text" : "Stylommatophora",
     "category" : "UNINOMIAL",
-    "context" : "schniakia showed a high contribution of «Stylommatophora» (30.8%) and Carnivora (38.5%), reflecti"
+    "context" : "ution of non-insect visitors, including «Stylommatophora» and vertebrate taxa. Analysis at the fa"
   }, {
     "docId" : "pensoft:zookeys.1218.126535",
     "blockId" : "b69",
@@ -43145,11 +43097,11 @@
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
     "blockId" : "b81",
-    "start" : 983,
-    "end" : 994,
+    "start" : 1145,
+    "end" : 1156,
     "text" : "Splendentes",
     "category" : "UNINOMIAL",
-    "context" : "s morphologically from members of sect. «Splendentes» by its stipe base densely covered with "
+    "context" : "angular-lanceolate pinnae. Within sect. «Splendentes», D. rubrobrunnea and D. splendens succe"
   }, {
     "docId" : "pensoft:zookeys.1257.165617",
     "blockId" : "b606",
@@ -43185,11 +43137,11 @@
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
     "blockId" : "b43",
-    "start" : 342,
-    "end" : 357,
-    "text" : "P. (Sc.) rubrus",
+    "start" : 375,
+    "end" : 390,
+    "text" : "P. (Sc.) sinevi",
     "category" : "ABBREVIATED",
-    "context" : " 2019, P. (Sc.) nigrus Whitfield, 1988, «P. (Sc.) rubrus» Whitfield, 1988, P. (Sc.) sinevi (Belok"
+    "context" : " 1988, P. (Sc.) rubrus Whitfield, 1988, «P. (Sc.) sinevi» (Belokobylskij, 1998), comb. nov.; P. ("
   }, {
     "docId" : "pensoft:zookeys.1258.145290",
     "blockId" : "b165",
@@ -43200,12 +43152,12 @@
     "context" : "s well as other studied members of the ‘«siligorensis»’ species group, possess certain qualita"
   }, {
     "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b912",
+    "blockId" : "b930",
     "start" : 0,
-    "end" : 16,
-    "text" : "P. (F.) tenebris",
+    "end" : 11,
+    "text" : "P. (F.) aji",
     "category" : "ABBREVIATED",
-    "context" : "«P. (F.) tenebris» sp. nov."
+    "context" : "«P. (F.) aji» sp. nov."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b60",
@@ -43264,12 +43216,12 @@
     "context" : "MA-«Fungi» 94247, 14462MD"
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b348",
-    "start" : 699,
-    "end" : 714,
+    "blockId" : "b351",
+    "start" : 278,
+    "end" : 293,
     "text" : "Stylommatophora",
     "category" : "UNINOMIAL",
-    "context" : "ution of non-insect visitors, including «Stylommatophora» and vertebrate taxa. Analysis at the fa"
+    "context" : "ect visitors was observed, particularly «Stylommatophora» and mammalian orders such as Carnivora "
   }, {
     "docId" : "pensoft:zookeys.1218.126535",
     "blockId" : "b72",
@@ -43280,12 +43232,12 @@
     "context" : "censis, P. hondurensis, P. aztecus, and «P. a. oaxacensis»"
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
-    "blockId" : "b81",
-    "start" : 1145,
-    "end" : 1156,
+    "blockId" : "b82",
+    "start" : 242,
+    "end" : 253,
     "text" : "Splendentes",
     "category" : "UNINOMIAL",
-    "context" : "angular-lanceolate pinnae. Within sect. «Splendentes», D. rubrobrunnea and D. splendens succe"
+    "context" : "ted on the right. The position of sect. «Splendentes» (four accessions) is highlighted by a g"
   }, {
     "docId" : "pensoft:zookeys.1257.165617",
     "blockId" : "b611",
@@ -43321,11 +43273,11 @@
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
     "blockId" : "b43",
-    "start" : 375,
-    "end" : 390,
-    "text" : "P. (Sc.) sinevi",
+    "start" : 486,
+    "end" : 503,
+    "text" : "P. (S.) nigricans",
     "category" : "ABBREVIATED",
-    "context" : " 1988, P. (Sc.) rubrus Whitfield, 1988, «P. (Sc.) sinevi» (Belokobylskij, 1998), comb. nov.; P. ("
+    "context" : "gxiensis (He & Chen, 2000), comb. nov., «P. (S.) nigricans» (He & Chen, 2000), comb. nov., P. (S.) "
   }, {
     "docId" : "pensoft:zookeys.1258.145290",
     "blockId" : "b166",
@@ -43336,12 +43288,12 @@
     "context" : " from Central Vietnam were included as ‘«M. cf. siligorensis»’ because their species affiliation was "
   }, {
     "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b918",
+    "blockId" : "b936",
     "start" : 0,
-    "end" : 17,
-    "text" : "P. (F.) aurantica",
+    "end" : 19,
+    "text" : "P. (F.) gattolliati",
     "category" : "ABBREVIATED",
-    "context" : "«P. (F.) aurantica» sp. nov."
+    "context" : "«P. (F.) gattolliati» sp. nov."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b64",
@@ -43400,12 +43352,12 @@
     "context" : "MA-«Fungi» 94256, 15126MD"
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b351",
-    "start" : 278,
-    "end" : 293,
+    "blockId" : "b352",
+    "start" : 176,
+    "end" : 191,
     "text" : "Stylommatophora",
     "category" : "UNINOMIAL",
-    "context" : "ect visitors was observed, particularly «Stylommatophora» and mammalian orders such as Carnivora "
+    "context" : "than half of all records in this genus. «Stylommatophora» constituted the second most important n"
   }, {
     "docId" : "pensoft:zookeys.1218.126535",
     "blockId" : "b83",
@@ -43416,12 +43368,12 @@
     "context" : "as of P. guatemalensis tropicalis to be «P. m. saxatilis»"
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
-    "blockId" : "b82",
-    "start" : 242,
-    "end" : 253,
-    "text" : "Splendentes",
+    "blockId" : "b83",
+    "start" : 372,
+    "end" : 385,
+    "text" : "Erythrovariae",
     "category" : "UNINOMIAL",
-    "context" : "ted on the right. The position of sect. «Splendentes» (four accessions) is highlighted by a g"
+    "context" : "ryopteris clade and four species of the «Erythrovariae» clade. Intraspecific plastome divergenc"
   }, {
     "docId" : "pensoft:zookeys.1257.165617",
     "blockId" : "b625",
@@ -43449,11 +43401,11 @@
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
     "blockId" : "b43",
-    "start" : 486,
-    "end" : 503,
-    "text" : "P. (S.) nigricans",
+    "start" : 535,
+    "end" : 554,
+    "text" : "P. (S.) ussuriensis",
     "category" : "ABBREVIATED",
-    "context" : "gxiensis (He & Chen, 2000), comb. nov., «P. (S.) nigricans» (He & Chen, 2000), comb. nov., P. (S.) "
+    "context" : "igricans (He & Chen, 2000), comb. nov., «P. (S.) ussuriensis» Belokobylskij, 1988."
   }, {
     "docId" : "pensoft:zookeys.1258.145290",
     "blockId" : "b382",
@@ -43464,12 +43416,12 @@
     "context" : "ize was established as belonging to the «siligorensis» species group, with the following chara"
   }, {
     "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b924",
+    "blockId" : "b942",
     "start" : 0,
-    "end" : 16,
-    "text" : "P. (F.) flowersi",
+    "end" : 14,
+    "text" : "P. (F.) grisea",
     "category" : "ABBREVIATED",
-    "context" : "«P. (F.) flowersi» sp. nov."
+    "context" : "«P. (F.) grisea» sp. nov."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b65",
@@ -43528,12 +43480,12 @@
     "context" : "MA-«Fungi» 94257, 15146MD"
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b352",
-    "start" : 176,
-    "end" : 191,
+    "blockId" : "b359",
+    "start" : 155,
+    "end" : 170,
     "text" : "Stylommatophora",
     "category" : "UNINOMIAL",
-    "context" : "than half of all records in this genus. «Stylommatophora» constituted the second most important n"
+    "context" : "ptera (12.0%), and Araneae (7.2%), with «Stylommatophora» (6.4%) and Thysanoptera (6.4%) also rec"
   }, {
     "docId" : "pensoft:zookeys.1218.126535",
     "blockId" : "b86",
@@ -43544,12 +43496,12 @@
     "context" : "Maintained «P. m. saxatilis» as the species to occur in Honduras"
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
-    "blockId" : "b83",
-    "start" : 372,
-    "end" : 385,
-    "text" : "Erythrovariae",
+    "blockId" : "b127",
+    "start" : 166,
+    "end" : 177,
+    "text" : "Splendentes",
     "category" : "UNINOMIAL",
-    "context" : "ryopteris clade and four species of the «Erythrovariae» clade. Intraspecific plastome divergenc"
+    "context" : "nstituting a small natural group (sect. «Splendentes») within Dryopteris. According to our ob"
   }, {
     "docId" : "pensoft:zookeys.1257.165617",
     "blockId" : "b630",
@@ -43576,12 +43528,12 @@
     "context" : "ion in the red center of the continent («S. b. guttatus»). Sandracottus hunteri is the most wide"
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b43",
-    "start" : 535,
-    "end" : 554,
-    "text" : "P. (S.) ussuriensis",
+    "blockId" : "b58",
+    "start" : 0,
+    "end" : 19,
+    "text" : "P. (P.) ghesquierei",
     "category" : "ABBREVIATED",
-    "context" : "igricans (He & Chen, 2000), comb. nov., «P. (S.) ussuriensis» Belokobylskij, 1988."
+    "context" : "«P. (P.) ghesquierei» De Saeger, 1942"
   }, {
     "docId" : "pensoft:zookeys.1258.145290",
     "blockId" : "b393",
@@ -43592,12 +43544,12 @@
     "context" : "lticraniatus, M. badius, M. phanluongi, «M. s. siligorensis», M. sowerbyi, and M. s. thaianus."
   }, {
     "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b930",
+    "blockId" : "b948",
     "start" : 0,
-    "end" : 11,
-    "text" : "P. (F.) aji",
+    "end" : 14,
+    "text" : "P. (F.) sekawa",
     "category" : "ABBREVIATED",
-    "context" : "«P. (F.) aji» sp. nov."
+    "context" : "«P. (F.) sekawa» sp. nov."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b69",
@@ -43656,12 +43608,12 @@
     "context" : "MA-«Fungi» 94266, 15223MD"
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b359",
-    "start" : 155,
-    "end" : 170,
+    "blockId" : "b362",
+    "start" : 71,
+    "end" : 86,
     "text" : "Stylommatophora",
     "category" : "UNINOMIAL",
-    "context" : "ptera (12.0%), and Araneae (7.2%), with «Stylommatophora» (6.4%) and Thysanoptera (6.4%) also rec"
+    "context" : "lage dominated by Carnivora (38.5%) and «Stylommatophora» (30.8%), with Hymenoptera (23.1%) and C"
   }, {
     "docId" : "pensoft:zookeys.1218.126535",
     "blockId" : "b89",
@@ -43673,11 +43625,11 @@
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
     "blockId" : "b127",
-    "start" : 166,
-    "end" : 177,
+    "start" : 551,
+    "end" : 562,
     "text" : "Splendentes",
     "category" : "UNINOMIAL",
-    "context" : "nstituting a small natural group (sect. «Splendentes») within Dryopteris. According to our ob"
+    "context" : "re are only these four species in sect. «Splendentes». When establishing Dryopteris sect. Spl"
   }, {
     "docId" : "pensoft:zookeys.1257.165617",
     "blockId" : "b633",
@@ -43696,12 +43648,12 @@
     "context" : " Ortiz, Hendrickx & Winfield, 2017, M. («Orientomysidium») columbiae (Zimmer, 1915), M. (O.) anti"
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b51",
-    "start" : 196,
-    "end" : 206,
-    "text" : "Paradelius",
-    "category" : "UNINOMIAL",
-    "context" : "ntirely smooth (Figs 1I, 2F). (Subgenus «Paradelius» s. str.)"
+    "blockId" : "b61",
+    "start" : 0,
+    "end" : 17,
+    "text" : "P. (P.) chinensis",
+    "category" : "ABBREVIATED",
+    "context" : "«P. (P.) chinensis» He & Chen, 2000"
   }, {
     "docId" : "pensoft:zookeys.1258.145290",
     "blockId" : "b393",
@@ -43712,12 +43664,12 @@
     "context" : "i, M. s. siligorensis, M. sowerbyi, and «M. s. thaianus»."
   }, {
     "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b936",
+    "blockId" : "b954",
     "start" : 0,
-    "end" : 19,
-    "text" : "P. (F.) gattolliati",
+    "end" : 12,
+    "text" : "P. (F.) bula",
     "category" : "ABBREVIATED",
-    "context" : "«P. (F.) gattolliati» sp. nov."
+    "context" : "«P. (F.) bula» sp. nov."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b70",
@@ -43768,12 +43720,12 @@
     "context" : "MA-«Fungi» 94271, 15247MD"
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b362",
-    "start" : 71,
-    "end" : 86,
+    "blockId" : "b363",
+    "start" : 87,
+    "end" : 102,
     "text" : "Stylommatophora",
     "category" : "UNINOMIAL",
-    "context" : "lage dominated by Carnivora (38.5%) and «Stylommatophora» (30.8%), with Hymenoptera (23.1%) and C"
+    "context" : " observations) consisted exclusively of «Stylommatophora» (100%), represented entirely by Anadeni"
   }, {
     "docId" : "pensoft:zookeys.1218.126535",
     "blockId" : "b92",
@@ -43785,11 +43737,11 @@
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
     "blockId" : "b127",
-    "start" : 551,
-    "end" : 562,
+    "start" : 968,
+    "end" : 979,
     "text" : "Splendentes",
     "category" : "UNINOMIAL",
-    "context" : "re are only these four species in sect. «Splendentes». When establishing Dryopteris sect. Spl"
+    "context" : "d other Sino-Himalayan members of sect. «Splendentes» by having much shorter pinnae (not line"
   }, {
     "docId" : "pensoft:zookeys.1257.165617",
     "blockId" : "b636",
@@ -43808,12 +43760,12 @@
     "context" : " & Winfield, 2017, M. (Orientomysidium) «columbiae» (Zimmer, 1915), M. (O.) antillarum Witt"
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b58",
+    "blockId" : "b76",
     "start" : 0,
-    "end" : 19,
-    "text" : "P. (P.) ghesquierei",
+    "end" : 26,
+    "text" : "P. (Sc.) extremiorientalis",
     "category" : "ABBREVIATED",
-    "context" : "«P. (P.) ghesquierei» De Saeger, 1942"
+    "context" : "«P. (Sc.) extremiorientalis» (Belokobylskij, 1988), comb. nov."
   }, {
     "docId" : "pensoft:zookeys.1258.145290",
     "blockId" : "b395",
@@ -43824,12 +43776,12 @@
     "context" : "The form «sowerbyi» was described based on a single female "
   }, {
     "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b942",
+    "blockId" : "b957",
     "start" : 0,
-    "end" : 14,
-    "text" : "P. (F.) grisea",
+    "end" : 15,
+    "text" : "P. (F.) claudia",
     "category" : "ABBREVIATED",
-    "context" : "«P. (F.) grisea» sp. nov."
+    "context" : "«P. (F.) claudia» sp. nov."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b74",
@@ -43880,12 +43832,12 @@
     "context" : "MA-«Fungi» 94291, 20535Tell."
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b363",
-    "start" : 87,
-    "end" : 102,
+    "blockId" : "b364",
+    "start" : 139,
+    "end" : 154,
     "text" : "Stylommatophora",
     "category" : "UNINOMIAL",
-    "context" : " observations) consisted exclusively of «Stylommatophora» (100%), represented entirely by Anadeni"
+    "context" : ".8%), Rodentia (13.8%), Diptera (6.9%), «Stylommatophora» (3.4%), Coleoptera (3.4%), and Artiodac"
   }, {
     "docId" : "pensoft:zookeys.1218.126535",
     "blockId" : "b95",
@@ -43897,11 +43849,11 @@
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
     "blockId" : "b127",
-    "start" : 968,
-    "end" : 979,
+    "start" : 1346,
+    "end" : 1357,
     "text" : "Splendentes",
     "category" : "UNINOMIAL",
-    "context" : "d other Sino-Himalayan members of sect. «Splendentes» by having much shorter pinnae (not line"
+    "context" : ". kwanzanensis are not members of sect. «Splendentes». As shown in Fig. 2, the sampled D. ref"
   }, {
     "docId" : "pensoft:zookeys.1257.165617",
     "blockId" : "b638",
@@ -43920,12 +43872,12 @@
     "context" : "mysidium) columbiae (Zimmer, 1915), M. («O.») antillarum Wittmann in Wittmann & Wirt"
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b61",
+    "blockId" : "b79",
     "start" : 0,
-    "end" : 17,
-    "text" : "P. (P.) chinensis",
+    "end" : 15,
+    "text" : "P. (Sc.) rubrus",
     "category" : "ABBREVIATED",
-    "context" : "«P. (P.) chinensis» He & Chen, 2000"
+    "context" : "«P. (Sc.) rubrus» Whitfield, 1988"
   }, {
     "docId" : "pensoft:zookeys.1258.145290",
     "blockId" : "b407",
@@ -43936,12 +43888,12 @@
     "context" : "Traditionally, all «siligorensis»-like Myotis individuals from Vietnam an"
   }, {
     "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b948",
-    "start" : 0,
-    "end" : 14,
-    "text" : "P. (F.) sekawa",
-    "category" : "ABBREVIATED",
-    "context" : "«P. (F.) sekawa» sp. nov."
+    "blockId" : "b961",
+    "start" : 94,
+    "end" : 102,
+    "text" : "fuscatus",
+    "category" : "UNINOMIAL",
+    "context" : "logical similarities with the Holarctic «fuscatus» species group, as originally defined by"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b75",
@@ -43992,12 +43944,12 @@
     "context" : "MA-«Fungi» 94293, 20589Tell."
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b364",
-    "start" : 139,
-    "end" : 154,
+    "blockId" : "b366",
+    "start" : 58,
+    "end" : 73,
     "text" : "Stylommatophora",
     "category" : "UNINOMIAL",
-    "context" : ".8%), Rodentia (13.8%), Diptera (6.9%), «Stylommatophora» (3.4%), Coleoptera (3.4%), and Artiodac"
+    "context" : "enoptera (55.6%) dominated, followed by «Stylommatophora» (22.2%), Rodentia (11.1%), and Nematoda"
   }, {
     "docId" : "pensoft:zookeys.1218.126535",
     "blockId" : "b129",
@@ -44008,12 +43960,12 @@
     "context" : "hus, specimens previously identified as «P. b. sacarensis» in Honduras should now be recognized as"
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
-    "blockId" : "b127",
-    "start" : 1346,
-    "end" : 1357,
+    "blockId" : "b128",
+    "start" : 1178,
+    "end" : 1189,
     "text" : "Splendentes",
     "category" : "UNINOMIAL",
-    "context" : ". kwanzanensis are not members of sect. «Splendentes». As shown in Fig. 2, the sampled D. ref"
+    "context" : " make it the most distinct within sect. «Splendentes». However, our phylogenetic analyses nei"
   }, {
     "docId" : "pensoft:zookeys.1257.165617",
     "blockId" : "b639",
@@ -44032,12 +43984,12 @@
     "context" : "dium) columbiae (Zimmer, 1915), M. (O.) «antillarum» Wittmann in Wittmann & Wirtz, 2019, and"
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b76",
+    "blockId" : "b82",
     "start" : 0,
-    "end" : 26,
-    "text" : "P. (Sc.) extremiorientalis",
+    "end" : 17,
+    "text" : "P. (Sc.) koreanus",
     "category" : "ABBREVIATED",
-    "context" : "«P. (Sc.) extremiorientalis» (Belokobylskij, 1988), comb. nov."
+    "context" : "«P. (Sc.) koreanus» sp. nov."
   }, {
     "docId" : "pensoft:zookeys.1258.145290",
     "blockId" : "b407",
@@ -44048,12 +44000,12 @@
     "context" : "China and Laos have been referred to as «M. s. alticraniatus» (Kruskop 2013b). However, the genetic d"
   }, {
     "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b954",
-    "start" : 0,
-    "end" : 12,
-    "text" : "P. (F.) bula",
-    "category" : "ABBREVIATED",
-    "context" : "«P. (F.) bula» sp. nov."
+    "blockId" : "b963",
+    "start" : 284,
+    "end" : 295,
+    "text" : "taiwanensis",
+    "category" : "UNINOMIAL",
+    "context" : "blateral pale areas (Figs 1a, c, 3i; in «taiwanensis» terga III–V much paler than I, II, VI, "
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b79",
@@ -44104,12 +44056,12 @@
     "context" : "MA-«Fungi» 94296, 20593Tell."
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b366",
-    "start" : 58,
-    "end" : 73,
+    "blockId" : "b368",
+    "start" : 75,
+    "end" : 90,
     "text" : "Stylommatophora",
     "category" : "UNINOMIAL",
-    "context" : "enoptera (55.6%) dominated, followed by «Stylommatophora» (22.2%), Rodentia (11.1%), and Nematoda"
+    "context" : "optera (37.5%), Coleoptera (25.0%), and «Stylommatophora» (18.8%), with minor contributions from "
   }, {
     "docId" : "pensoft:zookeys.1218.126535",
     "blockId" : "b137",
@@ -44121,11 +44073,11 @@
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
     "blockId" : "b128",
-    "start" : 1178,
-    "end" : 1189,
+    "start" : 1662,
+    "end" : 1673,
     "text" : "Splendentes",
     "category" : "UNINOMIAL",
-    "context" : " make it the most distinct within sect. «Splendentes». However, our phylogenetic analyses nei"
+    "context" : "that the morphology of species in sect. «Splendentes» remains insufficiently understood. For "
   }, {
     "docId" : "pensoft:zookeys.1257.165617",
     "blockId" : "b680",
@@ -44144,12 +44096,12 @@
     "context" : "«M. (O.) antillarum» Wittmann in Wittmann & Wirtz, 2019"
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b79",
+    "blockId" : "b88",
     "start" : 0,
-    "end" : 15,
-    "text" : "P. (Sc.) rubrus",
+    "end" : 18,
+    "text" : "P. (Sc.) ghilarovi",
     "category" : "ABBREVIATED",
-    "context" : "«P. (Sc.) rubrus» Whitfield, 1988"
+    "context" : "«P. (Sc.) ghilarovi» (Belokobylskij, 1988), comb. nov."
   }, {
     "docId" : "pensoft:zookeys.1258.145290",
     "blockId" : "b408",
@@ -44160,12 +44112,12 @@
     "context" : " 12.1 vs. 29.1–29.5 and 10.2–10.8 mm in «M. s. thaianus» (data of this study) and 30.8 and 11.2 "
   }, {
     "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b957",
-    "start" : 0,
-    "end" : 15,
-    "text" : "P. (F.) claudia",
-    "category" : "ABBREVIATED",
-    "context" : "«P. (F.) claudia» sp. nov."
+    "blockId" : "b963",
+    "start" : 544,
+    "end" : 555,
+    "text" : "taiwanensis",
+    "category" : "UNINOMIAL",
+    "context" : " subapical, yellow-brown spot (Fig. 3a; «taiwanensis» with rectangular, medial spot and witho"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b80",
@@ -44208,12 +44160,12 @@
     "context" : "MA-«Fungi» 94302, 20603Tell."
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b368",
-    "start" : 75,
-    "end" : 90,
+    "blockId" : "b370",
+    "start" : 33,
+    "end" : 48,
     "text" : "Stylommatophora",
     "category" : "UNINOMIAL",
-    "context" : "optera (37.5%), Coleoptera (25.0%), and «Stylommatophora» (18.8%), with minor contributions from "
+    "context" : "Hyobanche exhibited dominance of «Stylommatophora» (61.1%), followed by Hymenoptera (8.3%)"
   }, {
     "docId" : "pensoft:zookeys.1218.126535",
     "blockId" : "b146",
@@ -44225,11 +44177,11 @@
   }, {
     "docId" : "pensoft:phytokeys.263.163351",
     "blockId" : "b128",
-    "start" : 1662,
-    "end" : 1673,
+    "start" : 2006,
+    "end" : 2017,
     "text" : "Splendentes",
     "category" : "UNINOMIAL",
-    "context" : "that the morphology of species in sect. «Splendentes» remains insufficiently understood. For "
+    "context" : "pore morphology of all species in sect. «Splendentes» (except D. pycnolepis described here) h"
   }, {
     "docId" : "pensoft:zookeys.1257.165617",
     "blockId" : "b680",
@@ -44248,12 +44200,12 @@
     "context" : "«M. (M.) triangulare» Wittmann in Wittmann & Wirtz, 2019"
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b82",
+    "blockId" : "b94",
     "start" : 0,
-    "end" : 17,
-    "text" : "P. (Sc.) koreanus",
+    "end" : 26,
+    "text" : "P. (Sc.) extremiorientalis",
     "category" : "ABBREVIATED",
-    "context" : "«P. (Sc.) koreanus» sp. nov."
+    "context" : "«P. (Sc.) extremiorientalis» (Belokobylskij, 1988), comb. nov."
   }, {
     "docId" : "pensoft:zookeys.1258.145290",
     "blockId" : "b408",
@@ -44264,12 +44216,12 @@
     "context" : " of this study) and 30.8 and 11.2 mm in «M. s. siligorensis» (Bates and Harrison 1997), respectively"
   }, {
     "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b961",
-    "start" : 94,
-    "end" : 102,
-    "text" : "fuscatus",
+    "blockId" : "b963",
+    "start" : 720,
+    "end" : 731,
+    "text" : "taiwanensis",
     "category" : "UNINOMIAL",
-    "context" : "logical similarities with the Holarctic «fuscatus» species group, as originally defined by"
+    "context" : "with five or six large spines (Fig. 3m; «taiwanensis» with several larger and many small spin"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b84",
@@ -44312,12 +44264,12 @@
     "context" : "MA-«Fungi» 94272, 576JFL"
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b370",
-    "start" : 33,
-    "end" : 48,
+    "blockId" : "b371",
+    "start" : 77,
+    "end" : 92,
     "text" : "Stylommatophora",
     "category" : "UNINOMIAL",
-    "context" : "Hyobanche exhibited dominance of «Stylommatophora» (61.1%), followed by Hymenoptera (8.3%)"
+    "context" : "ted by Hymenoptera (54.2%), followed by «Stylommatophora» (16.9%), Coleoptera (11.9%), Diptera (6"
   }, {
     "docId" : "pensoft:zookeys.1218.126535",
     "blockId" : "b146",
@@ -44326,14 +44278,6 @@
     "text" : "P. g. tropicalis",
     "category" : "ABBREVIATED",
     "context" : "species status: P. tropicalis (formerly «P. g. tropicalis»), P. nicaraguae (previously P. mexicanu"
-  }, {
-    "docId" : "pensoft:phytokeys.263.163351",
-    "blockId" : "b128",
-    "start" : 2006,
-    "end" : 2017,
-    "text" : "Splendentes",
-    "category" : "UNINOMIAL",
-    "context" : "pore morphology of all species in sect. «Splendentes» (except D. pycnolepis described here) h"
   }, {
     "docId" : "pensoft:zookeys.1283.169111",
     "blockId" : "b1042",
@@ -44344,12 +44288,12 @@
     "context" : "«M. (M.) integrum» W.M. Tattersall, 1951"
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b88",
+    "blockId" : "b100",
     "start" : 0,
-    "end" : 18,
-    "text" : "P. (Sc.) ghilarovi",
+    "end" : 15,
+    "text" : "P. (Sc.) nigrus",
     "category" : "ABBREVIATED",
-    "context" : "«P. (Sc.) ghilarovi» (Belokobylskij, 1988), comb. nov."
+    "context" : "«P. (Sc.) nigrus» Whitfield, 1988"
   }, {
     "docId" : "pensoft:zookeys.1258.145290",
     "blockId" : "b409",
@@ -44360,12 +44304,12 @@
     "context" : "ffers in the tragus shape from those of «M. s. siligorensis» and M. s. thaianus (these two species h"
   }, {
     "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b962",
-    "start" : 71,
-    "end" : 77,
-    "text" : "Baetis",
+    "blockId" : "b963",
+    "start" : 868,
+    "end" : 879,
+    "text" : "taiwanensis",
     "category" : "UNINOMIAL",
-    "context" : "v. should be included into the subgenus «Baetis» s. str., as defined slightly differentl"
+    "context" : "row, with concave anal margin (Fig. 4e; «taiwanensis» with wider hindwing, anal margin straig"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b85",
@@ -44408,12 +44352,12 @@
     "context" : "MA-«Fungi» 94273, 582JFL"
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b371",
-    "start" : 77,
-    "end" : 92,
+    "blockId" : "b372",
+    "start" : 215,
+    "end" : 230,
     "text" : "Stylommatophora",
     "category" : "UNINOMIAL",
-    "context" : "ted by Hymenoptera (54.2%), followed by «Stylommatophora» (16.9%), Coleoptera (11.9%), Diptera (6"
+    "context" : "hereas Hemiptera dominated in Aphyllon, «Stylommatophora» in several taxa (Hyobanche, Xylanche), "
   }, {
     "docId" : "pensoft:zookeys.1218.126535",
     "blockId" : "b146",
@@ -44432,12 +44376,12 @@
     "context" : "«M. (M.) cubanense» Băcescu & Ortiz, 1984"
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b94",
+    "blockId" : "b106",
     "start" : 0,
-    "end" : 26,
-    "text" : "P. (Sc.) extremiorientalis",
+    "end" : 15,
+    "text" : "P. (Sc.) sinevi",
     "category" : "ABBREVIATED",
-    "context" : "«P. (Sc.) extremiorientalis» (Belokobylskij, 1988), comb. nov."
+    "context" : "«P. (Sc.) sinevi» (Belokobylskij, 1998), comb. nov."
   }, {
     "docId" : "pensoft:zookeys.1258.145290",
     "blockId" : "b409",
@@ -44448,12 +44392,12 @@
     "context" : "pe from those of M. s. siligorensis and «M. s. thaianus» (these two species have the same tragus"
   }, {
     "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b963",
-    "start" : 284,
-    "end" : 295,
-    "text" : "taiwanensis",
-    "category" : "UNINOMIAL",
-    "context" : "blateral pale areas (Figs 1a, c, 3i; in «taiwanensis» terga III–V much paler than I, II, VI, "
+    "blockId" : "b970",
+    "start" : 30,
+    "end" : 45,
+    "text" : "P. (F.) claudia",
+    "category" : "ABBREVIATED",
+    "context" : "In one mature female larva of «P. (F.) claudia» sp. nov., the abdomen was filled with e"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b89",
@@ -44496,12 +44440,12 @@
     "context" : "MA-«Fungi» 1103"
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b372",
-    "start" : 215,
-    "end" : 230,
-    "text" : "Stylommatophora",
-    "category" : "UNINOMIAL",
-    "context" : "hereas Hemiptera dominated in Aphyllon, «Stylommatophora» in several taxa (Hyobanche, Xylanche), "
+    "blockId" : "b390",
+    "start" : 85,
+    "end" : 101,
+    "text" : "P. cf. rufescens",
+    "category" : "ABBREVIATED",
+    "context" : "ropid flies Polyodaspis sulcicollis and «P. cf. rufescens» have also been observed in Orobanche an"
   }, {
     "docId" : "pensoft:zookeys.1218.126535",
     "blockId" : "b167",
@@ -44512,12 +44456,12 @@
     "context" : "k (Francisco Morazán) was identified as «P. a. oaxacensis» in GenBank. However, the molecular anal"
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b100",
+    "blockId" : "b109",
     "start" : 0,
-    "end" : 15,
-    "text" : "P. (Sc.) nigrus",
+    "end" : 22,
+    "text" : "P. (Sc.) neotropicalis",
     "category" : "ABBREVIATED",
-    "context" : "«P. (Sc.) nigrus» Whitfield, 1988"
+    "context" : "«P. (Sc.) neotropicalis» Shimbori & Shaw, 2019"
   }, {
     "docId" : "pensoft:zookeys.1258.145290",
     "blockId" : "b415",
@@ -44526,14 +44470,6 @@
     "text" : "M. s. thaianus",
     "category" : "ABBREVIATED",
     "context" : "India and Myanmar, as well as that from «M. s. thaianus», prevented the investigation of their g"
-  }, {
-    "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b963",
-    "start" : 544,
-    "end" : 555,
-    "text" : "taiwanensis",
-    "category" : "UNINOMIAL",
-    "context" : " subapical, yellow-brown spot (Fig. 3a; «taiwanensis» with rectangular, medial spot and witho"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b90",
@@ -44576,12 +44512,12 @@
     "context" : "MA-«Fungi» 1556"
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b383",
-    "start" : 995,
-    "end" : 1004,
-    "text" : "Orobanche",
+    "blockId" : "b458",
+    "start" : 381,
+    "end" : 393,
+    "text" : "Arthropleona",
     "category" : "UNINOMIAL",
-    "context" : "s of recent studies on a few species of «Orobanche» s.l. have suggested the presence of ter"
+    "context" : "e abundance of Isopoda and springtails («Arthropleona») as a result of increased density of so"
   }, {
     "docId" : "pensoft:zookeys.1218.126535",
     "blockId" : "b167",
@@ -44592,20 +44528,12 @@
     "context" : "rrected and elevated from synonymy with «P. m. saxatilis») has been confused in the past with P. "
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b106",
+    "blockId" : "b112",
     "start" : 0,
-    "end" : 15,
-    "text" : "P. (Sc.) sinevi",
+    "end" : 20,
+    "text" : "P. (S.) guangxiensis",
     "category" : "ABBREVIATED",
-    "context" : "«P. (Sc.) sinevi» (Belokobylskij, 1998), comb. nov."
-  }, {
-    "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b963",
-    "start" : 720,
-    "end" : 731,
-    "text" : "taiwanensis",
-    "category" : "UNINOMIAL",
-    "context" : "with five or six large spines (Fig. 3m; «taiwanensis» with several larger and many small spin"
+    "context" : "«P. (S.) guangxiensis» (He & Chen, 2000), comb. nov."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b94",
@@ -44648,28 +44576,20 @@
     "context" : "MA-«Fungi» 14880, 2384MD"
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b390",
-    "start" : 85,
-    "end" : 101,
-    "text" : "P. cf. rufescens",
-    "category" : "ABBREVIATED",
-    "context" : "ropid flies Polyodaspis sulcicollis and «P. cf. rufescens» have also been observed in Orobanche an"
+    "blockId" : "b466",
+    "start" : 1521,
+    "end" : 1533,
+    "text" : "Cyclorrhapha",
+    "category" : "UNINOMIAL",
+    "context" : "ra (Alysiinae–Diptera from the suborder «Cyclorrhapha»), and Coleoptera (Gaulet and Huber 1993"
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b109",
+    "blockId" : "b118",
     "start" : 0,
-    "end" : 22,
-    "text" : "P. (Sc.) neotropicalis",
+    "end" : 2,
+    "text" : "P.",
     "category" : "ABBREVIATED",
-    "context" : "«P. (Sc.) neotropicalis» Shimbori & Shaw, 2019"
-  }, {
-    "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b963",
-    "start" : 868,
-    "end" : 879,
-    "text" : "taiwanensis",
-    "category" : "UNINOMIAL",
-    "context" : "row, with concave anal margin (Fig. 4e; «taiwanensis» with wider hindwing, anal margin straig"
+    "context" : "«P.» (S.) ussuriensis Belokobylskij, 1988"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b95",
@@ -44712,28 +44632,20 @@
     "context" : "MA-«Fungi» 22291, 4302MD"
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b458",
-    "start" : 381,
-    "end" : 393,
-    "text" : "Arthropleona",
+    "blockId" : "b466",
+    "start" : 3059,
+    "end" : 3071,
+    "text" : "Spheciformes",
     "category" : "UNINOMIAL",
-    "context" : "e abundance of Isopoda and springtails («Arthropleona») as a result of increased density of so"
+    "context" : "nath and Nagarkatti 1977). The recorded «Spheciformes» from the family Crabronidae, apart from"
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b112",
-    "start" : 0,
-    "end" : 20,
-    "text" : "P. (S.) guangxiensis",
+    "blockId" : "b118",
+    "start" : 4,
+    "end" : 6,
+    "text" : "S.",
     "category" : "ABBREVIATED",
-    "context" : "«P. (S.) guangxiensis» (He & Chen, 2000), comb. nov."
-  }, {
-    "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b965",
-    "start" : 257,
-    "end" : 263,
-    "text" : "Baetis",
-    "category" : "UNINOMIAL",
-    "context" : " because Flowers (1990) did not mention «Baetis» s. str., but only three species of Baet"
+    "context" : "P. («S.») ussuriensis Belokobylskij, 1988"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b99",
@@ -44776,28 +44688,20 @@
     "context" : "MA-«Fungi» 22929, 4042MD"
   }, {
     "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b466",
-    "start" : 1521,
-    "end" : 1533,
-    "text" : "Cyclorrhapha",
+    "blockId" : "b479",
+    "start" : 404,
+    "end" : 419,
+    "text" : "Stylommatophora",
     "category" : "UNINOMIAL",
-    "context" : "ra (Alysiinae–Diptera from the suborder «Cyclorrhapha»), and Coleoptera (Gaulet and Huber 1993"
+    "context" : "ia). Unique dominance patterns, such as «Stylommatophora» or pollinators such as birds and mammal"
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
     "blockId" : "b118",
-    "start" : 0,
-    "end" : 2,
-    "text" : "P.",
-    "category" : "ABBREVIATED",
-    "context" : "«P.» (S.) ussuriensis Belokobylskij, 1988"
-  }, {
-    "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b965",
-    "start" : 401,
-    "end" : 407,
-    "text" : "Baetis",
+    "start" : 8,
+    "end" : 19,
+    "text" : "ussuriensis",
     "category" : "UNINOMIAL",
-    "context" : "bbard 1985; easily distinguishable from «Baetis» s. str. by their distomedial protuberan"
+    "context" : "P. (S.) «ussuriensis» Belokobylskij, 1988"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b100",
@@ -44839,29 +44743,13 @@
     "category" : "UNINOMIAL",
     "context" : "MA-«Fungi» 24292, 8196Tell."
   }, {
-    "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b466",
-    "start" : 3059,
-    "end" : 3071,
-    "text" : "Spheciformes",
-    "category" : "UNINOMIAL",
-    "context" : "nath and Nagarkatti 1977). The recorded «Spheciformes» from the family Crabronidae, apart from"
-  }, {
     "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b118",
-    "start" : 4,
-    "end" : 6,
-    "text" : "S.",
+    "blockId" : "b121",
+    "start" : 0,
+    "end" : 2,
+    "text" : "P.",
     "category" : "ABBREVIATED",
-    "context" : "P. («S.») ussuriensis Belokobylskij, 1988"
-  }, {
-    "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b967",
-    "start" : 1454,
-    "end" : 1465,
-    "text" : "Papuanatula",
-    "category" : "UNINOMIAL",
-    "context" : "ain differences to both other subgenera «Papuanatula» s. str. and Papuafiliola. Another impor"
+    "context" : "«P.» (S.) nigricans (He & Chen, 2000), comb."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b104",
@@ -44903,29 +44791,13 @@
     "category" : "UNINOMIAL",
     "context" : "MA-«Fungi» 36972, 10690Tell."
   }, {
-    "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b473",
-    "start" : 590,
-    "end" : 599,
-    "text" : "Orobanche",
-    "category" : "UNINOMIAL",
-    "context" : "ave confused it with another species of «Orobanche» s.l.) in Poland as an edible plant that"
-  }, {
     "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b118",
-    "start" : 8,
-    "end" : 19,
-    "text" : "ussuriensis",
-    "category" : "UNINOMIAL",
-    "context" : "P. (S.) «ussuriensis» Belokobylskij, 1988"
-  }, {
-    "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b967",
-    "start" : 1680,
-    "end" : 1691,
-    "text" : "Papuanatula",
-    "category" : "UNINOMIAL",
-    "context" : "ubgen. nov., minute or not developed in «Papuanatula» s. str., and well-developed, elongate i"
+    "blockId" : "b121",
+    "start" : 4,
+    "end" : 6,
+    "text" : "S.",
+    "category" : "ABBREVIATED",
+    "context" : "P. («S.») nigricans (He & Chen, 2000), comb. nov"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b105",
@@ -44967,29 +44839,13 @@
     "category" : "UNINOMIAL",
     "context" : "MA-«Fungi» 38071, 539IS"
   }, {
-    "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b474",
-    "start" : 1836,
-    "end" : 1845,
-    "text" : "Orobanche",
-    "category" : "UNINOMIAL",
-    "context" : "ina and North America, while in Europe, «Orobanche» s.l. were used primarily as food (Shi e"
-  }, {
     "docId" : "pensoft:zookeys.1204.123909",
     "blockId" : "b121",
-    "start" : 0,
-    "end" : 2,
-    "text" : "P.",
-    "category" : "ABBREVIATED",
-    "context" : "«P.» (S.) nigricans (He & Chen, 2000), comb."
-  }, {
-    "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b967",
-    "start" : 1958,
-    "end" : 1969,
-    "text" : "Papuanatula",
+    "start" : 8,
+    "end" : 17,
+    "text" : "nigricans",
     "category" : "UNINOMIAL",
-    "context" : ": shape of labrum is similar to that of «Papuanatula» s. str. (widest in middle part; widest "
+    "context" : "P. (S.) «nigricans» (He & Chen, 2000), comb. nov."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b109",
@@ -45031,29 +44887,13 @@
     "category" : "UNINOMIAL",
     "context" : "MA-«Fungi» 75541, 5703IM (H. densa Melo & Hjortsta"
   }, {
-    "docId" : "pensoft:phytokeys.275.192014",
-    "blockId" : "b479",
-    "start" : 404,
-    "end" : 419,
-    "text" : "Stylommatophora",
-    "category" : "UNINOMIAL",
-    "context" : "ia). Unique dominance patterns, such as «Stylommatophora» or pollinators such as birds and mammal"
-  }, {
     "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b121",
-    "start" : 4,
-    "end" : 6,
-    "text" : "S.",
+    "blockId" : "b167",
+    "start" : 60,
+    "end" : 77,
+    "text" : "P. (P.) chinensis",
     "category" : "ABBREVIATED",
-    "context" : "P. («S.») nigricans (He & Chen, 2000), comb. nov"
-  }, {
-    "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b967",
-    "start" : 2187,
-    "end" : 2198,
-    "text" : "Papuanatula",
-    "category" : "UNINOMIAL",
-    "context" : " as in Papuafiliola (feathered setae in «Papuanatula» s. str.); incisor of both mandibles bla"
+    "context" : "ius (Paradelius) ghesquierei De Saeger B«P. (P.) chinensis» He & Chen CP. (Sculptomyriola) extremio"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b110",
@@ -45088,20 +44928,12 @@
     "context" : "MA-«Fungi» 92643, 11452MD, holotype"
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b121",
-    "start" : 8,
-    "end" : 17,
-    "text" : "nigricans",
-    "category" : "UNINOMIAL",
-    "context" : "P. (S.) «nigricans» (He & Chen, 2000), comb. nov."
-  }, {
-    "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b967",
-    "start" : 2261,
-    "end" : 2272,
-    "text" : "Papuanatula",
-    "category" : "UNINOMIAL",
-    "context" : "oth mandibles blade-like enlarged as in «Papuanatula» s. str. (not blade-like in Papuafiliola"
+    "blockId" : "b230",
+    "start" : 68,
+    "end" : 85,
+    "text" : "P. (Sc.) koreanus",
+    "category" : "ABBREVIATED",
+    "context" : "lptomyriola) ghilarovi (Belokobylskij) B«P. (Sc.) koreanus» sp. nov. CP. (Sc.) sinevi (Belokobylski"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b114",
@@ -45136,20 +44968,12 @@
     "context" : "MA-«Fungi» 92646, 17082Tell."
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b122",
-    "start" : 9,
-    "end" : 19,
-    "text" : "Paradelius",
-    "category" : "UNINOMIAL",
-    "context" : "Subgenus «Paradelius» s. str."
-  }, {
-    "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b967",
-    "start" : 2392,
-    "end" : 2403,
-    "text" : "Papuanatula",
-    "category" : "UNINOMIAL",
-    "context" : "rsus much longer than other setae as in «Papuanatula» s. str. (not much longer in Papuafiliol"
+    "blockId" : "b230",
+    "start" : 96,
+    "end" : 111,
+    "text" : "P. (Sc.) sinevi",
+    "category" : "ABBREVIATED",
+    "context" : "kobylskij) BP. (Sc.) koreanus sp. nov. C«P. (Sc.) sinevi» (Belokobylskij)."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b115",
@@ -45184,20 +45008,12 @@
     "context" : "MA-«Fungi» 5527, 817Tell."
   }, {
     "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b167",
-    "start" : 60,
-    "end" : 77,
-    "text" : "P. (P.) chinensis",
+    "blockId" : "b286",
+    "start" : 63,
+    "end" : 80,
+    "text" : "P. (S.) nigricans",
     "category" : "ABBREVIATED",
-    "context" : "ius (Paradelius) ghesquierei De Saeger B«P. (P.) chinensis» He & Chen CP. (Sculptomyriola) extremio"
-  }, {
-    "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b967",
-    "start" : 2532,
-    "end" : 2543,
-    "text" : "Papuanatula",
-    "category" : "UNINOMIAL",
-    "context" : "ve more morphological similarities with «Papuanatula» s. str. than with Papuafiliola, However"
+    "context" : " (Sinadelius) guangxiensis (He & Chen) B«P. (S.) nigricans» (He & Chen) CP. (S.) ussuriensis Beloko"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b119",
@@ -45223,22 +45039,6 @@
     "category" : "UNINOMIAL",
     "context" : "MA-«Fungi» 5529, 759Tell."
   }, {
-    "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b230",
-    "start" : 68,
-    "end" : 85,
-    "text" : "P. (Sc.) koreanus",
-    "category" : "ABBREVIATED",
-    "context" : "lptomyriola) ghilarovi (Belokobylskij) B«P. (Sc.) koreanus» sp. nov. CP. (Sc.) sinevi (Belokobylski"
-  }, {
-    "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b970",
-    "start" : 30,
-    "end" : 45,
-    "text" : "P. (F.) claudia",
-    "category" : "ABBREVIATED",
-    "context" : "In one mature female larva of «P. (F.) claudia» sp. nov., the abdomen was filled with e"
-  }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b120",
     "start" : 0,
@@ -45262,22 +45062,6 @@
     "text" : "Fungi",
     "category" : "UNINOMIAL",
     "context" : "MA-«Fungi» 7653, 4638Tell."
-  }, {
-    "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b230",
-    "start" : 96,
-    "end" : 111,
-    "text" : "P. (Sc.) sinevi",
-    "category" : "ABBREVIATED",
-    "context" : "kobylskij) BP. (Sc.) koreanus sp. nov. C«P. (Sc.) sinevi» (Belokobylskij)."
-  }, {
-    "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b972",
-    "start" : 250,
-    "end" : 261,
-    "text" : "Papuanatula",
-    "category" : "UNINOMIAL",
-    "context" : "c distances found in Papuanatula (incl. «Papuanatula» s. str. and Papuafiliola) in New Guinea"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b124",
@@ -45303,22 +45087,6 @@
     "category" : "UNINOMIAL",
     "context" : "MA-«Fungi» 11076, 3349MD"
   }, {
-    "docId" : "pensoft:zookeys.1204.123909",
-    "blockId" : "b286",
-    "start" : 63,
-    "end" : 80,
-    "text" : "P. (S.) nigricans",
-    "category" : "ABBREVIATED",
-    "context" : " (Sinadelius) guangxiensis (He & Chen) B«P. (S.) nigricans» (He & Chen) CP. (S.) ussuriensis Beloko"
-  }, {
-    "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b975",
-    "start" : 199,
-    "end" : 210,
-    "text" : "Papuanatula",
-    "category" : "UNINOMIAL",
-    "context" : "al. 2025a, b; this study). The subgenus «Papuanatula» s. str. is present in New Guinea and Su"
-  }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b125",
     "start" : 0,
@@ -45342,14 +45110,6 @@
     "text" : "Fungi",
     "category" : "UNINOMIAL",
     "context" : "MA-«Fungi» 24238, 3969IM"
-  }, {
-    "docId" : "pensoft:zookeys.1259.168521",
-    "blockId" : "b977",
-    "start" : 372,
-    "end" : 383,
-    "text" : "Papuanatula",
-    "category" : "UNINOMIAL",
-    "context" : " nov. with characters partly similar to «Papuanatula» s. str. and partly to Papuafiliola (Fig"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
     "blockId" : "b129",
@@ -45808,12 +45568,12 @@
     "context" : "MA-«Fungi» 94262, 15194MD"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2242",
-    "start" : 43,
-    "end" : 59,
-    "text" : "Eunice antennata",
+    "blockId" : "b2225",
+    "start" : 93,
+    "end" : 115,
+    "text" : "Stuhlmannia variabilis",
     "category" : "BINOMIAL",
-    "context" : "tinguishing features: 35.Eunicidae: A–H.«Eunice antennata»: A. Anterior end, dorsal view; B, C. Ja"
+    "context" : " reproductive organs, dorsal side up; B.«Stuhlmannia variabilis» showing ventral view and seminal groove"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b648",
@@ -45824,12 +45584,12 @@
     "context" : "MA-«Fungi» 94263, 15213MD"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2285",
-    "start" : 399,
-    "end" : 413,
-    "text" : "Hirudiniformes",
-    "category" : "UNINOMIAL",
-    "context" : " to a subfamily within Cylicobdellidae («Hirudiniformes»), which appears not to have been follow"
+    "blockId" : "b2242",
+    "start" : 43,
+    "end" : 59,
+    "text" : "Eunice antennata",
+    "category" : "BINOMIAL",
+    "context" : "tinguishing features: 35.Eunicidae: A–H.«Eunice antennata»: A. Anterior end, dorsal view; B, C. Ja"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b655",
@@ -45840,12 +45600,12 @@
     "context" : "MA-«Fungi» 94264, 15217MD"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2327",
-    "start" : 43,
-    "end" : 57,
+    "blockId" : "b2285",
+    "start" : 399,
+    "end" : 413,
     "text" : "Hirudiniformes",
     "category" : "UNINOMIAL",
-    "context" : "arks.Haemadipsidae belongs to the jawed «Hirudiniformes» (Arhynchobdella) which includes both bl"
+    "context" : " to a subfamily within Cylicobdellidae («Hirudiniformes»), which appears not to have been follow"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b662",
@@ -45856,12 +45616,12 @@
     "context" : "MA-«Fungi» 94265, 15222MD"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2361",
-    "start" : 41,
-    "end" : 55,
+    "blockId" : "b2327",
+    "start" : 43,
+    "end" : 57,
     "text" : "Hirudiniformes",
     "category" : "UNINOMIAL",
-    "context" : "emarks.Hirudinidae belongs to the jawed «Hirudiniformes» (Arhynchobdella) which includes both bl"
+    "context" : "arks.Haemadipsidae belongs to the jawed «Hirudiniformes» (Arhynchobdella) which includes both bl"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b669",
@@ -45872,12 +45632,12 @@
     "context" : "MA-«Fungi» 94266, 15223MD"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2417",
-    "start" : 1121,
-    "end" : 1134,
-    "text" : "H. longissima",
-    "category" : "ABBREVIATED",
-    "context" : "ith circle of spines and capillaries; H.«H. longissima» posterior end lateral view. Abbreviatio"
+    "blockId" : "b2361",
+    "start" : 41,
+    "end" : 55,
+    "text" : "Hirudiniformes",
+    "category" : "UNINOMIAL",
+    "context" : "emarks.Hirudinidae belongs to the jawed «Hirudiniformes» (Arhynchobdella) which includes both bl"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b676",
@@ -45888,12 +45648,12 @@
     "context" : "MA-«Fungi» 94267, 15232MD"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2457",
-    "start" : 928,
-    "end" : 941,
-    "text" : "L. latreillii",
-    "category" : "ABBREVIATED",
-    "context" : "hook from parapodium of chaetiger 43; H.«L. latreillii» entire animal. Abbreviations: aci acicu"
+    "blockId" : "b2400",
+    "start" : 889,
+    "end" : 907,
+    "text" : "Kynotus cingulatus",
+    "category" : "BINOMIAL",
+    "context" : " reproductive organs, dorsal side up; B.«Kynotus cingulatus» ventral surface of segment 13–16, showi"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b683",
@@ -45904,12 +45664,12 @@
     "context" : "MA-«Fungi» 94268, 15233MD"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2542",
-    "start" : 28,
-    "end" : 39,
-    "text" : "Myzostomida",
-    "category" : "UNINOMIAL",
-    "context" : "Distinguishing features: 69.«Myzostomida»: A. General anatomy of Myzostomida; B. "
+    "blockId" : "b2417",
+    "start" : 1121,
+    "end" : 1134,
+    "text" : "H. longissima",
+    "category" : "ABBREVIATED",
+    "context" : "ith circle of spines and capillaries; H.«H. longissima» posterior end lateral view. Abbreviatio"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b690",
@@ -45920,12 +45680,12 @@
     "context" : "MA-«Fungi» 94269, 15240MD"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2542",
-    "start" : 63,
-    "end" : 74,
-    "text" : "Myzostomida",
-    "category" : "UNINOMIAL",
-    "context" : ": 69.Myzostomida: A. General anatomy of «Myzostomida»; B. Hook of Myzostoma sp.; C. Support r"
+    "blockId" : "b2457",
+    "start" : 928,
+    "end" : 941,
+    "text" : "L. latreillii",
+    "category" : "ABBREVIATED",
+    "context" : "hook from parapodium of chaetiger 43; H.«L. latreillii» entire animal. Abbreviations: aci acicu"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b697",
@@ -45936,12 +45696,12 @@
     "context" : "MA-«Fungi» 94270, 15243MD"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2544",
-    "start" : 8,
-    "end" : 19,
-    "text" : "Myzostomida",
-    "category" : "UNINOMIAL",
-    "context" : "Remarks.«Myzostomida» is treated here as an order within Poly"
+    "blockId" : "b2490",
+    "start" : 779,
+    "end" : 803,
+    "text" : "Spenceriella penolaensis",
+    "category" : "BINOMIAL",
+    "context" : "sal side up; B. Arrangement of pores; C.«Spenceriella penolaensis» showing genital markings. Abbreviations"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b704",
@@ -45952,12 +45712,12 @@
     "context" : "MA-«Fungi» 94271, 15247MD"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2667",
-    "start" : 185,
-    "end" : 205,
-    "text" : "O. naraharaetmagarum",
-    "category" : "ABBREVIATED",
-    "context" : "e and female reproductive systems; D, E.«O. naraharaetmagarum» showing anterior end, dorsal (D) and mi"
+    "blockId" : "b2525",
+    "start" : 839,
+    "end" : 864,
+    "text" : "Drawida polydiverticulata",
+    "category" : "BINOMIAL",
+    "context" : "nd Drawida and Moniligaster (bottom); B.«Drawida polydiverticulata» ventral view. Abbreviations: fpo female"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b711",
@@ -45968,12 +45728,12 @@
     "context" : "MA-«Fungi» 94272, 576JFL"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2669",
-    "start" : 42,
-    "end" : 56,
-    "text" : "Hirudiniformes",
+    "blockId" : "b2542",
+    "start" : 28,
+    "end" : 39,
+    "text" : "Myzostomida",
     "category" : "UNINOMIAL",
-    "context" : "marks.Orobdellidae belongs to the jawed «Hirudiniformes» (Arhynchobdella) and is one of the most"
+    "context" : "Distinguishing features: 69.«Myzostomida»: A. General anatomy of Myzostomida; B. "
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b718",
@@ -45984,12 +45744,12 @@
     "context" : "MA-«Fungi» 94273, 582JFL"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2701",
-    "start" : 166,
-    "end" : 172,
-    "text" : "Acmira",
+    "blockId" : "b2542",
+    "start" : 63,
+    "end" : 74,
+    "text" : "Myzostomida",
     "category" : "UNINOMIAL",
-    "context" : "eral view; C, D. Parapodia of Aricidea («Acmira») sp.: C. From chaetiger 12; D. From pos"
+    "context" : ": 69.Myzostomida: A. General anatomy of «Myzostomida»; B. Hook of Myzostoma sp.; C. Support r"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b725",
@@ -46000,12 +45760,12 @@
     "context" : "MA-«Fungi» 94274, 3484MPM"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2728",
-    "start" : 533,
-    "end" : 548,
-    "text" : "Terebellomorpha",
+    "blockId" : "b2544",
+    "start" : 8,
+    "end" : 19,
+    "text" : "Myzostomida",
     "category" : "UNINOMIAL",
-    "context" : " and Leontovich (2013) provide a key to «Terebellomorpha», including Pectinariidae, from the east"
+    "context" : "Remarks.«Myzostomida» is treated here as an order within Poly"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b732",
@@ -46016,12 +45776,12 @@
     "context" : "MA-«Fungi» 94275, 3492MPM"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2754",
-    "start" : 271,
-    "end" : 284,
-    "text" : "Phyllodocidae",
-    "category" : "UNINOMIAL",
-    "context" : "pelagic group nested within the benthic «Phyllodocidae»-Eteoninae; this placement is supported "
+    "blockId" : "b2667",
+    "start" : 185,
+    "end" : 205,
+    "text" : "O. naraharaetmagarum",
+    "category" : "ABBREVIATED",
+    "context" : "e and female reproductive systems; D, E.«O. naraharaetmagarum» showing anterior end, dorsal (D) and mi"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b739",
@@ -46032,12 +45792,12 @@
     "context" : "MA-«Fungi» 94276, 3498MPM"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2754",
-    "start" : 285,
-    "end" : 294,
-    "text" : "Eteoninae",
+    "blockId" : "b2669",
+    "start" : 42,
+    "end" : 56,
+    "text" : "Hirudiniformes",
     "category" : "UNINOMIAL",
-    "context" : "nested within the benthic Phyllodocidae-«Eteoninae»; this placement is supported by both mo"
+    "context" : "marks.Orobdellidae belongs to the jawed «Hirudiniformes» (Arhynchobdella) and is one of the most"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b746",
@@ -46048,12 +45808,12 @@
     "context" : "MA-«Fungi» 94277, 3511MPM"
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2769",
-    "start" : 879,
-    "end" : 889,
-    "text" : "P. serpens",
-    "category" : "ABBREVIATED",
-    "context" : "pine from parapodium of chaetiger 40; H.«P. serpens» posterior end dorsal view. Abbreviation"
+    "blockId" : "b2701",
+    "start" : 166,
+    "end" : 172,
+    "text" : "Acmira",
+    "category" : "UNINOMIAL",
+    "context" : "eral view; C, D. Parapodia of Aricidea («Acmira») sp.: C. From chaetiger 12; D. From pos"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b753",
@@ -46064,12 +45824,12 @@
     "context" : "MA-«Fungi» 94278, 19693Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2813",
-    "start" : 68,
-    "end" : 82,
-    "text" : "Hirudiniformes",
+    "blockId" : "b2728",
+    "start" : 533,
+    "end" : 548,
+    "text" : "Terebellomorpha",
     "category" : "UNINOMIAL",
-    "context" : "idespread family belonging to the jawed «Hirudiniformes» which includes both blood-feeding and i"
+    "context" : " and Leontovich (2013) provide a key to «Terebellomorpha», including Pectinariidae, from the east"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b760",
@@ -46080,12 +45840,12 @@
     "context" : "MA-«Fungi» 94279, 19696Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2854",
-    "start" : 695,
-    "end" : 729,
-    "text" : "Andriorrhinus (Turedrillus) yukuna",
-    "category" : "BINOMIAL",
-    "context" : "ex bora clitellar region, ventral view. «Andriorrhinus (Turedrillus) yukuna»; D. Common chaetae; E. Genital chaetae,"
+    "blockId" : "b2754",
+    "start" : 271,
+    "end" : 284,
+    "text" : "Phyllodocidae",
+    "category" : "UNINOMIAL",
+    "context" : "pelagic group nested within the benthic «Phyllodocidae»-Eteoninae; this placement is supported "
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b767",
@@ -46096,12 +45856,12 @@
     "context" : "MA-«Fungi» 94280, 19704Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2898",
-    "start" : 39,
-    "end" : 53,
-    "text" : "Hirudiniformes",
+    "blockId" : "b2754",
+    "start" : 285,
+    "end" : 294,
+    "text" : "Eteoninae",
     "category" : "UNINOMIAL",
-    "context" : "Remarks.Salifidae belongs to the jawed «Hirudiniformes» (Arhynchobdella) and is found mainly in"
+    "context" : "nested within the benthic Phyllodocidae-«Eteoninae»; this placement is supported by both mo"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b774",
@@ -46112,12 +45872,12 @@
     "context" : "MA-«Fungi» 94281, 19949Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2923",
-    "start" : 136,
-    "end" : 150,
-    "text" : "Hirudiniformes",
-    "category" : "UNINOMIAL",
-    "context" : "all et al. 2006) belonging to the jawed «Hirudiniformes» (Arhyncobdellida), which now includes b"
+    "blockId" : "b2769",
+    "start" : 879,
+    "end" : 889,
+    "text" : "P. serpens",
+    "category" : "ABBREVIATED",
+    "context" : "pine from parapodium of chaetiger 40; H.«P. serpens» posterior end dorsal view. Abbreviation"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b781",
@@ -46128,12 +45888,12 @@
     "context" : "MA-«Fungi» 94307, 19951Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2939",
-    "start" : 219,
-    "end" : 233,
-    "text" : "Vestimentifera",
+    "blockId" : "b2813",
+    "start" : 68,
+    "end" : 82,
+    "text" : "Hirudiniformes",
     "category" : "UNINOMIAL",
-    "context" : "polymorphism in the dataset: Frenulata, «Vestimentifera», Sclerolinum Southward, 1961 and Osedax"
+    "context" : "idespread family belonging to the jawed «Hirudiniformes» which includes both blood-feeding and i"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b788",
@@ -46144,12 +45904,12 @@
     "context" : "MA-«Fungi» 94282, 19957Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2939",
-    "start" : 358,
-    "end" : 372,
-    "text" : "Vestimentifera",
-    "category" : "UNINOMIAL",
-    "context" : "ly, two separate phyla (Pogonophora and «Vestimentifera») were placed in the polychaetes by Rous"
+    "blockId" : "b2854",
+    "start" : 695,
+    "end" : 729,
+    "text" : "Andriorrhinus (Turedrillus) yukuna",
+    "category" : "BINOMIAL",
+    "context" : "ex bora clitellar region, ventral view. «Andriorrhinus (Turedrillus) yukuna»; D. Common chaetae; E. Genital chaetae,"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b795",
@@ -46160,12 +45920,12 @@
     "context" : "MA-«Fungi» 94283, 19963Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2963",
-    "start" : 48,
-    "end" : 62,
-    "text" : "Vestimentifera",
+    "blockId" : "b2898",
+    "start" : 39,
+    "end" : 53,
+    "text" : "Hirudiniformes",
     "category" : "UNINOMIAL",
-    "context" : " The genus Sclerolinum and sister group «Vestimentifera» belong to the clade Monilifera (Rouse 2"
+    "context" : "Remarks.Salifidae belongs to the jawed «Hirudiniformes» (Arhynchobdella) and is found mainly in"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b802",
@@ -46176,12 +45936,12 @@
     "context" : "MA-«Fungi» 94284, 19967Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2963",
-    "start" : 172,
-    "end" : 186,
-    "text" : "Vestimentifera",
+    "blockId" : "b2923",
+    "start" : 136,
+    "end" : 150,
+    "text" : "Hirudiniformes",
     "category" : "UNINOMIAL",
-    "context" : "era, we have coded both Sclerolinum and «Vestimentifera» separately in this study as they are mo"
+    "context" : "all et al. 2006) belonging to the jawed «Hirudiniformes» (Arhyncobdellida), which now includes b"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b809",
@@ -46192,12 +45952,12 @@
     "context" : "MA-«Fungi» 94285, 20022Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2970",
-    "start" : 43,
-    "end" : 57,
+    "blockId" : "b2939",
+    "start" : 219,
+    "end" : 233,
     "text" : "Vestimentifera",
     "category" : "UNINOMIAL",
-    "context" : "tinguishing features: 117.Siboglinidae, «Vestimentifera»: A. Two entire tubes of Ridgeia piscesa"
+    "context" : "polymorphism in the dataset: Frenulata, «Vestimentifera», Sclerolinum Southward, 1961 and Osedax"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b816",
@@ -46208,12 +45968,12 @@
     "context" : "MA-«Fungi» 94286, 20023Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2972",
-    "start" : 8,
-    "end" : 22,
+    "blockId" : "b2939",
+    "start" : 358,
+    "end" : 372,
     "text" : "Vestimentifera",
     "category" : "UNINOMIAL",
-    "context" : "Remarks.«Vestimentifera» is a clade of Siboglinidae containing m"
+    "context" : "ly, two separate phyla (Pogonophora and «Vestimentifera») were placed in the polychaetes by Rous"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b823",
@@ -46224,12 +45984,12 @@
     "context" : "MA-«Fungi» 94287, 20041Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2972",
-    "start" : 504,
-    "end" : 518,
+    "blockId" : "b2963",
+    "start" : 48,
+    "end" : 62,
     "text" : "Vestimentifera",
     "category" : "UNINOMIAL",
-    "context" : "era, we have coded both Sclerolinum and «Vestimentifera» separately in this study as they are bo"
+    "context" : " The genus Sclerolinum and sister group «Vestimentifera» belong to the clade Monilifera (Rouse 2"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b830",
@@ -46240,12 +46000,12 @@
     "context" : "MA-«Fungi» 94288, 20472Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b2972",
-    "start" : 609,
-    "end" : 623,
+    "blockId" : "b2963",
+    "start" : 172,
+    "end" : 186,
     "text" : "Vestimentifera",
     "category" : "UNINOMIAL",
-    "context" : "gically and ecologically distinguished. «Vestimentifera» is represented by 18 species (WoRMS 202"
+    "context" : "era, we have coded both Sclerolinum and «Vestimentifera» separately in this study as they are mo"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b837",
@@ -46256,12 +46016,12 @@
     "context" : "MA-«Fungi» 94289, 20525Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b3041",
-    "start" : 665,
-    "end" : 678,
-    "text" : "P. nigrescens",
-    "category" : "ABBREVIATED",
-    "context" : " C. Introvert hook of P. stephensoni; D.«P. nigrescens» entire specimen. Abbreviations: inh int"
+    "blockId" : "b2970",
+    "start" : 43,
+    "end" : 57,
+    "text" : "Vestimentifera",
+    "category" : "UNINOMIAL",
+    "context" : "tinguishing features: 117.Siboglinidae, «Vestimentifera»: A. Two entire tubes of Ridgeia piscesa"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b844",
@@ -46272,12 +46032,12 @@
     "context" : "MA-«Fungi» 94290, 20530Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b3056",
-    "start" : 430,
-    "end" : 438,
-    "text" : "S. nudus",
-    "category" : "ABBREVIATED",
-    "context" : ". Anterior region of a Sipunculus sp. E.«S. nudus» entire animal. Abbreviations: cmb circu"
+    "blockId" : "b2972",
+    "start" : 8,
+    "end" : 22,
+    "text" : "Vestimentifera",
+    "category" : "UNINOMIAL",
+    "context" : "Remarks.«Vestimentifera» is a clade of Siboglinidae containing m"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b851",
@@ -46288,12 +46048,12 @@
     "context" : "MA-«Fungi» 94291, 20535Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b3071",
-    "start" : 748,
-    "end" : 759,
-    "text" : "S. gracilis",
-    "category" : "ABBREVIATED",
-    "context" : " G.Sphaerodorum flavum simple chaeta; H.«S. gracilis», entire animal. Abbreviations: acl acic"
+    "blockId" : "b2972",
+    "start" : 504,
+    "end" : 518,
+    "text" : "Vestimentifera",
+    "category" : "UNINOMIAL",
+    "context" : "era, we have coded both Sclerolinum and «Vestimentifera» separately in this study as they are bo"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b858",
@@ -46304,12 +46064,12 @@
     "context" : "MA-«Fungi» 94292, 20588Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b3122",
-    "start" : 459,
-    "end" : 474,
-    "text" : "P. californicus",
-    "category" : "ABBREVIATED",
-    "context" : " bilobata; G.Amaeana sp. neurochaeta; H.«P. californicus» uncinus from posterior chaetiger; I.P. "
+    "blockId" : "b2972",
+    "start" : 609,
+    "end" : 623,
+    "text" : "Vestimentifera",
+    "category" : "UNINOMIAL",
+    "context" : "gically and ecologically distinguished. «Vestimentifera» is represented by 18 species (WoRMS 202"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b865",
@@ -46320,12 +46080,12 @@
     "context" : "MA-«Fungi» 94293, 20589Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b3122",
-    "start" : 511,
-    "end" : 523,
-    "text" : "P. coccineus",
+    "blockId" : "b3041",
+    "start" : 665,
+    "end" : 678,
+    "text" : "P. nigrescens",
     "category" : "ABBREVIATED",
-    "context" : "cus uncinus from posterior chaetiger; I.«P. coccineus» uncinus from posterior chaetiger; J.P. "
+    "context" : " C. Introvert hook of P. stephensoni; D.«P. nigrescens» entire specimen. Abbreviations: inh int"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b872",
@@ -46336,12 +46096,12 @@
     "context" : "MA-«Fungi» 94294, 20591Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b3131",
-    "start" : 1211,
-    "end" : 1226,
-    "text" : "Terebellomorpha",
-    "category" : "UNINOMIAL",
-    "context" : " and Leontovich (2013) provide a key to «Terebellomorpha», including Pectinariidae, from the east"
+    "blockId" : "b3056",
+    "start" : 430,
+    "end" : 438,
+    "text" : "S. nudus",
+    "category" : "ABBREVIATED",
+    "context" : ". Anterior region of a Sipunculus sp. E.«S. nudus» entire animal. Abbreviations: cmb circu"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b879",
@@ -46352,12 +46112,12 @@
     "context" : "MA-«Fungi» 94295, 20592Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b3144",
-    "start" : 97,
-    "end" : 112,
-    "text" : "Pista australis",
+    "blockId" : "b3071",
+    "start" : 711,
+    "end" : 730,
+    "text" : "Sphaerodorum flavum",
     "category" : "BINOMIAL",
-    "context" : "A.Longicarpus modestus entire animal; B.«Pista australis» head end ventral view; C.Terebella macu"
+    "context" : "uritmia hamulisetosa compound chaeta; G.«Sphaerodorum flavum» simple chaeta; H.S. gracilis, entire an"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b886",
@@ -46368,12 +46128,12 @@
     "context" : "MA-«Fungi» 94296, 20593Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b3168",
-    "start" : 164,
-    "end" : 175,
-    "text" : "Bonelliinae",
-    "category" : "UNINOMIAL",
-    "context" : "read global distribution at all depths. «Bonelliinae» is not diagnosable ((DELTA Diagnostic L"
+    "blockId" : "b3071",
+    "start" : 748,
+    "end" : 759,
+    "text" : "S. gracilis",
+    "category" : "ABBREVIATED",
+    "context" : " G.Sphaerodorum flavum simple chaeta; H.«S. gracilis», entire animal. Abbreviations: acl acic"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b893",
@@ -46384,12 +46144,12 @@
     "context" : "MA-«Fungi» 94297, 20595Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b3180",
-    "start" : 658,
-    "end" : 671,
-    "text" : "T. thalassema",
-    "category" : "ABBREVIATED",
-    "context" : "gans of the anterior region of trunk; F.«T. thalassema» general schema of anal vescicle. Abbrev"
+    "blockId" : "b3122",
+    "start" : 316,
+    "end" : 336,
+    "text" : "Amaeana brasiliensis",
+    "category" : "BINOMIAL",
+    "context" : "l view; B. Anterior end, dorsal view; C.«Amaeana brasiliensis» ventral view; D–F. Notochaetae: D.Amaea"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b900",
@@ -46400,12 +46160,12 @@
     "context" : "MA-«Fungi» 94298, 20597Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b3263",
-    "start" : 471,
-    "end" : 483,
-    "text" : "U. papillata",
+    "blockId" : "b3122",
+    "start" : 459,
+    "end" : 474,
+    "text" : "P. californicus",
     "category" : "ABBREVIATED",
-    "context" : "y from middle segment (U. hartmanae); I.«U. papillata» hooded hooks. Abbreviations: aol anteri"
+    "context" : " bilobata; G.Amaeana sp. neurochaeta; H.«P. californicus» uncinus from posterior chaetiger; I.P. "
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b907",
@@ -46416,12 +46176,12 @@
     "context" : "MA-«Fungi» 94299, 20598Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b3273",
-    "start" : 63,
-    "end" : 77,
-    "text" : "Hirudiniformes",
-    "category" : "UNINOMIAL",
-    "context" : "s a small family belonging to the jawed «Hirudiniformes» which includes both blood-feeding and i"
+    "blockId" : "b3122",
+    "start" : 511,
+    "end" : 523,
+    "text" : "P. coccineus",
+    "category" : "ABBREVIATED",
+    "context" : "cus uncinus from posterior chaetiger; I.«P. coccineus» uncinus from posterior chaetiger; J.P. "
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b914",
@@ -46432,12 +46192,12 @@
     "context" : "MA-«Fungi» 94300, 20599Tell."
   }, {
     "docId" : "pensoft:zookeys.1247.137606",
-    "blockId" : "b3293",
-    "start" : 139,
-    "end" : 148,
-    "text" : "Hirudinea",
+    "blockId" : "b3131",
+    "start" : 1211,
+    "end" : 1226,
+    "text" : "Terebellomorpha",
     "category" : "UNINOMIAL",
-    "context" : "PM (Oligochaeta), GD (Oligochaeta), SU («Hirudinea»). Funding acquisition: CJG, RSW. Method"
+    "context" : " and Leontovich (2013) provide a key to «Terebellomorpha», including Pectinariidae, from the east"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b921",
@@ -46447,6 +46207,14 @@
     "category" : "UNINOMIAL",
     "context" : "MA-«Fungi» 94301, 20600Tell."
   }, {
+    "docId" : "pensoft:zookeys.1247.137606",
+    "blockId" : "b3144",
+    "start" : 97,
+    "end" : 112,
+    "text" : "Pista australis",
+    "category" : "BINOMIAL",
+    "context" : "A.Longicarpus modestus entire animal; B.«Pista australis» head end ventral view; C.Terebella macu"
+  }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b928",
     "start" : 3,
@@ -46454,6 +46222,14 @@
     "text" : "Fungi",
     "category" : "UNINOMIAL",
     "context" : "MA-«Fungi» 94302, 20603Tell."
+  }, {
+    "docId" : "pensoft:zookeys.1247.137606",
+    "blockId" : "b3166",
+    "start" : 563,
+    "end" : 580,
+    "text" : "Echiurus echiurus",
+    "category" : "BINOMIAL",
+    "context" : "19). 138.Thalassematidae, Echiurinae: A.«Echiurus echiurus» ventral view of entire animal; B. Poste"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b935",
@@ -46463,6 +46239,14 @@
     "category" : "UNINOMIAL",
     "context" : "MA-«Fungi» 94303, 20604Tell."
   }, {
+    "docId" : "pensoft:zookeys.1247.137606",
+    "blockId" : "b3168",
+    "start" : 164,
+    "end" : 175,
+    "text" : "Bonelliinae",
+    "category" : "UNINOMIAL",
+    "context" : "read global distribution at all depths. «Bonelliinae» is not diagnosable ((DELTA Diagnostic L"
+  }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b942",
     "start" : 3,
@@ -46470,6 +46254,14 @@
     "text" : "Fungi",
     "category" : "UNINOMIAL",
     "context" : "MA-«Fungi» 94304, 20605Tell."
+  }, {
+    "docId" : "pensoft:zookeys.1247.137606",
+    "blockId" : "b3180",
+    "start" : 658,
+    "end" : 671,
+    "text" : "T. thalassema",
+    "category" : "ABBREVIATED",
+    "context" : "gans of the anterior region of trunk; F.«T. thalassema» general schema of anal vescicle. Abbrev"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b949",
@@ -46479,6 +46271,14 @@
     "category" : "UNINOMIAL",
     "context" : "MA-«Fungi» 94305, 20607Tell."
   }, {
+    "docId" : "pensoft:zookeys.1247.137606",
+    "blockId" : "b3195",
+    "start" : 521,
+    "end" : 537,
+    "text" : "Tiguassu reginae",
+    "category" : "BINOMIAL",
+    "context" : " reproductive organs, dorsal side up; B.«Tiguassu reginae» showing proboscis-like prostomium. Abbr"
+  }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b956",
     "start" : 3,
@@ -46486,6 +46286,14 @@
     "text" : "Fungi",
     "category" : "UNINOMIAL",
     "context" : "MA-«Fungi» 94306, 20608Tell."
+  }, {
+    "docId" : "pensoft:zookeys.1247.137606",
+    "blockId" : "b3229",
+    "start" : 105,
+    "end" : 122,
+    "text" : "Michalakus initus",
+    "category" : "BINOMIAL",
+    "context" : " reproductive organs, dorsal side up; B.«Michalakus initus» genital markings. Abbreviations: clt cl"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b1036",
@@ -46495,6 +46303,14 @@
     "category" : "UNINOMIAL",
     "context" : "MA-«Fungi» 1103"
   }, {
+    "docId" : "pensoft:zookeys.1247.137606",
+    "blockId" : "b3263",
+    "start" : 471,
+    "end" : 483,
+    "text" : "U. papillata",
+    "category" : "ABBREVIATED",
+    "context" : "y from middle segment (U. hartmanae); I.«U. papillata» hooded hooks. Abbreviations: aol anteri"
+  }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b1043",
     "start" : 3,
@@ -46503,6 +46319,14 @@
     "category" : "UNINOMIAL",
     "context" : "MA-«Fungi» 1556"
   }, {
+    "docId" : "pensoft:zookeys.1247.137606",
+    "blockId" : "b3273",
+    "start" : 63,
+    "end" : 77,
+    "text" : "Hirudiniformes",
+    "category" : "UNINOMIAL",
+    "context" : "s a small family belonging to the jawed «Hirudiniformes» which includes both blood-feeding and i"
+  }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b1050",
     "start" : 3,
@@ -46510,6 +46334,14 @@
     "text" : "Fungi",
     "category" : "UNINOMIAL",
     "context" : "MA-«Fungi» 14880, 2384MD"
+  }, {
+    "docId" : "pensoft:zookeys.1247.137606",
+    "blockId" : "b3293",
+    "start" : 139,
+    "end" : 148,
+    "text" : "Hirudinea",
+    "category" : "UNINOMIAL",
+    "context" : "PM (Oligochaeta), GD (Oligochaeta), SU («Hirudinea»). Funding acquisition: CJG, RSW. Method"
   }, {
     "docId" : "pensoft:mycokeys.128.172807",
     "blockId" : "b1057",
