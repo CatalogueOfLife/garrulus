@@ -379,16 +379,28 @@ class PipelineNameFinderTest {
   }
 
   @Test
-  void italicAmbiguousGenusAccepted() {
+  void italicAmbiguousGenusIsJudgedOnMoreThanItsItalics() {
+    // sentence initial, and gnfinder gives it negative odds: italics and the dictionary alone do not carry it (ADR-0002)
     RecordedGnfinder gn = new RecordedGnfinder("major-italic");
     Document d = doc(block("b1", BlockType.PARAGRAPH, "Major sp. was collected.", new StyleSpan(0, 5, Style.ITALIC)));
-    FinderResult r = finder(gn).find(d, FinderOptions.defaults());
-    List<Mention> major = named(r, "Major");
+    FinderResult r = finder(gn).find(d, new FinderOptions(true, null));
+    assertThat(named(r, "Major")).isEmpty();
+    assertThat(r.rejected()).extracting(Mention::verbatim).containsExactly("Major");
+    assertThat(r.rejected().get(0).evidence().generators()).contains(Generator.ITALIC, Generator.DICTIONARY);
+
+    // inside a sentence and with positive gnfinder odds it is accepted
+    String text = "In the litter Major sp. was collected.";
+    int at = text.indexOf("Major");
+    RecordedGnfinder gn2 = new RecordedGnfinder().answer(text, new GnfinderResponse(Map.of(),
+        List.of(new GnName(1, "Major", "Major", null, 4.0, at, at + 5, null, "NO_ANNOT"))));
+    FinderResult r2 = finder(gn2).find(doc(block("b1", BlockType.PARAGRAPH, text, new StyleSpan(at, at + 5, Style.ITALIC))),
+        FinderOptions.defaults());
+    List<Mention> major = named(r2, "Major");
     assertThat(major).hasSize(1);
     Mention m = major.get(0);
     assertThat(m.verbatim()).isEqualTo("Major");
     assertThat(m.qualifier()).isEqualTo("sp.");
-    assertThat(m.evidence().generators()).contains(Generator.ITALIC, Generator.DICTIONARY);
+    assertThat(m.evidence().generators()).contains(Generator.ITALIC, Generator.DICTIONARY, Generator.GNFINDER);
     assertThat(m.evidence().judge()).isNotNull();
     assertThat(m.evidence().judge().accepted()).isTrue();
     assertThat(m.confidence()).isEqualTo(m.evidence().judge().score());
@@ -481,7 +493,7 @@ class PipelineNameFinderTest {
     assertThat(a.withOverrides(override.toString()).configHash()).isEqualTo(a.configHash());
 
     PipelineConfig c = a.withOverrides("{\"judgeThreshold\": 0.6}");
-    assertThat(a.judgeThreshold()).isEqualTo(0.5);
+    assertThat(a.judgeThreshold()).isNotEqualTo(0.6);
     assertThat(c.judgeThreshold()).isEqualTo(0.6);
     assertThat(c.configHash()).isNotEqualTo(a.configHash());
     assertThat(a.withOverrides("{\"judgeWeights\": {\"italic\": 1.25}}").configHash()).isNotEqualTo(a.configHash());
@@ -535,10 +547,13 @@ class PipelineNameFinderTest {
     assertThat(r.mentions()).extracting(Mention::verbatim).containsExactly("Opheliidae");
     assertThat(r.mentions().get(0).evidence().generators()).containsExactly(Generator.TAXON_MARKUP);
 
+    // an italic-only uninomial is rejected by the tuned judge, so look at the rejected candidates too
     PipelineConfig italicOnly = PipelineConfig.defaults().withOverrides("{\"enabledGenerators\": [\"ITALIC\"]}");
-    r = finder(italicOnly, gn).find(doc(b), FinderOptions.defaults());
-    assertThat(r.mentions()).extracting(Mention::verbatim).containsExactly("Ophelia");
-    assertThat(r.mentions().get(0).evidence().generators()).containsExactly(Generator.ITALIC);
+    r = finder(italicOnly, gn).find(doc(b), new FinderOptions(true, null));
+    List<Mention> all = new ArrayList<>(r.mentions());
+    all.addAll(r.rejected());
+    assertThat(all).extracting(Mention::verbatim).containsExactly("Ophelia");
+    assertThat(all.get(0).evidence().generators()).containsExactly(Generator.ITALIC);
     assertThat(gn.calls).as("gnfinder disabled").hasValue(0);
     assertThat(r.diagnostics()).containsEntry("gnfinderMs", "0");
   }

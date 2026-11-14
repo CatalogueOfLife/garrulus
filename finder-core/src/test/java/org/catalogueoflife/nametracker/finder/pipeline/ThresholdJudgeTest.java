@@ -101,7 +101,7 @@ class ThresholdJudgeTest {
         .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("itallic");
   }
 
-  // ---- the hand-set default weights (Task 18 tunes them on dev only)
+  // ---- the default weights, tuned on the Pensoft dev split (modes A and B) by eval tune
 
   private static ThresholdJudge defaults() {
     PipelineConfig cfg = PipelineConfig.defaults();
@@ -120,10 +120,15 @@ class ThresholdJudgeTest {
   }
 
   @Test
-  void defaultsAcceptItalicAmbiguousGenus() {
-    // weakest italic case: sentence initial, empty document, no gnfinder odds, only italics and dictionary
-    CandidateFeatures f = new CandidateFeatures(true, false, false, null, DictHit.AMBIGUOUS_WORD, false, true, 0.0,
+  void defaultsNeedMoreThanItalicsForAnAmbiguousGenus() {
+    // weakest italic case: sentence initial, empty document, no gnfinder odds, only italics and dictionary. Italics raise
+    // the score but do not decide alone (ADR-0002: GROBID text has none), so the tuned defaults reject it ...
+    CandidateFeatures weak = new CandidateFeatures(true, false, false, null, DictHit.AMBIGUOUS_WORD, false, true, 0.0,
         BlockType.PARAGRAPH, true, false, 2, 0);
-    assertThat(defaults().judge(MAJOR, f).accepted()).isTrue();
+    assertThat(defaults().judge(MAJOR, weak).accepted()).isFalse();
+    // ... and accept the same word inside a sentence when gnfinder also gives it positive odds
+    CandidateFeatures supported = new CandidateFeatures(true, false, false, 4.0, DictHit.AMBIGUOUS_WORD, false, true, 0.0,
+        BlockType.PARAGRAPH, false, false, 3, 0);
+    assertThat(defaults().judge(MAJOR, supported).accepted()).isTrue();
   }
 }

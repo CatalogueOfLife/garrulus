@@ -1,12 +1,12 @@
 {
   "judgeBias": -1.0,
-  "judgeThreshold": 0.5,
+  "judgeThreshold": 0.8,
   "judgeWeights": {
-    "italic": 5.0,
+    "italic": 3.0,
     "taxonMarkup": 8.0,
     "rankWordBefore": 2.0,
-    "gnfinderOdds": 4.0,
-    "dictHit.NONE": -1.0,
+    "gnfinderOdds": 12.0,
+    "dictHit.NONE": -2.0,
     "dictHit.GENUS": 1.5,
     "dictHit.UNINOMIAL": 1.5,
     "dictHit.EPITHET": 2.0,
@@ -26,7 +26,7 @@
     "sentenceInitial": -1.0,
     "authorshipFollows": 2.0,
     "generatorCount": 1.0,
-    "partialSupport": -2.0
+    "partialSupport": -8.0
   },
   "certainOdds": 8.0,
   "maxChunkCodePoints": 100000,
