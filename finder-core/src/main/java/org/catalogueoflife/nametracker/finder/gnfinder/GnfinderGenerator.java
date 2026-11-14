@@ -47,7 +47,8 @@ public class GnfinderGenerator implements CandidateGenerator {
     for (FlatText chunk : flat.chunks(maxChunkCodePoints)) {
       String text = chunk.text();
       if (text.isEmpty()) continue;
-      int len = CodePoints.length(text);
+      int[] cps = text.codePoints().toArray(); // once per chunk: slicing the string would scan it again per name
+      int len = cps.length;
       // gnfinder drops a leading byte order mark and then counts offsets from the next character. The converters remove
       // U+FEFF (TextNormalizer), so this only guards documents that reach the finder without them, e.g. from API clients.
       int shift = text.charAt(0) == BOM ? 1 : 0;
@@ -55,7 +56,7 @@ public class GnfinderGenerator implements CandidateGenerator {
         int ns = n.start() + shift;
         int ne = n.end() + shift;
         if (n.start() < 0 || ne > len || n.start() >= n.end()) continue;
-        String raw = CodePoints.slice(text, ns, ne);
+        String raw = new String(cps, ns, ne - ns);
         // gnfinder prints line breaks inside a verbatim as the symbol \u2424 (not a real character of the text)
         if (!raw.equals(n.verbatim().replace('\u2424', '\n'))) {
           misaligned.incrementAndGet(); // never store a name that is not an exact span of the source text
@@ -79,7 +80,7 @@ public class GnfinderGenerator implements CandidateGenerator {
         f.put("cardinality", n.cardinality());
         f.put("annotationNomenType", n.annotationNomenType());
         if (n.annotationNomen() != null) f.put("annotationNomen", n.annotationNomen());
-        out.add(new Candidate(s.blockId(), s.offset(), e.offset(), CodePoints.slice(text, start, end), n.name(), Generator.GNFINDER, f));
+        out.add(new Candidate(s.blockId(), s.offset(), e.offset(), new String(cps, start, end - start), n.name(), Generator.GNFINDER, f));
       }
     }
     return out;

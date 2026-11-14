@@ -183,6 +183,85 @@ class FindControllerTest {
         .andExpect(status().isPayloadTooLarge()).andExpect(jsonPath("$.status").value(413));
   }
 
+  // ---- size limits and request validation
+
+  /** The pipeline's chunk size: a single block above it would be one oversize gnfinder call and a quadratic pipeline. */
+  static final int LIMIT = org.catalogueoflife.nametracker.finder.pipeline.PipelineConfig.defaults().maxChunkCodePoints();
+
+  @Test
+  void textAboveTheBlockLimitIs413() throws Exception {
+    mvc.perform(post("/v1/find/text").contentType(MediaType.TEXT_PLAIN).content("a".repeat(LIMIT + 1)))
+        .andExpect(status().isPayloadTooLarge()).andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.status").value(413))
+        .andExpect(jsonPath("$.error").value(org.hamcrest.Matchers.containsString("/v1/find")));
+    assertThat(STUB.docs).isEmpty();
+    // the limit counts code points: an astral character is one, not two
+    mvc.perform(post("/v1/find/text").contentType(new MediaType(MediaType.TEXT_PLAIN, StandardCharsets.UTF_8))
+        .content("\uD83D\uDC1B".repeat(LIMIT).getBytes(StandardCharsets.UTF_8))).andExpect(status().isOk());
+  }
+
+  private static String document(String... blocks) {
+    return "{\"document\":{\"id\":\"d\",\"blocks\":[" + String.join(",", blocks) + "]}}";
+  }
+
+  private static String block(String id, String text, String styles) {
+    return "{\"id\":" + (id == null ? "null" : "\"" + id + "\"") + ",\"type\":\"PARAGRAPH\",\"level\":0,\"text\":"
+        + (text == null ? "null" : "\"" + text + "\"") + ",\"styles\":[" + styles + "],\"sectionPath\":[]}";
+  }
+
+  @Test
+  void aBlockAboveTheLimitIs413() throws Exception {
+    mvc.perform(post("/v1/find").contentType(MediaType.APPLICATION_JSON)
+            .content(document(block("b1", "short", ""), block("b2", "a".repeat(LIMIT + 1), ""))))
+        .andExpect(status().isPayloadTooLarge()).andExpect(jsonPath("$.status").value(413))
+        .andExpect(jsonPath("$.error").value(org.hamcrest.Matchers.containsString("b2")));
+    assertThat(STUB.docs).isEmpty();
+    mvc.perform(post("/v1/find").contentType(MediaType.APPLICATION_JSON).content(document(block("b1", "a".repeat(LIMIT), ""))))
+        .andExpect(status().isOk());
+  }
+
+  static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> invalidDocuments() {
+    String italic = "\"style\":\"ITALIC\"";
+    return java.util.stream.Stream.of(
+        org.junit.jupiter.params.provider.Arguments.of("duplicate block id", document(block("b1", "a", ""), block("b1", "b", "")), "b1"),
+        org.junit.jupiter.params.provider.Arguments.of("no block id", document(block(null, "a", "")), "id"),
+        org.junit.jupiter.params.provider.Arguments.of("null text", document(block("b1", null, "")), "b1"),
+        org.junit.jupiter.params.provider.Arguments.of("span past the end", document(block("b1", "abc", "{\"start\":1,\"end\":4," + italic + "}")), "b1"),
+        org.junit.jupiter.params.provider.Arguments.of("negative start", document(block("b1", "abc", "{\"start\":-1,\"end\":2," + italic + "}")), "b1"),
+        org.junit.jupiter.params.provider.Arguments.of("start after end", document(block("b1", "abc", "{\"start\":2,\"end\":1," + italic + "}")), "b1"),
+        // code points: the emoji is one, so [0, 2) is inside "🐛a" while [0, 3) is not
+        org.junit.jupiter.params.provider.Arguments.of("span past the end in code points",
+            document(block("b1", "\uD83D\uDC1Ba", "{\"start\":0,\"end\":3," + italic + "}")), "b1"));
+  }
+
+  @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
+  @org.junit.jupiter.params.provider.MethodSource("invalidDocuments")
+  void invalidDocumentsAre400(String label, String body, String mentioned) throws Exception {
+    mvc.perform(post("/v1/find").contentType(MediaType.APPLICATION_JSON).content(body.getBytes(StandardCharsets.UTF_8)))
+        .andExpect(status().isBadRequest()).andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.status").value(400))
+        .andExpect(jsonPath("$.error").value(org.hamcrest.Matchers.containsString(mentioned)));
+    assertThat(STUB.docs).isEmpty();
+  }
+
+  @Test
+  void validSpansAreAccepted() throws Exception {
+    String body = document(block("b1", "\uD83D\uDC1Ba", "{\"start\":0,\"end\":2,\"style\":\"ITALIC\"},{\"start\":2,\"end\":2,\"style\":\"BOLD\"}"));
+    mvc.perform(post("/v1/find").contentType(MediaType.APPLICATION_JSON).content(body.getBytes(StandardCharsets.UTF_8)))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  void theServiceBindsToLoopbackByDefault() throws Exception {
+    java.util.Map<String, Object> yml;
+    try (var in = getClass().getResourceAsStream("/application.yml")) {
+      yml = new org.yaml.snakeyaml.Yaml().load(in);
+    }
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, Object> server = (java.util.Map<String, Object>) yml.get("server");
+    assertThat(server.get("address")).isEqualTo("${FINDER_SERVICE_ADDRESS:127.0.0.1}");
+  }
+
   @Test
   void infoReturnsTheFinderInfo() throws Exception {
     MvcResult r = mvc.perform(get("/v1/info")).andExpect(status().isOk()).andReturn();

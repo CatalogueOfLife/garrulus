@@ -6,7 +6,8 @@ spring:
 
 server:
   port: ${FINDER_SERVICE_PORT:8095}
-  address: 0.0.0.0
+  # loopback only by default; FINDER_SERVICE_ADDRESS=0.0.0.0 to serve other hosts
+  address: ${FINDER_SERVICE_ADDRESS:127.0.0.1}
 
 management:
   endpoints:

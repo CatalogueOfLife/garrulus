@@ -1,7 +1,6 @@
 package org.catalogueoflife.nametracker.finder.pipeline;
 
 import org.catalogueoflife.nametracker.finder.api.Block;
-import org.catalogueoflife.nametracker.finder.api.CodePoints;
 import org.gbif.nameparser.api.NameParser;
 import org.gbif.nameparser.api.ParsedName;
 import org.gbif.nameparser.api.Rank;
@@ -70,16 +69,25 @@ public class AuthorshipAttacher {
   }
 
   public MergedCandidate attach(MergedCandidate c, Block block) {
-    MergedCandidate q = qualify(c, block);
+    return attach(c, block.text().codePoints().toArray());
+  }
+
+  /**
+   * @param blockCodePoints the code points of the candidate's block text, computed once per block by the caller, so that a
+   *                        block with many candidates is not scanned again for each of them
+   */
+  public MergedCandidate attach(MergedCandidate c, int[] blockCodePoints) {
+    String tail = tail(c, blockCodePoints);
+    MergedCandidate q = qualify(c, tail);
     // a qualifier found after the span ("Carabus sp.") sits where an authorship would be
     boolean tailQualifier = q.qualifier() != null && c.qualifier() == null && q.name().equals(c.name())
         && java.util.Arrays.stream(c.verbatim().split("\\s+")).noneMatch(t -> QUALIFIERS.contains(t.toLowerCase()));
-    return tailQualifier ? q : withAuthorship(q, block);
+    return tailQualifier ? q : withAuthorship(q, tail);
   }
 
   // ---- qualifiers
 
-  private MergedCandidate qualify(MergedCandidate c, Block block) {
+  private MergedCandidate qualify(MergedCandidate c, String tail) {
     String[] tokens = c.name().split("\\s+");
     String[] vtokens = c.verbatim().split("\\s+");
     String found = null;
@@ -100,7 +108,6 @@ public class AuthorshipAttacher {
       return c.withQualifier(String.join(" ", keep), found);
     }
     // outside the span: "sp." / "spp." after a lone genus, "s.l." / "s.str." after any name
-    String tail = tail(c, block);
     Matcher m = TAIL_QUALIFIER.matcher(tail);
     if (m.find()) {
       String qual = m.group(1).toLowerCase();
@@ -119,8 +126,7 @@ public class AuthorshipAttacher {
 
   // ---- authorship
 
-  private MergedCandidate withAuthorship(MergedCandidate c, Block block) {
-    String tail = tail(c, block);
+  private MergedCandidate withAuthorship(MergedCandidate c, String tail) {
     Matcher ws = LEADING_WS.matcher(tail);
     if (!ws.find()) return c;
     String rest = tail.substring(ws.end());
@@ -161,9 +167,9 @@ public class AuthorshipAttacher {
     return s.replaceAll("\\s+", "");
   }
 
-  private static String tail(MergedCandidate c, Block block) {
-    int len = CodePoints.length(block.text());
-    if (c.end() >= len) return "";
-    return CodePoints.slice(block.text(), c.end(), Math.min(len, c.end() + LOOKAHEAD));
+  /** The up to {@link #LOOKAHEAD} code points after the span. */
+  private static String tail(MergedCandidate c, int[] cps) {
+    if (c.end() >= cps.length) return "";
+    return new String(cps, c.end(), Math.min(cps.length, c.end() + LOOKAHEAD) - c.end());
   }
 }

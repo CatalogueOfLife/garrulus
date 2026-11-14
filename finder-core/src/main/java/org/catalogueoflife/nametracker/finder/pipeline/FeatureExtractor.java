@@ -11,7 +11,8 @@ import java.util.Set;
 
 /**
  * Computes the {@link CandidateFeatures} of parsed candidates. An instance holds what is shared by all candidates of one
- * document (block lookup, name density); it is immutable, so create one per document and call.
+ * document (block lookup, the code points of each block, name density), so the cost per candidate does not grow with the
+ * block length; it is immutable, so create one per document and call.
  *
  * <p>Feature definitions:
  * <ul>
@@ -52,17 +53,22 @@ public final class FeatureExtractor {
       (int) '‘', (int) '«', (int) '„');
 
   private final Map<String, Block> blocks;
+  private final Map<String, int[]> codePoints;
   private final double density;
 
   /** @param namesInDoc the number of names in the document, used for {@code docNameDensity} */
   public FeatureExtractor(Document doc, int namesInDoc) {
     Map<String, Block> byId = new HashMap<>();
+    Map<String, int[]> cps = new HashMap<>();
     long tokens = 0;
     for (Block b : doc.blocks()) {
-      byId.putIfAbsent(b.id(), b);
-      tokens += Tokenizer.tokens(b.text()).size();
+      // once per block: the features of every candidate of the block look at these code points
+      int[] c = b.text().codePoints().toArray();
+      if (byId.putIfAbsent(b.id(), b) == null) cps.put(b.id(), c);
+      tokens += Tokenizer.tokens(c).size();
     }
     this.blocks = byId;
+    this.codePoints = cps;
     this.density = tokens == 0 ? 0 : 100.0 * namesInDoc / tokens;
   }
 
@@ -76,7 +82,7 @@ public final class FeatureExtractor {
     MergedCandidate c = p.c();
     Block b = blocks.get(c.blockId());
     if (b == null) throw new IllegalArgumentException("Candidate refers to unknown block " + c.blockId());
-    int[] cps = b.text().codePoints().toArray();
+    int[] cps = codePoints.get(b.id());
     Map<String, Object> f = c.features();
     Set<Generator> gens = c.generators();
     Double odds = f.get("oddsLog10") instanceof Number n ? n.doubleValue() : null;

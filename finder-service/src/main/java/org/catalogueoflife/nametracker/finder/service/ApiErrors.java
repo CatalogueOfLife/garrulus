@@ -53,6 +53,11 @@ public class ApiErrors {
     return reply(HttpStatus.BAD_REQUEST, "Cannot read the request body: " + root(e));
   }
 
+  @ExceptionHandler(TooLarge.class)
+  ResponseEntity<Map<String, Object>> tooLarge(TooLarge e) {
+    return reply(HttpStatus.PAYLOAD_TOO_LARGE, e.getMessage());
+  }
+
   @ExceptionHandler(FinderWebConfig.BodyTooLargeException.class)
   ResponseEntity<Map<String, Object>> tooLarge(FinderWebConfig.BodyTooLargeException e) {
     return reply(HttpStatus.PAYLOAD_TOO_LARGE, e.getMessage());
@@ -95,6 +100,13 @@ public class ApiErrors {
   static final class BadRequest extends RuntimeException {
     BadRequest(String message, Throwable cause) {
       super(message, cause);
+    }
+  }
+
+  /** A text or block longer than the finder takes in one piece: 413. */
+  static final class TooLarge extends RuntimeException {
+    TooLarge(String message) {
+      super(message);
     }
   }
 }

@@ -13,6 +13,11 @@ paths:
   /v1/find:
     post:
       operationId: find
+      description: |
+        Finds the names in a document. Block ids must be unique, every block needs a type and a text, and every style
+        span must lie inside its block (`0 <= start <= end <= ` the code-point length of the text); otherwise 400.
+        No block may be longer than the finder takes in one piece (finder-service: the pipeline's `maxChunkCodePoints`,
+        100,000 code points by default); otherwise 413. Split long texts into several blocks, e.g. paragraphs.
       requestBody:
         required: true
         content:
@@ -37,7 +42,8 @@ paths:
       operationId: findText
       description: |
         Convenience form of /v1/find for plain text. The text becomes the single PARAGRAPH block `b1` of a document
-        with id `text`; mention offsets are code points into that text. Default options.
+        with id `text`; mention offsets are code points into that text. Default options. A text longer than one block
+        may be (see /v1/find) is a 413: send it as several blocks via /v1/find instead.
       parameters:
         - name: language
           in: query
@@ -63,7 +69,8 @@ paths:
       description: |
         Convenience form of /v1/find for a JATS or TaxPub article (UTF-8 or another ASCII-compatible encoding). The
         server converts it into a document with id `jats`, keeping italics and TaxPub name markup as style spans; mention
-        block ids refer to that converted document. Default options.
+        block ids refer to that converted document. Default options. Malformed XML is a 400; DTDs and external entities
+        are never loaded. A converted block longer than one block may be (see /v1/find) is a 413.
       requestBody:
         required: true
         content:
@@ -102,12 +109,16 @@ paths:
 components:
   responses:
     BadRequest:
-      description: The request cannot be read (malformed JSON or XML, no document)
+      description: |
+        The request cannot be read (malformed JSON or XML, no document) or the document is invalid (duplicate or
+        missing block ids, a block without type or text, a style span outside its block or with start > end)
       content:
         application/json:
           schema: {$ref: '#/components/schemas/Error'}
     TooLarge:
-      description: The request body is larger than the service allows (20 MB for finder-service)
+      description: |
+        The request body is larger than the service allows (20 MB for finder-service), or a text or block is longer than
+        the finder takes in one piece (finder-service: 100,000 code points); the error says which
       content:
         application/json:
           schema: {$ref: '#/components/schemas/Error'}

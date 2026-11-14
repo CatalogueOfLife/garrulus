@@ -40,6 +40,9 @@ cd frontend && npm run dev | npm test | npm run build   # Vite on 5173, proxies 
   `NAMETRACKER_INDEXER_MAX_ATTEMPTS`, `NAMETRACKER_INDEXER_BACKOFF`, `NAMETRACKER_INDEXER_STALE_AFTER` (1h),
   `NAMETRACKER_INDEXER_REQUEUE_INTERVAL` (10m), `NAMETRACKER_INDEXER_HEARTBEAT_INTERVAL` (2m). Task delivery is
   at-least-once, so handlers must be idempotent.
+- `finder-service`: `FINDER_DICTIONARY` (required), `GNFINDER_URL`, `FINDER_CONFIG` (a JSON file of pipeline overrides),
+  `FINDER_SERVICE_PORT` (8095) and `FINDER_SERVICE_ADDRESS` (default `127.0.0.1`, loopback only; `0.0.0.0` to serve
+  other hosts). A text or block over 100,000 code points (`maxChunkCodePoints`) is a 413; invalid documents are a 400.
 - Both apps also read a local `.env` (git-ignored, see `.env.example`) from the working or the parent directory.
 - Port clash (for example a CLB `WsMatchingServer` on 8080 or 8081): `SERVER_PORT=9080 mvn -pl web spring-boot:run`.
 
