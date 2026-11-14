@@ -119,7 +119,7 @@ public class PipelineNameFinder implements NameFinder {
     if (on.contains(Generator.DICTIONARY)) gens.add(new Gen(new DictionaryGenerator(dict), EnumSet.of(Generator.DICTIONARY)));
     if (on.contains(Generator.SUFFIX)) gens.add(new Gen(new SuffixRuleGenerator(common), EnumSet.of(Generator.SUFFIX)));
     if (on.contains(Generator.ITALIC) || on.contains(Generator.TAXON_MARKUP)) {
-      gens.add(new Gen(new MarkupGenerator(), EnumSet.of(Generator.ITALIC, Generator.TAXON_MARKUP)));
+      gens.add(new Gen(new MarkupGenerator(dict), EnumSet.of(Generator.ITALIC, Generator.TAXON_MARKUP)));
     }
     this.generators = List.copyOf(gens);
     this.authorship = new AuthorshipAttacher(parser);

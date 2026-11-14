@@ -129,6 +129,19 @@ class DictionaryGeneratorTest {
   }
 
   @Test
+  void higherTaxonInParenthesesIsNoSubgenus() throws Exception {
+    // dev: "Luperomorpha (Chrysomelidae)", "Mentha (Lamiaceae)", "Zoraptera (Insecta)", "Russia (G)", "Anchieta (PACA)"
+    assertThat(run("Carabus (Carabidae) are beetles")).extracting(Candidate::verbatim).containsExactly("Carabus", "Carabidae");
+    assertThat(run("Carabus (Coleoptera) nigrus")).extracting(Candidate::verbatim).startsWith("Carabus", "Coleoptera");
+    String rows = "1\tgenus\tZoraptera\t\t\t\n2\tclass\tInsecta\t\t\t\n3\tgenus\tRussia\t\t\t\n";
+    assertThat(runWith(rows, "Zoraptera (Insecta) of Singapore")).extracting(Candidate::verbatim).containsExactly("Zoraptera", "Insecta");
+    assertThat(runWith(rows, "Russia (G) and Russia (PACA)")).extracting(Candidate::verbatim).containsExactly("Russia", "Russia");
+    // real subgenera stay
+    assertThat(run("Carabus (Tachypus) and Carabus (Megodontus) nigrus")).extracting(Candidate::verbatim)
+        .containsExactly("Carabus (Tachypus)", "Carabus (Megodontus) nigrus");
+  }
+
+  @Test
   void parenthesisedWordIsNotASubgenus() {
     assertThat(run("Carabus nigrus (see below)").get(0).verbatim()).isEqualTo("Carabus nigrus");
     assertThat(run("Carabus (see below)").get(0).verbatim()).isEqualTo("Carabus");

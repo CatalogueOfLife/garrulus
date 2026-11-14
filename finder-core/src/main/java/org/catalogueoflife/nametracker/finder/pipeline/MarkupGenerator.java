@@ -5,6 +5,7 @@ import org.catalogueoflife.nametracker.finder.api.Document;
 import org.catalogueoflife.nametracker.finder.api.Generator;
 import org.catalogueoflife.nametracker.finder.api.Style;
 import org.catalogueoflife.nametracker.finder.api.StyleSpan;
+import org.catalogueoflife.nametracker.finder.dict.ColDictionary;
 import org.catalogueoflife.nametracker.finder.doc.FlatText;
 import org.catalogueoflife.nametracker.finder.pipeline.Tokenizer.Token;
 
@@ -12,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.IntPredicate;
+import java.util.function.Predicate;
 
 /**
  * Candidates from document markup. Inside each ITALIC span the maximal runs of name-shaped tokens become candidates
@@ -20,6 +22,13 @@ import java.util.function.IntPredicate;
  * span exactly (generator TAXON_MARKUP).
  */
 public class MarkupGenerator implements CandidateGenerator {
+  private final ColDictionary dict;
+
+  /** @param dict tells subgenera from higher taxa in parentheses, see {@link NameShape#subgenusRule} */
+  public MarkupGenerator(ColDictionary dict) {
+    this.dict = dict;
+  }
+
   /** The generator id of the italic candidates. TAXON_MARKUP candidates are emitted too. */
   @Override
   public Generator id() {
@@ -29,6 +38,7 @@ public class MarkupGenerator implements CandidateGenerator {
   @Override
   public List<Candidate> generate(Document doc, FlatText flat, GenerationContext ctx) {
     List<Candidate> out = new ArrayList<>();
+    Predicate<String> subgenus = NameShape.subgenusRule(dict, ctx == null ? null : ctx.codeHint());
     for (Block b : doc.blocks()) {
       int[] cps = b.text().codePoints().toArray();
       List<StyleSpan> spans = mergeItalics(b.styles(), cps);
@@ -42,7 +52,7 @@ public class MarkupGenerator implements CandidateGenerator {
           if (!v.isBlank()) out.add(new Candidate(b.id(), from, to, v, NameShape.collapse(v.strip()), Generator.TAXON_MARKUP, Map.of()));
         } else if (s.style() == Style.ITALIC) {
           if (markers == null) markers = NameShape.actMarkerStarts(cps); // on the whole block: a marker may run past the italics
-          italic(b, cps, from, to, markers, out);
+          italic(b, cps, from, to, subgenus, markers, out);
         }
       }
     }
@@ -79,10 +89,11 @@ public class MarkupGenerator implements CandidateGenerator {
     return true;
   }
 
-  private static void italic(Block b, int[] full, int from, int to, IntPredicate markers, List<Candidate> out) {
+  private static void italic(Block b, int[] full, int from, int to, Predicate<String> subgenus, IntPredicate markers,
+                             List<Candidate> out) {
     int[] cps = java.util.Arrays.copyOfRange(full, from, to);
     List<Token> toks = Tokenizer.tokens(cps);
-    NameShape.Rules rules = new NameShape.Rules(x -> x.length() >= 3, k -> markers.test(from + k));
+    NameShape.Rules rules = new NameShape.Rules(x -> x.length() >= 3, subgenus, k -> markers.test(from + k));
     int i = 0;
     while (i < toks.size()) {
       Token t = toks.get(i);

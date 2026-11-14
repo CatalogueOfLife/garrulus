@@ -1,12 +1,17 @@
 package org.catalogueoflife.nametracker.finder.pipeline;
 
+import org.catalogueoflife.nametracker.finder.dict.ColDictionary;
 import org.catalogueoflife.nametracker.finder.pipeline.Tokenizer.Token;
+import org.gbif.nameparser.api.NomCode;
+import org.gbif.nameparser.api.Rank;
+import org.jspecify.annotations.Nullable;
 
 import java.util.BitSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.IntPredicate;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
 
 /** Shared shape rules for the generators that follow a name over several tokens. */
 final class NameShape {
@@ -29,10 +34,24 @@ final class NameShape {
    * What may continue a name.
    *
    * @param epithet which lower-case words count as bare epithets; the one after a rank marker is always taken
+   * @param subgenus which capitalised words in parentheses count as a subgenus, see {@link #subgenusRule}
    * @param markerAt whether a nomenclatural act marker ("gen. nov.", "comb. n.") starts at a code-point offset of the
    *                 token array; a token there is never an epithet, whatever the dictionary says
    */
-  record Rules(Predicate<String> epithet, IntPredicate markerAt) {}
+  record Rules(Predicate<String> epithet, Predicate<String> subgenus, IntPredicate markerAt) {}
+
+  private static final Pattern SUBGENUS_SHAPE = Pattern.compile("\\p{Lu}\\p{Ll}+");
+
+  /**
+   * A subgenus is a capital plus lower-case letters ("Megodontus"; not "G", "PACA", "GoC") and never a family-group or
+   * higher name: neither a dictionary uninomial above genus ("Insecta", "Coleoptera") nor a word with a suprageneric
+   * rank suffix ("Carabidae", "Lamiaceae"). "Zoraptera (Insecta)" is a genus followed by its class.
+   */
+  static Predicate<String> subgenusRule(@Nullable ColDictionary dict, @Nullable NomCode code) {
+    return w -> SUBGENUS_SHAPE.matcher(w).matches()
+        && !(dict != null && dict.uninomialRank(w).map(Rank::isSuprageneric).orElse(false))
+        && !SuffixRules.rankFor(w, code).map(Rank::isSuprageneric).orElse(false);
+  }
 
   /** Code-point offsets of {@code cps} at which an act marker of {@link ActPatterns} starts. */
   static IntPredicate actMarkerStarts(int[] cps) {
@@ -86,7 +105,7 @@ final class NameShape {
     if (!isAbbreviation(toks.get(i).text()) && k + 1 < n) {
       Token t = toks.get(k + 1);
       if (isCapitalised(t.text()) && !isAbbreviation(t.text()) && openGap(cps, end, t.start())
-          && t.end() < cps.length && cps[t.end()] == ')') {
+          && t.end() < cps.length && cps[t.end()] == ')' && rules.subgenus().test(t.text())) {
         sub = true;
         k++;
         end = t.end() + 1;

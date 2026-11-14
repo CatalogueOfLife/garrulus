@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 /**
  * Candidates from the COL dictionary. A candidate only starts at a capitalised token that is a known genus or uninomial
@@ -38,14 +39,15 @@ public class DictionaryGenerator implements CandidateGenerator {
   @Override
   public List<Candidate> generate(Document doc, FlatText flat, GenerationContext ctx) {
     List<Candidate> out = new ArrayList<>();
-    for (Block b : doc.blocks()) scan(b, out);
+    Predicate<String> subgenus = NameShape.subgenusRule(dict, ctx == null ? null : ctx.codeHint());
+    for (Block b : doc.blocks()) scan(b, subgenus, out);
     return out;
   }
 
-  private void scan(Block b, List<Candidate> out) {
+  private void scan(Block b, Predicate<String> subgenus, List<Candidate> out) {
     int[] cps = b.text().codePoints().toArray();
     List<Token> toks = Tokenizer.tokens(cps);
-    NameShape.Rules rules = new NameShape.Rules(dict::isEpithet, NameShape.actMarkerStarts(cps));
+    NameShape.Rules rules = new NameShape.Rules(dict::isEpithet, subgenus, NameShape.actMarkerStarts(cps));
     int i = 0;
     while (i < toks.size()) {
       Token t = toks.get(i);

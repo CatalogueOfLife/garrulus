@@ -7,17 +7,34 @@ import org.catalogueoflife.nametracker.finder.api.Document;
 import org.catalogueoflife.nametracker.finder.api.Generator;
 import org.catalogueoflife.nametracker.finder.api.Style;
 import org.catalogueoflife.nametracker.finder.api.StyleSpan;
+import org.catalogueoflife.nametracker.finder.dict.ColDictionary;
+import org.catalogueoflife.nametracker.finder.dict.ColDictionaryBuilder;
+import org.catalogueoflife.nametracker.finder.dict.CommonWords;
 import org.catalogueoflife.nametracker.finder.doc.FlatText;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class MarkupGeneratorTest {
+  static ColDictionary dict;
+
+  @BeforeAll
+  static void load() throws Exception {
+    try (Reader r = new InputStreamReader(MarkupGeneratorTest.class.getResourceAsStream("/dict/NameUsage-sample.tsv"), StandardCharsets.UTF_8)) {
+      dict = ColDictionaryBuilder.fromNameUsageTsv(r, "9999", CommonWords.of(Set.of()));
+    }
+  }
+
   private static List<Candidate> run(String text, StyleSpan... spans) {
     Document d = new Document("d", null, List.of(new Block("b1", BlockType.PARAGRAPH, 0, text, List.of(spans), List.of())), null);
-    return new MarkupGenerator().generate(d, FlatText.of(d), new GenerationContext(null));
+    return new MarkupGenerator(dict).generate(d, FlatText.of(d), new GenerationContext(null));
   }
 
   private static StyleSpan span(String text, String sub, Style st) {
@@ -88,6 +105,16 @@ class MarkupGeneratorTest {
     assertThat(run(t, span(t, "Serralanguria gen.", Style.ITALIC))).extracting(Candidate::verbatim).containsExactly("Serralanguria");
     String t2 = "Serralanguria sinensis gen. et sp. nov.";
     assertThat(run(t2, span(t2, t2, Style.ITALIC))).extracting(Candidate::verbatim).containsExactly("Serralanguria sinensis");
+  }
+
+  @Test
+  void familyInParenthesesIsNoSubgenus() {
+    // dev: "Luperomorpha (Chrysomelidae)" in italics; Coleoptera is an order in the dictionary
+    String t = "Carabus (Carabidae) and Carabus (Coleoptera) nigrus";
+    assertThat(run(t, span(t, t, Style.ITALIC))).extracting(Candidate::verbatim)
+        .containsExactly("Carabus", "Carabidae", "Carabus", "Coleoptera");
+    String t2 = "Carabus (Megodontus) nigrus";
+    assertThat(run(t2, span(t2, t2, Style.ITALIC))).extracting(Candidate::verbatim).containsExactly(t2);
   }
 
   @Test
