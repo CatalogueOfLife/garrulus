@@ -13,7 +13,41 @@ notifies users who follow taxa, journals or names. It also builds a public nameâ
   new ones.
 
 **Status:** design approved 2026-11-14; implementation starts with milestones M0 (foundations) and M1 (finder v1).
-Commands and module details get filled in here as M0 lands.
+
+## Commands
+
+Prerequisites: `sdk env` (JDK 25 from `.sdkmanrc`), Docker (OrbStack works), Node 24 for the frontend.
+
+```
+docker compose up -d db gnfinder                    # db 5434, gnfinder 8778 (add --profile grobid / annotate for 8070 / 8090)
+mvn -B verify                                       # all unit tests and ITs (ITs use Testcontainers)
+mvn -B -pl <module> -am verify -Dit.test=<Class>    # one IT
+mvn -B -DskipTests install                          # once after changing store: -pl resolves siblings from ~/.m2
+mvn -pl indexer spring-boot:run                     # indexer on 8081 (127.0.0.1)
+mvn -pl web spring-boot:run                         # web on 8080
+cd frontend && npm install                          # once
+cd frontend && npm run dev | npm test | npm run build   # Vite on 5173, proxies /api to 8080
+```
+
+**Configuration** (environment variables; defaults in each `application.yml`):
+- Both apps: `NAMETRACKER_DB_URL` (default `jdbc:postgresql://localhost:5434/nametracker`), `NAMETRACKER_DB_USER` and
+  `NAMETRACKER_DB_PASSWORD` (both default `nametracker`).
+- `web`: `ADMIN_TOKEN` enables `POST /api/admin/tasks` (send it in the `X-Admin-Token` header). If blank, the endpoint
+  returns 404.
+- `indexer`: `NAMETRACKER_INDEXER_PORT` (8081), `NAMETRACKER_INDEXER_WORKERS`, `NAMETRACKER_INDEXER_POLL_INTERVAL`,
+  `NAMETRACKER_INDEXER_MAX_ATTEMPTS`, `NAMETRACKER_INDEXER_BACKOFF`.
+- Port clash (for example a CLB `WsMatchingServer` on 8080 or 8081): `SERVER_PORT=9080 mvn -pl web spring-boot:run`.
+
+## Modules
+
+- `finder-api`: `NameFinder` SPI and its JSON contract (empty, M1).
+- `finder-core`: our own finder stages (empty, M1).
+- `finder-service`: gnfinder adapter and finder orchestration (empty, M1).
+- `store`: the shared schema, Flyway migrations and MyBatis mappers; used by both apps.
+- `indexer`: the worker app for harvesting, analysis and matching; port 8081, bound to 127.0.0.1.
+- `web`: the user-facing read app and the admin task endpoint; port 8080.
+- `eval`: evaluation harness for the finder (empty, M1).
+- `frontend`: Vite, React and Mantine SPA (not a Maven module).
 
 ## Read first
 
