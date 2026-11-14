@@ -28,12 +28,31 @@ Observed while building the pipeline (Task 7 onwards):
   `tp:taxon-status`. gnfinder's `annotationNomen` is not used.
 - De-hyphenation runs **before** gnfinder. `TeiConverter` joins with the COL dictionary on raw block text (Ruling M).
   Converters map a `<break/>` to a space.
-- The `GnfinderGenerator` trims punctuation from verbatims, keeps a matched closing parenthesis (subgenus), and maps ␤
-  back to a line break. The `EpithetGuard` cuts over-long gnfinder spans. Our name is built from the verbatim span, so
-  "Genus (Subgenus) species" keeps its subgenus.
+- The `GnfinderGenerator` trims punctuation from verbatims and keeps a matched closing parenthesis (subgenus). The
+  mention's verbatim and offsets therefore cover all of "Carabus (Megodontus) violaceus". When it checks gnfinder's
+  verbatim against the text, it maps ␤ back to a line break. The `EpithetGuard` cuts over-long gnfinder spans.
+- The mention **name** is gnfinder's name whenever gnfinder saw exactly that span, so the subgenus is dropped. The path:
+  1. `GnfinderGenerator` stores `GnName.name()` ("Carabus violaceus") as the candidate name.
+  2. `EpithetGuard` leaves that name alone unless it cuts the span. When it cuts, it shortens gnfinder's name, or falls
+     back to the collapsed verbatim if the tokens differ.
+  3. `CandidateMerger` takes the name of the exact-span candidate whose generator comes first in `Generator`, and
+     GNFINDER comes first. This holds even over a publisher `TAXON_MARKUP` tag on the same span.
+  4. `AbbreviationExpander` only replaces an abbreviated genus.
+  5. `PipelineNameFinder` uses the result as `Mention.name`.
+
+  A span gnfinder did not see exactly keeps its subgenus in the name, because the dictionary, italic and markup
+  generators name a span by its collapsed verbatim.
 
 ## Consequences
 
 - No call to `verifier.globalnames.org`; the finder works offline apart from the local gnfinder container.
 - Abbreviation, act and hyphenation behaviour is ours to test and tune. The eval reports measure acts separately.
 - A gnfinder upgrade has to be re-checked against these observations. The ITs pin the hyphenation and offset behaviour.
+- **Known gap: subgenus in names.** A name gnfinder saw comes out without its subgenus ("Carabus depressus" for
+  "Carabus (Platycarabus) depressus", see the 2026-11-14 spot-check). The Pensoft gold names keep it
+  ("Genus (Subgenus) species").
+  - Span scoring (STRICT and OVERLAP) compares offsets and is not affected.
+  - Name-based scoring counts every such name as one miss plus one false hit: document-level runs (all of mode B) and
+    the main-subject metric.
+  - Fixing it means building the name from the verbatim, or putting the subgenus back into gnfinder's name. That is a
+    behaviour change and needs the reports re-run.
