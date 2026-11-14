@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: garrulus-web
+  datasource:
+    url: ${NAMETRACKER_DB_URL:jdbc:postgresql://localhost:5432/nametracker}
+    username: ${NAMETRACKER_DB_USER:nametracker}
+    password: ${NAMETRACKER_DB_PASSWORD:nametracker}
+  flyway:
+    # the indexer owns migrations; web only validates (see SchemaCheck)
+    enabled: false
+
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+nametracker:
+  admin:
+    # blank = the admin endpoint does not exist. Temporary until ORCID admin roles (M4).
+    token: ${ADMIN_TOKEN:}
