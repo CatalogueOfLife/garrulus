@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.nametracker.store.work.WorkMapper">
+
+  <resultMap id="result" type="org.catalogueoflife.nametracker.store.work.Work">
+    <constructor>
+      <idArg column="id" javaType="long"/>
+      <arg column="openalex_id" javaType="string"/>
+      <arg column="doi" javaType="string"/>
+      <arg column="source_id" javaType="long"/>
+      <arg column="title" javaType="string"/>
+      <arg column="publication_date" javaType="java.time.LocalDate"/>
+      <arg column="year" javaType="short"/>
+      <arg column="volume" javaType="string"/>
+      <arg column="issue" javaType="string"/>
+      <arg column="pages" javaType="string"/>
+      <arg column="authors" javaType="string" typeHandler="org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler"/>
+      <arg column="type" javaType="string"/>
+      <arg column="language" javaType="string"/>
+      <arg column="oa_status" javaType="string"/>
+      <arg column="license" javaType="string"/>
+      <arg column="best_oa_url" javaType="string"/>
+      <arg column="abstract" javaType="string"/>
+      <arg column="abstract_source" javaType="string"/>
+      <arg column="origin" javaType="string"/>
+      <arg column="state" javaType="string"/>
+      <arg column="text_level" javaType="string"/>
+      <arg column="codes" javaType="java.util.List" typeHandler="org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler"/>
+      <arg column="taxgroups" javaType="java.util.List" typeHandler="org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler"/>
+      <arg column="has_acts" javaType="boolean"/>
+      <arg column="first_seen_at" javaType="java.time.Instant"/>
+      <arg column="modified" javaType="java.time.Instant"/>
+    </constructor>
+  </resultMap>
+
+  <select id="insert" resultType="long" flushCache="true">
+    INSERT INTO work (openalex_id, doi, source_id, title, publication_date, year, volume, issue, pages, authors, type, language, oa_status, license, best_oa_url, abstract, abstract_source, origin, state, text_level, codes, taxgroups, has_acts)
+    VALUES (#{o.openalexId}, #{o.doi}, #{o.sourceId}, #{o.title}, #{o.publicationDate}, #{o.year}, #{o.volume}, #{o.issue}, #{o.pages}, #{o.authors, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, #{o.type}, #{o.language}, #{o.oaStatus}, #{o.license}, #{o.bestOaUrl}, #{o.abstractText}, #{o.abstractSource}, #{o.origin}, #{o.state}, #{o.textLevel}, #{o.codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, #{o.taxgroups, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, #{o.hasActs})
+    RETURNING id
+  </select>
+
+  <select id="get" resultMap="result">
+    SELECT * FROM work WHERE id = #{id}
+  </select>
+
+  <update id="update">
+    UPDATE work SET
+      openalex_id = #{o.openalexId},
+      doi = #{o.doi},
+      source_id = #{o.sourceId},
+      title = #{o.title},
+      publication_date = #{o.publicationDate},
+      year = #{o.year},
+      volume = #{o.volume},
+      issue = #{o.issue},
+      pages = #{o.pages},
+      authors = #{o.authors, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler},
+      type = #{o.type},
+      language = #{o.language},
+      oa_status = #{o.oaStatus},
+      license = #{o.license},
+      best_oa_url = #{o.bestOaUrl},
+      abstract = #{o.abstractText},
+      abstract_source = #{o.abstractSource},
+      origin = #{o.origin},
+      state = #{o.state},
+      text_level = #{o.textLevel},
+      codes = #{o.codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler},
+      taxgroups = #{o.taxgroups, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler},
+      has_acts = #{o.hasActs},
+      modified = now()
+    WHERE id = #{o.id}
+  </update>
+</mapper>

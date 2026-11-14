@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.nametracker.store.source.SourceMapper">
+
+  <resultMap id="result" type="org.catalogueoflife.nametracker.store.source.Source">
+    <constructor>
+      <idArg column="id" javaType="long"/>
+      <arg column="openalex_id" javaType="string"/>
+      <arg column="issn_l" javaType="string"/>
+      <arg column="issns" javaType="java.util.List" typeHandler="org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler"/>
+      <arg column="title" javaType="string"/>
+      <arg column="publisher" javaType="string"/>
+      <arg column="host" javaType="string"/>
+      <arg column="is_oa" javaType="boolean"/>
+      <arg column="in_doaj" javaType="boolean"/>
+      <arg column="tier" javaType="string"/>
+      <arg column="origin" javaType="string"/>
+      <arg column="adapter_config" javaType="string" typeHandler="org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler"/>
+      <arg column="active" javaType="boolean"/>
+      <arg column="subfields" javaType="java.util.List" typeHandler="org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler"/>
+      <arg column="primary_subfield" javaType="string"/>
+      <arg column="journal_type" javaType="string"/>
+      <arg column="taxgroups" javaType="java.util.List" typeHandler="org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler"/>
+      <arg column="taxgroup_shares" javaType="string" typeHandler="org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler"/>
+      <arg column="codes" javaType="java.util.List" typeHandler="org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler"/>
+      <arg column="oa_model" javaType="string"/>
+      <arg column="country" javaType="string"/>
+      <arg column="name_density" javaType="float"/>
+      <arg column="act_rate" javaType="float"/>
+      <arg column="works_per_year" javaType="int"/>
+      <arg column="last_harvested" javaType="java.time.Instant"/>
+      <arg column="created" javaType="java.time.Instant"/>
+      <arg column="modified" javaType="java.time.Instant"/>
+    </constructor>
+  </resultMap>
+
+  <select id="insert" resultType="long" flushCache="true">
+    INSERT INTO source (openalex_id, issn_l, issns, title, publisher, host, is_oa, in_doaj, tier, origin, adapter_config, active, subfields, primary_subfield, journal_type, taxgroups, taxgroup_shares, codes, oa_model, country, name_density, act_rate, works_per_year, last_harvested)
+    VALUES (#{o.openalexId}, #{o.issnL}, #{o.issns, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, #{o.title}, #{o.publisher}, #{o.host}, #{o.isOa}, #{o.inDoaj}, #{o.tier}, #{o.origin}, #{o.adapterConfig, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, #{o.active}, #{o.subfields, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, #{o.primarySubfield}, #{o.journalType}, #{o.taxgroups, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, #{o.taxgroupShares, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, #{o.codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, #{o.oaModel}, #{o.country}, #{o.nameDensity}, #{o.actRate}, #{o.worksPerYear}, #{o.lastHarvested})
+    RETURNING id
+  </select>
+
+  <select id="get" resultMap="result">
+    SELECT * FROM source WHERE id = #{id}
+  </select>
+
+  <update id="update">
+    UPDATE source SET
+      openalex_id = #{o.openalexId},
+      issn_l = #{o.issnL},
+      issns = #{o.issns, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler},
+      title = #{o.title},
+      publisher = #{o.publisher},
+      host = #{o.host},
+      is_oa = #{o.isOa},
+      in_doaj = #{o.inDoaj},
+      tier = #{o.tier},
+      origin = #{o.origin},
+      adapter_config = #{o.adapterConfig, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler},
+      active = #{o.active},
+      subfields = #{o.subfields, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler},
+      primary_subfield = #{o.primarySubfield},
+      journal_type = #{o.journalType},
+      taxgroups = #{o.taxgroups, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler},
+      taxgroup_shares = #{o.taxgroupShares, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler},
+      codes = #{o.codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler},
+      oa_model = #{o.oaModel},
+      country = #{o.country},
+      name_density = #{o.nameDensity},
+      act_rate = #{o.actRate},
+      works_per_year = #{o.worksPerYear},
+      last_harvested = #{o.lastHarvested},
+      modified = now()
+    WHERE id = #{o.id}
+  </update>
+</mapper>
