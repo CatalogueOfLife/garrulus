@@ -273,7 +273,7 @@ public class PipelineNameFinder implements NameFinder {
     List<MergedCandidate> merged = CandidateMerger.merge(cands, doc);
     List<MergedCandidate> attached = new ArrayList<>(merged.size());
     for (MergedCandidate m : merged) attached.add(authorship.attach(m, blocks.get(m.blockId())));
-    List<MergedCandidate> expanded = abbreviations.expand(attached);
+    List<MergedCandidate> expanded = abbreviations.expand(attached, doc);
     List<ParsedCandidate> parsed = new ArrayList<>(expanded.size());
     for (MergedCandidate m : expanded) parserStage.parse(m, o.codeHint()).ifPresent(parsed::add);
 
