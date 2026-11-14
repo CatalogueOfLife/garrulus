@@ -1,6 +1,7 @@
 package org.catalogueoflife.nametracker.finder.pipeline;
 
 import org.catalogueoflife.nametracker.finder.api.ActType;
+import org.catalogueoflife.nametracker.finder.api.CodePoints;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -57,5 +58,51 @@ class ActPatternsTest {
     assertThat(ActPatterns.classify("comb. et stat. nov.")).contains(ActType.COMB_NOV);
     assertThat(ActPatterns.classify("rediscovered")).isEmpty();
     assertThat(ActPatterns.classify(null)).isEmpty();
+  }
+
+  @Test
+  void everyMarkerInTheTableMatchesItsType() {
+    ActPatterns.markers().forEach((type, list) -> {
+      for (String marker : list) {
+        for (String variant : new String[] {marker, marker.toUpperCase(java.util.Locale.ROOT), marker.replace(".", "")}) {
+          var found = ActPatterns.find("Foo bar " + variant + " is");
+          assertThat(found).as(variant).hasSize(1);
+          assertThat(found.get(0).type()).as(variant).isEqualTo(type);
+          assertThat(found.get(0).marker()).isEqualToIgnoringCase(variant);
+        }
+      }
+    });
+  }
+
+  @Test
+  void accentedLetterAdjacentToMarkerBoundaryBlocksMatch() {
+    assertThat(types("Foo bar \u00e9sp. nov.")).isEmpty();
+    assertThat(types("Foo bar sp. nov\u00e9")).isEmpty();
+    assertThat(types("Foo bar nova esp\u00e9cie\u00e9")).isEmpty();
+    assertThat(types("Foo bar \u00e9nova esp\u00e9cie")).isEmpty();
+    assertThat(types("Foo bar (nova esp\u00e9cie)")).containsExactly(ActType.SP_NOV);
+  }
+
+  @Test
+  void compoundInRunningTextIsOneMatchCoveringTheWholeCompound() {
+    String text = "We describe Aus bus comb. et stat. nov. here";
+    var found = ActPatterns.find(text);
+    assertThat(found).hasSize(1);
+    assertThat(found.get(0).type()).isEqualTo(ActType.COMB_NOV);
+    assertThat(CodePoints.slice(text, found.get(0).start(), found.get(0).end())).isEqualTo("comb. et stat. nov.");
+    assertThat(ActPatterns.classify("comb. et stat. nov.")).contains(found.get(0).type());
+
+    var gs = ActPatterns.find("\ud83d\udc1b Foo bar gen. et sp. nov.");
+    assertThat(gs).hasSize(1);
+    assertThat(gs.get(0).type()).isEqualTo(ActType.SP_NOV);
+    assertThat(gs.get(0).start()).isEqualTo(10);
+    assertThat(gs.get(0).end()).isEqualTo(26);
+  }
+
+  @Test
+  void unrelatedCommaIsNotACompound() {
+    var found = ActPatterns.find("Foo bar, sp. nov.");
+    assertThat(found).hasSize(1);
+    assertThat(found.get(0).marker()).isEqualTo("sp. nov.");
   }
 }

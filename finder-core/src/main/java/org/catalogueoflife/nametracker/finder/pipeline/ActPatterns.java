@@ -43,15 +43,19 @@ public final class ActPatterns {
         "designated here as lectotype", "neotype designated here", "neotype here designated"));
   }
 
-  private record Entry(ActType type, String source, Pattern pattern) {}
+  /** The marker table, for tests. */
+  static Map<ActType, List<String>> markers() {
+    return java.util.Collections.unmodifiableMap(MARKERS);
+  }
+
+  private record Entry(ActType type, String source) {}
 
   private static final List<Entry> ENTRIES = new ArrayList<>();
   private static final Pattern ALL;
-  private static final Map<String, ActType> TYPE_BY_SOURCE = new java.util.HashMap<>();
 
   static {
     List<Entry> entries = new ArrayList<>();
-    MARKERS.forEach((type, list) -> list.forEach(m -> entries.add(new Entry(type, m, null))));
+    MARKERS.forEach((type, list) -> list.forEach(m -> entries.add(new Entry(type, m))));
     // longest marker first, so that the alternation prefers the longest match at a position
     entries.sort(Comparator.comparingInt((Entry e) -> e.source().length()).reversed());
     StringBuilder sb = new StringBuilder();
@@ -83,8 +87,37 @@ public final class ActPatterns {
     return sb.toString();
   }
 
-  /** All act markers in the text, in order of position, non overlapping, the longest marker winning. Offsets are code points. */
+  /**
+   * All act markers in the text, in order of position, non overlapping, the longest marker winning. Offsets are code
+   * points. A compound with a shared "nov." ("gen. et sp. nov.", "comb. et stat. nov.") is one match whose span covers
+   * the whole compound and whose type is the one {@link #classify} gives, the most specific act first.
+   */
   public static List<ActMatch> find(String blockText) {
+    List<int[]> compoundSpans = new ArrayList<>();
+    List<ActMatch> out = new ArrayList<>();
+    Matcher cm = SHARED_NOV.matcher(blockText);
+    while (cm.find()) {
+      String first = cm.group(1) + " nov.";
+      String second = cm.group(2) + " nov.";
+      List<ActMatch> a = findPlain(first);
+      List<ActMatch> b = findPlain(second);
+      // both halves must be markers on their own, and each must span the whole half ("x, sp. nov." must not qualify)
+      if (a.size() != 1 || b.size() != 1 || a.get(0).start() != 0 || b.get(0).start() != 0) continue;
+      ActType type = mostSpecific(List.of(a.get(0), b.get(0))).orElseThrow();
+      compoundSpans.add(new int[] {cm.start(), cm.end()});
+      out.add(new ActMatch(blockText.codePointCount(0, cm.start()), blockText.codePointCount(0, cm.end()), type, cm.group()));
+    }
+    for (ActMatch m : findPlain(blockText)) {
+      int cs = blockText.offsetByCodePoints(0, m.start());
+      int ce = blockText.offsetByCodePoints(0, m.end());
+      boolean overlaps = compoundSpans.stream().anyMatch(sp -> cs < sp[1] && ce > sp[0]);
+      if (!overlaps) out.add(m);
+    }
+    out.sort(Comparator.comparingInt(ActMatch::start));
+    return out;
+  }
+
+  private static List<ActMatch> findPlain(String blockText) {
     List<ActMatch> out = new ArrayList<>();
     Matcher m = ALL.matcher(blockText);
     while (m.find()) {
@@ -109,21 +142,22 @@ public final class ActPatterns {
       "(?<![\\p{L}])([\\p{L}]+\\.?)\\s*(?:et|&|and|und|y|,)\\s*([\\p{L}]+\\.?)\\s*(nov|n)(?![\\p{L}])\\.?",
       Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
-  /**
-   * Maps a whole status string (e.g. the text of TaxPub's tp:taxon-status) to one act type. Trailing punctuation is
-   * ignored. Compound statuses are expanded ("gen. et sp. nov." gives "gen. nov. et sp. nov.") and, when several acts
-   * remain, the most specific one wins: infraspecific, then species, subgenus, genus, family-group new taxa, then
-   * combination, replacement name, revived status, new status, synonymy and finally type designation. So "gen. nov. et
-   * sp. nov." is SP_NOV and "comb. et stat. nov." is COMB_NOV. Empty if no marker is found.
-   */
-  public static Optional<ActType> classify(String statusText) {
-    if (statusText == null) return Optional.empty();
-    String s = statusText.trim();
-    s = SHARED_NOV.matcher(s).replaceAll("$1 nov. et $2 nov.");
-    List<ActMatch> found = find(s);
+  private static Optional<ActType> mostSpecific(List<ActMatch> found) {
     for (ActType t : PRIORITY) {
       if (found.stream().anyMatch(a -> a.type() == t)) return Optional.of(t);
     }
     return Optional.empty();
+  }
+
+  /**
+   * Maps a whole status string (e.g. the text of TaxPub's tp:taxon-status) to one act type. Trailing punctuation is
+   * ignored. Compound statuses ("gen. et sp. nov.") share their "nov."; when several acts remain, the most specific one
+   * wins: infraspecific, then species, subgenus, genus, family-group new taxa, then combination, replacement name,
+   * revived status, new status, synonymy and finally type designation. So "gen. nov. et sp. nov." is SP_NOV and
+   * "comb. et stat. nov." is COMB_NOV. Empty if no marker is found.
+   */
+  public static Optional<ActType> classify(String statusText) {
+    if (statusText == null) return Optional.empty();
+    return mostSpecific(find(statusText.trim()));
   }
 }

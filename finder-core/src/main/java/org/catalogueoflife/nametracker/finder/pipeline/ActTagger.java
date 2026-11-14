@@ -57,9 +57,11 @@ public class ActTagger {
         if (block.type() == BlockType.HEADING && isWholeMarker(block.text(), m)) {
           if (bi > 0 && blocks.get(bi - 1).type() == BlockType.HEADING) {
             List<ParsedCandidate> prev = byBlock.getOrDefault(blocks.get(bi - 1).id(), List.of());
-            for (int i = prev.size() - 1; i >= 0 && target == null; i--) {
+            for (int i = prev.size() - 1; i >= 0; i--) {
               ParsedCandidate p = prev.get(i);
-              if (fits(m.type(), p) && !out.containsKey(p)) target = p;
+              if (!fits(m.type(), p)) continue;
+              if (!out.containsKey(p)) target = p; // the nearest fitting name, if free; no fallback to an earlier one
+              break;
             }
           }
         } else {
@@ -67,10 +69,10 @@ public class ActTagger {
           ParsedCandidate best = null;
           for (ParsedCandidate p : same) {
             if (p.c().end() > m.start() || m.start() - p.c().end() > maxDistance) continue;
-            if (!fits(m.type(), p) || out.containsKey(p)) continue;
+            if (!fits(m.type(), p)) continue;
             if (best == null || p.c().end() > best.c().end()) best = p;
           }
-          target = best;
+          if (best != null && !out.containsKey(best)) target = best; // nearest fitting name already taken: unattached
         }
         if (target == null) unattached++;
         else out.put(target, m);

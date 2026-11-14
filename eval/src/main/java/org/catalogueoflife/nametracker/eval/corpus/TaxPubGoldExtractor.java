@@ -77,7 +77,7 @@ public final class TaxPubGoldExtractor {
 
     List<GoldAct> acts = new ArrayList<>();
     for (StatusMarkup s : c.statusMarkup()) {
-      ActType type = s.status() == null ? null : ActPatterns.classify(s.status()).orElse(null);
+      ActType type = ActPatterns.classify(s.status()).orElse(null);
       GoldName n = byMarkup.get(s.taxonMarkupIndex());
       if (type == null || n == null || s.end() <= s.start()) continue;
       acts.add(new GoldAct(s.blockId(), s.start(), s.end(), type, n.text()));
