@@ -214,6 +214,17 @@ class JatsConverterTest {
     assertThat(m.parts()).containsExactly(new NamePart("genus", "Cocconeis", "Cocconeis"));
   }
 
+  @Test void lineBreakBecomesOneSpace() {
+    // bdj.13.e154073: a table cell lists "Anura<break/>Family Bufonidae"; without a space the words were glued together
+    Conversion c = convertXml("<article xmlns:tp=\"http://www.plazi.org/taxpub\"><body><table-wrap><table><tr><td>"
+      + "<tp:taxon-name><tp:taxon-name-part taxon-name-part-type=\"order\">Anura</tp:taxon-name-part></tp:taxon-name><break/>"
+      + "Family <tp:taxon-name><tp:taxon-name-part taxon-name-part-type=\"family\">Bufonidae</tp:taxon-name-part></tp:taxon-name>"
+      + "</td></tr><tr><td>a <break/> b<break/><break/>c<break/></td></tr></table></table-wrap></body></article>");
+    List<Block> cells = c.document().blocks();
+    assertThat(cells).extracting(Block::text).containsExactly("Anura Family Bufonidae", "a b c");
+    assertThat(c.taxonMarkup()).extracting(t -> slice(cells.get(0), t.start(), t.end())).containsExactly("Anura", "Bufonidae");
+  }
+
   @Test void entityLookalikeInCdataSurvives() {
     Conversion c = convertXml("<article><body><p>a <![CDATA[x &foo; y]]> b &nbsp; c</p></body></article>");
     assertThat(c.document().blocks().get(0).text()).isEqualTo("a x &foo; y b c");

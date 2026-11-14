@@ -166,6 +166,7 @@ public final class JatsConverter {
         case "p", "caption", "title" -> {
           if (!"title".equals(n) || text.length() > 0) addSpace();
         }
+        case "break" -> addSpace(); // a line break separates words like any other whitespace
         default -> { }
       }
     }
