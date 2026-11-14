@@ -14,6 +14,13 @@ import java.util.*;
  * Converts JATS / TaxPub article XML into a {@link Document}. Text is normalised per text node while it is appended, so
  * every offset (style spans, taxon and status markup) is a code point index into the final block text.
  * The parser never loads a DTD or external entity.
+ *
+ * <p>A tagged name is a word of its own. Publishers often write the elements around it without whitespace
+ * ({@code </tp:taxon-name><tp:taxon-status>sp. nov.}, {@code </tp:taxon-name></italic><bold>sp. nov.</bold>}, caption
+ * panel letters {@code <bold>A–F</bold><italic><tp:taxon-name>}), which would glue words ("baishamenensesp. nov.",
+ * "A–FAsarum"). So one space is inserted where a {@code tp:taxon-name} starts right after a letter or digit, where a
+ * letter or digit follows right after it ends, and where a {@code tp:taxon-status} starts right after a letter or digit.
+ * Style spans opened just before such a space start after it, so every span still covers exactly its text.
  */
 public final class JatsConverter {
   private static final Set<String> SECTIONS = Set.of("sec", "treatment-sec");
@@ -65,6 +72,7 @@ public final class JatsConverter {
     private StringBuilder partText;
     private int statusStart = -1;
     private int lastNameInNomenclature = -1;
+    private boolean nameJustEnded;                                    // a tp:taxon-name closed and no text followed yet
 
     private int skipDepth = -1;                                       // >=0: ignoring everything below this depth
     private StringBuilder doc;                                        // article doi collector
@@ -150,6 +158,7 @@ public final class JatsConverter {
         case "bold" -> openStyle(Style.BOLD);
         case "sc" -> openStyle(Style.SMALLCAPS);
         case "taxon-name" -> {
+          if (endsWithLetterOrDigit()) separate();
           nameParts = new ArrayList<>();
           nameStart = new int[]{-1, -1};
         }
@@ -161,6 +170,7 @@ public final class JatsConverter {
           }
         }
         case "taxon-status" -> {
+          if (endsWithLetterOrDigit()) separate();
           if (inNomenclature()) statusStart = -2; // set on first text
         }
         case "p", "caption", "title" -> {
@@ -186,6 +196,7 @@ public final class JatsConverter {
       openStyles = new ArrayDeque<>();
       blockTaxa = new ArrayList<>();
       blockStatuses = new ArrayList<>();
+      nameJustEnded = false;
     }
 
     private void chars(String raw) {
@@ -195,6 +206,10 @@ public final class JatsConverter {
       if (t.isEmpty()) return;
       if (t.charAt(0) == ' ' && (text.isEmpty() || text.charAt(text.length() - 1) == ' ')) t = t.substring(1);
       if (t.isEmpty()) return;
+      if (nameJustEnded) {
+        nameJustEnded = false;
+        if (Character.isLetterOrDigit(t.codePointAt(0))) separate();
+      }
       if (statusStart == -2) statusStart = length;
       if (partText != null) partText.append(t);
       int before = length;
@@ -220,6 +235,23 @@ public final class JatsConverter {
         text.append(' ');
         length++;
       }
+    }
+
+    private boolean endsWithLetterOrDigit() {
+      return !text.isEmpty() && Character.isLetterOrDigit(text.codePointBefore(text.length()));
+    }
+
+    /**
+     * A space between two words that the XML glued together at a name boundary. Styles opened since the last text (e.g.
+     * the italics around the name that starts here) are moved behind it, so that they do not begin with the space.
+     */
+    private void separate() {
+      if (text.isEmpty() || text.charAt(text.length() - 1) == ' ') return;
+      for (int[] o : openStyles) {
+        if (o[1] == length) o[1] = length + 1;
+      }
+      text.append(' ');
+      length++;
     }
 
     private void end() {
@@ -266,6 +298,7 @@ public final class JatsConverter {
           }
           nameParts = null;
           nameStart = null;
+          nameJustEnded = true;
         }
         case "taxon-status" -> {
           if (statusStart >= 0 && length > statusStart && lastNameInNomenclature >= 0) {

@@ -225,6 +225,75 @@ class JatsConverterTest {
     assertThat(c.taxonMarkup()).extracting(t -> slice(cells.get(0), t.start(), t.end())).containsExactly("Anura", "Bufonidae");
   }
 
+  // ---- words glued at a taxon-name or taxon-status boundary (the XML has no whitespace between the elements)
+
+  private static final String TP = "<article xmlns:tp=\"http://www.plazi.org/taxpub\">";
+
+  private static String name(String genus, String species) {
+    return "<tp:taxon-name><tp:taxon-name-part taxon-name-part-type=\"genus\" reg=\"" + genus + "\">" + genus + "</tp:taxon-name-part> "
+      + "<tp:taxon-name-part taxon-name-part-type=\"species\" reg=\"" + species + "\">" + species + "</tp:taxon-name-part></tp:taxon-name>";
+  }
+
+  @Test void statusGluedToTheNameInANomenclatureHeading() {
+    Conversion c = convertXml(TP + "<body><sec><title>S</title><tp:taxon-treatment><tp:nomenclature>"
+      + name("Microdochium", "baishamenense") + "<tp:taxon-status>sp. nov.</tp:taxon-status>"
+      + "</tp:nomenclature></tp:taxon-treatment></sec></body></article>");
+    Block h = first(c, BlockType.HEADING, "Microdochium");
+    assertThat(h.text()).isEqualTo("Microdochium baishamenense sp. nov.");
+    TaxonMarkup t = c.taxonMarkup().get(0);
+    assertThat(slice(h, t.start(), t.end())).isEqualTo("Microdochium baishamenense");
+    assertThat(spans(h, Style.TAXON_NAME)).containsExactly("Microdochium baishamenense");
+    StatusMarkup s = c.statusMarkup().get(0);
+    assertThat(slice(h, s.start(), s.end())).isEqualTo("sp. nov.");
+    assertThat(s.status()).isEqualTo("sp. nov.");
+  }
+
+  @Test void statusGluedToTheAuthority() {
+    Conversion c = convertXml(TP + "<body><sec><title>S</title><tp:taxon-treatment><tp:nomenclature>"
+      + name("Microdochium", "bambusina") + " <tp:taxon-authority>Smith, 2025</tp:taxon-authority><tp:taxon-status>sp. nov.</tp:taxon-status>"
+      + "</tp:nomenclature></tp:taxon-treatment></sec></body></article>");
+    Block h = first(c, BlockType.HEADING, "Microdochium");
+    assertThat(h.text()).isEqualTo("Microdochium bambusina Smith, 2025 sp. nov.");
+    StatusMarkup s = c.statusMarkup().get(0);
+    assertThat(slice(h, s.start(), s.end())).isEqualTo("sp. nov.");
+  }
+
+  @Test void boldStatusGluedToAnItalicNameInAnAbstract() {
+    // mycokeys.126.170451: "<italic><tp:taxon-name>M. baishamenense</tp:taxon-name></italic><bold>sp. nov.</bold>"
+    Conversion c = convertXml(TP + "<front><article-meta><abstract><p>We propose <italic>"
+      + "<tp:taxon-name><tp:taxon-name-part taxon-name-part-type=\"genus\" reg=\"Microdochium\">M.</tp:taxon-name-part> "
+      + "<tp:taxon-name-part taxon-name-part-type=\"species\" reg=\"baishamenense\">baishamenense</tp:taxon-name-part></tp:taxon-name>"
+      + "</italic><bold>sp. nov.</bold>, <italic>" + name("Microdochium", "bambusina") + "</italic>, and more.</p></abstract>"
+      + "</article-meta></front></article>");
+    Block a = c.document().blocks().get(0);
+    assertThat(a.type()).isEqualTo(BlockType.ABSTRACT);
+    assertThat(a.text()).isEqualTo("We propose M. baishamenense sp. nov., Microdochium bambusina, and more.");
+    assertThat(spans(a, Style.ITALIC)).containsExactly("M. baishamenense", "Microdochium bambusina");
+    assertThat(spans(a, Style.BOLD)).containsExactly("sp. nov.");
+    assertThat(spans(a, Style.TAXON_NAME)).containsExactly("M. baishamenense", "Microdochium bambusina");
+    assertThat(c.taxonMarkup()).extracting(t -> slice(a, t.start(), t.end())).containsExactly("M. baishamenense", "Microdochium bambusina");
+  }
+
+  @Test void captionPanelLettersGluedToNames() {
+    // phytokeys.251.135126 "Primulina xingyiensisA plant", zookeys.1238.124514 "A–FAsarum heterotropoides"
+    Conversion c = convertXml(TP + "<body><fig><label>Figure 2.</label><caption><p><italic>" + name("Primulina", "xingyiensis")
+      + "</italic><bold>A</bold> plant <bold>B</bold> leaves. Host plants <bold>A–F</bold><italic>" + name("Asarum", "heterotropoides")
+      + "</italic> at Samani</p></caption></fig></body></article>");
+    Block cap = first(c, BlockType.CAPTION, "Primulina");
+    assertThat(cap.text()).isEqualTo("Primulina xingyiensis A plant B leaves. Host plants A–F Asarum heterotropoides at Samani");
+    assertThat(spans(cap, Style.ITALIC)).containsExactly("Primulina xingyiensis", "Asarum heterotropoides");
+    assertThat(spans(cap, Style.BOLD)).containsExactly("A", "B", "A–F");
+    assertThat(c.taxonMarkup()).extracting(t -> slice(cap, t.start(), t.end()))
+      .containsExactly("Primulina xingyiensis", "Asarum heterotropoides");
+  }
+
+  @Test void punctuationAtANameBoundaryGetsNoSpace() {
+    Conversion c = convertXml(TP + "<body><p>(" + name("Aus", "bus") + "), " + name("Aus", "cus") + "-like and "
+      + name("Aus", "dus") + "</p></body></article>");
+    Block b = c.document().blocks().get(0);
+    assertThat(b.text()).isEqualTo("(Aus bus), Aus cus-like and Aus dus");
+  }
+
   @Test void entityLookalikeInCdataSurvives() {
     Conversion c = convertXml("<article><body><p>a <![CDATA[x &foo; y]]> b &nbsp; c</p></body></article>");
     assertThat(c.document().blocks().get(0).text()).isEqualTo("a x &foo; y b c");
