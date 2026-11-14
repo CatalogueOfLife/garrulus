@@ -198,6 +198,22 @@ class JatsConverterTest {
     assertThat(spans(h, Style.TAXON_NAME)).containsExactly("Hyphodermella ryvardenii");
   }
 
+  @Test void byteOrderMarkAndZeroWidthSpaceLeaveNoTraceAndSpansStayAligned() {
+    // Pensoft article titles start with U+FEFF; a zero width space inside a name part must not shift later offsets either
+    Conversion c = convertXml("<article xmlns:tp=\"http://www.plazi.org/taxpub\"><front><article-meta><title-group><article-title>"
+      + "\uFEFFNomenclature of two <italic><tp:taxon-name><tp:taxon-name-part taxon-name-part-type=\"genus\" reg=\"Cocconeis\">"
+      + "Coc\u200Bconeis</tp:taxon-name-part></tp:taxon-name></italic> species from <italic>Lake\u200B</italic> Baikal"
+      + "</article-title></title-group></article-meta></front></article>");
+    Block t = c.document().blocks().get(0);
+    assertThat(t.type()).isEqualTo(BlockType.TITLE);
+    assertThat(t.text()).isEqualTo("Nomenclature of two Cocconeis species from Lake Baikal");
+    assertThat(spans(t, Style.ITALIC)).containsExactly("Cocconeis", "Lake");
+    assertThat(spans(t, Style.TAXON_NAME)).containsExactly("Cocconeis");
+    TaxonMarkup m = c.taxonMarkup().get(0);
+    assertThat(slice(t, m.start(), m.end())).isEqualTo("Cocconeis");
+    assertThat(m.parts()).containsExactly(new NamePart("genus", "Cocconeis", "Cocconeis"));
+  }
+
   @Test void entityLookalikeInCdataSurvives() {
     Conversion c = convertXml("<article><body><p>a <![CDATA[x &foo; y]]> b &nbsp; c</p></body></article>");
     assertThat(c.document().blocks().get(0).text()).isEqualTo("a x &foo; y b c");

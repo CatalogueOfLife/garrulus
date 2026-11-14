@@ -9,14 +9,17 @@ import java.text.Normalizer;
 public final class TextNormalizer {
   private TextNormalizer() {}
 
-  /** NFC, ligatures expanded, soft hyphens removed, every whitespace run (incl. no-break space) one plain space. */
+  /**
+   * NFC, ligatures expanded, soft hyphens, byte order marks (U+FEFF, Pensoft titles start with one) and zero width spaces
+   * (U+200B) removed, every whitespace run (incl. no-break space) one plain space.
+   */
   public static String normalize(String s) {
     String n = Normalizer.normalize(s, Normalizer.Form.NFC);
     StringBuilder sb = new StringBuilder(n.length());
     boolean space = false;
     for (int i = 0; i < n.length(); i++) {
       char c = n.charAt(i);
-      if (c == '\u00AD') continue;
+      if (c == '\u00AD' || c == '\uFEFF' || c == '\u200B') continue;
       if (Character.isWhitespace(c) || Character.isSpaceChar(c)) {
         if (!space) sb.append(' ');
         space = true;

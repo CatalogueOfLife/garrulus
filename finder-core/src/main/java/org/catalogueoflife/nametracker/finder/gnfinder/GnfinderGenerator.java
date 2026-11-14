@@ -48,7 +48,8 @@ public class GnfinderGenerator implements CandidateGenerator {
       String text = chunk.text();
       if (text.isEmpty()) continue;
       int len = CodePoints.length(text);
-      // gnfinder drops a leading byte order mark and then counts offsets from the next character
+      // gnfinder drops a leading byte order mark and then counts offsets from the next character. The converters remove
+      // U+FEFF (TextNormalizer), so this only guards documents that reach the finder without them, e.g. from API clients.
       int shift = text.charAt(0) == BOM ? 1 : 0;
       for (GnName n : client.find(shift == 0 ? text : text.substring(1)).names()) {
         int ns = n.start() + shift;
