@@ -41,11 +41,11 @@ cd frontend && npm run dev | npm test | npm run build   # Vite on 5173, proxies 
 ## Modules
 
 - `finder-api`: `NameFinder` SPI and its JSON contract (empty, M1).
-- `finder-core`: our own finder stages (empty, M1).
-- `finder-service`: gnfinder adapter and finder orchestration (empty, M1).
+- `finder-core`: `PipelineNameFinder`, the generators (gnfinder client, COL dictionary, suffix, markup), the stages and the judge SPI (empty, M1).
+- `finder-service`: thin HTTP wrapper exposing `/find`, reusable by CLB and Blixa (empty, M1).
 - `store`: the shared schema, Flyway migrations and MyBatis mappers; used by both apps.
-- `indexer`: the worker app for harvesting, analysis and matching; port 8081, bound to 127.0.0.1.
-- `web`: the user-facing read app and the admin task endpoint; port 8080.
+- `indexer`: the worker app for harvesting, analysis and matching; applies the Flyway migrations; port 8081, bound to 127.0.0.1.
+- `web`: the user-facing read app and the admin task endpoint; validates the schema but does not migrate; port 8080.
 - `eval`: evaluation harness for the finder (empty, M1).
 - `frontend`: Vite, React and Mantine SPA (not a Maven module).
 

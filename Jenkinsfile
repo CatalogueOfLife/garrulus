@@ -1,4 +1,4 @@
-// CI build for Garrulus (nametracker). Place at the root of the repo.
+// CI build for Garrulus (nametracker).
 // Backend builds with the agent's native JDK 25 + Maven; only npm runs in Docker (node:24),
 // matching the Blixa job. Build only: no deploy stage yet (added in M2 with the systemd units).
 pipeline {
