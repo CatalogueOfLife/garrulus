@@ -3,7 +3,6 @@ package org.catalogueoflife.nametracker.finder.pipeline;
 import org.catalogueoflife.nametracker.finder.api.Block;
 import org.catalogueoflife.nametracker.finder.api.Document;
 import org.catalogueoflife.nametracker.finder.api.Generator;
-import org.catalogueoflife.nametracker.finder.api.NameKind;
 import org.catalogueoflife.nametracker.finder.api.Style;
 import org.catalogueoflife.nametracker.finder.api.StyleSpan;
 import org.catalogueoflife.nametracker.finder.dict.DictHit;
@@ -18,19 +17,21 @@ import java.util.Set;
  *
  * <p>Feature definitions:
  * <ul>
- *   <li>{@code italic}: the ITALIC generator saw the span, or its first code point lies inside an ITALIC style span of the
- *       block. The second rule keeps the feature when the markup generator is disabled or the span is not name shaped.</li>
- *   <li>{@code taxonMarkup}: the TAXON_MARKUP generator saw the span (publisher tagged).</li>
+ *   <li>{@code italic}: the whole span is italic: the ITALIC generator proposed exactly this span, or every letter of the
+ *       span lies inside an ITALIC style span of the block. The second rule keeps the feature when the markup generator is
+ *       disabled or the span is not name shaped. A span that only starts in italics ("*Ophiocordyceps* fungi") is not
+ *       italic.</li>
+ *   <li>{@code taxonMarkup}: the TAXON_MARKUP generator proposed exactly this span (publisher tagged).</li>
  *   <li>{@code rankWordBefore}: the word right before the span, separated from it by whitespace only, is a rank word of
  *       {@link RankWords} ("genus Carabus", "Familie Carabidae"; "families Rosaceae" is not).</li>
  *   <li>{@code gnfinderOdds}: the {@code oddsLog10} candidate feature (the maximum when several gnfinder names merged).</li>
  *   <li>{@code dictHit}: the {@code dictHit} candidate feature of the dictionary generator, NONE when it did not
  *       contribute. For a merged span it is the hit of the longest dictionary candidate inside it.</li>
  *   <li>{@code suffixRule}: the SUFFIX generator saw the span.</li>
- *   <li>{@code ambiguousWord}: the candidate is a single word (kind UNINOMIAL) and the dictionary flagged it as a genus or
- *       uninomial that is also an ordinary word ({@code ambiguousWord} candidate feature). A multi-word name is never an
- *       ordinary word, even when its genus is ("Ophelia yangi": "Ophelia" is in the common word lists); the epithet
- *       disambiguates it, and the genus ambiguity still shows in {@code dictHit} AMBIGUOUS_WORD.</li>
+ *   <li>{@code ambiguousWord}: the {@code ambiguousWord} candidate feature: the dictionary genus or uninomial the span
+ *       starts with is also an ordinary word ("Major", "The", also "Ophelia"). It applies to multi-word spans too, because
+ *       the dictionary accepts many ordinary words as epithets ("The baculum"); only independent evidence (strong gnfinder
+ *       odds) lets such a span bypass the judge.</li>
  *   <li>{@code docNameDensity}: names per 100 word tokens of the whole document. "Names" is the {@code namesInDoc} the
  *       caller passes; the pipeline passes the number of parsed candidates, because the accepted names are not known
  *       before judging. Tokens are those of {@link Tokenizer} over all blocks (letter runs; numbers and punctuation do not
@@ -43,6 +44,8 @@ import java.util.Set;
  *   <li>{@code authorshipFollows}: the authorship attacher found an authorship after the span.</li>
  *   <li>{@code generatorCount}: the number of distinct generators that saw the span or part of it; the markup generator
  *       counts once per kind (ITALIC, TAXON_MARKUP).</li>
+ *   <li>{@code partialSupport}: how many of them saw only a part of the span ({@link MergedCandidate#partialSupport()}).
+ *       {@code gnfinderOdds}, {@code dictHit} and {@code suffixRule} may come from such a part.</li>
  * </ul>
  */
 public final class FeatureExtractor {
@@ -80,25 +83,37 @@ public final class FeatureExtractor {
     Double odds = f.get("oddsLog10") instanceof Number n ? n.doubleValue() : null;
     DictHit hit = f.get("dictHit") instanceof DictHit h ? h : DictHit.NONE;
     return new CandidateFeatures(
-        gens.contains(Generator.ITALIC) || inItalic(b, c.start()),
-        gens.contains(Generator.TAXON_MARKUP),
+        c.exactGenerators().contains(Generator.ITALIC) || allItalic(b, cps, c.start(), c.end()),
+        c.exactGenerators().contains(Generator.TAXON_MARKUP),
         rankWordBefore(cps, c.start()),
         odds,
         hit,
         gens.contains(Generator.SUFFIX),
-        p.kind() == NameKind.UNINOMIAL && Boolean.TRUE.equals(f.get("ambiguousWord")),
+        Boolean.TRUE.equals(f.get("ambiguousWord")),
         density,
         b.type(),
         sentenceInitial(cps, c.start()),
         c.authorship() != null,
-        gens.size());
+        gens.size(),
+        c.partialSupport());
   }
 
-  private static boolean inItalic(Block b, int cp) {
-    for (StyleSpan s : b.styles()) {
-      if (s.style() == Style.ITALIC && s.start() <= cp && cp < s.end()) return true;
+  /** Every letter of cps[start, end) lies inside an ITALIC style span; false for a span without letters. */
+  private static boolean allItalic(Block b, int[] cps, int start, int end) {
+    boolean letters = false;
+    for (int i = Math.max(0, start); i < Math.min(end, cps.length); i++) {
+      if (!Character.isLetter(cps[i])) continue;
+      letters = true;
+      boolean in = false;
+      for (StyleSpan s : b.styles()) {
+        if (s.style() == Style.ITALIC && s.start() <= i && i < s.end()) {
+          in = true;
+          break;
+        }
+      }
+      if (!in) return false;
     }
-    return false;
+    return letters;
   }
 
   static boolean rankWordBefore(int[] cps, int start) {

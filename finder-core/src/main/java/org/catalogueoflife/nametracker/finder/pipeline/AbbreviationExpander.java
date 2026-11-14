@@ -27,7 +27,7 @@ import java.util.regex.Pattern;
  * genera occur in the same block before the abbreviation it is ambiguous and stays unexpanded with feature
  * {@code abbrevAmbiguous=true}. Matching genera in different, earlier blocks do not make it ambiguous. An expansion
  * rewrites {@code name} only and records the original in feature {@code expandedFrom}; verbatim, offsets, qualifier and
- * authorship are untouched.
+ * authorship are untouched; feature {@code expandedFromSpan} (a {@link Span}) points at the source candidate.
  */
 public class AbbreviationExpander {
   private static final Pattern ABBR_GENUS = Pattern.compile("\\p{Lu}\\p{Ll}{0,2}\\.");
@@ -35,7 +35,10 @@ public class AbbreviationExpander {
   private static final Pattern FULL_GENUS = Pattern.compile("\\p{Lu}\\p{Ll}+");
   private static final Pattern EPITHET = Pattern.compile("\\p{Ll}[\\p{Ll}-]+");
 
-  private record Source(int index, String blockId, String genus, String species) {}
+  private record Source(int index, String blockId, int start, int end, String genus, String species) {}
+
+  /** The span of the candidate an abbreviation was expanded from, in feature {@code expandedFromSpan}. */
+  public record Span(String blockId, int start, int end) {}
 
   /** Returns a new list; the input and its candidates are not modified. */
   public List<MergedCandidate> expand(List<MergedCandidate> docOrder) {
@@ -55,9 +58,9 @@ public class AbbreviationExpander {
     String[] t = c.name().trim().split("\\s+");
     if (!FULL_GENUS.matcher(t[0]).matches()) return null;
     if (t.length == 1) {
-      return c.features().get("dictHit") == DictHit.GENUS ? new Source(index, c.blockId(), t[0], null) : null;
+      return c.features().get("dictHit") == DictHit.GENUS ? new Source(index, c.blockId(), c.start(), c.end(), t[0], null) : null;
     }
-    return EPITHET.matcher(t[1]).matches() ? new Source(index, c.blockId(), t[0], t[1]) : null;
+    return EPITHET.matcher(t[1]).matches() ? new Source(index, c.blockId(), c.start(), c.end(), t[0], t[1]) : null;
   }
 
   private static MergedCandidate expandOne(int index, MergedCandidate c, List<Source> sources) {
@@ -89,8 +92,7 @@ public class AbbreviationExpander {
     if (sameBlockGenera.size() > 1) {
       Map<String, Object> f = new LinkedHashMap<>(c.features());
       f.put("abbrevAmbiguous", true);
-      return new MergedCandidate(c.blockId(), c.start(), c.end(), c.verbatim(), c.name(), c.generators(), f,
-          c.authorship(), c.qualifier());
+      return c.withName(c.name(), f);
     }
     if (chosen == null) {
       for (Source s : matching) {
@@ -107,7 +109,7 @@ public class AbbreviationExpander {
     for (int k = consumed; k < t.length; k++) name.append(' ').append(t[k]);
     Map<String, Object> f = new LinkedHashMap<>(c.features());
     f.put("expandedFrom", c.name());
-    return new MergedCandidate(c.blockId(), c.start(), c.end(), c.verbatim(), name.toString(), c.generators(), f,
-        c.authorship(), c.qualifier());
+    f.put("expandedFromSpan", new Span(chosen.blockId(), chosen.start(), chosen.end()));
+    return c.withName(name.toString(), f);
   }
 }

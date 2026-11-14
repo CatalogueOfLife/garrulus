@@ -25,7 +25,8 @@
     "blockType.REFERENCE": 0.0,
     "sentenceInitial": -1.0,
     "authorshipFollows": 2.0,
-    "generatorCount": 1.0
+    "generatorCount": 1.0,
+    "partialSupport": -2.0
   },
   "certainOdds": 8.0,
   "maxChunkCodePoints": 100000,

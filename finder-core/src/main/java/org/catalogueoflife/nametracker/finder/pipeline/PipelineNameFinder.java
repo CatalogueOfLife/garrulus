@@ -43,19 +43,30 @@ import java.util.Set;
  * candidate whose own {@link Candidate#generator()} is not enabled is dropped. So {@code [ITALIC]} yields italic candidates
  * only and {@code [TAXON_MARKUP]} publisher-tagged ones only.
  *
- * <p><b>Who is judged.</b> A candidate is <em>certain</em> and bypasses the judge if it is a multi-word name (BINOMIAL,
- * TRINOMIAL, INFRAGENERIC, or ABBREVIATED, whose only dictionary hit is EPITHET) and either carries publisher markup, or
- * is not uncertain and has a dictionary hit EPITHET or BINOMIAL or gnfinder odds of at least
- * {@link PipelineConfig#certainOdds()}. <em>Uncertain</em> are all uninomials, ambiguous words, and candidates seen by a
- * single generator without italics; they and the remaining multi-word names are judged. Publisher markup outranks the
- * uncertain rules for multi-word names (uninomials with markup are judged, where the markup weight decides).
+ * <p><b>Who is judged.</b> Only multi-word names (BINOMIAL, TRINOMIAL, INFRAGENERIC; ABBREVIATED) can be <em>certain</em>
+ * and bypass the judge; everything else, all uninomials included, is judged. Evidence counts only if it covers the whole
+ * span: a generator that saw just a part (see {@link MergedCandidate#exactGenerators()}) never certifies it. In order:
+ * <ol>
+ *   <li>publisher markup of exactly this span: certain;</li>
+ *   <li><em>full support</em> is gnfinder on exactly this span or a wholly italic span. With it all generators count,
+ *       without it only those that saw exactly this span. Fewer than two such generators and no italics: judged;</li>
+ *   <li><em>strong gnfinder</em> is gnfinder on exactly this span with odds of at least
+ *       {@link PipelineConfig#certainOdds()}. An ambiguous word (the genus is also an ordinary word) without it: judged;</li>
+ *   <li>certain if strong gnfinder, or if the dictionary vouches: dictionary hit BINOMIAL (a known genus-epithet pair),
+ *       or EPITHET for an abbreviated verbatim ("O. limacina", whose genus cannot be checked), given full support or
+ *       the dictionary on exactly this span. EPITHET on a full genus only means some COL epithet follows, which "The
+ *       baculum" also satisfies, so it does not vouch.</li>
+ * </ol>
  *
- * <p><b>Confidence.</b> Certain names take the maximum of their signals: markup 1.0, dictionary EPITHET or BINOMIAL 0.95,
- * gnfinder {@code oddsLog10 / 10} clamped to [0, 1], italics 0.9. Judged names take the judge score. An act takes the
- * confidence of its name.
+ * <p><b>Confidence.</b> Certain names take the maximum of their whole-span signals: markup 1.0, the dictionary vouching
+ * 0.95, gnfinder on exactly this span {@code oddsLog10 / 10} clamped to [0, 1], wholly italic 0.9. Judged names take the
+ * judge score. An act takes the confidence of its name.
  *
  * <p><b>Output.</b> Mention name is the expanded, verbatim-shaped name with the qualifier removed; the parser's lossy
- * canonical form is kept in hint {@code canonical}. Ids are m1…, a1…, c1… in document order (contexts by block, then
+ * canonical form is kept in hint {@code canonical}. Mention kind is ABBREVIATED when the verbatim is an abbreviation
+ * ("O. limacina"), even when it was expanded, else the parsed kind; the rank is the parsed one. An expanded abbreviation
+ * carries hint {@code expandedFrom} with the id of the mention it was expanded from, if that one was accepted. Ids are
+ * m1…, a1…, c1… in document order (contexts by block, then
  * position); rejected candidates, returned only with {@link FinderOptions#includeRejected()}, are r1… and carry no act
  * or context. Diagnostics (all counts as strings): {@code candidates} merged spans, {@code unparsed} dropped by the
  * parser, {@code certain}, {@code accepted} (certain included), {@code rejected}, {@code actsUnattached} markers without a
@@ -190,7 +201,7 @@ public class PipelineNameFinder implements NameFinder {
       CandidateFeatures f = fx.features(p);
       if (isCertain(p, f, cfg.certainOdds())) {
         certain++;
-        accepted.add(new Judged(p, certainConfidence(f), null));
+        accepted.add(new Judged(p, certainConfidence(p, f), null));
       } else {
         JudgeVerdict v = judge.judge(p, f);
         (v.accepted() ? accepted : rejected).add(new Judged(p, v.score(), v));
@@ -204,6 +215,12 @@ public class PipelineNameFinder implements NameFinder {
     Map<String, String> ctxIds = new HashMap<>();
     List<ClassificationContext> contexts = renumberContexts(doc, ctxResult.contexts(), ctxIds);
 
+    // ids first: an abbreviation may be expanded from a name that follows it
+    Map<AbbreviationExpander.Span, String> idBySpan = new HashMap<>();
+    for (int i = 0; i < accepted.size(); i++) {
+      MergedCandidate c = accepted.get(i).p().c();
+      idBySpan.put(new AbbreviationExpander.Span(c.blockId(), c.start(), c.end()), "m" + (i + 1));
+    }
     List<Mention> mentions = new ArrayList<>(accepted.size());
     List<Act> acts = new ArrayList<>();
     for (Judged j : accepted) {
@@ -215,11 +232,11 @@ public class PipelineNameFinder implements NameFinder {
         acts.add(new Act(actId, m.type(), m.marker(), id, j.confidence()));
       }
       String local = ctxResult.contextOf().get(j.p());
-      mentions.add(mention(id, j, actId, local == null ? null : ctxIds.get(local)));
+      mentions.add(mention(id, j, actId, local == null ? null : ctxIds.get(local), idBySpan));
     }
     List<Mention> rejectedMentions = new ArrayList<>();
     if (o.includeRejected()) {
-      for (Judged j : rejected) rejectedMentions.add(mention("r" + (rejectedMentions.size() + 1), j, null, null));
+      for (Judged j : rejected) rejectedMentions.add(mention("r" + (rejectedMentions.size() + 1), j, null, null, idBySpan));
     }
     diagnostics(diag, merged.size(), merged.size() - parsed.size(), certain, accepted.size(), rejected.size(),
         actResult.actsUnattached(), gnMs, misaligned);
@@ -238,13 +255,19 @@ public class PipelineNameFinder implements NameFinder {
     d.put("gnfinderMisaligned", String.valueOf(gnfinderMisaligned));
   }
 
-  private static Mention mention(String id, Judged j, @Nullable String actId, @Nullable String contextId) {
+  private static Mention mention(String id, Judged j, @Nullable String actId, @Nullable String contextId,
+                                 Map<AbbreviationExpander.Span, String> idBySpan) {
     ParsedCandidate p = j.p();
     MergedCandidate c = p.c();
     Double odds = c.features().get("oddsLog10") instanceof Number n ? n.doubleValue() : null;
-    return new Mention(id, c.blockId(), c.start(), c.end(), c.verbatim(), c.name(), p.kind(), p.rank(), c.authorship(),
-        c.qualifier(), j.confidence(), new Evidence(c.generators(), odds, j.verdict()), actId, contextId,
-        Map.of("canonical", p.canonical()));
+    Map<String, String> hints = new LinkedHashMap<>();
+    hints.put("canonical", p.canonical());
+    if (c.features().get("expandedFromSpan") instanceof AbbreviationExpander.Span s && idBySpan.containsKey(s)) {
+      hints.put("expandedFrom", idBySpan.get(s));
+    }
+    NameKind kind = ParserStage.isAbbreviated(c.verbatim()) ? NameKind.ABBREVIATED : p.kind();
+    return new Mention(id, c.blockId(), c.start(), c.end(), c.verbatim(), c.name(), kind, p.rank(), c.authorship(),
+        c.qualifier(), j.confidence(), new Evidence(c.generators(), odds, j.verdict()), actId, contextId, hints);
   }
 
   /** Contexts in document order (block, then character offset of the local id "ctx:blockId:offset") as c1, c2, … */
@@ -273,20 +296,38 @@ public class PipelineNameFinder implements NameFinder {
     }
   }
 
+  /** See the class documentation, "Who is judged". */
   static boolean isCertain(ParsedCandidate p, CandidateFeatures f, double certainOdds) {
     if (p.kind() == NameKind.UNINOMIAL) return false;
     if (f.taxonMarkup()) return true;
-    if (f.ambiguousWord() || (f.generatorCount() <= 1 && !f.italic())) return false;
-    return f.dictHit() == DictHit.EPITHET || f.dictHit() == DictHit.BINOMIAL
-        || (f.gnfinderOdds() != null && f.gnfinderOdds() >= certainOdds);
+    Set<Generator> exact = p.c().exactGenerators();
+    boolean full = fullSupport(p, f);
+    int support = full ? f.generatorCount() : exact.size();
+    if (support <= 1 && !f.italic()) return false;
+    boolean strongGn = exact.contains(Generator.GNFINDER) && f.gnfinderOdds() != null && f.gnfinderOdds() >= certainOdds;
+    if (f.ambiguousWord() && !strongGn) return false;
+    return strongGn || dictionaryVouches(p, f, full);
   }
 
-  static double certainConfidence(CandidateFeatures f) {
+  /** The maximum of the whole-span signals of a certain name. */
+  static double certainConfidence(ParsedCandidate p, CandidateFeatures f) {
     double c = 0;
     if (f.taxonMarkup()) c = Math.max(c, MARKUP_CONFIDENCE);
-    if (f.dictHit() == DictHit.EPITHET || f.dictHit() == DictHit.BINOMIAL) c = Math.max(c, DICTIONARY_CONFIDENCE);
-    if (f.gnfinderOdds() != null) c = Math.max(c, Math.max(0, Math.min(1, f.gnfinderOdds() / 10)));
+    if (dictionaryVouches(p, f, fullSupport(p, f))) c = Math.max(c, DICTIONARY_CONFIDENCE);
+    if (p.c().exactGenerators().contains(Generator.GNFINDER) && f.gnfinderOdds() != null) {
+      c = Math.max(c, Math.max(0, Math.min(1, f.gnfinderOdds() / 10)));
+    }
     if (f.italic()) c = Math.max(c, ITALIC_CONFIDENCE);
     return c;
+  }
+
+  /** gnfinder saw exactly this span, or all of it is italic. */
+  private static boolean fullSupport(ParsedCandidate p, CandidateFeatures f) {
+    return p.c().exactGenerators().contains(Generator.GNFINDER) || f.italic();
+  }
+
+  private static boolean dictionaryVouches(ParsedCandidate p, CandidateFeatures f, boolean full) {
+    if (!full && !p.c().exactGenerators().contains(Generator.DICTIONARY)) return false;
+    return f.dictHit() == DictHit.BINOMIAL || f.dictHit() == DictHit.EPITHET && ParserStage.isAbbreviated(p.c().verbatim());
   }
 }

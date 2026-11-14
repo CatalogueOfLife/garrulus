@@ -14,12 +14,14 @@ import org.catalogueoflife.nametracker.finder.api.FinderOptions;
 import org.catalogueoflife.nametracker.finder.api.FinderResult;
 import org.catalogueoflife.nametracker.finder.api.Generator;
 import org.catalogueoflife.nametracker.finder.api.Mention;
+import org.catalogueoflife.nametracker.finder.api.NameKind;
 import org.catalogueoflife.nametracker.finder.api.RankedName;
 import org.catalogueoflife.nametracker.finder.api.Style;
 import org.catalogueoflife.nametracker.finder.api.StyleSpan;
 import org.catalogueoflife.nametracker.finder.dict.ColDictionary;
 import org.catalogueoflife.nametracker.finder.dict.ColDictionaryBuilder;
 import org.catalogueoflife.nametracker.finder.dict.CommonWords;
+import org.catalogueoflife.nametracker.finder.dict.DictHit;
 import org.catalogueoflife.nametracker.finder.doc.JatsConverter;
 import org.catalogueoflife.nametracker.finder.doc.JatsOptions;
 import org.catalogueoflife.nametracker.finder.gnfinder.GnName;
@@ -57,6 +59,10 @@ class PipelineNameFinderTest {
       102\taccepted\tOpheliidae Malmgren, 1867\tfamily\tOpheliidae\t\t\t\t\tzoological\t\t\t\t\tAnimalia\t
       103\taccepted\tOphelia Savigny, 1822\tgenus\tOphelia\t\t\t\t\tzoological\t\tOpheliidae\t\t\tAnimalia\t
       104\taccepted\tOphelia limacina (Rathke, 1843)\tspecies\t\tOphelia\t\tlimacina\t\tzoological\tOphelia\tOpheliidae\t\t\tAnimalia\t
+      105\taccepted\tThe Smith, 1900\tgenus\tThe\t\t\t\t\tzoological\t\t\t\t\tAnimalia\t
+      106\taccepted\tXenus baculum Smith, 1900\tspecies\t\tXenus\t\tbaculum\t\tzoological\tXenus\t\t\t\tAnimalia\t
+      107\taccepted\tOphiocordyceps Petch, 1931\tgenus\tOphiocordyceps\t\t\t\t\tbotanical\t\t\t\t\tFungi\t
+      108\taccepted\tXenus fungi Smith, 1900\tspecies\t\tXenus\t\tfungi\t\tzoological\tXenus\t\t\t\tAnimalia\t
       """;
   private static final ColDictionary DICT;
   private static final NameParserRust PARSER = new NameParserRust();
@@ -86,6 +92,11 @@ class PipelineNameFinderTest {
     RecordedGnfinder answer(String text, GnfinderResponse response) {
       fixed.put(text, response);
       return this;
+    }
+
+    /** gnfinder finds nothing in this document. */
+    RecordedGnfinder nothingIn(Document d) {
+      return answer(org.catalogueoflife.nametracker.finder.doc.FlatText.of(d).text(), new GnfinderResponse(Map.of(), List.of()));
     }
 
     @Override
@@ -163,10 +174,15 @@ class PipelineNameFinderTest {
       }
     }
 
-    // the abbreviation is expanded from the full name in the document
+    // the abbreviation is expanded from the full name in the document, and says so
     Mention abbr = r.mentions().stream().filter(m -> m.verbatim().equals("O. limacina")).findFirst().orElseThrow();
     assertThat(abbr.name()).isEqualTo("Ophelia limacina");
+    assertThat(abbr.kind()).isEqualTo(NameKind.ABBREVIATED);
+    assertThat(abbr.rank()).isEqualTo(Rank.SPECIES);
     assertThat(abbr.authorship()).isEqualTo("(Rathke, 1843)");
+    Mention source = r.mentions().stream().filter(m -> m.id().equals(abbr.hints().get("expandedFrom"))).findFirst().orElseThrow();
+    assertThat(source.verbatim()).isEqualTo("Ophelia limacina");
+    assertThat(source.kind()).isEqualTo(NameKind.BINOMIAL);
 
     // authorship is a separate field, the span stays the name
     Mention genus = r.mentions().stream().filter(m -> m.name().equals("Ophelia") && "Savigny, 1822".equals(m.authorship()))
@@ -232,6 +248,104 @@ class PipelineNameFinderTest {
     assertThat(major.confidence()).isEqualTo(major.evidence().judge().score());
     assertThat(major.actId()).isNull();
     assertThat(withRejected.diagnostics()).containsEntry("rejected", "1").containsEntry("accepted", "0");
+  }
+
+  @Test
+  void dictionaryOnlyBinomialOfOrdinaryWordsRejected() {
+    // "The" is a COL genus and "baculum" a COL epithet, but not of that genus; nothing else sees the span
+    Document d = doc(block("b1", BlockType.PARAGRAPH, "The baculum is long."));
+    RecordedGnfinder gn = new RecordedGnfinder().nothingIn(d);
+    FinderResult r = finder(gn).find(d, new FinderOptions(true, null));
+    assertThat(r.mentions()).isEmpty();
+    Mention m = r.rejected().stream().filter(x -> x.verbatim().equals("The baculum")).findFirst().orElseThrow();
+    assertThat(m.evidence().generators()).containsExactly(Generator.DICTIONARY);
+    assertThat(m.evidence().judge()).isNotNull();
+    assertThat(m.evidence().judge().accepted()).isFalse();
+  }
+
+  @Test
+  void overExtendedSpanIsNotCertain() {
+    // gnfinder (odds 9) and italics see "Ophiocordyceps"; only the dictionary extends it to "Ophiocordyceps fungi"
+    String text = "Ophiocordyceps fungi infect ants.";
+    Document d = doc(block("b1", BlockType.PARAGRAPH, text, new StyleSpan(0, 14, Style.ITALIC)));
+    GnName gnName = new GnName(1, "Ophiocordyceps", "Ophiocordyceps", null, 9.0, 0, 14, null, "NO_ANNOT");
+    RecordedGnfinder gn = new RecordedGnfinder().answer(text, new GnfinderResponse(Map.of(), List.of(gnName)));
+    FinderResult r = finder(gn).find(d, new FinderOptions(true, null));
+    List<Mention> all = new ArrayList<>(r.mentions());
+    all.addAll(r.rejected());
+    Mention m = all.stream().filter(x -> x.verbatim().equals("Ophiocordyceps fungi")).findFirst().orElseThrow();
+    assertThat(m.evidence().generators()).contains(Generator.GNFINDER, Generator.ITALIC, Generator.DICTIONARY);
+    assertThat(m.evidence().judge()).as("judged, not certain").isNotNull();
+  }
+
+  @Test
+  void goldenContractExampleShape() {
+    // the document of finder-api's find-request.json: an expanded abbreviation is ABBREVIATED and points at its source
+    Document d = new Document("doc-1", "en", List.of(
+        new Block("b0", BlockType.HEADING, 1, "Coleoptera: Carabidae", List.of(), List.of()),
+        new Block("b1", BlockType.PARAGRAPH, 0, "Carabus nigrus sp. nov. differs from C. nigrus in size.",
+            List.of(new StyleSpan(0, 14, Style.ITALIC), new StyleSpan(37, 46, Style.ITALIC)), List.of("Taxonomy"))), Map.of());
+    FinderResult r = finder(new RecordedGnfinder().nothingIn(d)).find(d, FinderOptions.defaults());
+    Mention full = r.mentions().stream().filter(m -> m.verbatim().equals("Carabus nigrus")).findFirst().orElseThrow();
+    Mention abbr = r.mentions().stream().filter(m -> m.verbatim().equals("C. nigrus")).findFirst().orElseThrow();
+    assertThat(full.kind()).isEqualTo(NameKind.BINOMIAL);
+    assertThat(full.actId()).isNotNull();
+    assertThat(abbr.name()).isEqualTo("Carabus nigrus");
+    assertThat(abbr.kind()).isEqualTo(NameKind.ABBREVIATED);
+    assertThat(abbr.rank()).isEqualTo(Rank.SPECIES);
+    assertThat(abbr.hints()).containsEntry("expandedFrom", full.id()).containsKey("canonical");
+    assertThat(abbr.evidence().judge()).as("certain: dictionary epithet on an abbreviation, wholly italic").isNull();
+  }
+
+  // ---- the certainty rule, table driven
+
+  private static ParsedCandidate pc(NameKind kind, String verbatim, Set<Generator> gens, Set<Generator> exact) {
+    MergedCandidate m = new MergedCandidate("b1", 0, verbatim.length(), verbatim, verbatim, gens, exact, Map.of(), null, null);
+    return new ParsedCandidate(m, verbatim, kind, Rank.SPECIES, null);
+  }
+
+  private static CandidateFeatures feats(boolean italic, boolean markup, Double odds, DictHit hit, boolean ambiguous,
+                                         ParsedCandidate p) {
+    return new CandidateFeatures(italic, markup, false, odds, hit, false, ambiguous, 5, BlockType.PARAGRAPH, false, false,
+        p.c().generators().size(), p.c().partialSupport());
+  }
+
+  static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> certainty() {
+    Set<Generator> gdi = Set.of(Generator.GNFINDER, Generator.DICTIONARY, Generator.ITALIC);
+    Set<Generator> gd = Set.of(Generator.GNFINDER, Generator.DICTIONARY);
+    Set<Generator> di = Set.of(Generator.DICTIONARY, Generator.ITALIC);
+    Set<Generator> d = Set.of(Generator.DICTIONARY);
+    Set<Generator> g = Set.of(Generator.GNFINDER);
+    return java.util.stream.Stream.of(
+        // label, kind, verbatim, generators, exact, italic, markup, odds, dictHit, ambiguous, certain, confidence
+        args("uninomial never", NameKind.UNINOMIAL, "Carabus", gdi, gdi, true, true, 12.0, DictHit.GENUS, false, false, 0),
+        args("markup of the span", NameKind.BINOMIAL, "Aus bus", Set.of(Generator.TAXON_MARKUP), Set.of(Generator.TAXON_MARKUP), false, true, null, DictHit.NONE, true, true, 1.0),
+        args("pair, gnfinder and dictionary", NameKind.BINOMIAL, "Aus bus", gd, gd, false, false, 5.0, DictHit.BINOMIAL, false, true, 0.95),
+        args("pair, dictionary alone", NameKind.BINOMIAL, "Aus bus", d, d, false, false, null, DictHit.BINOMIAL, false, false, 0),
+        args("pair, dictionary and italics", NameKind.BINOMIAL, "Aus bus", di, di, true, false, null, DictHit.BINOMIAL, false, true, 0.95),
+        args("strong gnfinder, genus only in dictionary", NameKind.BINOMIAL, "Aus bus", gd, g, false, false, 9.0, DictHit.GENUS, false, true, 0.9),
+        args("weak gnfinder, genus only in dictionary", NameKind.BINOMIAL, "Aus bus", gd, g, false, false, 5.0, DictHit.GENUS, false, false, 0),
+        args("ambiguous genus, pair, weak gnfinder", NameKind.BINOMIAL, "Major minor", gd, gd, false, false, 5.0, DictHit.BINOMIAL, true, false, 0),
+        args("ambiguous genus, strong gnfinder (Ophelia yangi)", NameKind.BINOMIAL, "Ophelia yangi", gd, g, false, false, 9.84, DictHit.AMBIGUOUS_WORD, true, true, 0.984),
+        args("dictionary extends gnfinder and italics", NameKind.BINOMIAL, "Ophiocordyceps fungi", gdi, d, false, false, 9.0, DictHit.EPITHET, false, false, 0),
+        args("pair extends gnfinder and italics", NameKind.BINOMIAL, "Ophiocordyceps fungi", gdi, d, false, false, 9.0, DictHit.BINOMIAL, false, false, 0),
+        args("abbreviation with dictionary epithet, italic", NameKind.BINOMIAL, "O. limacina", di, di, true, false, null, DictHit.EPITHET, false, true, 0.95),
+        args("full genus with a non-pair epithet", NameKind.BINOMIAL, "Aus bus", gd, gd, false, false, 5.0, DictHit.EPITHET, false, false, 0),
+        args("gnfinder covers a trinomial, pair inside", NameKind.TRINOMIAL, "Aus bus cus", gd, g, false, false, 5.0, DictHit.BINOMIAL, false, true, 0.95));
+  }
+
+  private static org.junit.jupiter.params.provider.Arguments args(Object... a) {
+    return org.junit.jupiter.params.provider.Arguments.of(a);
+  }
+
+  @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
+  @org.junit.jupiter.params.provider.MethodSource("certainty")
+  void certaintyRule(String label, NameKind kind, String verbatim, Set<Generator> gens, Set<Generator> exact, boolean italic,
+                     boolean markup, Double odds, DictHit hit, boolean ambiguous, boolean certain, double confidence) {
+    ParsedCandidate p = pc(kind, verbatim, gens, exact);
+    CandidateFeatures f = feats(italic, markup, odds, hit, ambiguous, p);
+    assertThat(PipelineNameFinder.isCertain(p, f, 8.0)).isEqualTo(certain);
+    if (certain) assertThat(PipelineNameFinder.certainConfidence(p, f)).isCloseTo(confidence, org.assertj.core.api.Assertions.within(1e-9));
   }
 
   @Test

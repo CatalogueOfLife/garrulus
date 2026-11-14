@@ -51,6 +51,25 @@ class FeatureExtractorTest {
   }
 
   @Test
+  void italicMeansTheWholeSpan() {
+    // italics end before the epithet the dictionary added
+    Block b = block("Ophiocordyceps fungi infect ants.", new StyleSpan(0, 14, Style.ITALIC));
+    MergedCandidate m = new MergedCandidate("b1", 0, 20, "Ophiocordyceps fungi", "Ophiocordyceps fungi",
+        Set.of(Generator.GNFINDER, Generator.ITALIC, Generator.DICTIONARY), Set.of(Generator.DICTIONARY), Map.of(), null, null);
+    CandidateFeatures x = f(b, new ParsedCandidate(m, "Ophiocordyceps fungi", NameKind.BINOMIAL, Rank.SPECIES, null));
+    assertThat(x.italic()).isFalse();
+    assertThat(x.partialSupport()).isEqualTo(2);
+    assertThat(x.generatorCount()).isEqualTo(3);
+    // two italic spans with a space between still cover every letter
+    Block two = block("Carabus nigrus here", new StyleSpan(0, 7, Style.ITALIC), new StyleSpan(8, 14, Style.ITALIC));
+    assertThat(f(two, cand(two, "Carabus nigrus")).italic()).isTrue();
+    // publisher markup of a part only is no markup of the span
+    MergedCandidate mk = new MergedCandidate("b1", 0, 20, "Ophiocordyceps fungi", "Ophiocordyceps fungi",
+        Set.of(Generator.TAXON_MARKUP, Generator.DICTIONARY), Set.of(Generator.DICTIONARY), Map.of(), null, null);
+    assertThat(f(b, new ParsedCandidate(mk, "Ophiocordyceps fungi", NameKind.BINOMIAL, Rank.SPECIES, null)).taxonMarkup()).isFalse();
+  }
+
+  @Test
   void taxonMarkupSuffixAndGeneratorCount() {
     Block b = block("Carabidae are beetles.");
     CandidateFeatures x = f(b, cand(b, "Carabidae", Set.of(Generator.TAXON_MARKUP, Generator.SUFFIX, Generator.DICTIONARY),
@@ -96,7 +115,7 @@ class FeatureExtractorTest {
         Map.of("dictHit", DictHit.BINOMIAL, "ambiguousWord", true, "oddsLog10", 7.5), "Brown, 1850");
     CandidateFeatures x = f(b, c);
     assertThat(x.dictHit()).isEqualTo(DictHit.BINOMIAL);
-    assertThat(x.ambiguousWord()).as("a binomial is no ordinary word, even with an ambiguous genus").isFalse();
+    assertThat(x.ambiguousWord()).as("an ambiguous genus makes the binomial ambiguous too").isTrue();
     assertThat(x.gnfinderOdds()).isEqualTo(7.5);
     assertThat(x.authorshipFollows()).isTrue();
     assertThat(x.blockType()).isEqualTo(BlockType.PARAGRAPH);

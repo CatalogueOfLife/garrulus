@@ -49,6 +49,11 @@ public class ParserStage {
     this.dict = dict;
   }
 
+  /** The text, whitespace collapsed, has the shape of an abbreviated name ("C. nigrus", "L. g. confertiflora"). */
+  public static boolean isAbbreviated(String text) {
+    return ABBREVIATED.matcher(NameShape.collapse(text.strip())).matches();
+  }
+
   public Optional<ParsedCandidate> parse(MergedCandidate c, @Nullable NomCode codeHint) {
     String name = c.name().strip();
     boolean abbreviated = ABBREVIATED.matcher(name).matches();

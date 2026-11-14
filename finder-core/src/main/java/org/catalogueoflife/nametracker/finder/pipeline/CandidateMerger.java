@@ -27,6 +27,9 @@ import java.util.TreeMap;
  * TAXON_MARKUP is one tagged name, and gnfinder returns single names. If a head did cover two names, the contained
  * names would be absorbed silently (see the documented-limitation test).
  *
+ * <p>{@link MergedCandidate#exactGenerators()} records the generators whose candidate span equals the head span; the
+ * others only saw a part of it, which later stages must not take as support for the whole span.
+ *
  * <p>Generators may emit in any order (the markup generator does), so the input is sorted here. Output order is the
  * block order of the document, then start, then end. Feature union: {@code oddsLog10} takes the maximum; for any other key
  * present in several merged candidates the value of the generator that comes first in {@link Generator} declaration
@@ -83,7 +86,11 @@ public final class CandidateMerger {
     Candidate named = group.stream().filter(c -> c.start() == head.start() && c.end() == head.end())
         .min(Comparator.comparingInt(c -> c.generator().ordinal())).orElse(head);
     Set<Generator> gens = EnumSet.noneOf(Generator.class);
-    group.forEach(c -> gens.add(c.generator()));
+    Set<Generator> exact = EnumSet.noneOf(Generator.class);
+    for (Candidate c : group) {
+      gens.add(c.generator());
+      if (c.start() == head.start() && c.end() == head.end()) exact.add(c.generator());
+    }
     List<Candidate> byPriority = new ArrayList<>(group);
     byPriority.sort(Comparator.comparingInt(c -> c.generator().ordinal()));
     Map<String, Object> features = new LinkedHashMap<>();
@@ -99,6 +106,6 @@ public final class CandidateMerger {
       }
     }
     return new MergedCandidate(blockId, head.start(), head.end(), head.verbatim(), named.name(),
-        new LinkedHashSet<>(gens), features, null, null);
+        new LinkedHashSet<>(gens), exact, features, null, null);
   }
 }
