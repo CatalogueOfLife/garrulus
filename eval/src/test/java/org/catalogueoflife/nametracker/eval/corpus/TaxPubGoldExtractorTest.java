@@ -41,7 +41,7 @@ class TaxPubGoldExtractorTest {
       assertThat(a.type()).isEqualTo(ActType.SP_NOV);
       assertThat(a.nameText()).isEqualTo("Ophelia yangi");
     });
-    assertThat(g.mainSubjectNames()).contains("Ophelia yangi");
+    assertThat(g.mainSubjectNames()).contains("Ophelia yangi").doesNotContain("Annelida", "Opheliidae");
   }
 
   @Test
@@ -55,5 +55,25 @@ class TaxPubGoldExtractorTest {
   void contextsListSuprageneric() throws Exception {
     assertThat(extract().contexts()).flatExtracting(GoldContext::ranks)
         .extracting(r -> r.name()).contains("Annelida", "Opheliidae");
+  }
+
+  @Test
+  void subgenusAndSubspeciesFullNames() {
+    String xml = """
+        <article xmlns:tp="http://www.plazi.org/taxpub" xmlns:xlink="http://www.w3.org/1999/xlink">
+          <front><article-meta><title-group><article-title>Notes</article-title></title-group></article-meta></front>
+          <body><sec><title>Taxonomy</title>
+            <p>We treat <tp:taxon-name><tp:taxon-name-part taxon-name-part-type="genus" reg="Carabus">C.</tp:taxon-name-part>
+            <tp:taxon-name-part taxon-name-part-type="subgenus" reg="Morphocarabus">(M.)</tp:taxon-name-part>
+            <tp:taxon-name-part taxon-name-part-type="species" reg="nigrus">nigrus</tp:taxon-name-part>
+            <tp:taxon-name-part taxon-name-part-type="subspecies" reg="alpinus">alpinus</tp:taxon-name-part></tp:taxon-name> here.</p>
+          </sec></body>
+        </article>
+        """;
+    GoldDocument g = new TaxPubGoldExtractor().extract(
+        new java.io.ByteArrayInputStream(xml.getBytes(java.nio.charset.StandardCharsets.UTF_8)), "pensoft:x", "dev");
+    assertThat(g.names()).hasSize(1);
+    assertThat(g.names().get(0).fullName()).isEqualTo("Carabus (Morphocarabus) nigrus alpinus");
+    assertThat(g.names().get(0).rank()).isEqualTo(org.gbif.nameparser.api.Rank.SUBSPECIES);
   }
 }

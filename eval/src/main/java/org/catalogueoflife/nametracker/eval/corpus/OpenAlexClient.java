@@ -37,10 +37,16 @@ public class OpenAlexClient {
 
   /** Works matching the filter, cursor paged with per-page=100, at most max of them. */
   public List<JsonNode> listWorks(String filter, int max) {
+    return listWorks(filter, max, null);
+  }
+
+  /** As {@link #listWorks(String, int)}, restricted to the given comma separated fields (OpenAlex select) if not null. */
+  public List<JsonNode> listWorks(String filter, int max, @Nullable String select) {
     List<JsonNode> out = new ArrayList<>();
     String cursor = "*";
     while (out.size() < max && cursor != null) {
-      String url = base + "/works?filter=" + enc(filter) + "&per-page=100&cursor=" + enc(cursor) + keyParam();
+      String url = base + "/works?filter=" + enc(filter) + "&per-page=100&cursor=" + enc(cursor)
+          + (select == null ? "" : "&select=" + enc(select)) + keyParam();
       JsonNode page = get(url);
       JsonNode results = page.path("results");
       for (JsonNode w : results) {

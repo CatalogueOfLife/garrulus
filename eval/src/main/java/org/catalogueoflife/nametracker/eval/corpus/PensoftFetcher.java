@@ -29,6 +29,7 @@ public class PensoftFetcher {
   private final HttpClient http;
   private final OpenAlexClient openAlex;
   private final long minIntervalMs;
+  private long retryDefaultMs = 10_000;
   private long lastRequest;
 
   public PensoftFetcher(HttpClient http, OpenAlexClient openAlex) {
@@ -44,7 +45,9 @@ public class PensoftFetcher {
   /** The journal key of a Pensoft DOI: "10.3897/zookeys.1297.218447" gives "zookeys", "10.3897/BDJ.14.e202849" gives "bdj". */
   static String journal(String doi) {
     String suffix = doi.substring(doi.indexOf('/') + 1);
-    String j = suffix.substring(0, suffix.indexOf('.')).toLowerCase(Locale.ROOT);
+    int dot = suffix.indexOf('.');
+    if (dot < 0) throw new IllegalArgumentException("Not a supported Pensoft DOI: " + doi);
+    String j = suffix.substring(0, dot).toLowerCase(Locale.ROOT);
     if (!doi.startsWith("10.3897/") || !JOURNALS.containsKey(j)) {
       throw new IllegalArgumentException("Not a supported Pensoft DOI: " + doi);
     }
@@ -64,33 +67,47 @@ public class PensoftFetcher {
     return "https://" + journal(doi) + ".pensoft.net/article/" + articleId(doi) + "/download/pdf/";
   }
 
+  /** Only these OpenAlex licences are committed as text; the value is the label stored in the manifest. */
+  static String licenseLabel(String openAlexLicense) {
+    String l = openAlexLicense == null ? "" : openAlexLicense.trim().toLowerCase(Locale.ROOT);
+    return switch (l) {
+      case "cc-by" -> "CC-BY";
+      case "cc0" -> "CC0";
+      default -> null;
+    };
+  }
+
   /**
-   * n distinct DOIs with a CC-BY licence, deterministically shuffled by seed; the first devCount are "dev", the rest "test".
-   * Candidates are sorted by DOI before shuffling so the result does not depend on the API's page order.
+   * All CC-BY / CC0 candidates, sorted by DOI and then shuffled deterministically by seed. The split column is empty.
+   * Sorting first makes the result independent of the API's page order.
    */
-  public List<CorpusManifest.Row> sample(int n, int devCount, long seed) {
+  public List<CorpusManifest.Row> candidates(long seed) {
     Map<String, CorpusManifest.Row> byDoi = new LinkedHashMap<>();
-    for (JsonNode w : openAlex.listWorks(FILTER, Integer.MAX_VALUE)) {
+    for (JsonNode w : openAlex.listWorks(FILTER, Integer.MAX_VALUE, "doi,primary_location")) {
       String doi = w.path("doi").asString("").replaceFirst("^https?://doi.org/", "");
       if (!doi.startsWith("10.3897/")) continue;
-      String lic = w.path("primary_location").path("license").asString("");
-      if (!lic.toLowerCase(Locale.ROOT).startsWith("cc-by") || lic.toLowerCase(Locale.ROOT).contains("-nc")
-          || lic.toLowerCase(Locale.ROOT).contains("-nd")) continue;
+      String lic = licenseLabel(w.path("primary_location").path("license").asString(""));
+      if (lic == null) continue;
       String j;
       try {
         j = journal(doi);
       } catch (IllegalArgumentException e) {
         continue;
       }
-      byDoi.putIfAbsent(doi, new CorpusManifest.Row(docId(doi), doi, j, "CC-BY", "", xmlUrl(doi), pdfUrl(doi)));
+      byDoi.putIfAbsent(doi, new CorpusManifest.Row(docId(doi), doi, j, lic, "", xmlUrl(doi), pdfUrl(doi)));
     }
     List<CorpusManifest.Row> all = new ArrayList<>(byDoi.values());
     all.sort((a, b) -> a.doi().compareTo(b.doi()));
     Collections.shuffle(all, new Random(seed));
+    return all;
+  }
+
+  /** n distinct candidates; the first devCount are "dev", the rest "test". */
+  public List<CorpusManifest.Row> sample(int n, int devCount, long seed) {
+    List<CorpusManifest.Row> all = candidates(seed);
     List<CorpusManifest.Row> out = new ArrayList<>();
     for (int i = 0; i < Math.min(n, all.size()); i++) {
-      CorpusManifest.Row r = all.get(i);
-      out.add(new CorpusManifest.Row(r.docId(), r.doi(), r.journal(), r.license(), i < devCount ? "dev" : "test", r.xmlUrl(), r.pdfUrl()));
+      out.add(all.get(i).withSplit(i < devCount ? "dev" : "test"));
     }
     return out;
   }
@@ -113,6 +130,12 @@ public class PensoftFetcher {
       HttpRequest req = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(60))
           .header("User-Agent", USER_AGENT).GET().build();
       HttpResponse<byte[]> resp = http.send(req, HttpResponse.BodyHandlers.ofByteArray());
+      if (resp.statusCode() == 429 || resp.statusCode() >= 500) {
+        long pause = resp.headers().firstValue("Retry-After").map(v -> parseSeconds(v) * 1000).orElse(retryDefaultMs);
+        Thread.sleep(pause);
+        lastRequest = System.currentTimeMillis();
+        resp = http.send(req, HttpResponse.BodyHandlers.ofByteArray());
+      }
       if (resp.statusCode() != 200) throw new IllegalStateException("HTTP " + resp.statusCode() + " for " + url);
       return resp.body();
     } catch (IOException e) {
@@ -120,6 +143,20 @@ public class PensoftFetcher {
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new IllegalStateException("Interrupted", e);
+    }
+  }
+
+  /** Test hook: the pause before the single retry when the server sends no Retry-After. */
+  PensoftFetcher retryDelay(long ms) {
+    this.retryDefaultMs = ms;
+    return this;
+  }
+
+  private static long parseSeconds(String v) {
+    try {
+      return Math.max(0, Long.parseLong(v.trim()));
+    } catch (NumberFormatException e) {
+      return 10;
     }
   }
 

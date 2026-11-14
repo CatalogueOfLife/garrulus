@@ -12,6 +12,10 @@ public record CorpusManifest(List<Row> rows) {
   public static final String HEADER = "docId\tdoi\tjournal\tlicense\tsplit\txmlUrl\tpdfUrl";
 
   public record Row(String docId, String doi, String journal, String license, String split, String xmlUrl, String pdfUrl) {
+    public Row withSplit(String newSplit) {
+      return new Row(docId, doi, journal, license, newSplit, xmlUrl, pdfUrl);
+    }
+
     String toLine() {
       return String.join("\t", docId, doi, journal, license, split, xmlUrl, pdfUrl);
     }

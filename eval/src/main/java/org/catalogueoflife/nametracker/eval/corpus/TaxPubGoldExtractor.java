@@ -69,7 +69,9 @@ public final class TaxPubGoldExtractor {
       if (rank != null && rank.isSuprageneric()) {
         ctx.computeIfAbsent(t.blockId(), k -> new ArrayList<>()).add(new RankedName(rank, full != null ? full : text));
       }
-      if (blocks.get(t.blockId()).type() == BlockType.TITLE) subjects.add(full != null ? full : text);
+      if (blocks.get(t.blockId()).type() == BlockType.TITLE && (rank == null || !rank.isSuprageneric())) {
+        subjects.add(full != null ? full : text);
+      }
     }
 
     List<GoldAct> acts = new ArrayList<>();
@@ -100,12 +102,15 @@ public final class TaxPubGoldExtractor {
     List<String> out = new ArrayList<>();
     for (NamePart p : parts) {
       if (p.type() != null && p.type().startsWith("uncertainty")) continue;
+      String x;
       if (p.reg() != null && !p.reg().isBlank()) {
         anyReg = true;
-        out.add(p.reg().trim());
+        x = p.reg().trim();
       } else {
-        out.add(p.verbatim().trim());
+        x = p.verbatim().trim();
       }
+      if (p.type() != null && p.type().trim().equalsIgnoreCase("subgenus") && !x.startsWith("(")) x = "(" + x + ")";
+      out.add(x);
     }
     return anyReg && !out.isEmpty() ? String.join(" ", out) : null;
   }
