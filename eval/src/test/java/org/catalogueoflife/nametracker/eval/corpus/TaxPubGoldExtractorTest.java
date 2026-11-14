@@ -76,4 +76,24 @@ class TaxPubGoldExtractorTest {
     assertThat(g.names().get(0).fullName()).isEqualTo("Carabus (Morphocarabus) nigrus alpinus");
     assertThat(g.names().get(0).rank()).isEqualTo(org.gbif.nameparser.api.Rank.SUBSPECIES);
   }
+
+  @Test
+  void goldSpanKeepsTheClosingParenthesisOfASubgenus() {
+    // bdj.12.e132915: ")" is inside tp:taxon-name but outside the subgenus part; the gold span used to stop before it
+    String xml = """
+        <article xmlns:tp="http://www.plazi.org/taxpub">
+          <front><article-meta><title-group><article-title>Notes</article-title></title-group></article-meta></front>
+          <body><sec><title>Taxonomy</title>
+            <p>revision of the subgenus <tp:taxon-name><tp:taxon-name-part taxon-name-part-type="genus" reg="Crematogaster">Crematogaster</tp:taxon-name-part> (<tp:taxon-name-part taxon-name-part-type="subgenus" reg="Oxygyne">Oxygyne</tp:taxon-name-part>)</tp:taxon-name> in Madagascar</p>
+          </sec></body>
+        </article>
+        """;
+    GoldDocument g = new TaxPubGoldExtractor().extract(
+        new java.io.ByteArrayInputStream(xml.getBytes(java.nio.charset.StandardCharsets.UTF_8)), "pensoft:x", "dev");
+    assertThat(g.names()).singleElement().satisfies(n -> {
+      assertThat(n.text()).isEqualTo("Crematogaster (Oxygyne)");
+      assertThat(n.fullName()).isEqualTo("Crematogaster (Oxygyne)");
+      assertThat(n.rank()).isEqualTo(org.gbif.nameparser.api.Rank.SUBGENUS);
+    });
+  }
 }

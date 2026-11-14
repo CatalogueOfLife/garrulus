@@ -160,6 +160,44 @@ class JatsConverterTest {
     assertThat(s.status()).isEqualTo("sp. nov.");
   }
 
+  @Test void taxonMarkupCoversTextAfterTheLastNamePart() {
+    // bdj.12.e132915: the closing parenthesis of the subgenus sits inside tp:taxon-name but outside every name part
+    Conversion c = convertXml("<article xmlns:tp=\"http://www.plazi.org/taxpub\"><body><p>revision of the subgenus "
+      + "<tp:taxon-name><tp:taxon-name-part taxon-name-part-type=\"genus\" reg=\"Crematogaster\">Crematogaster</tp:taxon-name-part> "
+      + "(<tp:taxon-name-part taxon-name-part-type=\"subgenus\" reg=\"Oxygyne\">Oxygyne</tp:taxon-name-part>)</tp:taxon-name>"
+      + " in Madagascar</p></body></article>");
+    Block b = c.document().blocks().get(0);
+    assertThat(b.text()).isEqualTo("revision of the subgenus Crematogaster (Oxygyne) in Madagascar");
+    assertThat(c.taxonMarkup()).hasSize(1);
+    TaxonMarkup t = c.taxonMarkup().get(0);
+    assertThat(slice(b, t.start(), t.end())).isEqualTo("Crematogaster (Oxygyne)");
+    assertThat(spans(b, Style.TAXON_NAME)).containsExactly("Crematogaster (Oxygyne)");
+  }
+
+  @Test void taxonMarkupCoversTextBeforeTheFirstNamePart() {
+    Conversion c = convertXml("<article xmlns:tp=\"http://www.plazi.org/taxpub\"><body><p>the subgenus "
+      + "<tp:taxon-name>(<tp:taxon-name-part taxon-name-part-type=\"subgenus\" reg=\"Oxygyne\">Oxygyne</tp:taxon-name-part>)</tp:taxon-name>"
+      + " is</p></body></article>");
+    Block b = c.document().blocks().get(0);
+    TaxonMarkup t = c.taxonMarkup().get(0);
+    assertThat(slice(b, t.start(), t.end())).isEqualTo("(Oxygyne)");
+  }
+
+  @Test void taxonMarkupExcludesWhitespaceAndSkippedIdsInsideTheName() {
+    // mycokeys.128.172807: a nomenclature name wraps object ids and line breaks around its parts
+    Conversion c = convertXml("<article xmlns:tp=\"http://www.plazi.org/taxpub\"><body><sec><title>S</title><tp:taxon-treatment>"
+      + "<tp:nomenclature>\n  <tp:taxon-name><object-id content-type=\"arpha\">F6CD5733-1CFE-549D-B234-739D39B89D55</object-id>\n\t\t"
+      + "<tp:taxon-name-part taxon-name-part-type=\"genus\" reg=\"Hyphodermella\">Hyphodermella</tp:taxon-name-part> "
+      + "<tp:taxon-name-part taxon-name-part-type=\"species\" reg=\"ryvardenii\">ryvardenii</tp:taxon-name-part>\n\t\n\t\t"
+      + "<object-id content-type=\"mycobank\">MB860665</object-id>\n\t</tp:taxon-name>\n"
+      + "  <tp:taxon-status>sp. nov</tp:taxon-status></tp:nomenclature></tp:taxon-treatment></sec></body></article>");
+    Block h = first(c, BlockType.HEADING, "Hyphodermella");
+    assertThat(h.text()).isEqualTo("Hyphodermella ryvardenii sp. nov");
+    TaxonMarkup t = c.taxonMarkup().get(0);
+    assertThat(slice(h, t.start(), t.end())).isEqualTo("Hyphodermella ryvardenii");
+    assertThat(spans(h, Style.TAXON_NAME)).containsExactly("Hyphodermella ryvardenii");
+  }
+
   @Test void entityLookalikeInCdataSurvives() {
     Conversion c = convertXml("<article><body><p>a <![CDATA[x &foo; y]]> b &nbsp; c</p></body></article>");
     assertThat(c.document().blocks().get(0).text()).isEqualTo("a x &foo; y b c");

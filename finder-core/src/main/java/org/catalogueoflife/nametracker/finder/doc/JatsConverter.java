@@ -59,7 +59,7 @@ public final class JatsConverter {
     private Deque<int[]> openStyles;                                  // {styleOrdinal, start}
     private List<TaxonMarkup> blockTaxa;
     private List<StatusMarkup> blockStatuses;                         // taxonMarkupIndex is relative to blockTaxa
-    private int[] nameStart;                                          // {firstPartStart, lastPartEnd} of open taxon-name
+    private int[] nameStart;                                          // {start, end} of the non-space text of the open taxon-name
     private List<NamePart> nameParts;
     private String partType, partReg;
     private StringBuilder partText;
@@ -196,8 +196,22 @@ public final class JatsConverter {
       if (t.isEmpty()) return;
       if (statusStart == -2) statusStart = length;
       if (partText != null) partText.append(t);
+      int before = length;
       text.append(t);
       length += t.codePointCount(0, t.length());
+      if (nameStart != null) extendName(t, before);
+    }
+
+    /**
+     * The extent of a taxon-name is all of its text, not just its name parts: Pensoft puts the closing parenthesis of a
+     * subgenus ("Crematogaster (Oxygyne)") inside tp:taxon-name but outside the parts. Leading and trailing spaces are left out.
+     */
+    private void extendName(String t, int before) {
+      String core = t.strip();
+      if (core.isEmpty()) return;
+      int lead = t.indexOf(core);
+      if (nameStart[0] < 0) nameStart[0] = before + t.codePointCount(0, lead);
+      nameStart[1] = before + t.codePointCount(0, lead + core.length());
     }
 
     private void addSpace() {
@@ -239,21 +253,18 @@ public final class JatsConverter {
         case "taxon-name-part" -> {
           if (partText != null) {
             int len = partText.codePointCount(0, partText.length());
-            if (len > 0) {
-              if (nameStart[0] < 0) nameStart[0] = length - len;
-              nameStart[1] = length;
-              nameParts.add(new NamePart(partType, partReg, partText.toString()));
-            }
+            if (len > 0) nameParts.add(new NamePart(partType, partReg, partText.toString()));
             partText = null;
           }
         }
         case "taxon-name" -> {
-          if (nameParts != null && !nameParts.isEmpty()) {
+          if (nameParts != null && !nameParts.isEmpty() && nameStart[0] >= 0) {
             blockTaxa.add(new TaxonMarkup("", nameStart[0], nameStart[1], nameParts));
             lastNameInNomenclature = blockTaxa.size() - 1;
             if (opts.keepTaxonMarkup()) spans.add(new StyleSpan(nameStart[0], nameStart[1], Style.TAXON_NAME));
           }
           nameParts = null;
+          nameStart = null;
         }
         case "taxon-status" -> {
           if (statusStart >= 0 && length > statusStart && lastNameInNomenclature >= 0) {
@@ -310,6 +321,7 @@ public final class JatsConverter {
       blockDepth = -1;
       blockType = null;
       nameParts = null;
+      nameStart = null;
       partText = null;
       statusStart = -1;
     }
