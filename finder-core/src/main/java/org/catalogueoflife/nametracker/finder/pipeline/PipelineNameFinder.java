@@ -78,7 +78,7 @@ public class PipelineNameFinder implements NameFinder {
 
   private final PipelineConfig cfg;
   private final @Nullable GnfinderClient gnfinder;
-  private final List<Gen> generators = new ArrayList<>();
+  private final List<Gen> generators;
   private final AuthorshipAttacher authorship;
   private final AbbreviationExpander abbreviations = new AbbreviationExpander();
   private final ParserStage parserStage;
@@ -104,11 +104,13 @@ public class PipelineNameFinder implements NameFinder {
       throw new IllegalArgumentException("GNFINDER is enabled but no gnfinder client was given");
     }
     this.gnfinder = gn;
-    if (on.contains(Generator.DICTIONARY)) generators.add(new Gen(new DictionaryGenerator(dict), EnumSet.of(Generator.DICTIONARY)));
-    if (on.contains(Generator.SUFFIX)) generators.add(new Gen(new SuffixRuleGenerator(common), EnumSet.of(Generator.SUFFIX)));
+    List<Gen> gens = new ArrayList<>();
+    if (on.contains(Generator.DICTIONARY)) gens.add(new Gen(new DictionaryGenerator(dict), EnumSet.of(Generator.DICTIONARY)));
+    if (on.contains(Generator.SUFFIX)) gens.add(new Gen(new SuffixRuleGenerator(common), EnumSet.of(Generator.SUFFIX)));
     if (on.contains(Generator.ITALIC) || on.contains(Generator.TAXON_MARKUP)) {
-      generators.add(new Gen(new MarkupGenerator(), EnumSet.of(Generator.ITALIC, Generator.TAXON_MARKUP)));
+      gens.add(new Gen(new MarkupGenerator(), EnumSet.of(Generator.ITALIC, Generator.TAXON_MARKUP)));
     }
+    this.generators = List.copyOf(gens);
     this.authorship = new AuthorshipAttacher(parser);
     this.parserStage = new ParserStage(parser, dict);
     this.judge = new ThresholdJudge(cfg.judgeWeights(), cfg.judgeBias(), cfg.judgeThreshold());
