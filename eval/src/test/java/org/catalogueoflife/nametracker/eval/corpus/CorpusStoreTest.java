@@ -28,6 +28,24 @@ class CorpusStoreTest {
   }
 
   @Test
+  void mainSubjectNamesAreWrittenSortedSoTheFileIsReproducible() throws Exception {
+    GoldDocument g = doc();
+    java.util.Set<String> subjects = new java.util.LinkedHashSet<>(List.of("Ophelia yangi", "Annelida", "Ophelia", "Carabus"));
+    GoldDocument d = new GoldDocument(g.docId(), g.corpus(), g.split(), g.license(), g.textRetained(), g.textSha256(),
+        g.document(), g.names(), g.acts(), g.contexts(), subjects);
+    assertThat(d.mainSubjectNames()).containsExactly("Annelida", "Carabus", "Ophelia", "Ophelia yangi");
+    assertThat(org.catalogueoflife.nametracker.finder.api.FinderJson.mapper().writeValueAsString(d))
+        .contains("\"mainSubjectNames\":[\"Annelida\",\"Carabus\",\"Ophelia\",\"Ophelia yangi\"]");
+    Path a = dir.resolve("a.jsonl.gz");
+    Path b = dir.resolve("b.jsonl.gz");
+    CorpusStore.write(a, List.of(d));
+    CorpusStore.write(b, List.of(new GoldDocument(g.docId(), g.corpus(), g.split(), g.license(), g.textRetained(),
+        g.textSha256(), g.document(), g.names(), g.acts(), g.contexts(), java.util.Set.copyOf(subjects))));
+    assertThat(java.nio.file.Files.readAllBytes(a)).isEqualTo(java.nio.file.Files.readAllBytes(b));
+    assertThat(CorpusStore.read(a, null).get(0).mainSubjectNames()).containsExactly("Annelida", "Carabus", "Ophelia", "Ophelia yangi");
+  }
+
+  @Test
   void refetchRestoresText() throws Exception {
     GoldDocument g = doc();
     Path f = dir.resolve("gold.jsonl.gz");

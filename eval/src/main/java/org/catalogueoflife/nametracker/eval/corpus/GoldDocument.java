@@ -9,11 +9,13 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * A document with its gold annotations.
@@ -23,6 +25,8 @@ import java.util.Set;
  * {@code document} keeps block ids, types, levels, section paths and style spans but every block text is empty; the code
  * point length of each block is kept in {@code document.meta["blockLengths"]} (comma separated) so the text can be put back
  * from a {@link TextRefetcher}. Annotation offsets stay valid.
+ *
+ * <p>{@code mainSubjectNames} is kept sorted, so a corpus file is byte-for-byte reproducible.
  */
 public record GoldDocument(String docId, String corpus, String split, String license, boolean textRetained,
                            String textSha256, Document document, List<GoldName> names, List<GoldAct> acts,
@@ -33,7 +37,7 @@ public record GoldDocument(String docId, String corpus, String split, String lic
     names = names == null ? List.of() : List.copyOf(names);
     acts = acts == null ? List.of() : List.copyOf(acts);
     contexts = contexts == null ? List.of() : List.copyOf(contexts);
-    mainSubjectNames = mainSubjectNames == null ? Set.of() : Set.copyOf(mainSubjectNames);
+    mainSubjectNames = mainSubjectNames == null ? Set.of() : Collections.unmodifiableSortedSet(new TreeSet<>(mainSubjectNames));
   }
 
   public static String sha256(String text) {
