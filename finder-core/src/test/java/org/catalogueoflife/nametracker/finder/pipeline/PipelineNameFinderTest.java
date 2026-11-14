@@ -13,6 +13,7 @@ import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.finder.api.FinderOptions;
 import org.catalogueoflife.nametracker.finder.api.FinderResult;
 import org.catalogueoflife.nametracker.finder.api.Generator;
+import org.catalogueoflife.nametracker.finder.api.JudgeVerdict;
 import org.catalogueoflife.nametracker.finder.api.Mention;
 import org.catalogueoflife.nametracker.finder.api.NameKind;
 import org.catalogueoflife.nametracker.finder.api.RankedName;
@@ -391,6 +392,61 @@ class PipelineNameFinderTest {
     assertThat(m.evidence().judge()).isNotNull();
     assertThat(m.evidence().judge().accepted()).isTrue();
     assertThat(m.confidence()).isEqualTo(m.evidence().judge().score());
+  }
+
+  @Test
+  void prepareThenFinishWithTheConfiguredJudgeEqualsFind() {
+    RecordedGnfinder gn = new RecordedGnfinder("zookeys-218447-excerpt");
+    PipelineNameFinder f = finder(gn);
+    Document d = zookeys();
+    FinderOptions o = new FinderOptions(true, null);
+    PipelineNameFinder.Prepared p = f.prepare(d, o);
+    assertThat(gn.calls).hasValue(1);
+    PipelineConfig c = f.config();
+    FinderResult viaParts = f.finish(p, new ThresholdJudge(c.judgeWeights(), c.judgeBias(), c.judgeThreshold()));
+    assertThat(gn.calls).as("finish must not call gnfinder").hasValue(1);
+    FinderResult direct = f.find(d, o);
+    // gnfinderMs is a timing
+    assertThat(withoutTiming(viaParts)).isEqualTo(withoutTiming(direct));
+  }
+
+  @Test
+  void preparedCandidatesShowWhatTheJudgeDecidesOn() {
+    PipelineNameFinder f = finder(new RecordedGnfinder("zookeys-218447-excerpt"));
+    PipelineNameFinder.Prepared p = f.prepare(zookeys(), FinderOptions.defaults());
+    List<PipelineNameFinder.PreparedCandidate> cs = p.candidates();
+    assertThat(cs).isNotEmpty();
+    assertThat(cs).anyMatch(PipelineNameFinder.PreparedCandidate::certain).anyMatch(c -> !c.certain());
+    for (PipelineNameFinder.PreparedCandidate c : cs) {
+      Block b = p.document().blocks().stream().filter(x -> x.id().equals(c.blockId())).findFirst().orElseThrow();
+      assertThat(CodePoints.slice(b.text(), c.start(), c.end())).isEqualTo(c.verbatim());
+    }
+
+    // a judge that rejects everything leaves exactly the certain names, in candidate order
+    CandidateJudge no = new CandidateJudge() {
+      @Override
+      public String name() {
+        return "no";
+      }
+
+      @Override
+      public JudgeVerdict judge(ParsedCandidate c, CandidateFeatures feat) {
+        return new JudgeVerdict("no", 0, false, null);
+      }
+    };
+    FinderResult r = f.finish(p, no);
+    assertThat(r.mentions()).extracting(Mention::verbatim)
+        .containsExactlyElementsOf(cs.stream().filter(PipelineNameFinder.PreparedCandidate::certain)
+            .map(PipelineNameFinder.PreparedCandidate::verbatim).toList());
+    assertThat(r.mentions()).extracting(Mention::name)
+        .containsExactlyElementsOf(cs.stream().filter(PipelineNameFinder.PreparedCandidate::certain)
+            .map(PipelineNameFinder.PreparedCandidate::name).toList());
+  }
+
+  private static FinderResult withoutTiming(FinderResult r) {
+    Map<String, String> d = new java.util.LinkedHashMap<>(r.diagnostics());
+    d.remove("gnfinderMs");
+    return new FinderResult(r.info(), r.mentions(), r.acts(), r.contexts(), r.rejected(), d);
   }
 
   @Test

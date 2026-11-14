@@ -77,6 +77,10 @@ import java.util.Set;
  * name, {@code gnfinderMs} time spent in gnfinder, {@code gnfinderMisaligned} gnfinder names dropped because their
  * offsets did not match their text, {@code gnfinderTrimmed} gnfinder names cut or dropped by the {@link EpithetGuard}.
  * {@code candidates = unparsed + accepted + rejected}.
+ *
+ * <p><b>Two halves.</b> {@link #find} is {@link #prepare} (generators to features; the only part that calls gnfinder)
+ * followed by {@link #finish} (judge, acts, contexts, output) with the judge of the config. The evaluation tunes the
+ * judge by preparing each document once and finishing it with many judges.
  */
 public class PipelineNameFinder implements NameFinder {
   public static final String NAME = "pipeline";
@@ -156,13 +160,71 @@ public class PipelineNameFinder implements NameFinder {
   /** A parsed candidate with its outcome; verdict is null for certain names. */
   private record Judged(ParsedCandidate p, double confidence, @Nullable JudgeVerdict verdict) {}
 
+  /**
+   * One candidate of a {@link Prepared} document, as the judge sees it.
+   *
+   * @param name the mention name it would get (expanded, qualifier removed)
+   * @param certain it bypasses the judge and is always accepted
+   */
+  public record PreparedCandidate(String blockId, int start, int end, String verbatim, String name, NameKind kind,
+                                  boolean certain, CandidateFeatures features) {}
+
+  /**
+   * A document taken through every stage up to judging (generators, merge, authorship, abbreviations, parsing,
+   * features): what {@link #finish} needs to complete the result with any judge. gnfinder is called only here, so a
+   * judge can be tuned over many settings without calling it again. Opaque apart from {@link #candidates()}.
+   */
+  public static final class Prepared {
+    private final Document doc;
+    private final FinderOptions opts;
+    private final List<ParsedCandidate> parsed;
+    private final List<CandidateFeatures> features;
+    private final boolean[] certain;
+    private final int merged;
+    private final long gnfinderMs;
+    private final int misaligned;
+    private final int gnTrimmed;
+
+    private Prepared(Document doc, FinderOptions opts, List<ParsedCandidate> parsed, List<CandidateFeatures> features,
+                     boolean[] certain, int merged, long gnfinderMs, int misaligned, int gnTrimmed) {
+      this.doc = doc;
+      this.opts = opts;
+      this.parsed = parsed;
+      this.features = features;
+      this.certain = certain;
+      this.merged = merged;
+      this.gnfinderMs = gnfinderMs;
+      this.misaligned = misaligned;
+      this.gnTrimmed = gnTrimmed;
+    }
+
+    public Document document() {
+      return doc;
+    }
+
+    /** The parsed candidates in document order. */
+    public List<PreparedCandidate> candidates() {
+      List<PreparedCandidate> out = new ArrayList<>(parsed.size());
+      for (int i = 0; i < parsed.size(); i++) {
+        ParsedCandidate p = parsed.get(i);
+        MergedCandidate c = p.c();
+        NameKind kind = ParserStage.isAbbreviated(c.verbatim()) ? NameKind.ABBREVIATED : p.kind();
+        out.add(new PreparedCandidate(c.blockId(), c.start(), c.end(), c.verbatim(), c.name(), kind, certain[i], features.get(i)));
+      }
+      return out;
+    }
+  }
+
   @Override
   public FinderResult find(Document doc, FinderOptions opts) {
+    return finish(prepare(doc, opts), judge);
+  }
+
+  /** Steps 1 to 5 and the features, see {@link Prepared}. */
+  public Prepared prepare(Document doc, FinderOptions opts) {
     FinderOptions o = opts == null ? FinderOptions.defaults() : opts;
-    Map<String, String> diag = new LinkedHashMap<>();
     if (doc.blocks().stream().allMatch(b -> b.text().isBlank())) {
-      diagnostics(diag, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-      return new FinderResult(info, List.of(), List.of(), List.of(), List.of(), diag);
+      return new Prepared(doc, o, List.of(), List.of(), new boolean[0], 0, 0, 0, 0);
     }
     Map<String, Block> blocks = new HashMap<>();
     doc.blocks().forEach(b -> blocks.putIfAbsent(b.id(), b));
@@ -203,14 +265,39 @@ public class PipelineNameFinder implements NameFinder {
     List<ParsedCandidate> parsed = new ArrayList<>(expanded.size());
     for (MergedCandidate m : expanded) parserStage.parse(m, o.codeHint()).ifPresent(parsed::add);
 
-    // 6. judge the uncertain ones
+    // features, and who bypasses the judge
     FeatureExtractor fx = new FeatureExtractor(doc, parsed.size());
+    List<CandidateFeatures> features = new ArrayList<>(parsed.size());
+    boolean[] certain = new boolean[parsed.size()];
+    for (int i = 0; i < parsed.size(); i++) {
+      CandidateFeatures f = fx.features(parsed.get(i));
+      features.add(f);
+      certain[i] = isCertain(parsed.get(i), f, cfg.certainOdds());
+    }
+    return new Prepared(doc, o, List.copyOf(parsed), List.copyOf(features), certain, merged.size(), gnMs, misaligned, gnTrimmed);
+  }
+
+  /**
+   * Steps 6 to 8: judges the uncertain candidates with {@code judge}, then tags acts and extracts contexts on the accepted
+   * names. {@link #find} uses the judge of this finder's config; the result's {@link FinderInfo} is always this finder's.
+   */
+  public FinderResult finish(Prepared prepared, CandidateJudge judge) {
+    Document doc = prepared.doc;
+    FinderOptions o = prepared.opts;
+    Map<String, String> diag = new LinkedHashMap<>();
+    if (doc.blocks().stream().allMatch(b -> b.text().isBlank())) {
+      diagnostics(diag, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+      return new FinderResult(info, List.of(), List.of(), List.of(), List.of(), diag);
+    }
+
+    // 6. judge the uncertain ones
     List<Judged> accepted = new ArrayList<>();
     List<Judged> rejected = new ArrayList<>();
     int certain = 0;
-    for (ParsedCandidate p : parsed) {
-      CandidateFeatures f = fx.features(p);
-      if (isCertain(p, f, cfg.certainOdds())) {
+    for (int i = 0; i < prepared.parsed.size(); i++) {
+      ParsedCandidate p = prepared.parsed.get(i);
+      CandidateFeatures f = prepared.features.get(i);
+      if (prepared.certain[i]) {
         certain++;
         accepted.add(new Judged(p, certainConfidence(p, f), null));
       } else {
@@ -249,8 +336,8 @@ public class PipelineNameFinder implements NameFinder {
     if (o.includeRejected()) {
       for (Judged j : rejected) rejectedMentions.add(mention("r" + (rejectedMentions.size() + 1), j, null, null, idBySpan));
     }
-    diagnostics(diag, merged.size(), merged.size() - parsed.size(), certain, accepted.size(), rejected.size(),
-        actResult.actsUnattached(), gnMs, misaligned, gnTrimmed);
+    diagnostics(diag, prepared.merged, prepared.merged - prepared.parsed.size(), certain, accepted.size(), rejected.size(),
+        actResult.actsUnattached(), prepared.gnfinderMs, prepared.misaligned, prepared.gnTrimmed);
     return new FinderResult(info, mentions, acts, contexts, rejectedMentions, diag);
   }
 
