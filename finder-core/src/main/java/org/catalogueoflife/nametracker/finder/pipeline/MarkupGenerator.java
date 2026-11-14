@@ -18,8 +18,9 @@ import java.util.function.Predicate;
 /**
  * Candidates from document markup. Inside each ITALIC span the maximal runs of name-shaped tokens become candidates
  * (generator ITALIC): a capitalised word or abbreviated genus, an optional "(Subgenus)", then lower-case epithets and rank
- * markers. Italics say little about a third word, so a bare infraspecific epithet must be a COL epithet. Runs end at anything but whitespace between tokens. Each TAXON_NAME span becomes a candidate that covers the
- * span exactly (generator TAXON_MARKUP).
+ * markers. Italics say little about a third word, so a bare infraspecific epithet must be a COL epithet. Runs end at
+ * anything but whitespace between tokens. Each TAXON_NAME span becomes a candidate that covers the span exactly
+ * (generator TAXON_MARKUP).
  */
 public class MarkupGenerator implements CandidateGenerator {
   private final ColDictionary dict;
