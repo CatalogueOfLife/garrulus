@@ -1,0 +1,68 @@
+package org.catalogueoflife.nametracker.finder.pipeline;
+
+import org.catalogueoflife.nametracker.finder.api.Block;
+import org.catalogueoflife.nametracker.finder.api.BlockType;
+import org.catalogueoflife.nametracker.finder.api.CodePoints;
+import org.catalogueoflife.nametracker.finder.api.Document;
+import org.catalogueoflife.nametracker.finder.api.Generator;
+import org.catalogueoflife.nametracker.finder.api.Style;
+import org.catalogueoflife.nametracker.finder.api.StyleSpan;
+import org.catalogueoflife.nametracker.finder.doc.FlatText;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class MarkupGeneratorTest {
+  private static List<Candidate> run(String text, StyleSpan... spans) {
+    Document d = new Document("d", null, List.of(new Block("b1", BlockType.PARAGRAPH, 0, text, List.of(spans), List.of())), null);
+    return new MarkupGenerator().generate(d, FlatText.of(d), new GenerationContext(null));
+  }
+
+  private static StyleSpan span(String text, String sub, Style st) {
+    int s = CodePoints.toCodePoint(text, text.indexOf(sub));
+    return new StyleSpan(s, s + CodePoints.length(sub), st);
+  }
+
+  @Test
+  void italicSpanSplitIntoNameRuns() {
+    String t = "Carabus nigrus and C. alpinus occur.";
+    List<Candidate> cs = run(t, span(t, "Carabus nigrus", Style.ITALIC), span(t, "C. alpinus", Style.ITALIC));
+    assertThat(cs).extracting(Candidate::verbatim).containsExactly("Carabus nigrus", "C. alpinus");
+    assertThat(cs).allMatch(c -> c.generator() == Generator.ITALIC);
+  }
+
+  @Test
+  void oneItalicSpanWithSeveralNames() {
+    String t = "Carabus (Megodontus) nigrus, Rosa canina var. glandulosa and C. alpinus";
+    List<Candidate> cs = run(t, span(t, t, Style.ITALIC));
+    assertThat(cs).extracting(Candidate::verbatim)
+        .containsExactly("Carabus (Megodontus) nigrus", "Rosa canina var. glandulosa", "C. alpinus");
+  }
+
+  @Test
+  void punctuationStopsRunsAndLowerCaseDoesNotStart() {
+    String t = "Carabus, nigrus and Rosa";
+    List<Candidate> cs = run(t, span(t, t, Style.ITALIC));
+    assertThat(cs).extracting(Candidate::verbatim).containsExactly("Carabus", "Rosa");
+  }
+
+  @Test
+  void taxonNameSpanCoversExactly() {
+    String t = "In 🪲 Carabus nigrus Smith, 1900 we";
+    List<Candidate> cs = run(t, span(t, "Carabus nigrus Smith, 1900", Style.TAXON_NAME));
+    assertThat(cs).hasSize(1);
+    assertThat(cs.get(0).generator()).isEqualTo(Generator.TAXON_MARKUP);
+    assertThat(cs.get(0).verbatim()).isEqualTo("Carabus nigrus Smith, 1900");
+    assertThat(CodePoints.slice(t, cs.get(0).start(), cs.get(0).end())).isEqualTo(cs.get(0).verbatim());
+  }
+
+  @Test
+  void italicOffsetsAfterSurrogate() {
+    String t = "🪲 Carabus nigrus";
+    List<Candidate> cs = run(t, span(t, "Carabus nigrus", Style.ITALIC));
+    assertThat(cs.get(0).start()).isEqualTo(2);
+    assertThat(CodePoints.slice(t, cs.get(0).start(), cs.get(0).end())).isEqualTo("Carabus nigrus");
+  }
+}
