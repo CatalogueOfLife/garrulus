@@ -27,6 +27,9 @@ import java.util.regex.Pattern;
  * nigrus" becomes "Carabus nigrus" with qualifier "cf."); the verbatim text and the span are untouched. A "sp." or
  * "spp." directly after a lone genus, even when just outside the span, is recorded as a qualifier as well. "sp. nov."
  * and "sp. n." are nomenclatural act markers and never a qualifier.
+ *
+ * <p>Deliberately unsupported: "in" citations ("Smith in Jones, 1900"), a combined basionym-plus-year form such as
+ * "(Fabricius, 1775) Smith, 1900", a qualifier before the genus, and more than one qualifier (only the first is taken).
  */
 public class AuthorshipAttacher {
   static final int LOOKAHEAD = 80;
@@ -52,6 +55,13 @@ public class AuthorshipAttacher {
       Pattern.compile(ABBR + "(?:" + SEP + ABBR + ")*"),
       // A. Smith
       Pattern.compile("(?:\\p{Lu}\\.\\s?){1,3}" + SURNAME));
+
+  private static final Pattern TAIL_QUALIFIER = Pattern.compile(
+      "^\\s+(sp\\.|spp\\.|s\\.l\\.|s\\.str\\.)(?=$|[\\s,;:)\\]])(\\s+(\\S+))?", Pattern.CASE_INSENSITIVE);
+  private static final Pattern LEADING_WS = Pattern.compile("^\\s+");
+  /** Abbreviations of the form "Fig." that the parser may take for an author but never are. */
+  private static final Set<String> NOT_AUTHORS = Set.of("fig.", "figs.", "tab.", "pl.", "pp.", "p.", "no.", "vol.");
+  private static final System.Logger LOG = System.getLogger(AuthorshipAttacher.class.getName());
 
   private final NameParser parser;
 
@@ -91,7 +101,7 @@ public class AuthorshipAttacher {
     }
     // outside the span: "sp." / "spp." after a lone genus, "s.l." / "s.str." after any name
     String tail = tail(c, block);
-    Matcher m = Pattern.compile("^\\s+(sp\\.|spp\\.|s\\.l\\.|s\\.str\\.)(?=$|[\\s,;:)\\]])(\\s+(\\S+))?", Pattern.CASE_INSENSITIVE).matcher(tail);
+    Matcher m = TAIL_QUALIFIER.matcher(tail);
     if (m.find()) {
       String qual = m.group(1).toLowerCase();
       boolean sp = qual.startsWith("sp");
@@ -111,7 +121,7 @@ public class AuthorshipAttacher {
 
   private MergedCandidate withAuthorship(MergedCandidate c, Block block) {
     String tail = tail(c, block);
-    Matcher ws = Pattern.compile("^\\s+").matcher(tail);
+    Matcher ws = LEADING_WS.matcher(tail);
     if (!ws.find()) return c;
     String rest = tail.substring(ws.end());
     Set<String> options = new LinkedHashSet<>();
@@ -127,6 +137,7 @@ public class AuthorshipAttacher {
     if (bare.isEmpty() || bare.get().hasAuthorship()) return c;
     String canonical = bare.get().canonicalNameWithoutAuthorship();
     for (String auth : options) {
+      if (NOT_AUTHORS.contains(auth.toLowerCase())) continue;
       var parsed = parse(name, auth);
       if (parsed.isPresent() && canonical.equals(parsed.get().canonicalNameWithoutAuthorship())
           && parsed.get().hasAuthorship()
@@ -141,6 +152,7 @@ public class AuthorshipAttacher {
     try {
       return parser.parse(authorship == null ? name : name + " " + authorship, null, Rank.UNRANKED, null).parsed();
     } catch (RuntimeException e) {
+      LOG.log(System.Logger.Level.DEBUG, "name parser failed on '" + name + "'", e);
       return Optional.empty();
     }
   }

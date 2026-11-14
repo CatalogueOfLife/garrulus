@@ -96,4 +96,29 @@ class AuthorshipAttacherTest {
     assertThat(attach("Carabus sp. nov. is described", "Carabus sp. nov.").qualifier()).isNull();
     assertThat(attach("Carabus sp. n. is described", "Carabus").qualifier()).isNull();
   }
+
+  @Test
+  void figureReferenceIsNotAuthorship() {
+    assertThat(attach("Rosa canina Fig. 2 shows the plant.", "Rosa canina").authorship()).isNull();
+    assertThat(attach("Rosa canina Tab. 3 shows the plant.", "Rosa canina").authorship()).isNull();
+  }
+
+  @Test
+  void otherQualifiers() {
+    var aff = attach("Carabus aff. nigrus was found.", "Carabus aff. nigrus");
+    assertThat(aff.name()).isEqualTo("Carabus nigrus");
+    assertThat(aff.qualifier()).isEqualTo("aff.");
+    var nr = attach("Carabus nr. nigrus was found.", "Carabus nr. nigrus");
+    assertThat(nr.name()).isEqualTo("Carabus nigrus");
+    assertThat(nr.qualifier()).isEqualTo("nr.");
+    var spp = attach("Carabus spp. were found.", "Carabus");
+    assertThat(spp.name()).isEqualTo("Carabus");
+    assertThat(spp.qualifier()).isEqualTo("spp.");
+    var sl = attach("Carabus nigrus s.l. was found.", "Carabus nigrus s.l.");
+    assertThat(sl.name()).isEqualTo("Carabus nigrus");
+    assertThat(sl.qualifier()).isEqualTo("s.l.");
+    var sstr = attach("Carabus nigrus s.str. was found.", "Carabus nigrus");
+    assertThat(sstr.name()).isEqualTo("Carabus nigrus");
+    assertThat(sstr.qualifier()).isEqualTo("s.str.");
+  }
 }

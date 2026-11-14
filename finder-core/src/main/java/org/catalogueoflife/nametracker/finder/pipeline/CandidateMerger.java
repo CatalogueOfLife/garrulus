@@ -1,34 +1,52 @@
 package org.catalogueoflife.nametracker.finder.pipeline;
 
+import org.catalogueoflife.nametracker.finder.api.Document;
 import org.catalogueoflife.nametracker.finder.api.Generator;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * Merges the candidates of all generators into one candidate per name span.
  *
- * <p>Within a block, the longest span wins and absorbs every candidate whose span lies inside it (generators and
- * features are unioned). Candidates that only partially overlap a winner, i.e. neither span contains the other, are not
- * merged: they stay as separate candidates, and the later stages decide. Generators may emit in any order (the
- * markup generator does), so the input is sorted here. Output order: blocks by first appearance in the input, then
- * start, then end.
+ * <p>Rule: within a block the longest span is a head, and every candidate whose span lies inside a head is absorbed into
+ * it (generators and features unioned). A candidate contained in several heads, which partially overlap each other,
+ * adds its generator support to each of them. Candidates that only partially overlap a head, i.e. neither span contains
+ * the other, are never merged: they stay separate candidates and later stages decide.
  *
- * <p>Feature union: the key {@code oddsLog10} takes the maximum; for any other key present in several merged
- * candidates the value of the generator that comes first in {@link Generator} declaration order wins.
+ * <p>Assumption: no head spans two distinct names. This holds for the current generators: markup runs stop at
+ * punctuation and at a capitalised token after the epithets, dictionary and suffix candidates are single names,
+ * TAXON_MARKUP is one tagged name, and gnfinder returns single names. If a head did cover two names, the contained
+ * names would be absorbed silently (see the documented-limitation test).
+ *
+ * <p>Generators may emit in any order (the markup generator does), so the input is sorted here. Output order is the
+ * block order of the document, then start, then end. Feature union: {@code oddsLog10} takes the maximum; for any other key
+ * present in several merged candidates the value of the generator that comes first in {@link Generator} declaration
+ * order wins.
+ *
+ * @throws IllegalArgumentException if a candidate's blockId is not a block of the document
  */
 public final class CandidateMerger {
   private CandidateMerger() {}
 
-  public static List<MergedCandidate> merge(List<Candidate> candidates) {
-    Map<String, List<Candidate>> byBlock = new LinkedHashMap<>();
+  public static List<MergedCandidate> merge(List<Candidate> candidates, Document doc) {
+    Map<String, Integer> order = new HashMap<>();
+    for (int i = 0; i < doc.blocks().size(); i++) {
+      order.putIfAbsent(doc.blocks().get(i).id(), i);
+    }
+    Map<String, List<Candidate>> byBlock = new TreeMap<>(Comparator.comparingInt(order::get));
     for (Candidate c : candidates) {
+      if (!order.containsKey(c.blockId())) {
+        throw new IllegalArgumentException("Candidate refers to block " + c.blockId() + " which is not in document " + doc.id());
+      }
       byBlock.computeIfAbsent(c.blockId(), k -> new ArrayList<>()).add(c);
     }
     List<MergedCandidate> out = new ArrayList<>();
@@ -38,26 +56,22 @@ public final class CandidateMerger {
     return out;
   }
 
+  private static boolean contains(Candidate head, Candidate o) {
+    return o.start() >= head.start() && o.end() <= head.end();
+  }
+
   private static List<MergedCandidate> mergeBlock(String blockId, List<Candidate> cs) {
     List<Candidate> pool = new ArrayList<>(cs);
     // longest first, then leftmost, then generator priority: deterministic whatever the input order
     pool.sort(Comparator.comparingInt((Candidate c) -> c.start() - c.end()).thenComparingInt(Candidate::start)
         .thenComparingInt(c -> c.generator().ordinal()));
-    boolean[] used = new boolean[pool.size()];
+    List<Candidate> heads = new ArrayList<>();
+    for (Candidate c : pool) {
+      if (heads.stream().noneMatch(h -> contains(h, c))) heads.add(c);
+    }
     List<MergedCandidate> out = new ArrayList<>();
-    for (int i = 0; i < pool.size(); i++) {
-      if (used[i]) continue;
-      Candidate head = pool.get(i);
-      List<Candidate> group = new ArrayList<>();
-      group.add(head);
-      used[i] = true;
-      for (int j = i + 1; j < pool.size(); j++) {
-        Candidate o = pool.get(j);
-        if (!used[j] && o.start() >= head.start() && o.end() <= head.end()) {
-          group.add(o);
-          used[j] = true;
-        }
-      }
+    for (Candidate head : heads) {
+      List<Candidate> group = pool.stream().filter(c -> contains(head, c)).toList();
       out.add(build(blockId, head, group));
     }
     out.sort(Comparator.comparingInt(MergedCandidate::start).thenComparingInt(MergedCandidate::end));
