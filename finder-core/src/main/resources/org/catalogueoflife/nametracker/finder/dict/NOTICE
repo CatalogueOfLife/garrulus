@@ -1,0 +1,16 @@
+common-words-{en,de,fr,es,pt}.txt
+
+Source:    hermitdave/FrequencyWords, https://github.com/hermitdave/FrequencyWords
+Files:     content/2018/<lang>/<lang>_50k.txt (word frequencies computed from the OpenSubtitles corpus)
+Licence:   Creative Commons Attribution-ShareAlike 4.0 (CC-BY-SA 4.0) for the content, MIT for the code,
+           https://creativecommons.org/licenses/by-sa/4.0/
+Retrieved: 2026-11-14
+Credit:    Hermit Dave, FrequencyWords; underlying text from OpenSubtitles (https://www.opensubtitles.org).
+Changes:   Only the first column (the word) was kept; the counts were dropped. The lists are filtered and truncated as below.
+
+Selection (reproducible with build-common-words.sh in this directory): per language, take the words in descending
+frequency, keep only those consisting of letters only (\p{L}, no digits, apostrophes or hyphens) that are already
+lower case, and keep the first 20,000 of them.
+
+These five files are data files under CC-BY-SA 4.0 and stay separable from the code; share-alike applies to them
+and to adaptations of them, not to the code that reads them.

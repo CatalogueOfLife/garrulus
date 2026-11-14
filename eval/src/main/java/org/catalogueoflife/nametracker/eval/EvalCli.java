@@ -35,9 +35,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
-/** The evaluation command line. More subcommands (build-dictionary) arrive with later tasks. */
+/** The evaluation command line. More subcommands arrive with later tasks. */
 @Command(name = "eval", mixinStandardHelpOptions = true, subcommands = {EvalCli.FetchPensoft.class, EvalCli.RebuildPensoft.class, EvalCli.Run.class, EvalCli.CuratedSelect.class,
-    EvalCli.LsExport.class, EvalCli.LsImport.class},
+    EvalCli.LsExport.class, EvalCli.LsImport.class, EvalCli.BuildDictionary.class},
     description = "Name finder evaluation")
 public class EvalCli implements Runnable {
   public static void main(String[] args) {
@@ -121,6 +121,45 @@ public class EvalCli implements Runnable {
           + s.namesAdded() + ", removed " + s.namesRemoved() + " (name texts per block, compared as multisets)");
       System.out.println("acts: " + s.oldActs() + " -> " + s.newActs());
       System.out.println("Wrote " + gold);
+      return 0;
+    }
+  }
+
+  @Command(name = "build-dictionary", mixinStandardHelpOptions = true,
+      description = "Builds the COL XR word dictionary (dictionary-<releaseKey>.bin) by streaming NameUsage.tsv from the XR zip")
+  public static class BuildDictionary implements Callable<Integer> {
+    @Option(names = "--xr", required = true, description = "XR zip: an http(s) URL (streamed) or a local path") String xr;
+    @Option(names = "--out", required = true, description = "output directory") Path out;
+
+    @Override
+    public Integer call() throws Exception {
+      Files.createDirectories(out);
+      Runtime rt = Runtime.getRuntime();
+      long t0 = System.nanoTime();
+      org.catalogueoflife.nametracker.finder.dict.CommonWords common =
+          org.catalogueoflife.nametracker.finder.dict.CommonWords.load(org.catalogueoflife.nametracker.finder.dict.CommonWords.DEFAULT_LANGS);
+      org.catalogueoflife.nametracker.finder.dict.ColDictionary d;
+      if (xr.startsWith("http://") || xr.startsWith("https://")) {
+        java.net.http.HttpClient http = java.net.http.HttpClient.newBuilder().followRedirects(java.net.http.HttpClient.Redirect.NORMAL).build();
+        java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder(java.net.URI.create(xr))
+            .header("User-Agent", "Garrulus-eval/0.1 (+https://www.catalogueoflife.org)").GET().build();
+        java.net.http.HttpResponse<java.io.InputStream> resp = http.send(req, java.net.http.HttpResponse.BodyHandlers.ofInputStream());
+        if (resp.statusCode() != 200) throw new java.io.IOException("HTTP " + resp.statusCode() + " for " + xr);
+        try (java.io.InputStream in = resp.body()) {
+          d = org.catalogueoflife.nametracker.finder.dict.ColDictionaryBuilder.fromXrZip(in, common);
+        }
+      } else {
+        d = org.catalogueoflife.nametracker.finder.dict.ColDictionaryBuilder.fromXrZip(Path.of(xr), common);
+      }
+      double buildSec = (System.nanoTime() - t0) / 1e9;
+      Path file = out.resolve("dictionary-" + d.releaseKey() + ".bin");
+      org.catalogueoflife.nametracker.finder.dict.ColDictionaryIO.write(d, file);
+      long t1 = System.nanoTime();
+      org.catalogueoflife.nametracker.finder.dict.ColDictionary back = org.catalogueoflife.nametracker.finder.dict.ColDictionaryIO.read(file);
+      double loadSec = (System.nanoTime() - t1) / 1e9;
+      System.out.println(back.stats());
+      System.out.printf(Locale.ROOT, "file %s, %.1f MB; built in %.0f s, loaded in %.2f s; heap in use after build %d MB%n",
+          file, Files.size(file) / 1048576.0, buildSec, loadSec, (rt.totalMemory() - rt.freeMemory()) / 1048576);
       return 0;
     }
   }

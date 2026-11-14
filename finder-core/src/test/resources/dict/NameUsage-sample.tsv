@@ -1,0 +1,16 @@
+col:ID	col:status	col:scientificName	col:rank	col:uninomial	col:genericName	col:infragenericEpithet	col:specificEpithet	col:infraspecificEpithet	col:code	col:genus	col:family	col:order	col:class	col:kingdom	clb:taxGroup
+1	accepted	Coleoptera	order	Coleoptera										Animalia	
+2	accepted	Carabidae	family	Carabidae					zoological			Coleoptera	Insecta	Animalia	
+3	accepted	Carabus Linnaeus, 1758	genus	Carabus					zoological		Carabidae	Coleoptera	Insecta	Animalia	
+4	accepted	Carabus nigrus Smith, 1900	species		Carabus		nigrus		zoological	Carabus	Carabidae	Coleoptera	Insecta	Animalia	
+5	accepted	Carabus nigrus montanus Smith, 1901	subspecies		Carabus		nigrus	montanus	zoological	Carabus	Carabidae	Coleoptera	Insecta	Animalia	
+6	synonym	Procarabus ater Jones, 1890	species		Procarabus		ater		zoological					Animalia	
+7	accepted	Major Brown, 1850	genus	Major					zoological					Animalia	
+8	accepted	Major minor Brown, 1850	species		Major		minor		zoological	Major				Animalia	
+9	accepted	Rosaceae	family	Rosaceae					botanical			Rosales	Magnoliopsida	Plantae	
+10	accepted	Rosa canina L.	species		Rosa		canina		botanical	Rosa	Rosaceae	Rosales	Magnoliopsida	Plantae	
+11	accepted	Rosa canina var. glandulosa L.	variety		Rosa		canina	glandulosa	botanical	Rosa	Rosaceae	Rosales	Magnoliopsida	Plantae	
+12	accepted	Carabus (Tachypus) Weber, 1801	subgenus		Carabus	Tachypus			zoological	Carabus	Carabidae	Coleoptera	Insecta	Animalia	
+13	accepted	Rosales	order	Rosales					botanical					Plantae	
+14	accepted	Carabinae	subfamily	Carabinae					zoological		Carabidae	Coleoptera	Insecta	Animalia	
+15	accepted	Carabus Nigrus Bad	species		Carabus		Nigrus		zoological					Animalia	

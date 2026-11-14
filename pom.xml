@@ -31,6 +31,7 @@
     <mybatis-starter.version>4.0.1</mybatis-starter.version>
     <shedlock.version>7.11.0</shedlock.version>
     <clb.version>1.7.1-SNAPSHOT</clb.version>
+    <fastutil.version>8.5.18</fastutil.version>
   </properties>
 
   <!-- The CLB modules and the name parser pair they are built with come from the backend's BOM. -->
@@ -42,6 +43,11 @@
         <version>${clb.version}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>it.unimi.dsi</groupId>
+        <artifactId>fastutil</artifactId>
+        <version>${fastutil.version}</version>
       </dependency>
       <dependency>
         <groupId>org.catalogueoflife</groupId>
