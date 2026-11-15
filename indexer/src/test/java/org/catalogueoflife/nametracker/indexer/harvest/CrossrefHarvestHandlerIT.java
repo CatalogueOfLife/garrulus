@@ -148,7 +148,7 @@ class CrossrefHarvestHandlerIT extends AbstractPostgresIT {
 
     Work a = works.findByDoi(DOI1);
     assertThat(a.openalexId()).isEqualTo("W77");
-    assertThat(a.origin()).isEqualTo("LIVE");
+    assertThat(a.origin()).isEqualTo("BACKFILL"); // both fixture works are from 2011 (M2-K)
     assertThat(a.title()).isEqualTo("OpenAlex title");
     assertThat(a.sourceId()).isEqualTo(src);
     assertThat(a.abstractJats()).startsWith("<jats:p>A review of the ground beetles");
@@ -156,12 +156,12 @@ class CrossrefHarvestHandlerIT extends AbstractPostgresIT {
 
     Work b = works.findByDoi(DOI2);
     assertThat(b.openalexId()).isNull();
-    assertThat(b.origin()).isEqualTo("LIVE");
+    assertThat(b.origin()).isEqualTo("BACKFILL");
     assertThat(b.sourceId()).isEqualTo(src);
     assertThat(b.abstractJats()).startsWith("<jats:p>Spatial associations");
     assertThat(b.title()).isNotBlank();
     assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT' AND priority = "
-        + TaskPriority.LIVE.code())).isEqualTo(2);
+        + TaskPriority.BACKFILL.code())).isEqualTo(2);
 
     harvestYesterday();
     assertThat(count("SELECT count(*) FROM work")).isEqualTo(2);
@@ -188,7 +188,7 @@ class CrossrefHarvestHandlerIT extends AbstractPostgresIT {
     Work after = works.findByDoi(DOI1);
     assertThat(after.id()).isEqualTo(before.id());
     assertThat(after.openalexId()).isEqualTo("W88");
-    assertThat(after.origin()).isEqualTo("LIVE");
+    assertThat(after.origin()).isEqualTo(before.origin()).isEqualTo("BACKFILL");
     assertThat(after.firstSeenAt()).isEqualTo(before.firstSeenAt());
     assertThat(after.abstractJats()).isEqualTo(before.abstractJats());
     assertThat(after.openalexCheckedAt()).isNotNull(); // found: merged and stamped
@@ -199,5 +199,45 @@ class CrossrefHarvestHandlerIT extends AbstractPostgresIT {
 
     // not listed again for a week
     assertThat(works.listCrossrefOnly(500)).isEmpty();
+  }
+
+  /**
+   * M2-K: the index-date listing also brings DOIs whose metadata merely changed. A new work published more than 120
+   * days ago is not news: origin BACKFILL and its content task at BACKFILL priority. Recent and undated works stay LIVE.
+   * The date is OpenAlex's when OpenAlex has the work, else Crossref's.
+   */
+  @Test
+  void oldNewWorksAreBackfillRecentAndUndatedStayLive() throws Exception {
+    source();
+    LocalDate recent = LocalDate.now(ZoneOffset.UTC).minusDays(10);
+    String page = fixture("works-page-ages.json").replace("{{RECENT}}",
+        "[" + recent.getYear() + ", " + recent.getMonthValue() + ", " + recent.getDayOfMonth() + "]");
+    stubFor(get(urlPathEqualTo("/works")).atPriority(5).willReturn(okJson(fixture("works-empty.json"))));
+    stubFor(get(urlPathEqualTo("/works")).atPriority(1).withQueryParam("cursor", equalTo("*"))
+        .willReturn(okJson(page)));
+    String oldOa = "10.3897/zookeys.1.1001";
+    String newOa = "10.3897/zookeys.1.1002";
+    String oldCr = "10.3897/zookeys.1.1003";
+    String undated = "10.3897/zookeys.1.1004";
+    stubFor(get(urlPathEqualTo("/works/doi:" + oldOa)).willReturn(okJson(openAlexWork("W101", oldOa))));
+    stubFor(get(urlPathEqualTo("/works/doi:" + newOa)).willReturn(okJson(
+        openAlexWork("W102", newOa).replace("2011-05-20", recent.toString()))));
+    stubFor(get(urlPathEqualTo("/works/doi:" + oldCr)).willReturn(aResponse().withStatus(404)));
+    stubFor(get(urlPathEqualTo("/works/doi:" + undated)).willReturn(aResponse().withStatus(404)));
+
+    harvestYesterday();
+
+    assertThat(works.findByDoi(oldOa).origin()).isEqualTo("BACKFILL");
+    assertThat(works.findByDoi(oldCr).origin()).isEqualTo("BACKFILL");
+    assertThat(works.findByDoi(newOa).origin()).isEqualTo("LIVE");
+    assertThat(works.findByDoi(undated).origin()).isEqualTo("LIVE");
+    assertThat(works.findByDoi(undated).publicationDate()).isNull();
+    for (String doi : List.of(oldOa, oldCr, newOa, undated)) {
+      Work w = works.findByDoi(doi);
+      int expected = "LIVE".equals(w.origin()) ? TaskPriority.LIVE.code() : TaskPriority.BACKFILL.code();
+      assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT' AND priority = " + expected
+          + " AND payload->>'workId' = '" + w.id() + "'")).as(doi).isEqualTo(1);
+    }
+    assertThat(jdbc.queryForObject("SELECT works_new FROM harvest_run", Integer.class)).isEqualTo(4);
   }
 }

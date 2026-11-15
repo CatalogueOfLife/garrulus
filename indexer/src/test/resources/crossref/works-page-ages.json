@@ -1,0 +1,119 @@
+{
+ "status": "ok",
+ "message-type": "work-list",
+ "message-version": "1.0.0",
+ "message": {
+  "facets": {},
+  "total-results": 4,
+  "items": [
+   {
+    "DOI": "10.3897/zookeys.1.1001",
+    "type": "journal-article",
+    "title": [
+     "An old work OpenAlex knows"
+    ],
+    "ISSN": [
+     "1313-2989",
+     "1313-2970"
+    ],
+    "container-title": [
+     "ZooKeys"
+    ],
+    "author": [
+     {
+      "given": "A.",
+      "family": "Author"
+     }
+    ],
+    "abstract": "<jats:p>An old work OpenAlex knows.</jats:p>",
+    "published": {
+     "date-parts": [
+      [
+       2011,
+       5,
+       20
+      ]
+     ]
+    }
+   },
+   {
+    "DOI": "10.3897/zookeys.1.1002",
+    "type": "journal-article",
+    "title": [
+     "A recent work OpenAlex knows"
+    ],
+    "ISSN": [
+     "1313-2989",
+     "1313-2970"
+    ],
+    "container-title": [
+     "ZooKeys"
+    ],
+    "author": [
+     {
+      "given": "A.",
+      "family": "Author"
+     }
+    ],
+    "abstract": "<jats:p>A recent work OpenAlex knows.</jats:p>",
+    "published": {
+     "date-parts": [
+      {{RECENT}}
+     ]
+    }
+   },
+   {
+    "DOI": "10.3897/zookeys.1.1003",
+    "type": "journal-article",
+    "title": [
+     "An old work only Crossref knows"
+    ],
+    "ISSN": [
+     "1313-2989",
+     "1313-2970"
+    ],
+    "container-title": [
+     "ZooKeys"
+    ],
+    "author": [
+     {
+      "given": "A.",
+      "family": "Author"
+     }
+    ],
+    "abstract": "<jats:p>An old work only Crossref knows.</jats:p>",
+    "published": {
+     "date-parts": [
+      [
+       2012,
+       1,
+       10
+      ]
+     ]
+    }
+   },
+   {
+    "DOI": "10.3897/zookeys.1.1004",
+    "type": "journal-article",
+    "title": [
+     "An undated work only Crossref knows"
+    ],
+    "ISSN": [
+     "1313-2989",
+     "1313-2970"
+    ],
+    "container-title": [
+     "ZooKeys"
+    ],
+    "author": [
+     {
+      "given": "A.",
+      "family": "Author"
+     }
+    ],
+    "abstract": "<jats:p>An undated work only Crossref knows.</jats:p>"
+   }
+  ],
+  "items-per-page": 1000
+ }
+}

@@ -41,7 +41,8 @@ import tools.jackson.databind.JsonNode;
  *
  * <p>Per DOI: a known work only gets its JATS abstract when it has none (Crossref JATS keeps italics). An unknown DOI
  * is looked up in OpenAlex (free); found, it is upserted from OpenAlex, otherwise from the Crossref metadata. Both
- * come in with origin {@code LIVE} and a RESOLVE_CONTENT task.
+ * come in with origin {@code LIVE} and a LIVE RESOLVE_CONTENT task, unless they were published more than 120 days ago:
+ * then origin {@code BACKFILL} and a BACKFILL task ({@link #origin}).
  */
 @Component
 public class CrossrefHarvestHandler implements TaskHandler {
@@ -161,12 +162,28 @@ public class CrossrefHarvestHandler implements TaskHandler {
       try {
         WorkRecord full = OpenAlexWorks.parse(oa.get()).with(rec.abstractJats(), doi);
         Long oaSource = full.sourceOpenalexId() == null ? null : bySourceOpenalexId.get(full.sourceOpenalexId());
-        return pager.store(full.toWork(oaSource != null ? oaSource : sourceId, "LIVE"), TaskPriority.LIVE);
+        String origin = origin(full.publicationDate());
+        return pager.store(full.toWork(oaSource != null ? oaSource : sourceId, origin), priority(origin));
       } catch (IllegalArgumentException | IllegalStateException e) {
         LOG.warn("Unreadable OpenAlex record for {}, using the Crossref metadata: {}", doi, e.toString());
       }
     }
-    return pager.store(rec.toWork(sourceId, "LIVE"), TaskPriority.LIVE);
+    String origin = origin(rec.publicationDate());
+    return pager.store(rec.toWork(sourceId, origin), priority(origin));
+  }
+
+  /**
+   * The index-date listing also returns DOIs whose metadata merely changed. A new work published more than
+   * {@value OpenAlexHarvestHandler#LIVE_DAYS} days before today (UTC) is not news: BACKFILL. Recent and undated works
+   * are LIVE.
+   */
+  String origin(@Nullable LocalDate publicationDate) {
+    LocalDate oldest = LocalDate.now(clock.withZone(ZoneOffset.UTC)).minusDays(OpenAlexHarvestHandler.LIVE_DAYS);
+    return publicationDate != null && publicationDate.isBefore(oldest) ? "BACKFILL" : "LIVE";
+  }
+
+  private static TaskPriority priority(String origin) {
+    return "LIVE".equals(origin) ? TaskPriority.LIVE : TaskPriority.BACKFILL;
   }
 
   static Work jatsOnly(String doi, String jats) {
