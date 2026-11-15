@@ -50,4 +50,24 @@ describe('SearchPage', () => {
     expect(await screen.findByText('yearFrom must be a number')).toBeInTheDocument();
     expect(screen.getByLabelText('Year from')).toBeInTheDocument();
   });
+
+  it('typingAYearSendsOneRequestWithTheFinalValue', async () => {
+    const seen: (string | null)[] = [];
+    server.use(
+      xrHandler,
+      taxGroupHandler,
+      http.get('/api/works', ({ request }) => {
+        seen.push(new URL(request.url).searchParams.get('yearFrom'));
+        return HttpResponse.json(emptyPage);
+      }),
+    );
+    renderApp(<SearchPage />);
+    await screen.findByText(/No works match/);
+    expect(seen).toEqual([null]);
+    const input = screen.getByLabelText('Year from');
+    await userEvent.type(input, '2020');
+    await userEvent.tab();
+    await waitFor(() => expect(seen).toEqual([null, '2020']));
+    expect(screen.getByTestId('location').textContent).toBe('/?yearFrom=2020');
+  });
 });

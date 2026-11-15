@@ -16,12 +16,13 @@ public class VocabController {
 
   @GetMapping("/api/vocab/taxgroup")
   public List<TaxGroupDto> taxgroups() {
-    return Arrays.stream(TaxGroup.values()).map(g -> new TaxGroupDto(g.name(), sorted(g.getParents()),
+    return Arrays.stream(TaxGroup.values()).map(g -> new TaxGroupDto(g.name(), inOrder(g.getParents()),
         g.getCodes() == null ? List.of() : g.getCodes().stream().map(Enum::name).sorted().toList(),
         ICON.formatted(g.name()))).toList();
   }
 
-  private static List<String> sorted(Set<String> s) {
-    return s == null ? List.of() : s.stream().sorted().toList();
+  /** Keeps the declared order of the enum: the first parent is the primary one. */
+  private static List<String> inOrder(Set<String> s) {
+    return s == null ? List.of() : List.copyOf(s);
   }
 }

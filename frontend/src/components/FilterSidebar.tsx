@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { Checkbox, Group, NativeSelect, NumberInput, Radio, Stack, Text, TextInput } from '@mantine/core';
+import { useEffect, useMemo, useState } from 'react';
+import { Checkbox, Group, NativeSelect, Radio, Stack, Text, TextInput } from '@mantine/core';
 import type { FacetCount, FacetName, TaxGroup, WorkFilter } from '../api';
 import { TaxGroupIcon } from './TaxGroupIcon';
 import { TaxonPicker } from './TaxonPicker';
@@ -22,7 +22,29 @@ function pretty(v: string): string {
   return v.charAt(0) + v.slice(1).toLowerCase().replace(/_/g, ' ');
 }
 
-/** Flatten the groups depth first, each under its first parent. */
+/** A text input that keeps its own state while typing and commits on blur or Enter only. */
+function CommitInput({ label, value, digits, onCommit }: { label: string; value: string; digits?: boolean; onCommit: (v: string) => void }) {
+  const [local, setLocal] = useState(value);
+  useEffect(() => setLocal(value), [value]);
+  const commit = () => {
+    const v = local.trim();
+    if (v !== value) onCommit(v);
+  };
+  return (
+    <TextInput
+      label={label}
+      value={local}
+      inputMode={digits ? 'numeric' : undefined}
+      onChange={(e) => setLocal(digits ? e.currentTarget.value.replace(/\D/g, '') : e.currentTarget.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') commit();
+      }}
+    />
+  );
+}
+
+/** Flatten the groups depth first, each under its primary parent: parents[0] is the primary one (declared order). */
 export function orderGroups(groups: TaxGroup[]): { group: TaxGroup; depth: number }[] {
   const byName = new Map(groups.map((g) => [g.name, g]));
   const children = new Map<string, TaxGroup[]>();
@@ -101,11 +123,7 @@ export function FilterSidebar({ filter, taxonLabel, facets, taxGroups, onChange 
         </Stack>
       </Radio.Group>
 
-      <TextInput
-        label="Subfield"
-        value={filter.subfield ?? ''}
-        onChange={(e) => onChange({ subfield: e.currentTarget.value || undefined, offset: undefined })}
-      />
+      <CommitInput label="Subfield" value={filter.subfield ?? ''} onCommit={(v) => onChange({ subfield: v || undefined, offset: undefined })} />
 
       <NativeSelect
         label="Journal tier"
@@ -122,20 +140,8 @@ export function FilterSidebar({ filter, taxonLabel, facets, taxGroups, onChange 
       />
 
       <Group grow align="flex-end">
-        <NumberInput
-          label="Year from"
-          hideControls
-          allowDecimal={false}
-          value={filter.yearFrom ?? ''}
-          onChange={(v) => onChange({ yearFrom: v === '' ? undefined : String(v), offset: undefined })}
-        />
-        <NumberInput
-          label="Year to"
-          hideControls
-          allowDecimal={false}
-          value={filter.yearTo ?? ''}
-          onChange={(v) => onChange({ yearTo: v === '' ? undefined : String(v), offset: undefined })}
-        />
+        <CommitInput label="Year from" digits value={filter.yearFrom ?? ''} onCommit={(v) => onChange({ yearFrom: v || undefined, offset: undefined })} />
+        <CommitInput label="Year to" digits value={filter.yearTo ?? ''} onCommit={(v) => onChange({ yearTo: v || undefined, offset: undefined })} />
       </Group>
 
       <Checkbox

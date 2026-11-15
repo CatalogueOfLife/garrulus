@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader, NavLink, Stack, Text, TextInput } from '@mantine/core';
+import { CloseButton, Group, Loader, NavLink, Stack, Text, TextInput } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import { useQuery } from '@tanstack/react-query';
 import { getXr, suggestTaxa } from '../api';
@@ -25,12 +25,10 @@ export function TaxonPicker({ label, onPick, onClear }: Props) {
   return (
     <Stack gap={4}>
       {label ? (
-        <Text size="sm">
-          {label}{' '}
-          <Text span size="sm" c="jay.6" style={{ cursor: 'pointer' }} role="button" tabIndex={0} onClick={onClear}>
-            clear
-          </Text>
-        </Text>
+        <Group gap={4} wrap="nowrap">
+          <Text size="sm">{label}</Text>
+          <CloseButton size="sm" aria-label="Clear taxon" onClick={onClear} />
+        </Group>
       ) : null}
       <TextInput
         aria-label="Taxon"
