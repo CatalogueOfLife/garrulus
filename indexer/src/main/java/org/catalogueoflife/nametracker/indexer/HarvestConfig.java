@@ -49,8 +49,17 @@ public class HarvestConfig {
   /** The default per-host intervals, each overridable as {@code nametracker.http.min-interval.<host>=<duration>}. */
   @Bean
   PoliteHttp politeHttp(Environment env) {
-    return new PoliteHttp(HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).build(), intervals(env),
-        PoliteHttp.userAgent(), Clock.systemUTC(), d -> Thread.sleep(d));
+    return new PoliteHttp(httpClient(), intervals(env), PoliteHttp.userAgent(), Clock.systemUTC(),
+        d -> Thread.sleep(d));
+  }
+
+  /**
+   * HTTP/1.1 only: Europe PMC (www.ebi.ac.uk) ends every HTTP/2 stream of the JDK client with an EOF, while HTTP/1.1
+   * works. Requests are spaced per host anyway, so HTTP/2 multiplexing buys nothing here.
+   */
+  static HttpClient httpClient() {
+    return HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).followRedirects(HttpClient.Redirect.NORMAL)
+        .build();
   }
 
   static Map<String, Duration> intervals(Environment env) {
