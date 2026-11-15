@@ -175,3 +175,7 @@ at fault in one task defer it as an outage (ADR-0005). `mvn -B verify` green, 81
 restarted: old log kept as `indexer-8.log` (no WARN or ERROR), pid 63095 stopped at 22:53:54 UTC, **indexer up
 22:53:57 UTC** with the same env on 18081; web (18080) kept running. In the first 14 s it finished 27 `FIND_NAMES` and
 26 `MATCH_NAMES`, depth first, with no WARN, ERROR or `DEAD` task.
+
+## Tuning stage
+
+The finder and salience tuning, once the curated gold is fixed, is described in `docs/tuning-stage.md`.

@@ -197,6 +197,7 @@ on any command lists its options.
   descent (two starts: the defaults and flat 0.2 weights; grids 0 to 0.5 and 0.20 to 0.60) for the best micro F1 of main-subject
   names against the curated labels (documents with at least one label only). It prints `nametracker.salience.*`
   overrides; copy them into `indexer/src/main/resources/application.yml` by hand. A document with only TITLE/ABSTRACT blocks counts as abstract-only.
+- **Tuning stage hand-over** (fixing the gold, import, baselines, tune, tune-salience, rescore): `docs/tuning-stage.md`.
 - **Tuning:** `tune --corpus eval/corpus/pensoft --split dev --modes A,B` is a grid search over the judge threshold and
   weights.
   - It prints the best overrides; copy them into
