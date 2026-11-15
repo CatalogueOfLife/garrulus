@@ -4,7 +4,11 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import org.catalogueoflife.nametracker.indexer.AbstractPostgresIT;
+import org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException;
 import org.catalogueoflife.nametracker.store.task.Task;
 import org.catalogueoflife.nametracker.store.task.TaskMapper;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
@@ -22,7 +26,8 @@ import org.springframework.test.context.TestPropertySource;
 
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @TestPropertySource(properties = "nametracker.indexer.workers=8")
-@Import({ClearTasksAtStartup.class, TaskDispatcherIT.BoomConfig.class, TaskDispatcherIT.ErrorConfig.class})
+@Import({ClearTasksAtStartup.class, TaskDispatcherIT.BoomConfig.class, TaskDispatcherIT.ErrorConfig.class,
+    TaskDispatcherIT.BudgetConfig.class})
 class TaskDispatcherIT extends AbstractPostgresIT {
 
   /** Test-only handler that always fails. */
@@ -54,6 +59,38 @@ class TaskDispatcherIT extends AbstractPostgresIT {
 
         @Override public void handle(Task task) {
           throw new StackOverflowError("err");
+        }
+      };
+    }
+  }
+
+  static final Instant RETRY_AT = Instant.now().plus(Duration.ofHours(3)).truncatedTo(ChronoUnit.SECONDS);
+
+  /** Test-only handlers whose OpenAlex budget is spent: directly, and as the cause of another exception. */
+  @TestConfiguration
+  static class BudgetConfig {
+    @Bean
+    TaskHandler budgetHandler() {
+      return new TaskHandler() {
+        @Override public String type() {
+          return "BUDGET";
+        }
+
+        @Override public void handle(Task task) {
+          throw new BudgetExhaustedException(RETRY_AT);
+        }
+      };
+    }
+
+    @Bean
+    TaskHandler wrappedBudgetHandler() {
+      return new TaskHandler() {
+        @Override public String type() {
+          return "BUDGET_WRAPPED";
+        }
+
+        @Override public void handle(Task task) {
+          throw new IllegalStateException("wrapped", new BudgetExhaustedException(RETRY_AT));
         }
       };
     }
@@ -111,6 +148,20 @@ class TaskDispatcherIT extends AbstractPostgresIT {
     // the dispatcher keeps working after the failure
     long ping2 = queue.enqueue("PING", "{}", TaskPriority.LIVE, null);
     await().atMost(10, SECONDS).until(() -> state(ping2) == TaskState.DONE);
+  }
+
+  @Test
+  void spentBudgetRequeuesAtRetryAtWithoutUsingAnAttempt() {
+    long direct = queue.enqueue("BUDGET", "{}", TaskPriority.LIVE, null);
+    long wrapped = queue.enqueue("BUDGET_WRAPPED", "{}", TaskPriority.LIVE, null);
+    for (long id : new long[] {direct, wrapped}) {
+      await().atMost(10, SECONDS).until(() -> RETRY_AT.equals(mapper.get(id).runAfter()));
+      Task t = mapper.get(id);
+      assertThat(t.state()).isEqualTo(TaskState.QUEUED);
+      assertThat(t.attempts()).isZero();
+      assertThat(t.lastError()).isNull();
+      assertThat(t.lockedBy()).isNull();
+    }
   }
 
   @Test

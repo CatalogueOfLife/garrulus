@@ -217,6 +217,28 @@ class TaskQueueIT extends AbstractPostgresIT {
   }
 
   @Test
+  void deferGivesTheAttemptBackAndIsFenced() {
+    long id = queue.enqueue("PING", "{}", TaskPriority.LIVE, null);
+    queue.claim(Set.of("PING"), "w1", 1); // attempt 1
+    queue.requeueRunning(null, 5); // the worker of attempt 1 lost its lease
+    queue.claim(Set.of("PING"), "w2", 1); // attempt 2
+    Instant later = Instant.now().plus(Duration.ofHours(2)).truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+    assertThat(queue.defer(id, 1, later)).isFalse(); // the stale worker cannot defer
+    assertThat(queue.defer(id, 2, later)).isTrue();
+    Task t = mapper.get(id);
+    assertThat(t.state()).isEqualTo(TaskState.QUEUED);
+    assertThat(t.attempts()).isEqualTo(1);
+    assertThat(t.runAfter()).isEqualTo(later);
+    assertThat(t.lockedBy()).isNull();
+    assertThat(queue.defer(id, 2, later)).isFalse(); // not RUNNING any more
+    assertThat(queue.claim(Set.of("PING"), "w2", 1)).isEmpty(); // not before run_after
+    jdbc.update("UPDATE task SET run_after = now() WHERE id=?", id);
+    assertThat(queue.claim(Set.of("PING"), "w2", 1).getFirst().attempts()).isEqualTo(2);
+    assertThat(queue.complete(id, 1)).isFalse(); // the worker of attempt 1 stays fenced off
+    assertThat(queue.complete(id, 2)).isTrue();
+  }
+
+  @Test
   void heartbeatKeepsTaskFromBeingStale() {
     long id = queue.enqueue("PING", "{}", TaskPriority.LIVE, null);
     queue.claim(Set.of("PING"), "w1", 1);

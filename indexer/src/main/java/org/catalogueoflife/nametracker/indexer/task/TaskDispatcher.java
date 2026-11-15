@@ -11,8 +11,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException;
 import org.catalogueoflife.nametracker.store.task.Task;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
@@ -27,7 +29,9 @@ import org.springframework.stereotype.Component;
  * at most {@code nametracker.indexer.workers} at a time. There is a single indexer instance, so every RUNNING
  * task found at startup belongs to a dead process and is requeued (or set DEAD when it already used all its
  * attempts). While a handler runs, a heartbeat refreshes the task's lock time, so the periodic stale requeue only
- * catches tasks whose process stopped heartbeating. Completion and failure are fenced by the attempt number.
+ * catches tasks whose process stopped heartbeating. A {@link BudgetExhaustedException} (also as a cause) is not a
+ * failure: the task is QUEUED again at its {@code retryAt} without using an attempt. Completion, failure and that
+ * deferral are fenced by the attempt number.
  */
 @Component
 public class TaskDispatcher implements DisposableBean {
@@ -121,6 +125,11 @@ public class TaskDispatcher implements DisposableBean {
             task.id(), task.type(), task.attempts());
       }
     } catch (Throwable e) { // an Error must not leave the task RUNNING either
+      BudgetExhaustedException budget = budgetCause(e);
+      if (budget != null) {
+        defer(task, budget);
+        return;
+      }
       LOG.warn("Task {} ({}) failed on attempt {}", task.id(), task.type(), task.attempts(), e);
       try {
         if (!queue.fail(task.id(), task.attempts(), truncate(e.toString()), maxAttempts, backoff)) {
@@ -134,6 +143,28 @@ public class TaskDispatcher implements DisposableBean {
       running.remove(task.id());
       inFlight.decrementAndGet();
     }
+  }
+
+  /** A spent budget is not a failure: the task waits for the budget without using an attempt. */
+  private void defer(Task task, BudgetExhaustedException e) {
+    LOG.info("Task {} ({}) waits for the OpenAlex budget until {}", task.id(), task.type(), e.retryAt());
+    try {
+      if (!queue.defer(task.id(), task.attempts(), e.retryAt())) {
+        LOG.warn("Task {} ({}) attempt {} was deferred, but it was requeued or claimed again meanwhile; ignored",
+            task.id(), task.type(), task.attempts());
+      }
+    } catch (Throwable e2) {
+      LOG.error("Could not defer task {}", task.id(), e2);
+    }
+  }
+
+  /** The exception itself or its first cause that is a BudgetExhaustedException, else null. */
+  static @Nullable BudgetExhaustedException budgetCause(Throwable e) {
+    for (Throwable t = e; t != null; t = t.getCause()) {
+      if (t instanceof BudgetExhaustedException b) return b;
+      if (t.getCause() == t) break;
+    }
+    return null;
   }
 
   private static String truncate(String s) {

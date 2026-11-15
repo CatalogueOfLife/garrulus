@@ -67,6 +67,13 @@
     WHERE id = #{id} AND state = 'RUNNING' AND attempts = #{attempt}
   </update>
 
+  <!-- Not a failure: back to QUEUED at runAfter, giving back the attempt the claim took. Fenced like complete/fail. -->
+  <update id="defer">
+    UPDATE task SET state = 'QUEUED', run_after = #{runAfter, jdbcType=TIMESTAMP_WITH_TIMEZONE},
+      attempts = attempts - 1, locked_by = NULL, locked_at = NULL
+    WHERE id = #{id} AND state = 'RUNNING' AND attempts = #{attempt}
+  </update>
+
   <update id="heartbeat">
     UPDATE task SET locked_at = now()
     WHERE state = 'RUNNING' AND id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>

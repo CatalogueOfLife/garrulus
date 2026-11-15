@@ -30,6 +30,12 @@ public interface TaskMapper {
   int fail(@Param("id") long id, @Param("attempt") int attempt, @Param("error") String error,
            @Param("maxAttempts") int maxAttempts, @Param("backoffSeconds") double backoffSeconds);
 
+  /**
+   * RUNNING to QUEUED at runAfter, with attempts back to what they were before the claim. Returns the number of rows
+   * changed: 0 when the task is not RUNNING with that attempt number any more.
+   */
+  int defer(@Param("id") long id, @Param("attempt") int attempt, @Param("runAfter") Instant runAfter);
+
   /** Refreshes locked_at of the given RUNNING tasks. */
   int heartbeat(@Param("ids") Collection<Long> ids);
 

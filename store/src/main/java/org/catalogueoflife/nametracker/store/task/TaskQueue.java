@@ -63,6 +63,15 @@ public class TaskQueue {
     return mapper.fail(id, attempt, error, maxAttempts, baseBackoff.toMillis() / 1000.0) > 0;
   }
 
+  /**
+   * Puts the task back to QUEUED until {@code runAfter} without using up an attempt: for work that cannot run yet (a
+   * spent budget), which is not a failure. Fenced by the attempt number like {@link #complete}. The next claim gets the
+   * same attempt number again; that is safe, because the only holder of that number is the caller, which is done.
+   */
+  public boolean defer(long id, int attempt, Instant runAfter) {
+    return mapper.defer(id, attempt, runAfter) > 0;
+  }
+
   /** Refreshes the lock time of tasks this process is still working on, so they are not seen as stale. */
   public int heartbeat(Collection<Long> ids) {
     return ids.isEmpty() ? 0 : mapper.heartbeat(ids);
