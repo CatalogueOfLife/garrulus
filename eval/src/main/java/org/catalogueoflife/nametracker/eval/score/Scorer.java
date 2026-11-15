@@ -40,6 +40,8 @@ import java.util.regex.Pattern;
 public final class Scorer {
   /** Document meta key holding the curated stratum (BROAD_EN, NON_EN, PENSOFT); it adds a stratum:X category to the name metrics. */
   public static final String STRATUM = "stratum";
+  /** The corpora whose gold annotates authorship; only their documents are scored on it ({@link EvalReport#authorship()}). */
+  public static final Set<String> AUTHORSHIP_CORPORA = Set.of("curated");
   private static final int SAMPLE_CONTEXT = 40;
   private static final int MAX_SAMPLES = 5000;
   private static final Pattern WS = Pattern.compile("\\s+");
@@ -67,6 +69,8 @@ public final class Scorer {
     Acc names = new Acc();
     Map<String, Acc> cats = new TreeMap<>();
     NameAcc nameCorrect = new NameAcc();
+    Acc authorship = new Acc();
+    boolean authorshipScored = false;
     Acc acts = new Acc();
     Acc ctxs = new Acc();
     Acc subj = new Acc();
@@ -103,7 +107,10 @@ public final class Scorer {
       if (opts.documentLevel()) {
         scoreDocumentLevel(d, gold, pred, lang, stratum, names, cats, fps, fns);
       } else {
-        scoreSpans(d, blocks, predBlocks, gold, pred, lang, stratum, opts.mode(), names, cats, nameCorrect, fps, fns);
+        boolean withAuthorship = AUTHORSHIP_CORPORA.contains(d.corpus());
+        authorshipScored |= withAuthorship;
+        scoreSpans(d, blocks, predBlocks, gold, pred, lang, stratum, opts.mode(), names, cats, nameCorrect,
+            withAuthorship ? authorship : null, fps, fns);
       }
       scoreActs(d, r, opts, blocks, predBlocks, acts);
       scoreContexts(d, r, opts, blocks, predBlocks, ctxs);
@@ -113,7 +120,8 @@ public final class Scorer {
     cats.forEach((k, v) -> byCat.put(k, v.metrics()));
     return new EvalReport(finderName, info, corpus, split == null ? "" : split, mode, docs.size(), names.metrics(), byCat,
         opts.documentLevel() ? null : nameCorrect.overall, opts.documentLevel() ? Map.of() : nameCorrect.byKind, acts.metrics(),
-        ctxs.metrics(), subj.metrics(), spread(fps), spread(fns), opts.mode(), opts.documentLevel(), List.of(), otuMentions, otuByScheme);
+        ctxs.metrics(), subj.metrics(), spread(fps), spread(fns), opts.mode(), opts.documentLevel(), List.of(), otuMentions, otuByScheme,
+        authorshipScored ? authorship.metrics() : null);
   }
 
   private static Map<String, Block> blocks(Document doc) {
@@ -131,7 +139,7 @@ public final class Scorer {
 
   private static void scoreSpans(GoldDocument d, Map<String, Block> blocks, Map<String, Block> predBlocks, List<GoldName> gold, List<Mention> pred,
                                  String lang, @Nullable String stratum, MatchMode mode, Acc names, Map<String, Acc> cats,
-                                 NameAcc nameCorrect, List<ErrorSample> fps, List<ErrorSample> fns) {
+                                 NameAcc nameCorrect, @Nullable Acc authorship, List<ErrorSample> fps, List<ErrorSample> fns) {
     boolean[] goldUsed = new boolean[gold.size()];
     boolean[] predUsed = new boolean[pred.size()];
     // exact spans first so that overlap mode never steals an exact partner
@@ -151,6 +159,7 @@ public final class Scorer {
             hitCats(cats, gn, blocks, lang, stratum);
             names.tp++;
             if (gn.fullName() != null) nameCorrect.add(goldKind(gn), norm(m.name()).equals(norm(gn.fullName())));
+            if (authorship != null) scoreAuthorship(gn.authorship(), m.authorship(), authorship);
             break;
           }
         }
@@ -170,6 +179,17 @@ public final class Scorer {
       for (String c : categories(m.kind(), blockType(predBlocks, m.blockId()), lang, stratum)) cats.computeIfAbsent(c, k -> new Acc()).fp++;
       sample(fps, d.docId(), predBlocks.get(m.blockId()), m.blockId(), m.start(), m.end(), m.verbatim(), m.kind().name());
     }
+  }
+
+  private static void scoreAuthorship(@Nullable String gold, @Nullable String pred, Acc acc) {
+    String g = gold == null || gold.isBlank() ? null : WS.matcher(gold).replaceAll("");
+    String p = pred == null || pred.isBlank() ? null : WS.matcher(pred).replaceAll("");
+    if (g != null && g.equals(p)) {
+      acc.tp++;
+      return;
+    }
+    if (g != null) acc.fn++;
+    if (p != null) acc.fp++;
   }
 
   private static void hitCats(Map<String, Acc> cats, GoldName gn, Map<String, Block> blocks, String lang, @Nullable String stratum) {

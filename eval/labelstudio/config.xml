@@ -12,6 +12,8 @@
     <Label value="Name" background="#1b7f3b" hotkey="n"/>
     <Label value="Act" background="#c2570c" hotkey="a"/>
     <Label value="Context" background="#5b3fb5" hotkey="c"/>
+    <!-- The authorship printed right after a Name ("(Rathke, 1843)", "L."); it belongs to the Name directly before it. -->
+    <Label value="Authorship" background="#2A6FBA" hotkey="u"/>
   </Labels>
 
   <!-- Link an Act region to the Name region it applies to: act_of. abbrev_of is optional help for abbreviated names. -->

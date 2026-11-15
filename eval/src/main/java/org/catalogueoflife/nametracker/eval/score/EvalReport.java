@@ -14,14 +14,17 @@ import java.util.Map;
  * that carry a predicted act. matchMode and documentLevel record how the names were scored. documents is the number of
  * documents scored; notes are free text for the report, e.g. documents a mode B run had to skip. otuMentions and
  * otuByScheme (hint scheme: BOLD_BIN, UNITE_SH) count the predicted OTU identifier mentions, which are kept out of the name
- * and main subject metrics.
+ * and main subject metrics. authorship (span scoring only) compares, on the matched spans of documents from a corpus that
+ * annotates authorship ({@link Scorer#AUTHORSHIP_CORPORA}), the gold authorship with the mention's, whitespace ignored:
+ * equal is a TP, a predicted one that is missing or different in the gold an FP, a gold one not predicted equally an FN.
+ * It is null when no such document was scored.
  */
 public record EvalReport(String finder, FinderInfo info, String corpus, String split, String mode, int documents, Metrics names,
                          Map<String, Metrics> byCategory, @Nullable NameAccuracy nameCorrect,
                          Map<String, NameAccuracy> nameCorrectByKind, Metrics acts, Metrics contexts, Metrics mainSubject,
                          List<ErrorSample> falsePositives, List<ErrorSample> falseNegatives,
                          MatchMode matchMode, boolean documentLevel, List<String> notes, int otuMentions,
-                         Map<String, Integer> otuByScheme) {
+                         Map<String, Integer> otuByScheme, @Nullable Metrics authorship) {
   public EvalReport {
     byCategory = byCategory == null ? Map.of() : java.util.Collections.unmodifiableMap(new java.util.TreeMap<>(byCategory));
     nameCorrectByKind = nameCorrectByKind == null ? Map.of()
@@ -34,11 +37,11 @@ public record EvalReport(String finder, FinderInfo info, String corpus, String s
 
   public EvalReport withSamples(List<ErrorSample> fps, List<ErrorSample> fns) {
     return new EvalReport(finder, info, corpus, split, mode, documents, names, byCategory, nameCorrect, nameCorrectByKind, acts,
-        contexts, mainSubject, fps, fns, matchMode, documentLevel, notes, otuMentions, otuByScheme);
+        contexts, mainSubject, fps, fns, matchMode, documentLevel, notes, otuMentions, otuByScheme, authorship);
   }
 
   public EvalReport withNotes(List<String> newNotes) {
     return new EvalReport(finder, info, corpus, split, mode, documents, names, byCategory, nameCorrect, nameCorrectByKind, acts,
-        contexts, mainSubject, falsePositives, falseNegatives, matchMode, documentLevel, newNotes, otuMentions, otuByScheme);
+        contexts, mainSubject, falsePositives, falseNegatives, matchMode, documentLevel, newNotes, otuMentions, otuByScheme, authorship);
   }
 }

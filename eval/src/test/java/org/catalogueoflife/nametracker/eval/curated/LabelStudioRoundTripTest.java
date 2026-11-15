@@ -120,13 +120,17 @@ class LabelStudioRoundTripTest {
   }
 
   private String data(boolean retained) throws Exception {
+    return data(DOC, retained);
+  }
+
+  private String data(Document doc, boolean retained) throws Exception {
     ObjectNode d = FinderJson.mapper().createObjectNode();
-    d.put("text", FlatText.of(DOC).text());
+    d.put("text", FlatText.of(doc).text());
     d.put("docId", "openalex:W1");
     d.put("split", "test");
     d.put("license", retained ? "CC-BY" : "other");
     d.put("textRetained", retained);
-    d.set("document", FinderJson.mapper().valueToTree(DOC));
+    d.set("document", FinderJson.mapper().valueToTree(doc));
     return FinderJson.mapper().writeValueAsString(d);
   }
 
@@ -299,5 +303,43 @@ class LabelStudioRoundTripTest {
     String ctx = label("c1", 0, 13, "Ophelia yangi", "Context");
     assertThatThrownBy(() -> LabelStudioImporter.read(write(task(data(true), annotation(ctx, ranks("c1", "\"FAMLY: Opheliidae\""))))))
         .hasMessageContaining("openalex:W1").hasMessageContaining("unknown rank").hasMessageContaining("FAMLY");
+  }
+
+  // one block: "Ophelia limacina (Rathke, 1843) and Carabus auratus, L. near Rosa canina"
+  private static final String TA = "Ophelia limacina (Rathke, 1843) and Carabus auratus, L. near Rosa canina";
+  private static final Document AUTH_DOC = new Document("openalex:W1", "en", List.of(
+      new Block("b1", BlockType.ABSTRACT, 0, TA, List.of(), List.of())), Map.of("stratum", "BROAD_EN"));
+
+  private static String names() {
+    return String.join(",", label("n1", 0, 16, "Ophelia limacina", "Name"), label("n2", 36, 51, "Carabus auratus", "Name"),
+        label("n3", 61, 72, "Rosa canina", "Name"));
+  }
+
+  @Test
+  void authorshipBelongsToTheNameDirectlyBeforeIt() throws Exception {
+    String ann = "{\"id\":1,\"was_cancelled\":false,\"result\":[" + names() + ","
+        + label("u1", 17, 31, "(Rathke, 1843)", "Authorship") + "," + label("u2", 53, 55, "L.", "Authorship") + "]}";
+    GoldDocument g = LabelStudioImporter.read(write(task(data(AUTH_DOC, true), ann))).get(0);
+    assertThat(g.names()).extracting(n -> n.text() + "|" + n.authorship())
+        .containsExactly("Ophelia limacina|(Rathke, 1843)", "Carabus auratus|L.", "Rosa canina|null");
+    // an authorship region is not a name
+    assertThat(g.names()).hasSize(3);
+  }
+
+  @Test
+  void authorshipWithoutANameRightBeforeItFails() throws Exception {
+    // "near" lies between "L." and "Rosa canina", and "and" between "(Rathke, 1843)" and "Carabus auratus"
+    String stray = "{\"id\":1,\"was_cancelled\":false,\"result\":[" + label("n2", 36, 51, "Carabus auratus", "Name") + ","
+        + label("u1", 17, 31, "(Rathke, 1843)", "Authorship") + "]}";
+    assertThatThrownBy(() -> LabelStudioImporter.read(write(task(data(AUTH_DOC, true), stray))))
+        .hasMessageContaining("openalex:W1").hasMessageContaining("Authorship").hasMessageContaining("(Rathke, 1843)");
+  }
+
+  @Test
+  void twoAuthorshipsOnOneNameFail() throws Exception {
+    String twice = "{\"id\":1,\"was_cancelled\":false,\"result\":[" + names() + ","
+        + label("u1", 17, 24, "(Rathke", "Authorship") + "," + label("u2", 17, 31, "(Rathke, 1843)", "Authorship") + "]}";
+    assertThatThrownBy(() -> LabelStudioImporter.read(write(task(data(AUTH_DOC, true), twice))))
+        .hasMessageContaining("openalex:W1").hasMessageContaining("Ophelia limacina").hasMessageContaining("more than one Authorship");
   }
 }

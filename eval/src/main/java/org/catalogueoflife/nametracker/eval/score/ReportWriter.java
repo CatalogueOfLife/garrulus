@@ -97,6 +97,11 @@ public final class ReportWriter {
     row(sb, "acts", r.acts());
     row(sb, "contexts", r.contexts());
     row(sb, "main subject", r.mainSubject());
+    if (r.authorship() != null) row(sb, "authorship", r.authorship());
+    if (r.authorship() != null) {
+      sb.append("\nAuthorship: on the matched spans of curated documents, the gold authorship against the mention's,"
+          + " whitespace ignored (a wrong one counts as FP and FN).\n");
+    }
     if (r.nameCorrect() != null) {
       sb.append("\nName correct: of the matched spans whose gold has a full name, how many mentions carry that name"
           + " (whitespace normalised). It does not change the name P/R/F1 above.\n\n");

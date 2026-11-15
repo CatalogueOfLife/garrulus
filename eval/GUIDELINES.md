@@ -25,6 +25,7 @@ Per document you work in this order:
 2. **Names:** every scientific name gets a `Name` region (section 2).
 3. **Acts:** every nomenclatural act marker gets an `Act` region, an `act_type` choice and an `act_of` link to its name (section 4).
 4. **Contexts:** every classification string or rank heading gets a `Context` region (section 5).
+   **Authorship:** an authorship printed right after a name gets an `Authorship` region (section 2, "Authorship").
 5. **Main subject:** on the `Name` regions the document is mainly about, tick `main_subject: yes` (section 6).
 6. Submit.
 
@@ -49,7 +50,7 @@ table cells, references.
 
 | Printed | Tag exactly |
 |---|---|
-| Carabus auratus Linnaeus, 1761 | `Carabus auratus` (no authorship, no year) |
+| Carabus auratus Linnaeus, 1761 | `Carabus auratus` (the authorship gets its own `Authorship` region, see below) |
 | Ophelia limacina (Rathke, 1843) | `Ophelia limacina` |
 | *Carabus* sp. | `Carabus` (leave "sp." out) |
 | cf. Carabus auratus | `Carabus auratus` (leave "cf." out, same for "aff.", "nr.", "?") |
@@ -65,6 +66,26 @@ to the name: the full stop of an abbreviation or rank marker, the parentheses of
 
 A name that is cut across two blocks (the end of one paragraph and the start of the next) is tagged as two regions, one per block.
 A region never runs across a blank line.
+
+### Authorship
+
+When an authorship is printed right after a name, tag it as a separate `Authorship` region (hotkey u). It belongs to the
+`Name` that ends directly before it; only spaces or a comma may lie in between. No relation is needed.
+
+| Printed | `Name` | `Authorship` |
+|---|---|---|
+| Carabus auratus Linnaeus, 1761 | `Carabus auratus` | `Linnaeus, 1761` |
+| Ophelia limacina (Rathke, 1843) | `Ophelia limacina` | `(Rathke, 1843)` (brackets included) |
+| Rosa canina L. | `Rosa canina` | `L.` (the full stop belongs to the abbreviation) |
+| Silene acaulis (L.) Jacq. | `Silene acaulis` | `(L.) Jacq.` |
+| Aus bus Smith in Jones, 1900 | `Aus bus` | `Smith in Jones, 1900` |
+| Aus bus Smith & Jones, 1999 sp. nov. | `Aus bus` | `Smith & Jones, 1999` (the act marker is an `Act`) |
+
+- Tag the authorship as printed, with year, brackets and "ex"/"in" parts, but without a trailing comma, full stop (other than
+  an abbreviation's) or bracket that is not part of it.
+- Do not tag: "sensu Smith", "auct.", "nec Smith, 1900", "s.l.", "s.str." (these are not the name's authorship); a citation
+  that does not follow a name ("as shown by Smith (2010)"); an author name in the reference list; a year alone.
+- A name without an authorship simply gets none. Most abstracts have very few.
 
 ### Do not tag
 
@@ -184,7 +205,7 @@ mentions organisms in passing).
 The project uses `eval/labelstudio/config.xml`. What you see:
 
 - **Top:** the task-level choice `doc` with `ok` and `bad_text`.
-- **Labels** (with hotkeys): `Name` (n), `Act` (a), `Context` (c). Select a label, then select the text in the document to
+- **Labels** (with hotkeys): `Name` (n), `Act` (a), `Context` (c), `Authorship` (u). Select a label, then select the text in the document to
   create a region. The text is selectable by single characters.
 - **Region panel (right):** select a region to see its extra fields. A `Name` region has the choice `main_subject` (`yes`).
   An `Act` region has `act_type`. A `Context` region has the text area `ranks`.
@@ -210,7 +231,7 @@ Do not use it for documents that merely contain no names, or whose names are har
 
 ## 9. Worked examples
 
-The examples show what to tag and why. Regions are written as `[Name: …]`, `[Act: …]`, `[Context: …]`. The pre-tags may
+The examples show what to tag and why. Regions are written as `[Name: …]`, `[Authorship: …]`, `[Act: …]`, `[Context: …]`. The pre-tags may
 differ from them, always follow the rules.
 
 ### Example 1: a plain abstract with authorship, an abbreviation and a qualifier
@@ -218,10 +239,10 @@ differ from them, always follow the rules.
 > *Carabus auratus* Linnaeus, 1761 is common in arable fields. Records of *C. auratus* and of cf. *Carabus nemoralis* were
 > compared with the Ground Beetle Atlas.
 
-- `[Name: Carabus auratus]` Linnaeus, 1761 is common in arable fields. Records of `[Name: C. auratus]` and of cf.
+- `[Name: Carabus auratus]` `[Authorship: Linnaeus, 1761]` is common in arable fields. Records of `[Name: C. auratus]` and of cf.
   `[Name: Carabus nemoralis]` were compared with the Ground Beetle Atlas.
 
-Why: authorship and year are outside the span. "C. auratus" is a name even though the full form was printed earlier. "cf." is
+Why: authorship and year are outside the name span; they get their own region, `[Authorship: Linnaeus, 1761]`. "C. auratus" is a name even though the full form was printed earlier. "cf." is
 a qualifier and stays outside. "Ground Beetle Atlas" is a title in plain words, not a name. No `main_subject` is needed
 unless the document is about these species, here the first one is the focus: tick it.
 
@@ -251,10 +272,11 @@ Not tagged: "COI", "16S" (genes), "CBS 123.45" and "K-12" (strain codes), "*obsc
 > ***Ophelia yangi*** **sp. nov.** and *Ophelia limacina* (Rathke, 1843) **comb. nov.** are described from the Yellow Sea.
 
 - `[Name: Ophelia yangi]` `[Act: sp. nov.]` with `act_type = sp. nov.`, relation `act_of` from the Act to "Ophelia yangi".
-- `[Name: Ophelia limacina]` (Rathke, 1843) `[Act: comb. nov.]` with `act_type = comb. nov.`, `act_of` to "Ophelia limacina".
+- `[Name: Ophelia limacina]` `[Authorship: (Rathke, 1843)]` `[Act: comb. nov.]` with `act_type = comb. nov.`, `act_of` to
+  "Ophelia limacina".
 
-Why: the Act region is the marker text only. The authorship "(Rathke, 1843)" sits between the name and its marker and is in
-neither span. Each marker is linked to the name printed right before it, not to the other name in the sentence.
+Why: the Act region is the marker text only. The authorship "(Rathke, 1843)" sits between the name and its marker and gets its
+own `Authorship` region, in neither the name nor the act span. Each marker is linked to the name printed right before it, not to the other name in the sentence.
 
 ### Example 5: a classification context in a title
 
@@ -281,7 +303,8 @@ A document whose abstract reads "Abstract not available. © 2025 Publisher" or `
 
 ## 10. Quick checklist before you submit
 
-- [ ] Every region text shows the name only: no authorship, no brackets, no trailing comma or full stop (apart from an abbreviation).
+- [ ] Every `Name` region shows the name only: no authorship, no brackets, no trailing comma or full stop (apart from an abbreviation).
+- [ ] Every authorship printed right after a name has its own `Authorship` region.
 - [ ] No common names, genes, strains, viruses or URL names are tagged.
 - [ ] Every `Act` has an `act_type` and an `act_of` link to a `Name`.
 - [ ] Every `Context` has `ranks` text (unless it is a rank heading).

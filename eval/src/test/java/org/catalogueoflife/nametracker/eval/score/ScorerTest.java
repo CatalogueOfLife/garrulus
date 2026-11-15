@@ -214,7 +214,7 @@ class ScorerTest {
     EvalReport base = Scorer.score(List.of(doc()), Map.of(), opts(MatchMode.STRICT, false), "pipeline", "pensoft", "A");
     EvalReport rep = new EvalReport(base.finder(), base.info(), base.corpus(), base.split(), base.mode(), base.documents(), base.names(),
         base.byCategory(), base.nameCorrect(), base.nameCorrectByKind(), base.acts(), base.contexts(), base.mainSubject(), many,
-        many.subList(0, 3), base.matchMode(), base.documentLevel(), List.of("a note"), 0, Map.of());
+        many.subList(0, 3), base.matchMode(), base.documentLevel(), List.of("a note"), 0, Map.of(), null);
     java.nio.file.Path md = ReportWriter.write(rep, tmp, java.time.LocalDate.of(2026, 11, 15));
     String json = java.nio.file.Files.readString(tmp.resolve(md.getFileName().toString().replace(".md", ".json")));
     var tree = org.catalogueoflife.nametracker.finder.api.FinderJson.mapper().readTree(json);
@@ -332,5 +332,46 @@ class ScorerTest {
     EvalReport rep = Scorer.score(List.of(doc()), Map.of(), opts(MatchMode.STRICT, true)).withNotes(List.of("3 PDFs failed"));
     assertThat(rep.notes()).containsExactly("3 PDFs failed");
     assertThat(ReportWriter.markdown(rep, java.time.LocalDate.of(2026, 11, 14))).contains("Documents: 1").contains("- 3 PDFs failed");
+  }
+
+  private static Mention withAuthorship(Mention m, String authorship) {
+    return new Mention(m.id(), m.blockId(), m.start(), m.end(), m.verbatim(), m.name(), m.kind(), m.rank(), authorship, m.qualifier(),
+        m.confidence(), m.evidence(), m.actId(), m.contextId(), m.hints());
+  }
+
+  @Test
+  void authorshipIsScoredOnMatchedNamesOfCuratedDocuments() {
+    String text = "Ophelia limacina (Rathke, 1843), Carabus auratus L. and Rosa canina L. and Aus bus Smith";
+    Document d = new Document("d1", "en", List.of(new Block("b1", BlockType.ABSTRACT, 0, text, List.of(), List.of())), Map.of());
+    List<GoldName> names = List.of(
+        new GoldName("b1", 0, 16, "Ophelia limacina", null, null, "(Rathke, 1843)"),
+        new GoldName("b1", 33, 48, "Carabus auratus", null, null, "L."),
+        new GoldName("b1", 56, 67, "Rosa canina", null, null, null),
+        new GoldName("b1", 75, 82, "Aus bus", null, null, "Smith"));
+    GoldDocument g = new GoldDocument("d1", "curated", "test", "CC-BY", true, GoldDocument.textHash(d), d, names, List.of(), List.of(),
+        Set.of());
+    FinderResult r = result(
+        // right, whitespace aside
+        withAuthorship(m("1", "b1", 0, 16, "Ophelia limacina", "Ophelia limacina"), "(Rathke,  1843)"),
+        // wrong
+        withAuthorship(m("2", "b1", 33, 48, "Carabus auratus", "Carabus auratus"), "Linnaeus"),
+        // not in the gold
+        withAuthorship(m("3", "b1", 56, 67, "Rosa canina", "Rosa canina"), "L."),
+        // missed; the name span does not match, so it is not counted at all
+        m("4", "b1", 75, 81, "Aus bu", "Aus bu"));
+    EvalReport rep = Scorer.score(List.of(g), Map.of("d1", r), opts(MatchMode.STRICT, false));
+    // tp: Ophelia; fp: Carabus (wrong), Rosa (extra); fn: Carabus (wrong)
+    assertThat(rep.authorship()).isEqualTo(new Metrics(1, 2, 1));
+    assertThat(rep.names()).isEqualTo(new Metrics(3, 1, 1));
+    assertThat(ReportWriter.markdown(rep, java.time.LocalDate.of(2026, 11, 15))).contains("| authorship | 1 | 2 | 1 |");
+  }
+
+  @Test
+  void authorshipIsNotScoredForCorporaWithoutIt() {
+    FinderResult r = result(withAuthorship(m("1", "b1", 0, 16, "Ophelia limacina", "Ophelia limacina"), "(Rathke, 1843)"));
+    EvalReport rep = Scorer.score(List.of(doc()), Map.of("d1", r), opts(MatchMode.STRICT, false));
+    assertThat(rep.authorship()).isNull();
+    assertThat(ReportWriter.markdown(rep, java.time.LocalDate.of(2026, 11, 15))).doesNotContain("| authorship |");
+    assertThat(Scorer.score(List.of(doc()), Map.of("d1", r), opts(MatchMode.STRICT, true)).authorship()).isNull();
   }
 }

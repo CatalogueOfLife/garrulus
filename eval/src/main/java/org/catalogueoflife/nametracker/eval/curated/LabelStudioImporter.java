@@ -5,6 +5,7 @@ import org.catalogueoflife.nametracker.eval.corpus.GoldContext;
 import org.catalogueoflife.nametracker.eval.corpus.GoldDocument;
 import org.catalogueoflife.nametracker.eval.corpus.GoldName;
 import org.catalogueoflife.nametracker.finder.api.ActType;
+import org.catalogueoflife.nametracker.finder.api.Block;
 import org.catalogueoflife.nametracker.finder.api.CodePoints;
 import org.catalogueoflife.nametracker.finder.api.Document;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
@@ -29,7 +30,9 @@ import java.util.Set;
  * Reads a Label Studio JSON export into gold documents. Per task the latest annotation with was_cancelled=false counts; a task
  * without one is not annotated yet and skipped. Name regions become {@link GoldName}s, Act regions linked to a Name region by an
  * {@code act_of} relation become {@link GoldAct}s (type from the region's act_type choice), Context regions become
- * {@link GoldContext}s, and {@code main_subject=yes} on a Name adds its text to the main subject names. A task with
+ * {@link GoldContext}s, and {@code main_subject=yes} on a Name adds its text to the main subject names. An Authorship region
+ * becomes the {@link GoldName#authorship()} of the Name region that ends right before it in the same block, with nothing but
+ * spaces and commas in between; an Authorship without such a Name, or a second one on the same Name, fails. A task with
  * {@code doc=bad_text} is dropped. Documents whose licence forbids storing the text come back without text
  * ({@code textRetained=false}), ready to be written.
  *
@@ -121,6 +124,7 @@ public final class LabelStudioImporter {
     Map<String, List<RankedName>> contexts = new LinkedHashMap<>();
     Set<String> subjects = new LinkedHashSet<>();
     Map<String, GoldName> nameById = new LinkedHashMap<>();
+    List<GoldName> authorships = new ArrayList<>();
     for (var e : regions.entrySet()) {
       if (label(e.getValue()).equals("Name")) {
         GoldName n = span(docId, flat, utf16, e.getValue(), (b, s, en, t) -> new GoldName(b, s, en, t, null, null));
@@ -158,15 +162,43 @@ public final class LabelStudioImporter {
           all.addAll(b);
           return all;
         });
+      } else if (label.equals("Authorship")) {
+        authorships.add(span(docId, flat, utf16, e.getValue(), (b, s, en, t) -> new GoldName(b, s, en, t, null, null)));
       } else if (!label.equals("Name")) {
         throw fail(docId, "unknown label '" + label + "'");
       }
     }
+    attachAuthorships(docId, doc, names, authorships);
     List<GoldContext> ctx = contexts.entrySet().stream().map(e -> new GoldContext(e.getKey(), e.getValue())).toList();
     String license = data.path("license").asString("unknown");
     GoldDocument g = new GoldDocument(docId, "curated", data.path("split").asString("test"), license, true,
         GoldDocument.textHash(doc), doc, names, acts, ctx, subjects);
     return data.path("textRetained").asBoolean(true) ? g : g.withoutText();
+  }
+
+  private static final java.util.regex.Pattern AUTHORSHIP_GAP = java.util.regex.Pattern.compile("[\\s,]*");
+
+  /** Sets each authorship (held as a span) on the name that ends closest before it in its block, across spaces and commas only. */
+  private static void attachAuthorships(String docId, Document doc, List<GoldName> names, List<GoldName> authorships) {
+    Map<String, String> texts = new LinkedHashMap<>();
+    for (Block b : doc.blocks()) texts.put(b.id(), b.text());
+    for (GoldName a : authorships) {
+      int best = -1;
+      for (int i = 0; i < names.size(); i++) {
+        GoldName n = names.get(i);
+        if (!n.blockId().equals(a.blockId()) || n.end() > a.start()) continue;
+        if (best >= 0 && names.get(best).end() >= n.end()) continue;
+        if (AUTHORSHIP_GAP.matcher(CodePoints.slice(texts.get(a.blockId()), n.end(), a.start())).matches()) best = i;
+      }
+      if (best < 0) {
+        throw fail(docId, "the Authorship region '" + a.text() + "' does not follow a Name region (only spaces or a comma may lie between)");
+      }
+      GoldName n = names.get(best);
+      if (n.authorship() != null) {
+        throw fail(docId, "the Name '" + n.text() + "' has more than one Authorship region ('" + n.authorship() + "', '" + a.text() + "')");
+      }
+      names.set(best, n.withAuthorship(a.text()));
+    }
   }
 
   private interface Make<T> {
