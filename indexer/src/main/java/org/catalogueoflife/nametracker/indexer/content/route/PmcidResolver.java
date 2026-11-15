@@ -22,10 +22,10 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
 /**
- * The PMCID of a work. {@code work.pmcid} when set, else the first open access Europe PMC search hit for the DOI; a
- * PMCID found that way is stored on the work ({@link WorkMapper#setPmcid}, only when empty). The Europe PMC and the PMC
- * route share one instance, which remembers the answer per work id for a few minutes, so the second route neither
- * searches again nor needs a reloaded work.
+ * The PMCID of a work and whether Europe PMC has it open access. {@code work.pmcid} when set, else the first open
+ * access Europe PMC search hit for the DOI; a PMCID found that way is stored on the work ({@link WorkMapper#setPmcid},
+ * only when empty). The Europe PMC and the PMC route share one instance, which remembers the search answer per work id
+ * for a few minutes, so the second route neither searches again nor needs a reloaded work.
  */
 @Component
 public class PmcidResolver {
@@ -34,7 +34,12 @@ public class PmcidResolver {
   static final Duration TTL = Duration.ofMinutes(10);
   private static final int MAX_ENTRIES = 512;
 
-  private record Found(Optional<String> pmcid, long at) {
+  /** The first Europe PMC search hit that belongs to the work: its PMCID (if any) and its open access flag. */
+  private record Hit(Optional<String> pmcid, boolean openAccess) {
+    static final Hit NONE = new Hit(Optional.empty(), false);
+  }
+
+  private record Found(Hit hit, long at) {
   }
 
   private final PoliteHttp http;
@@ -68,22 +73,42 @@ public class PmcidResolver {
     String known = normalise(w.pmcid());
     if (known != null) return Optional.of(known);
     if (w.doi() == null || w.doi().isBlank() || w.id() == null) return Optional.empty();
+    Hit hit = hit(w);
+    if (!hit.openAccess()) return Optional.empty();
+    hit.pmcid().ifPresent(id -> works.setPmcid(w.id(), id));
+    return hit.pmcid();
+  }
+
+  /**
+   * Whether Europe PMC's search says the work is open access ({@code isOpenAccess = Y}), searched by DOI, else by
+   * PMCID. A PMCID alone (OpenAlex gives one for many closed PMC articles) is no promise: Europe PMC answers such a
+   * {@code fullTextXML} with HTTP 500.
+   */
+  public boolean openAccess(Work w) {
+    if (w.id() == null) return false;
+    return hit(w).openAccess();
+  }
+
+  private Hit hit(Work w) {
     long now = System.nanoTime();
     synchronized (cache) {
       Found e = cache.get(w.id());
-      if (e != null && now - e.at < TTL.toNanos()) return e.pmcid;
+      if (e != null && now - e.at < TTL.toNanos()) return e.hit;
     }
-    Optional<String> found = search(w.doi());
-    found.ifPresent(id -> works.setPmcid(w.id(), id));
+    Hit hit = search(w);
     synchronized (cache) {
-      cache.put(w.id(), new Found(found, now));
+      cache.put(w.id(), new Found(hit, now));
     }
-    return found;
+    return hit;
   }
 
-  private Optional<String> search(String doi) {
-    String q = URLEncoder.encode("DOI:\"" + doi + "\"", StandardCharsets.UTF_8);
-    URI uri = URI.create(base + "/rest/search?query=" + q + "&format=json&resultType=lite");
+  private Hit search(Work w) {
+    String doi = w.doi() == null || w.doi().isBlank() ? null : w.doi();
+    String known = normalise(w.pmcid());
+    if (doi == null && known == null) return Hit.NONE;
+    String query = doi != null ? "DOI:\"" + doi + "\"" : "PMCID:" + known;
+    URI uri = URI.create(base + "/rest/search?query=" + URLEncoder.encode(query, StandardCharsets.UTF_8)
+        + "&format=json&resultType=lite");
     HttpResponse<byte[]> resp = http.get(uri, Map.of("Accept", "application/json"));
     Optional<byte[]> body = JatsSupport.okBody(resp);
     if (body.isEmpty()) {
@@ -92,7 +117,7 @@ public class PmcidResolver {
         throw new HttpProblem(safe, resp.statusCode(), false, "HTTP " + resp.statusCode() + " from Europe PMC: " + safe,
             null);
       }
-      return Optional.empty();
+      return Hit.NONE;
     }
     JsonNode root;
     try {
@@ -100,12 +125,12 @@ public class PmcidResolver {
     } catch (RuntimeException e) {
       throw new HttpProblem(uri, resp.statusCode(), false, "Unreadable Europe PMC response: " + uri, e);
     }
-    for (JsonNode r : root.path("resultList").path("result")) {
+    for (JsonNode r : root.path("resultList").path("result")) { // only the first hit counts
       String id = normalise(r.path("pmcid").asString(""));
-      boolean sameDoi = r.path("doi").asString("").equalsIgnoreCase(doi);
-      if (id != null && sameDoi && "Y".equals(r.path("isOpenAccess").asString(""))) return Optional.of(id);
-      break; // only the first hit counts
+      boolean same = doi != null ? r.path("doi").asString("").equalsIgnoreCase(doi) : known.equals(id);
+      if (!same) return Hit.NONE;
+      return new Hit(Optional.ofNullable(id), "Y".equals(r.path("isOpenAccess").asString("")));
     }
-    return Optional.empty();
+    return Hit.NONE;
   }
 }

@@ -51,12 +51,28 @@ class EuropePmcRouteTest {
   }
 
   @Test
-  void knownPmcidSkipsTheSearch(WireMockRuntimeInfo w) {
+  void knownPmcidIsCheckedForOpenAccessByPmcid(WireMockRuntimeInfo w) {
+    searchStub(fixture("europepmc/search-open-access.json"));
     stubFor(get(urlPathEqualTo("/rest/PMC9836452/fullTextXML"))
         .willReturn(aResponse().withBody(fixture("europepmc/PMC9836452-fulltext.xml"))));
     assertThat(route(w).fetch(work(5L, null, "PMC9836452"), null)).isPresent();
-    verify(0, getRequestedFor(urlPathEqualTo("/rest/search")));
+    verify(1, getRequestedFor(urlPathEqualTo("/rest/search")).withQueryParam("query", equalTo("PMCID:PMC9836452")));
     org.mockito.Mockito.verify(works, never()).setPmcid(anyLong(), anyString());
+  }
+
+  /**
+   * M2-L: a PMCID from OpenAlex is no promise of open access. Europe PMC answers HTTP 500 to fullTextXML for such
+   * articles, so the route asks the search first and fetches nothing when it says N.
+   */
+  @Test
+  void knownPmcidThatIsNotOpenAccessFetchesNothing(WireMockRuntimeInfo w) {
+    searchStub(fixture("europepmc/search-not-open-access.json"));
+    stubFor(get(urlPathEqualTo("/rest/PMC9836452/fullTextXML")).willReturn(aResponse().withStatus(500)));
+
+    assertThat(route(w).fetch(work(5L, DOI, "PMC9836452"), null)).isEmpty();
+
+    verify(1, getRequestedFor(urlPathEqualTo("/rest/search")).withQueryParam("query", equalTo("DOI:\"" + DOI + "\"")));
+    verify(0, getRequestedFor(urlPathMatching("/rest/PMC.*/fullTextXML")));
   }
 
   @Test
@@ -72,6 +88,7 @@ class EuropePmcRouteTest {
 
   @Test
   void missingAndUnusableFulltextIsEmpty(WireMockRuntimeInfo w) {
+    searchStub(fixture("europepmc/search-open-access.json"));
     stubFor(get(urlPathEqualTo("/rest/PMC1/fullTextXML")).willReturn(aResponse().withStatus(404)));
     assertThat(route(w).fetch(work(1L, null, "PMC1"), null)).isEmpty();
     stubFor(get(urlPathEqualTo("/rest/PMC2/fullTextXML")).willReturn(aResponse().withBody("")));
@@ -83,6 +100,7 @@ class EuropePmcRouteTest {
 
   @Test
   void pmcidIsNormalised(WireMockRuntimeInfo w) {
+    searchStub(fixture("europepmc/search-open-access.json"));
     stubFor(get(urlPathEqualTo("/rest/PMC9836452/fullTextXML"))
         .willReturn(aResponse().withBody(fixture("europepmc/PMC9836452-fulltext.xml"))));
     assertThat(route(w).fetch(work(1L, null, "9836452"), null)).isPresent();

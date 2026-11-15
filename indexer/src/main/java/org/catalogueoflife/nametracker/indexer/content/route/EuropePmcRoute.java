@@ -17,7 +17,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Route {@code EUROPEPMC}: the JATS full text from Europe PMC ({@code /rest/<PMCID>/fullTextXML}). The PMCID is the
- * work's, or the one the shared {@link PmcidResolver} finds through the DOI search and stores on the work.
+ * work's, or the one the shared {@link PmcidResolver} finds through the DOI search and stores on the work. The full
+ * text is fetched only when the (cached) search says the article is open access, even for a known PMCID.
  */
 @Component
 @Order(2)
@@ -50,7 +51,7 @@ public class EuropePmcRoute implements ContentRoute {
   @Override
   public Optional<FetchedContent> fetch(Work w, @Nullable Source s) {
     Optional<String> pmcid = resolver.pmcid(w);
-    if (pmcid.isEmpty()) return Optional.empty();
+    if (pmcid.isEmpty() || !resolver.openAccess(w)) return Optional.empty();
     URI uri = URI.create(base + "/rest/" + pmcid.get() + "/fullTextXML");
     HttpResponse<byte[]> resp = http.get(uri, Map.of("Accept", "application/xml"));
     Optional<byte[]> body = JatsSupport.okBody(resp);
