@@ -51,4 +51,34 @@ class RemoteNameFinderTest {
     assertThatThrownBy(() -> finder(wm).find(DOC, FinderOptions.defaults()))
         .isInstanceOf(IllegalStateException.class).hasMessageContaining("503").hasMessageContaining("gnfinder is not available");
   }
+
+  @Test
+  void only503IsUnavailable(WireMockRuntimeInfo wm) {
+    stubFor(post("/v1/find").willReturn(aResponse().withStatus(503).withBody("{}")));
+    assertThatThrownBy(() -> finder(wm).find(DOC, FinderOptions.defaults())).isInstanceOf(FinderUnavailableException.class);
+    for (int status : new int[] {400, 500, 502}) {
+      stubFor(post("/v1/find").willReturn(aResponse().withStatus(status).withBody("{}")));
+      assertThatThrownBy(() -> finder(wm).find(DOC, FinderOptions.defaults()))
+          .isInstanceOf(IllegalStateException.class).isNotInstanceOf(FinderUnavailableException.class)
+          .hasMessageContaining("HTTP " + status);
+    }
+  }
+
+  @Test
+  void aRefusedConnectionIsUnavailable() throws Exception {
+    int port;
+    try (java.net.ServerSocket s = new java.net.ServerSocket(0)) {
+      port = s.getLocalPort();
+    }
+    assertThatThrownBy(() -> new RemoteNameFinder(URI.create("http://localhost:" + port)).find(DOC, FinderOptions.defaults()))
+        .isInstanceOf(FinderUnavailableException.class);
+  }
+
+  @Test
+  void aConnectionBrokenAfterTheRequestIsAFailureOfTheDocument(WireMockRuntimeInfo wm) {
+    stubFor(post("/v1/find").willReturn(aResponse().withFault(
+        com.github.tomakehurst.wiremock.http.Fault.CONNECTION_RESET_BY_PEER)));
+    assertThatThrownBy(() -> finder(wm).find(DOC, FinderOptions.defaults()))
+        .isInstanceOf(IllegalStateException.class).isNotInstanceOf(FinderUnavailableException.class);
+  }
 }

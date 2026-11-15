@@ -1,6 +1,7 @@
 package org.catalogueoflife.nametracker.finder.gnfinder;
 
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
+import org.catalogueoflife.nametracker.finder.remote.ConnectFailures;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
@@ -13,7 +14,9 @@ import java.time.Duration;
 
 /**
  * Calls POST {base}/api/v1/find of a gnfinder service. Not final, so that tests can override {@link #find(String)}.
- * Connection and I/O failures, timeouts and any status other than 200 throw {@link GnfinderUnavailableException}.
+ * A failure to connect and HTTP 502/503/504 throw {@link GnfinderUnavailableException} (gnfinder is down: retry
+ * later); any other status, a read timeout or a broken connection throw a plain {@link GnfinderException} (this text
+ * failed).
  */
 public class GnfinderClient {
   private static final JsonMapper MAPPER = FinderJson.mapper();
@@ -22,8 +25,15 @@ public class GnfinderClient {
   private final URI endpoint;
   private final HttpClient http;
   private final String userAgent;
+  private final Duration timeout;
 
   public GnfinderClient(URI baseUrl, HttpClient http) {
+    this(baseUrl, http, TIMEOUT);
+  }
+
+  /** @param timeout of one request (default one minute) */
+  public GnfinderClient(URI baseUrl, HttpClient http, Duration timeout) {
+    this.timeout = timeout;
     String b = baseUrl.toString();
     this.endpoint = URI.create((b.endsWith("/") ? b.substring(0, b.length() - 1) : b) + "/api/v1/find");
     this.http = http;
@@ -35,23 +45,31 @@ public class GnfinderClient {
     this(baseUrl, HttpClient.newHttpClient());
   }
 
-  /** @throws GnfinderUnavailableException if gnfinder cannot be reached or does not answer with HTTP 200 */
+  /**
+   * @throws GnfinderUnavailableException if gnfinder cannot be reached or answers 502, 503 or 504
+   * @throws GnfinderException for any other failure of this request
+   */
   public GnfinderResponse find(String text) {
     HttpResponse<String> resp;
     try {
-      HttpRequest req = HttpRequest.newBuilder(endpoint).timeout(TIMEOUT)
+      HttpRequest req = HttpRequest.newBuilder(endpoint).timeout(timeout)
           .header("Content-Type", "application/json").header("Accept", "application/json").header("User-Agent", userAgent)
           .POST(HttpRequest.BodyPublishers.ofString(MAPPER.writeValueAsString(GnfinderRequest.of(text)), StandardCharsets.UTF_8))
           .build();
       resp = http.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
     } catch (IOException e) {
-      throw new GnfinderUnavailableException("gnfinder at " + endpoint + " is not available: " + describe(e), e);
+      if (ConnectFailures.isConnectFailure(e)) {
+        throw new GnfinderUnavailableException("gnfinder at " + endpoint + " is not available: " + describe(e), e);
+      }
+      throw new GnfinderException("gnfinder at " + endpoint + " failed on this request: " + describe(e), e);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new IllegalStateException("Interrupted while calling gnfinder", e);
     }
     if (resp.statusCode() != 200) {
-      throw new GnfinderUnavailableException("gnfinder at " + endpoint + " returned HTTP " + resp.statusCode());
+      String msg = "gnfinder at " + endpoint + " returned HTTP " + resp.statusCode();
+      throw ConnectFailures.isUnavailableStatus(resp.statusCode()) ? new GnfinderUnavailableException(msg)
+          : new GnfinderException(msg);
     }
     return MAPPER.readValue(resp.body(), GnfinderResponse.class);
   }

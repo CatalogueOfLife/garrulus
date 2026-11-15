@@ -13,6 +13,7 @@ import org.catalogueoflife.nametracker.finder.api.FinderInfo;
 import org.catalogueoflife.nametracker.finder.api.FinderOptions;
 import org.catalogueoflife.nametracker.finder.api.FinderResult;
 import org.catalogueoflife.nametracker.finder.api.NameFinder;
+import org.catalogueoflife.nametracker.finder.gnfinder.GnfinderException;
 import org.catalogueoflife.nametracker.finder.gnfinder.GnfinderUnavailableException;
 import org.catalogueoflife.nametracker.indexer.AbstractPostgresIT;
 import org.catalogueoflife.nametracker.indexer.task.ClearTasksAtStartup;
@@ -42,6 +43,9 @@ class FindNamesOutageIT extends AbstractPostgresIT {
         }
 
         @Override public FinderResult find(Document doc, FinderOptions opts) {
+          if (doc.blocks().stream().anyMatch(b -> b.text().contains("Broken"))) {
+            throw new GnfinderException("gnfinder at x returned HTTP 500");
+          }
           throw new GnfinderUnavailableException("connection refused");
         }
       };
@@ -68,5 +72,20 @@ class FindNamesOutageIT extends AbstractPostgresIT {
     });
     assertThat(jdbc.queryForObject("SELECT state FROM work WHERE id = ?", String.class, work))
         .isEqualTo("CONTENT_RESOLVED");
+  }
+
+  @Test
+  void gnfinderFailingOnOneDocumentIsAnOrdinaryFailure() {
+    long work = jdbc.queryForObject("INSERT INTO work (doi, title, abstract, origin, state, text_level) VALUES "
+        + "('10.1/broken', 'Broken', 'About Homo sapiens.', 'LIVE', 'CONTENT_RESOLVED', 'ABSTRACT_ONLY') RETURNING id",
+        Long.class);
+    long id = queue.enqueue("FIND_NAMES", "{\"workId\":" + work + "}", TaskPriority.LIVE, "names:broken");
+
+    // it uses an attempt and is retried with backoff, so after max-attempts it ends DEAD where it can be seen
+    await().atMost(20, SECONDS).untilAsserted(() -> {
+      Map<String, Object> t = jdbc.queryForMap("SELECT state, attempts, last_error FROM task WHERE id = ?", id);
+      assertThat((Integer) t.get("attempts")).isEqualTo(1);
+      assertThat((String) t.get("last_error")).contains("HTTP 500");
+    });
   }
 }
