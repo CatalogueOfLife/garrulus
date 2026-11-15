@@ -4,9 +4,11 @@ Date: 2026-11-15
 
 Documents: 100
 
-Finder: pipeline 0.1.0-SNAPSHOT, config `799364566a46508c6817796ff29edb32d09b6343a8dc9a8a8e476f1f20d93153`, dictionary `316691`
+Finder: pipeline 0.1.0-SNAPSHOT, config `cea8fc82381085b023deb2ad3e9b3822e5c6ca7f6d950b2d1efbe8f8483ba1d1`, dictionary `316691`
 
 - The JSON keeps the first 500 error samples of each kind: 500 of 2175 recorded false positives, 500 of 1273 false negatives. All counts are complete.
+
+OTU mentions (BOLD BINs and UNITE SHs, not scored as names): 0
 
 | Metric | TP | FP | FN | Precision | Recall | F1 |
 |---|---:|---:|---:|---:|---:|---:|

@@ -3,7 +3,7 @@
   "info" : {
     "name" : "pipeline",
     "version" : "0.1.0-SNAPSHOT",
-    "configHash" : "799364566a46508c6817796ff29edb32d09b6343a8dc9a8a8e476f1f20d93153",
+    "configHash" : "cea8fc82381085b023deb2ad3e9b3822e5c6ca7f6d950b2d1efbe8f8483ba1d1",
     "dictionaryKey" : "316691"
   },
   "corpus" : "pensoft",
@@ -8133,5 +8133,7 @@
   } ],
   "matchMode" : "STRICT",
   "documentLevel" : false,
-  "notes" : [ "The JSON keeps the first 500 error samples of each kind: 500 of 2175 recorded false positives, 500 of 1273 false negatives. All counts are complete." ]
+  "notes" : [ "The JSON keeps the first 500 error samples of each kind: 500 of 2175 recorded false positives, 500 of 1273 false negatives. All counts are complete." ],
+  "otuMentions" : 0,
+  "otuByScheme" : { }
 }
