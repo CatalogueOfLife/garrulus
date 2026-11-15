@@ -473,9 +473,13 @@ class PipelineNameFinderTest {
   // ---- "L. es": the authority "L." plus a Spanish verb read as an abbreviated binomial
 
   private static FinderResult spanish(String language) {
+    return spanish(language, List.of("Scutellaria", "L. es", "S. havanensis"));
+  }
+
+  private static FinderResult spanish(String language, List<String> gnfinderSees) {
     String text = "Scutellaria L. es un género de Lamiaceae. S. havanensis crece en Cuba.";
     List<GnName> names = new ArrayList<>();
-    for (String v : List.of("Scutellaria", "L. es", "S. havanensis")) {
+    for (String v : gnfinderSees) {
       int at = text.indexOf(v);
       names.add(new GnName(v.contains(" ") ? 2 : 1, v, v, null, 1.0, at, at + v.length(), null, "NO_ANNOT"));
     }
@@ -500,6 +504,15 @@ class PipelineNameFinderTest {
       assertThat(s.evidence().judge()).isNull();
       assertThat(s.name()).isEqualTo("Scutellaria havanensis");
     }
+  }
+
+  @Test
+  void abbreviationWithACommonWordEpithetSeenOnlyByTheDictionaryIsDropped() {
+    // the Rodriguésia spot-check: gnfinder does not see "L. es", the dictionary alone proposes it
+    FinderResult r = spanish("es", List.of("Scutellaria", "S. havanensis"));
+    List<Mention> all = new ArrayList<>(r.mentions());
+    all.addAll(r.rejected());
+    assertThat(all).extracting(Mention::verbatim).doesNotContain("L. es").contains("S. havanensis");
   }
 
   @Test

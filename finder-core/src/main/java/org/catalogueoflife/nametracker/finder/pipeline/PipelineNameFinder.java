@@ -69,7 +69,9 @@ import java.util.Set;
  *       the dictionary on exactly this span. EPITHET on a full genus only means some COL epithet follows, which "The
  *       baculum" also satisfies, so it does not vouch. Nor does it for an abbreviation outside italics and markup whose
  *       epithet is a common word of the document's language ({@link CommonWords} of en, de, fr, es or pt; English when
- *       the language is unknown or another one): "L. es un género" is an authority and a verb.</li>
+ *       the language is unknown or another one): "L. es un género" is an authority and a verb. Such a candidate is
+ *       judged if another generator saw it too, and dropped before judging (counted as {@code unparsed}) if only the
+ *       dictionary did.</li>
  * </ol>
  *
  * <p><b>Confidence.</b> Certain names take the maximum of the signals that may certify them, as defined above: markup on
@@ -84,7 +86,7 @@ import java.util.Set;
  * m1…, a1…, c1… in document order (contexts by block, then
  * position); rejected candidates, returned only with {@link FinderOptions#includeRejected()}, are r1… and carry no act
  * or context. Diagnostics (all counts as strings): {@code candidates} merged spans, {@code unparsed} dropped by the
- * parser, {@code certain}, {@code accepted} (certain included), {@code rejected}, {@code actsUnattached} markers without a
+ * parser or as a common-word abbreviation of the dictionary alone, {@code certain}, {@code accepted} (certain included), {@code rejected}, {@code actsUnattached} markers without a
  * name, {@code gnfinderMs} time spent in gnfinder, {@code gnfinderMisaligned} gnfinder names dropped because their
  * offsets did not match their text, {@code gnfinderTrimmed} gnfinder names cut or dropped by the {@link EpithetGuard}.
  * {@code candidates = unparsed + accepted + rejected}.
@@ -304,12 +306,19 @@ public class PipelineNameFinder implements NameFinder {
     List<ParsedCandidate> parsed = new ArrayList<>(expanded.size());
     for (MergedCandidate m : expanded) parserStage.parse(m, o.codeHint()).ifPresent(parsed::add);
 
-    // features, and who bypasses the judge
+    // features; abbreviations with a common-word epithet that only the dictionary saw are dropped
+    CommonWords words = commonWords(doc.language());
     FeatureExtractor fx = new FeatureExtractor(doc, parsed.size());
     List<CandidateFeatures> features = new ArrayList<>(parsed.size());
-    for (ParsedCandidate p : parsed) features.add(fx.features(p));
+    List<ParsedCandidate> kept = new ArrayList<>(parsed.size());
+    for (ParsedCandidate p : parsed) {
+      CandidateFeatures f = fx.features(p);
+      if (commonWordEpithet(p, f, words) && p.c().generators().equals(Set.of(Generator.DICTIONARY))) continue;
+      kept.add(p);
+      features.add(f);
+    }
+    parsed = kept;
     Set<ParsedCandidate> newNames = newNames(parsed, features, doc);
-    CommonWords words = commonWords(doc.language());
     boolean[] certain = new boolean[parsed.size()];
     double[] confidence = new double[parsed.size()];
     for (int i = 0; i < parsed.size(); i++) {
