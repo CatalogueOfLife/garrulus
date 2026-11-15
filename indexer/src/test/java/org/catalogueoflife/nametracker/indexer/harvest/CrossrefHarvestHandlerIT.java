@@ -389,4 +389,27 @@ class CrossrefHarvestHandlerIT extends AbstractPostgresIT {
           + " AND payload->>'workId' = '" + w.id() + "'")).as(doi).isEqualTo(1);
     }
   }
+
+  @Test
+  void sourceInsertedBeforeTheBoundaryMidRunNeitherSkipsNorRepeats() throws Exception {
+    jdbc.update("INSERT INTO source (openalex_id, issn_l, issns, title, tier, origin, onboarded_at) "
+        + "SELECT 'S' || i, '1' || lpad(i::text, 3, '0') || '-0001', ARRAY['1' || lpad(i::text, 3, '0') || '-0001'], "
+        + "'J' || i, 'CORE', 'MANUAL', now() FROM generate_series(1, 45) i");
+    stubFor(get(urlPathEqualTo("/works")).willReturn(okJson(fixture("works-empty.json"))));
+    String d = LocalDate.now(ZoneOffset.UTC).minusDays(1).toString();
+    queue.enqueue("HARVEST_CROSSREF", "{\"date\":\"" + d + "\"}", TaskPriority.LIVE, null);
+    crossref.handle(queue.claim(Set.of("HARVEST_CROSSREF"), "test", 1).getFirst()); // 1001..1040
+    // a source that sorts before everything, while the run is between two batches
+    jdbc.update("INSERT INTO source (openalex_id, issn_l, issns, title, tier, origin, onboarded_at) "
+        + "VALUES ('S0', '0000-0001', ARRAY['0000-0001'], 'New', 'CORE', 'MANUAL', now())");
+    crossref.handle(queue.claim(Set.of("HARVEST_CROSSREF"), "test", 1).getFirst());
+    assertThat(queue.claim(Set.of("HARVEST_CROSSREF"), "test", 1)).isEmpty();
+    verify(2, getRequestedFor(urlPathEqualTo("/works")));
+    verify(1, getRequestedFor(urlPathEqualTo("/works")).withQueryParam("filter", containing("issn:1001-0001"))
+        .withQueryParam("filter", containing("issn:1040-0001")));
+    // the second batch is exactly the five after 1040-0001: none repeated, none skipped, the new source not asked for
+    verify(1, getRequestedFor(urlPathEqualTo("/works"))
+        .withQueryParam("filter", matching(".*type:journal-article(,issn:104[1-5]-0001){5}$")));
+    assertThat(runs.recent(1).getFirst().state()).isEqualTo("DONE");
+  }
 }

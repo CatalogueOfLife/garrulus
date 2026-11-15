@@ -345,11 +345,11 @@ class OpenAlexHarvestHandlerIT extends AbstractPostgresIT {
     queue.enqueue("HARVEST_OPENALEX", "{\"window\":\"LIVE\",\"batch\":0,\"cursor\":\"c2\",\"ids\":[\"S820\"]}",
         TaskPriority.LIVE, null);
     source("S821", true); // added while the batch was running
-    assertThat(drain()).isEqualTo(1);
+    assertThat(drain()).isEqualTo(2); // the pinned batch, then the new source as the next batch
     verify(1, getRequestedFor(urlPathEqualTo("/works"))
         .withQueryParam("filter", containing("primary_location.source.id:S820,")));
-    verify(0, getRequestedFor(urlPathEqualTo("/works")).withQueryParam("filter", containing("S821")));
-    assertThat(count("SELECT count(*) FROM work")).isEqualTo(1);
+    verify(1, getRequestedFor(urlPathEqualTo("/works"))
+        .withQueryParam("filter", containing("primary_location.source.id:S821,")));
   }
 
   @Test
@@ -379,5 +379,37 @@ class OpenAlexHarvestHandlerIT extends AbstractPostgresIT {
     assertThat(step()).isTrue();
     assertThat(count("SELECT count(*) FROM task WHERE state = 'QUEUED' AND type = 'ONBOARD_SOURCE' AND priority = "
         + TaskPriority.REPROCESS.code())).isEqualTo(1);
+  }
+
+  @Test
+  void sourceRemovedMidRunNeitherSkipsNorRepeatsInTheNextBatch() throws Exception {
+    long third = 0;
+    for (int i = 1; i <= 51; i++) {
+      long id = source(String.format("S9%03d", i), true);
+      if (i == 3) third = id;
+    }
+    stubFor(get(urlPathEqualTo("/works")).willReturn(okJson(works(null, "S9001", "W1S9001"))));
+    queue.enqueue("HARVEST_OPENALEX", "{\"window\":\"LIVE\"}", TaskPriority.LIVE, null);
+    assertThat(step()).isTrue(); // the first 50 sources
+    // a source of the first batch is deactivated and a new one added, then the next batch runs
+    jdbc.update("UPDATE source SET active = false WHERE id = ?", third);
+    source("S9052", true);
+    assertThat(step()).isTrue();
+    assertThat(step()).isFalse();
+    verify(2, getRequestedFor(urlPathEqualTo("/works")));
+    verify(1, getRequestedFor(urlPathEqualTo("/works"))
+        .withQueryParam("filter", containing("primary_location.source.id:S9051|S9052,")));
+    verify(1, getRequestedFor(urlPathEqualTo("/works")).withQueryParam("filter", containing("S9050")));
+    assertThat(runs.recent(1).getFirst().state()).isEqualTo("DONE");
+  }
+
+  @Test
+  void onboardingContinuationKeepsAHigherPriority() throws Exception {
+    long id = source("S850", false);
+    stubTwoPages("S850");
+    queue.enqueue("ONBOARD_SOURCE", "{\"sourceId\":" + id + "}", TaskPriority.LIVE, "onboard:" + id);
+    assertThat(step()).isTrue();
+    assertThat(count("SELECT count(*) FROM task WHERE state = 'QUEUED' AND type = 'ONBOARD_SOURCE' AND priority = "
+        + TaskPriority.LIVE.code())).isEqualTo(1);
   }
 }
