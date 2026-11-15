@@ -45,4 +45,23 @@ public interface SourceMapper {
 
   /** Rows tier, n. */
   List<Map<String, Object>> countByTier();
+
+  /**
+   * Per source with at least {@code minWorks} indexed (INDEXED or NOTIFIED) works of year {@code fromYear} or later:
+   * rows source_id, tier, works, acts (works with has_acts) and names (sum over those works of their non-reference
+   * names).
+   */
+  List<Map<String, Object>> categorisationBase(@Param("fromYear") int fromYear, @Param("minWorks") int minWorks);
+
+  /**
+   * Rows source_id, grp, n: the main-subject non-reference work_name rows of the recent indexed works per source and
+   * per taxgroup ({@code byCode} false) or per code ({@code byCode} true); null groups and codes are left out.
+   */
+  List<Map<String, Object>> categorisationCounts(@Param("fromYear") int fromYear, @Param("byCode") boolean byCode);
+
+  /** Sets the derived journal categorisation columns and bumps modified. */
+  int updateCategorisation(@Param("id") long id, @Param("nameDensity") float nameDensity,
+      @Param("actRate") float actRate, @Param("taxgroups") String[] taxgroups,
+      @Param("taxgroupSharesJson") String taxgroupSharesJson, @Param("codes") String[] codes,
+      @Param("journalType") String journalType);
 }

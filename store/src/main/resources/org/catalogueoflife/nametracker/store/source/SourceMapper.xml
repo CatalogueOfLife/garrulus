@@ -126,4 +126,34 @@
     SELECT tier, count(*) AS n FROM source GROUP BY tier ORDER BY tier
   </select>
 
+  <select id="categorisationBase" resultType="map">
+    SELECT s.id AS source_id, s.tier, count(*) AS works, count(*) FILTER (WHERE w.has_acts) AS acts,
+           COALESCE(sum(n.names), 0) AS names
+    FROM source s
+    JOIN work w ON w.source_id = s.id AND w.state IN ('INDEXED','NOTIFIED') AND w.year >= #{fromYear}
+    LEFT JOIN (SELECT work_id, count(*) AS names FROM work_name WHERE NOT only_reference GROUP BY work_id) n
+      ON n.work_id = w.id
+    GROUP BY s.id, s.tier
+    HAVING count(*) >= #{minWorks}
+  </select>
+
+  <select id="categorisationCounts" resultType="map">
+    SELECT w.source_id AS source_id, <if test="byCode">wn.code</if><if test="!byCode">wn.taxgroup</if> AS grp,
+           count(*) AS n
+    FROM work w
+    JOIN work_name wn ON wn.work_id = w.id AND wn.main_subject AND NOT wn.only_reference
+    WHERE w.state IN ('INDEXED','NOTIFIED') AND w.year >= #{fromYear} AND w.source_id IS NOT NULL
+      AND <if test="byCode">wn.code</if><if test="!byCode">wn.taxgroup</if> IS NOT NULL
+    GROUP BY w.source_id, grp
+  </select>
+
+  <update id="updateCategorisation">
+    UPDATE source SET name_density = #{nameDensity}, act_rate = #{actRate},
+      taxgroups = #{taxgroups}::text[],
+      taxgroup_shares = #{taxgroupSharesJson, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler},
+      codes = #{codes}::text[],
+      journal_type = #{journalType}, modified = now()
+    WHERE id = #{id}
+  </update>
+
 </mapper>
