@@ -28,6 +28,11 @@ public record EvalReport(String finder, FinderInfo info, String corpus, String s
     notes = notes == null ? List.of() : List.copyOf(notes);
   }
 
+  public EvalReport withSamples(List<ErrorSample> fps, List<ErrorSample> fns) {
+    return new EvalReport(finder, info, corpus, split, mode, documents, names, byCategory, nameCorrect, nameCorrectByKind, acts,
+        contexts, mainSubject, fps, fns, matchMode, documentLevel, notes);
+  }
+
   public EvalReport withNotes(List<String> newNotes) {
     return new EvalReport(finder, info, corpus, split, mode, documents, names, byCategory, nameCorrect, nameCorrectByKind, acts,
         contexts, mainSubject, falsePositives, falseNegatives, matchMode, documentLevel, newNotes);

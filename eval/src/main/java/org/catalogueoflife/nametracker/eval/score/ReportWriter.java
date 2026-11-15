@@ -8,12 +8,20 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** Writes {date}-{finder}-{corpus}-{split}-{mode}-{STRICT|OVERLAP}[-doc].md and .json into a directory. */
+/**
+ * Writes {date}-{finder}-{corpus}-{split}-{mode}-{STRICT|OVERLAP}[-doc].md and .json into a directory. The JSON keeps at
+ * most {@link #JSON_SAMPLES} false positive and false negative samples each (the first ones, spread over the documents
+ * by the scorer), so that a full set of baseline reports stays a few MB; a note in both files says so. The markdown is
+ * written from all recorded samples, as before.
+ */
 public final class ReportWriter {
   static final int SAMPLES = 30;
+  /** Error samples per list in the JSON. */
+  static final int JSON_SAMPLES = 500;
 
   private ReportWriter() {}
 
@@ -26,14 +34,29 @@ public final class ReportWriter {
       Files.createDirectories(dir);
       String base = date + "-" + safe(r.finder()) + "-" + safe(r.corpus()) + "-" + safe(r.split()) + "-" + safe(r.mode())
           + "-" + r.matchMode() + (r.documentLevel() ? "-doc" : "");
+      EvalReport full = r;
+      EvalReport json = r;
+      int fp = r.falsePositives().size();
+      int fn = r.falseNegatives().size();
+      if (fp > JSON_SAMPLES || fn > JSON_SAMPLES) {
+        List<String> notes = new ArrayList<>(r.notes());
+        notes.add("The JSON keeps the first " + JSON_SAMPLES + " error samples of each kind: " + Math.min(fp, JSON_SAMPLES) + " of " + fp
+            + " recorded false positives, " + Math.min(fn, JSON_SAMPLES) + " of " + fn + " false negatives. All counts are complete.");
+        full = r.withNotes(notes);
+        json = full.withSamples(cap(r.falsePositives()), cap(r.falseNegatives()));
+      }
       Path md = dir.resolve(base + ".md");
-      Files.writeString(md, markdown(r, date), StandardCharsets.UTF_8);
+      Files.writeString(md, markdown(full, date), StandardCharsets.UTF_8);
       Files.writeString(dir.resolve(base + ".json"),
-          FinderJson.mapper().writerWithDefaultPrettyPrinter().writeValueAsString(r), StandardCharsets.UTF_8);
+          FinderJson.mapper().writerWithDefaultPrettyPrinter().writeValueAsString(json), StandardCharsets.UTF_8);
       return md;
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
+  }
+
+  private static List<ErrorSample> cap(List<ErrorSample> l) {
+    return l.size() <= JSON_SAMPLES ? l : l.subList(0, JSON_SAMPLES);
   }
 
   private static String safe(String s) {

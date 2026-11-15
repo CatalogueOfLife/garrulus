@@ -190,6 +190,27 @@ class ScorerTest {
   }
 
   @Test
+  void theJsonKeepsACappedNumberOfErrorSamples(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tmp) throws Exception {
+    List<ErrorSample> many = new java.util.ArrayList<>();
+    for (int i = 0; i < ReportWriter.JSON_SAMPLES + 100; i++) many.add(new ErrorSample("d1", "b1", i, i + 1, "x" + i, "BINOMIAL", "ctx"));
+    EvalReport base = Scorer.score(List.of(doc()), Map.of(), opts(MatchMode.STRICT, false), "pipeline", "pensoft", "A");
+    EvalReport rep = new EvalReport(base.finder(), base.info(), base.corpus(), base.split(), base.mode(), base.documents(), base.names(),
+        base.byCategory(), base.nameCorrect(), base.nameCorrectByKind(), base.acts(), base.contexts(), base.mainSubject(), many,
+        many.subList(0, 3), base.matchMode(), base.documentLevel(), List.of("a note"));
+    java.nio.file.Path md = ReportWriter.write(rep, tmp, java.time.LocalDate.of(2026, 11, 15));
+    String json = java.nio.file.Files.readString(tmp.resolve(md.getFileName().toString().replace(".md", ".json")));
+    var tree = org.catalogueoflife.nametracker.finder.api.FinderJson.mapper().readTree(json);
+    assertThat(tree.get("falsePositives").size()).isEqualTo(ReportWriter.JSON_SAMPLES);
+    assertThat(tree.get("falseNegatives").size()).isEqualTo(3);
+    assertThat(tree.get("falsePositives").get(0).get("text").asString()).isEqualTo("x0");
+    // the markdown still counts every recorded sample, and the notes say what the JSON keeps
+    String text = java.nio.file.Files.readString(md);
+    assertThat(text).contains("## False positives (30 of " + (ReportWriter.JSON_SAMPLES + 100) + " recorded)").contains("- a note")
+        .contains("The JSON keeps the first " + ReportWriter.JSON_SAMPLES);
+    assertThat(tree.get("notes").toString()).contains("The JSON keeps the first");
+  }
+
+  @Test
   void reportFileNameCarriesMatchModeAndDocLevel(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tmp) {
     FinderResult r = result();
     EvalReport overlap = Scorer.score(List.of(doc()), Map.of("d1", r), opts(MatchMode.OVERLAP, false), "x", "pensoft", "A");
