@@ -131,7 +131,7 @@ public class PoliteHttp {
    * True when the host name did not resolve. The JDK client reports that as an UnknownHostException or as a
    * ConnectException caused by an UnresolvedAddressException.
    */
-  static boolean unknownHost(Throwable e) {
+  public static boolean unknownHost(Throwable e) {
     for (Throwable t = e; t != null; t = t.getCause()) {
       if (t instanceof UnknownHostException || t instanceof UnresolvedAddressException) return true;
       if (t.getCause() == t) break;

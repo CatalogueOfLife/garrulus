@@ -1,9 +1,14 @@
 package org.catalogueoflife.nametracker.indexer.harvest;
 
+import java.net.URI;
+import java.net.UnknownHostException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Locale;
+import java.util.Set;
 import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
+import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -24,13 +29,39 @@ public class HarvestOutage {
     this.clock = clock;
   }
 
-  /** The retryable HttpProblem that is the exception or one of its causes, else null. */
+  /** The hosts of the fixed APIs: a name that does not resolve for one of them is an outage (DNS), not a typo. */
+  static final Set<String> API_HOSTS = Set.of("api.openalex.org", "content.openalex.org", "api.crossref.org",
+      "api.checklistbank.org");
+
+  /**
+   * The retryable HttpProblem that is the exception or one of its causes, else null. A name that does not resolve
+   * counts as retryable only for the fixed API hosts ({@link #API_HOSTS}); for any other host it is a configuration
+   * error and stays non-retryable.
+   */
   public static @Nullable HttpProblem retryable(Throwable e) {
     for (Throwable t = e; t != null; t = t.getCause()) {
-      if (t instanceof HttpProblem p && p.retryable()) return p;
+      if (t instanceof HttpProblem p) {
+        if (p.retryable()) return p;
+        if (PoliteHttp.unknownHost(p) && apiHost(p.uri() == null ? null : p.uri().getHost())) return p;
+      } else if (t instanceof UnknownHostException u && apiHost(hostOf(u))) {
+        return new HttpProblem(URI.create("https://" + hostOf(u).strip().toLowerCase(Locale.ROOT) + "/"), 0, true,
+            "Unknown host: " + u.getMessage(), u);
+      }
       if (t.getCause() == t) break;
     }
     return null;
+  }
+
+  /** The JDK words the message "host" or "host: reason". */
+  private static @Nullable String hostOf(UnknownHostException u) {
+    String m = u.getMessage();
+    if (m == null) return null;
+    int i = m.indexOf(':');
+    return i < 0 ? m : m.substring(0, i);
+  }
+
+  private static boolean apiHost(@Nullable String host) {
+    return host != null && API_HOSTS.contains(host.strip().toLowerCase(Locale.ROOT));
   }
 
   /** When the deferred page is due. */

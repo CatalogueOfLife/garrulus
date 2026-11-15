@@ -13,6 +13,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.AbstractPostgresIT;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.harvest.HarvestRun;
@@ -129,6 +130,69 @@ class CrossrefHarvestHandlerIT extends AbstractPostgresIT {
     assertThat((String) next.get("dedup_key")).matches("harvest:crossref:" + d + ":0:p1:r\\d+");
     assertThat(run.state()).isEqualTo("DEFERRED");
     assertThat(count("SELECT count(*) FROM task WHERE state = 'DEAD'")).isZero();
+  }
+
+  @Test
+  void crossrefOutageRestartsBatchFromStart() throws Exception {
+    source();
+    // Crossref cursors expire after about 5 minutes, so a page 30 minutes later cannot continue with c2
+    stubFor(get(urlPathEqualTo("/works")).willReturn(aResponse().withStatus(503).withHeader("Retry-After", "0")));
+    String d = LocalDate.now(ZoneOffset.UTC).minusDays(1).toString();
+    long runId = runs.start("CROSSREF", LocalDate.parse(d), LocalDate.parse(d));
+    queue.enqueue("HARVEST_CROSSREF", "{\"date\":\"" + d + "\",\"batch\":3,\"cursor\":\"c2\",\"runId\":" + runId
+        + ",\"ids\":[\"1313-2970\"]}", TaskPriority.LIVE, null);
+    assertThat(drain(crossref)).isEqualTo(1);
+
+    Map<String, Object> next = jdbc.queryForMap("SELECT payload::text AS payload, dedup_key FROM task "
+        + "WHERE state = 'QUEUED' AND type = 'HARVEST_CROSSREF'");
+    String payload = ((String) next.get("payload")).replace(" ", "");
+    assertThat(payload).contains("\"batch\":3", "\"ids\":[\"1313-2970\"]", "\"runId\":" + runId);
+    assertThat(payload).doesNotContain("\"c2\"");
+    assertThat(FinderJson.mapper().readTree(payload).path("cursor").isNull()
+        || FinderJson.mapper().readTree(payload).path("cursor").isMissingNode()).isTrue();
+    assertThat((String) next.get("dedup_key")).matches("harvest:crossref:" + d + ":3:start:r\\d+");
+    assertThat(runs.get(runId).state()).isEqualTo("DEFERRED");
+  }
+
+  @Test
+  void continuationCarriesItsIds() throws Exception {
+    source();
+    stubCrossref();
+    String d = LocalDate.now(ZoneOffset.UTC).minusDays(1).toString();
+    queue.enqueue("HARVEST_CROSSREF", "{\"date\":\"" + d + "\"}", TaskPriority.LIVE, null);
+    Task t = queue.claim(Set.of("HARVEST_CROSSREF"), "test", 1).getFirst();
+    crossref.handle(t);
+    String payload = jdbc.queryForObject("SELECT payload::text FROM task WHERE state = 'QUEUED' "
+        + "AND type = 'HARVEST_CROSSREF'", String.class).replace(" ", "");
+    assertThat(payload).contains("\"ids\":[\"1313-2970\",\"1313-2989\"]");
+  }
+
+  @Test
+  void resumedBatchIgnoresNewSources() throws Exception {
+    source();
+    stubCrossref();
+    String d = LocalDate.now(ZoneOffset.UTC).minusDays(1).toString();
+    queue.enqueue("HARVEST_CROSSREF", "{\"date\":\"" + d + "\",\"batch\":0,\"ids\":[\"1313-2970\"]}",
+        TaskPriority.LIVE, null);
+    jdbc.update("INSERT INTO source (openalex_id, issn_l, issns, title, tier, origin, onboarded_at) "
+        + "VALUES ('S2', '0000-0001', ARRAY['0000-0001'], 'New', 'CORE', 'MANUAL', now())");
+    Task t = queue.claim(Set.of("HARVEST_CROSSREF"), "test", 1).getFirst();
+    crossref.handle(t);
+    verify(1, getRequestedFor(urlPathEqualTo("/works"))
+        .withQueryParam("filter", containing("issn:1313-2970")));
+    verify(0, getRequestedFor(urlPathEqualTo("/works")).withQueryParam("filter", containing("0000-0001")));
+    verify(0, getRequestedFor(urlPathEqualTo("/works")).withQueryParam("filter", containing("1313-2989")));
+  }
+
+  @Test
+  void continuationsKeepLivePriority() throws Exception {
+    source();
+    stubCrossref();
+    String d = LocalDate.now(ZoneOffset.UTC).minusDays(1).toString();
+    queue.enqueue("HARVEST_CROSSREF", "{\"date\":\"" + d + "\"}", TaskPriority.LIVE, null);
+    crossref.handle(queue.claim(Set.of("HARVEST_CROSSREF"), "test", 1).getFirst());
+    assertThat(count("SELECT count(*) FROM task WHERE state = 'QUEUED' AND type = 'HARVEST_CROSSREF' "
+        + "AND priority = " + TaskPriority.LIVE.code())).isEqualTo(1);
   }
 
   @Test

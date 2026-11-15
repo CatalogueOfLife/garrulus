@@ -36,11 +36,13 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
 /**
- * {@code HARVEST_CROSSREF}, payload {@code {"date":"YYYY-MM-DD","batch":i,"cursor":…,"runId":n}} (all but the date are
+ * {@code HARVEST_CROSSREF}, payload {@code {"date":"YYYY-MM-DD","batch":i,"cursor":…,"ids":[ISSN…],"runId":n}} (all but the date are
  * optional on the first task; no date means yesterday, UTC). Lists the works Crossref created or updated on that day
  * for the ISSNs of all harvestable sources, 40 ISSNs per request, one page per task; each task enqueues its own
- * continuation and completes, so a crash re-runs at most one page. An outage ({@link HarvestOutage}) enqueues the same
- * page again in 30 minutes and leaves the run DEFERRED; any other failure marks the run FAILED and is thrown.
+ * continuation and completes, so a crash re-runs at most one page. {@code ids} are the ISSNs of the batch, fixed on
+ * its first page, so that a source added meanwhile does not shift the batches (a payload of M2 has none and slices the
+ * current list). An outage ({@link HarvestOutage}) enqueues the batch again from its start in 30 minutes (Crossref
+ * cursors expire after about 5 minutes) and leaves the run DEFERRED; any other failure marks the run FAILED and is thrown.
  *
  * <p>Per DOI: a known work only gets its JATS abstract when it has none (Crossref JATS keeps italics). An unknown DOI
  * is looked up in OpenAlex (free); found, it is upserted from OpenAlex, otherwise from the Crossref metadata. Both
@@ -91,9 +93,10 @@ public class CrossrefHarvestHandler implements TaskHandler {
         : LocalDate.parse(dateText);
     int batch = p.path("batch").asInt(0);
     String cursor = WorksPager.text(p, "cursor");
+    List<String> ids = ids(p);
     long runId = p.hasNonNull("runId") ? p.path("runId").asLong() : runs.start("CROSSREF", date, date);
     try {
-      harvest(task, date, batch, cursor, runId);
+      harvest(task, date, batch, cursor, ids, runId);
     } catch (RuntimeException e) {
       if (TaskDispatcher.budgetCause(e) != null) throw e; // the dispatcher defers the task as it is
       if (HarvestOutage.retryable(e) != null) {
@@ -101,8 +104,11 @@ public class CrossrefHarvestHandler implements TaskHandler {
         LOG.warn("Crossref harvest of {}, batch {}: {}; the page is retried at {}", date, batch, e.getMessage(),
             retryAt);
         runs.setState(runId, "DEFERRED", null);
-        queue.enqueue(TYPE, payload(date, batch, cursor, runId), task.priority(),
-            HarvestOutage.key(key(date, batch, WorksPager.pos(cursor, 1)), retryAt), retryAt);
+        // Crossref cursors expire after about 5 minutes, so the page is not continued 30 minutes later: the batch
+        // starts over (the works are upserts) under the key of its start
+        String pos = cursor == null ? WorksPager.pos(null, 1) : "start";
+        queue.enqueue(TYPE, payload(date, batch, null, ids, runId), task.priority(),
+            HarvestOutage.key(key(date, batch, pos), retryAt), retryAt);
         return;
       }
       runs.setState(runId, "FAILED", WorksPager.error(e));
@@ -110,7 +116,19 @@ public class CrossrefHarvestHandler implements TaskHandler {
     }
   }
 
-  private void harvest(Task task, LocalDate date, int batch, @Nullable String cursor, long runId) {
+  /** The ISSNs of the batch from the payload; empty for a payload of M2, which has none. */
+  private static List<String> ids(JsonNode p) {
+    List<String> ids = new ArrayList<>();
+    JsonNode n = p.path("ids");
+    if (n.isArray()) {
+      for (JsonNode i : n) ids.add(i.asString(""));
+    }
+    return ids;
+  }
+
+  /** {@code payloadIds} is empty for the first page of a batch and is filled with the batch's ISSNs. */
+  private void harvest(Task task, LocalDate date, int batch, @Nullable String cursor, List<String> payloadIds,
+      long runId) {
     List<Source> all = sources.listHarvestable();
     Set<String> issnSet = new LinkedHashSet<>();
     Map<String, Long> bySource = new HashMap<>();
@@ -129,11 +147,17 @@ public class CrossrefHarvestHandler implements TaskHandler {
     }
     List<String> issns = new ArrayList<>(issnSet);
     int batches = (issns.size() + ISSN_BATCH - 1) / ISSN_BATCH;
-    if (batch >= batches) {
-      runs.setState(runId, "DONE", null);
-      return;
+    List<String> slice;
+    if (!payloadIds.isEmpty()) {
+      slice = payloadIds; // exactly the batch the run began with, whatever was added to the registry since
+    } else {
+      if (batch >= batches) {
+        runs.setState(runId, "DONE", null);
+        return;
+      }
+      slice = List.copyOf(issns.subList(batch * ISSN_BATCH, Math.min(issns.size(), (batch + 1) * ISSN_BATCH)));
+      payloadIds.addAll(slice); // fixed for the outage handler too, which re-enqueues the batch with them
     }
-    List<String> slice = issns.subList(batch * ISSN_BATCH, Math.min(issns.size(), (batch + 1) * ISSN_BATCH));
     CrossrefClient.Page page = crossref.works(CrossrefClient.filter(date, slice), cursor == null ? "*" : cursor);
 
     int seen = 0;
@@ -157,9 +181,10 @@ public class CrossrefHarvestHandler implements TaskHandler {
     runs.addProgress(runId, 1, seen, created);
 
     if (!page.last() && page.nextCursor() != null) {
-      continuation(task, date, batch, page.nextCursor(), runId, WorksPager.pos(page.nextCursor(), 1));
+      continuation(task, date, batch, page.nextCursor(), slice, runId, WorksPager.pos(page.nextCursor(), 1));
     } else if (batch + 1 < batches) {
-      continuation(task, date, batch + 1, null, runId, "start");
+      // the next batch fixes its ids on its first page
+      continuation(task, date, batch + 1, null, List.of(), runId, "start");
     } else {
       runs.setState(runId, "DONE", null);
     }
@@ -217,15 +242,17 @@ public class CrossrefHarvestHandler implements TaskHandler {
         null, null, null, null, null, null, null, null, null, null, jats, null, null, null);
   }
 
-  private void continuation(Task task, LocalDate date, int batch, @Nullable String cursor, long runId, String pos) {
-    queue.enqueue(TYPE, payload(date, batch, cursor, runId), task.priority(), key(date, batch, pos));
+  private void continuation(Task task, LocalDate date, int batch, @Nullable String cursor, List<String> ids,
+      long runId, String pos) {
+    queue.enqueue(TYPE, payload(date, batch, cursor, ids, runId), task.priority(), key(date, batch, pos));
   }
 
-  private static String payload(LocalDate date, int batch, @Nullable String cursor, long runId) {
+  private static String payload(LocalDate date, int batch, @Nullable String cursor, List<String> ids, long runId) {
     Map<String, Object> m = WorksPager.map();
     m.put("date", date.toString());
     m.put("batch", batch);
     m.put("cursor", cursor);
+    if (!ids.isEmpty()) m.put("ids", ids);
     m.put("runId", runId);
     return WorksPager.json(m);
   }

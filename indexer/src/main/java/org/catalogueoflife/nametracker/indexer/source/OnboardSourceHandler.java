@@ -26,7 +26,8 @@ import tools.jackson.databind.JsonNode;
  * continuations): imports the last 120 days of one source with origin ONBOARDING, its RESOLVE_CONTENT tasks at BACKFILL
  * priority. Paging works as in {@link org.catalogueoflife.nametracker.indexer.harvest.OpenAlexHarvestHandler}. After the
  * last page the source is marked onboarded, from when LIVE and SWEEP harvest it. An outage ({@link HarvestOutage})
- * enqueues the same page again in 30 minutes.
+ * enqueues the same page again in 30 minutes. The continuations run at REPROCESS priority, the first task at the
+ * priority of its caller.
  */
 @Component
 public class OnboardSourceHandler implements TaskHandler {
@@ -98,7 +99,8 @@ public class OnboardSourceHandler implements TaskHandler {
           + "filter {}", sourceId, filter);
     }
     if (!out.last()) {
-      queue.enqueue(TYPE, payload(sourceId, from, out.nextCursor(), out.nextPage()), task.priority(),
+      // REPROCESS (above the BACKFILL works the pages create), not the BACKFILL of the first task
+      queue.enqueue(TYPE, payload(sourceId, from, out.nextCursor(), out.nextPage()), TaskPriority.REPROCESS,
           key(sourceId, WorksPager.pos(out.nextCursor(), out.nextPage())));
       return;
     }

@@ -30,11 +30,19 @@ records what we decided while building it and the facts we verified against the 
     `p<page>` or `start` for the first page of the next batch.
   - Crossref: `harvest:crossref:<date>:<batch>:<pos>`.
   - Onboarding: `onboard:<sourceId>:<pos>`.
+  - A continuation carries the exact `ids` of its batch (OpenAlex source ids, Crossref ISSNs), fixed on the first page of
+    the batch, so a source added meanwhile does not shift it. A payload without `ids` (M2) slices the current list.
+  - Continuations keep the priority of their task (a LIVE harvest stays LIVE). Onboarding continuations run at
+    `REPROCESS`, above the `BACKFILL` works they create; the first onboarding task keeps its caller's priority.
   - A deferral at the same position adds `:d<retryAt epoch seconds>`, because the running task already holds the key
     of its own position.
   - An outage (a retryable HTTP failure that outlasted the HTTP layer's retries) re-enqueues the same page after
     `nametracker.harvest.outage-delay` (30 minutes) under `<position key>:r<epoch minute>`, with the run `DEFERRED`;
-    any other failure marks the run `FAILED` before the task is retried or goes `DEAD`.
+    any other failure marks the run `FAILED` before the task is retried or goes `DEAD`. A name that does not resolve
+    counts as an outage only for the fixed API hosts (`api.openalex.org`, `content.openalex.org`, `api.crossref.org`,
+    `api.checklistbank.org`); for any other host it stays non-retryable.
+  - A Crossref outage restarts the batch instead of continuing its cursor (cursors expire after about 5 minutes):
+    `cursor` is null and the key is `harvest:crossref:<date>:<batch>:start:r<epoch minute>`.
 - The scheduler's first tasks are `harvest:openalex:<LIVE|SWEEP>:<date>`, `harvest:crossref:<harvested day>`,
   `openalex-recheck:<date>` and `seed-sources:<yyyy-MM>`.
 - The scheduler skips an OpenAlex window while a chain of it is still QUEUED or RUNNING (`TaskMapper.countLive`, a
@@ -42,7 +50,9 @@ records what we decided while building it and the facts we verified against the 
   overlap, so the next fire covers what a skip left out.
 - Crossref is never skipped, because its days do not overlap and a skipped day would be lost: each fire enqueues every
   day from the one after the latest non-FAILED `CROSSREF` run up to yesterday (at most 14 days back, only yesterday
-  when there is no run yet), each under its own dated key, so a re-fire adds nothing.
+  when there is no run yet), each under its own dated key, so a re-fire adds nothing. A day whose run FAILED (its task
+  went `DEAD`) is therefore retried only while no later day has succeeded; once a later day has a non-FAILED run, the
+  failed day is not enqueued again.
 - Windows: LIVE re-reads the last 120 days, SWEEP the last 400. They overlap on purpose: a late-indexed or updated
   work is caught by the next window, and the upsert never changes `origin` or `first_seen_at`.
 

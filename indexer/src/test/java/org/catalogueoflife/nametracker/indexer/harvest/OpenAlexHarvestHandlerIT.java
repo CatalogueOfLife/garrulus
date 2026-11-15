@@ -321,6 +321,63 @@ class OpenAlexHarvestHandlerIT extends AbstractPostgresIT {
     assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT' AND priority = "
         + TaskPriority.BACKFILL.code())).isEqualTo(3);
     assertThat(count("SELECT count(*) FROM task WHERE type = 'ONBOARD_SOURCE' AND priority = "
-        + TaskPriority.BACKFILL.code())).isEqualTo(2);
+        + TaskPriority.BACKFILL.code())).isEqualTo(1);
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'ONBOARD_SOURCE' AND priority = "
+        + TaskPriority.REPROCESS.code())).isEqualTo(1);
+  }
+
+  @Test
+  void continuationCarriesItsIds() throws Exception {
+    source("S810", true);
+    source("S811", true);
+    stubFor(get(urlPathEqualTo("/works")).withQueryParam("cursor", equalTo("*"))
+        .willReturn(okJson(works("c2", "S810", "W1S810"))));
+    queue.enqueue("HARVEST_OPENALEX", "{\"window\":\"LIVE\"}", TaskPriority.LIVE, null);
+    assertThat(step()).isTrue();
+    String payload = ((String) queued("HARVEST_OPENALEX").get("payload")).replace(" ", "");
+    assertThat(payload).contains("\"ids\":[\"S810\",\"S811\"]", "\"cursor\":\"c2\"");
+  }
+
+  @Test
+  void resumedBatchIgnoresNewSources() throws Exception {
+    source("S820", true);
+    stubFor(get(urlPathEqualTo("/works")).willReturn(okJson(works(null, "S820", "W1S820"))));
+    queue.enqueue("HARVEST_OPENALEX", "{\"window\":\"LIVE\",\"batch\":0,\"cursor\":\"c2\",\"ids\":[\"S820\"]}",
+        TaskPriority.LIVE, null);
+    source("S821", true); // added while the batch was running
+    assertThat(drain()).isEqualTo(1);
+    verify(1, getRequestedFor(urlPathEqualTo("/works"))
+        .withQueryParam("filter", containing("primary_location.source.id:S820,")));
+    verify(0, getRequestedFor(urlPathEqualTo("/works")).withQueryParam("filter", containing("S821")));
+    assertThat(count("SELECT count(*) FROM work")).isEqualTo(1);
+  }
+
+  @Test
+  void oldPayloadWithoutIdsStillSlicesTheSourceList() throws Exception {
+    source("S830", true);
+    stubFor(get(urlPathEqualTo("/works")).willReturn(okJson(works(null, "S830", "W1S830"))));
+    queue.enqueue("HARVEST_OPENALEX", "{\"window\":\"LIVE\",\"batch\":0,\"cursor\":\"c2\"}", TaskPriority.LIVE,
+        null);
+    assertThat(drain()).isEqualTo(1);
+    verify(1, getRequestedFor(urlPathEqualTo("/works")).withQueryParam("filter", containing("S830")));
+  }
+
+  @Test
+  void continuationsKeepLivePriority() throws Exception {
+    source("S840", true);
+    stubTwoPages("S840");
+    queue.enqueue("HARVEST_OPENALEX", "{\"window\":\"LIVE\"}", TaskPriority.LIVE, null);
+    assertThat(step()).isTrue();
+    assertThat(count("SELECT count(*) FROM task WHERE state = 'QUEUED' AND type = 'HARVEST_OPENALEX' AND priority = "
+        + TaskPriority.LIVE.code())).isEqualTo(1);
+    drain();
+
+    // onboarding: the continuation is REPROCESS, above the BACKFILL works it creates
+    long id = source("S841", false);
+    stubTwoPages("S841");
+    queue.enqueue("ONBOARD_SOURCE", "{\"sourceId\":" + id + "}", TaskPriority.BACKFILL, "onboard:" + id);
+    assertThat(step()).isTrue();
+    assertThat(count("SELECT count(*) FROM task WHERE state = 'QUEUED' AND type = 'ONBOARD_SOURCE' AND priority = "
+        + TaskPriority.REPROCESS.code())).isEqualTo(1);
   }
 }
