@@ -3,6 +3,8 @@ package org.catalogueoflife.nametracker.indexer.content;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -30,14 +32,17 @@ import tools.jackson.databind.JsonNode;
  * {@code RESOLVE_CONTENT}, payload {@code {"workId":n}} (plus {@code "recheck":k} on a re-check). Tries the full-text
  * routes in order, the first fulltext result wins; the abstract is always stored when there is a title or abstract.
  * Raw and Document blobs are written only for open licences. The work ends in CONTENT_RESOLVED with its text level.
- * A work that is only an abstract, from a CORE or BROAD source and younger than 90 days, is looked at again 7, 30 and
- * 90 days after it was first seen (dedup key {@code content:<workId>:recheck:<k>}).
+ * A work that is only an abstract, from a CORE or BROAD source, not of origin BACKFILL and published within the last 90
+ * days (or undated), is looked at again 7, 30 and 90 days after it was first seen (dedup key
+ * {@code content:<workId>:recheck:<k>}). The rules are checked again after each re-check, so a work that no longer
+ * qualifies is resolved once more and then left alone.
  */
 @Component
 public class ResolveContentHandler implements TaskHandler {
 
   public static final String TYPE = "RESOLVE_CONTENT";
   static final int[] RECHECK_DAYS = {7, 30, 90};
+  static final int RECHECK_MAX_AGE_DAYS = 90;
   private static final Logger LOG = LoggerFactory.getLogger(ResolveContentHandler.class);
 
   private final List<ContentRoute> routes;
@@ -144,7 +149,11 @@ public class ResolveContentHandler implements TaskHandler {
 
   private void scheduleRecheck(Task task, Work work, Source source) {
     if (source == null || !("CORE".equals(source.tier()) || "BROAD".equals(source.tier()))) return;
-    if (work.firstSeenAt() == null) return;
+    if (work.firstSeenAt() == null || "BACKFILL".equals(work.origin())) return;
+    LocalDate today = LocalDate.now(clock.withZone(ZoneOffset.UTC));
+    if (work.publicationDate() != null && work.publicationDate().isBefore(today.minusDays(RECHECK_MAX_AGE_DAYS))) {
+      return; // an older publication will not gain a full text route any more
+    }
     Instant now = clock.instant();
     for (int k = 1; k <= RECHECK_DAYS.length; k++) {
       Instant at = work.firstSeenAt().plus(Duration.ofDays(RECHECK_DAYS[k - 1]));

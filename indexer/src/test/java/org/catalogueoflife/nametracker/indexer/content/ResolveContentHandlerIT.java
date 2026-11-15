@@ -281,6 +281,39 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
   }
 
   @Test
+  void noRecheckForBackfillOrOldPublications() throws Exception {
+    long src = source("CORE");
+    long backfill = work(src, "T", "A", null, Instant.now());
+    jdbc.update("UPDATE work SET origin = 'BACKFILL' WHERE id = ?", backfill);
+    long old = work(src, "T", "A", null, Instant.now());
+    jdbc.update("UPDATE work SET publication_date = current_date - 91 WHERE id = ?", old);
+    handler.handle(task(backfill));
+    handler.handle(task(old));
+    assertThat(count("SELECT count(*) FROM task")).isZero();
+
+    // recent and undated LIVE or ONBOARDING works are still re-checked
+    long recent = work(src, "T", "A", null, Instant.now());
+    jdbc.update("UPDATE work SET publication_date = current_date - 89, origin = 'ONBOARDING' WHERE id = ?", recent);
+    long undated = work(src, "T", "A", null, Instant.now());
+    handler.handle(task(recent));
+    handler.handle(task(undated));
+    assertThat(jdbc.queryForList("SELECT dedup_key FROM task ORDER BY dedup_key", String.class))
+        .containsExactlyInAnyOrder("content:" + recent + ":recheck:1", "content:" + undated + ":recheck:1");
+  }
+
+  @Test
+  void aRecheckOfAWorkThatNoLongerQualifiesResolvesOnceAndSchedulesNothing() throws Exception {
+    // queued while the work qualified; by the time it runs, the publication is older than 90 days
+    long id = work(source("CORE"), "T", "A", null, Instant.now().minus(Duration.ofDays(10)));
+    jdbc.update("UPDATE work SET publication_date = current_date - 100 WHERE id = ?", id);
+    handler.handle(new Task(1, "RESOLVE_CONTENT", "{\"workId\":" + id + ",\"recheck\":1}", TaskPriority.LIVE, null,
+        1, Instant.now(), null, null, null, "content:" + id + ":recheck:1"));
+    assertThat(works.get(id).state()).isEqualTo("CONTENT_RESOLVED");
+    assertThat(works.get(id).textLevel()).isEqualTo("ABSTRACT_ONLY");
+    assertThat(count("SELECT count(*) FROM task")).isZero();
+  }
+
+  @Test
   void noTitleNoAbstractIsNoText() throws Exception {
     long id = work(source("CORE"), null, null, null, Instant.now());
     handler.handle(task(id));
