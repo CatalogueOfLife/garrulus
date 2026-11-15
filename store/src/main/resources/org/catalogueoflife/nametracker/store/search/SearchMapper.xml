@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.nametracker.store.search.SearchMapper">
+
+  <resultMap id="hit" type="org.catalogueoflife.nametracker.store.search.WorkHit">
+    <constructor>
+      <idArg column="id" javaType="_long"/>
+      <arg column="doi" javaType="string"/>
+      <arg column="title" javaType="string"/>
+      <arg column="year" javaType="integer"/>
+      <arg column="publication_date" javaType="java.time.LocalDate"/>
+      <arg column="source_id" javaType="long"/>
+      <arg column="source_title" javaType="string"/>
+      <arg column="authors" javaType="string"/>
+      <arg column="text_level" javaType="string"/>
+      <arg column="has_acts" javaType="_boolean"/>
+    </constructor>
+  </resultMap>
+
+  <resultMap id="facetCount" type="org.catalogueoflife.nametracker.store.search.FacetCount">
+    <constructor>
+      <arg column="value" javaType="string"/>
+      <arg column="cnt" javaType="_long"/>
+    </constructor>
+  </resultMap>
+
+  <resultMap id="mainName" type="org.catalogueoflife.nametracker.store.search.MainNameRow">
+    <constructor>
+      <arg column="work_id" javaType="_long"/>
+      <arg column="name_string_id" javaType="_long"/>
+      <arg column="name" javaType="string"/>
+      <arg column="placement_method" javaType="string"/>
+      <arg column="usage_id" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <resultMap id="workNameRow" type="org.catalogueoflife.nametracker.store.search.WorkNameRow">
+    <constructor>
+      <arg column="name_string_id" javaType="_long"/>
+      <arg column="name" javaType="string"/>
+      <arg column="kind" javaType="string"/>
+      <arg column="rank" javaType="string"/>
+      <arg column="placement_method" javaType="string"/>
+      <arg column="usage_id" javaType="string"/>
+      <arg column="taxon_path" javaType="java.util.List" typeHandler="org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler"/>
+      <arg column="code" javaType="string"/>
+      <arg column="taxgroup" javaType="string"/>
+      <arg column="salience" javaType="_float"/>
+      <arg column="main_subject" javaType="_boolean"/>
+      <arg column="only_reference" javaType="_boolean"/>
+      <arg column="mention_count" javaType="_int"/>
+      <arg column="act_types" javaType="java.util.List" typeHandler="org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler"/>
+      <arg column="best_snippet" javaType="string"/>
+      <arg column="usage_name" javaType="string"/>
+      <arg column="usage_rank" javaType="string"/>
+      <arg column="usage_status" javaType="string"/>
+      <arg column="classification" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <sql id="from">FROM work w LEFT JOIN source s ON s.id = w.source_id</sql>
+
+  <!-- The one filter shared by search, count and facet. Parameter object is "f". -->
+  <sql id="where">
+    WHERE w.state IN ('INDEXED', 'NOTIFIED')
+    <if test="f.code != null"> AND w.codes @&gt; ARRAY[#{f.code}]::text[]</if>
+    <if test="f.taxgroup != null"> AND w.taxgroups @&gt; ARRAY[#{f.taxgroup}]::text[]</if>
+    <if test="f.subfield != null"> AND s.subfields @&gt; ARRAY[#{f.subfield}]::text[]</if>
+    <if test="f.journalType != null"> AND s.journal_type = #{f.journalType}</if>
+    <if test="f.tier != null"> AND s.tier = #{f.tier}</if>
+    <if test="f.oa != null"> AND s.oa_model = #{f.oa}</if>
+    <if test="f.country != null"> AND s.country = #{f.country}</if>
+    <if test="f.source != null"> AND w.source_id = #{f.source}</if>
+    <if test="f.yearFrom != null"> <![CDATA[ AND w.year >= #{f.yearFrom} ]]></if>
+    <if test="f.yearTo != null"> <![CDATA[ AND w.year <= #{f.yearTo} ]]></if>
+    <if test="f.hasActs != null"> AND COALESCE(w.has_acts, false) = #{f.hasActs}</if>
+    <if test="f.actType != null"> AND EXISTS (SELECT 1 FROM mention m WHERE m.work_id = w.id AND m.act_type = #{f.actType})</if>
+    <if test="f.q != null"> AND w.fts @@ websearch_to_tsquery('simple', #{f.q})</if>
+    <if test="f.taxon != null">
+      AND EXISTS (SELECT 1 FROM work_name wn WHERE wn.work_id = w.id AND wn.taxon_path @&gt; ARRAY[#{f.taxon}]::text[]
+        AND NOT wn.only_reference <if test="f.mainSubjectOnly"> AND wn.main_subject</if>)
+    </if>
+    <if test="f.name != null">
+      AND EXISTS (SELECT 1 FROM work_name wn WHERE wn.work_id = w.id AND wn.name_string_id = #{f.name}
+        <if test="f.mainSubjectOnly"> AND wn.main_subject</if>)
+    </if>
+    <if test="f.mainSubjectOnly and f.taxon == null and f.name == null">
+      AND EXISTS (SELECT 1 FROM work_name wn WHERE wn.work_id = w.id AND wn.main_subject)
+    </if>
+  </sql>
+
+  <select id="search" resultMap="hit">
+    SELECT w.id, w.doi, w.title, w.year, w.publication_date, w.source_id, s.title AS source_title,
+           w.authors::text AS authors, w.text_level, COALESCE(w.has_acts, false) AS has_acts
+    <include refid="from"/>
+    <include refid="where"/>
+    ORDER BY w.publication_date DESC NULLS LAST, w.id DESC
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="count" resultType="long">
+    SELECT count(*) <include refid="from"/> <include refid="where"/>
+  </select>
+
+  <select id="facetRows" resultMap="facetCount">
+    SELECT value, count(*) AS cnt FROM (
+      SELECT
+      <choose>
+        <when test="facet == 'code'">u.v</when>
+        <when test="facet == 'taxgroup'">u.v</when>
+        <when test="facet == 'journalType'">s.journal_type</when>
+        <when test="facet == 'year'">w.year::text</when>
+        <when test="facet == 'source'">w.source_id::text</when>
+        <otherwise>CASE WHEN COALESCE(w.has_acts, false) THEN 'true' ELSE 'false' END</otherwise>
+      </choose>
+      AS value
+      <include refid="from"/>
+      <if test="facet == 'code'">CROSS JOIN LATERAL unnest(w.codes) AS u(v)</if>
+      <if test="facet == 'taxgroup'">CROSS JOIN LATERAL unnest(w.taxgroups) AS u(v)</if>
+      <include refid="where"/>
+    ) t
+    WHERE value IS NOT NULL
+    GROUP BY value ORDER BY cnt DESC, value
+    LIMIT 100
+  </select>
+
+  <select id="mainNames" resultMap="mainName">
+    SELECT work_id, name_string_id, name, placement_method, usage_id FROM (
+      SELECT wn.work_id, wn.name_string_id, ns.name, wn.placement_method, wn.usage_id,
+             row_number() OVER (PARTITION BY wn.work_id ORDER BY wn.salience DESC, wn.name_string_id) AS rn
+      FROM work_name wn JOIN name_string ns ON ns.id = wn.name_string_id
+      WHERE wn.main_subject AND NOT wn.only_reference AND wn.work_id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+    ) t
+    <![CDATA[ WHERE rn <= 5 ]]>
+    ORDER BY work_id, rn
+  </select>
+
+  <select id="isIndexed" resultType="boolean">
+    SELECT EXISTS (SELECT 1 FROM work WHERE id = #{workId} AND state IN ('INDEXED', 'NOTIFIED'))
+  </select>
+
+  <select id="workNames" resultMap="workNameRow">
+    SELECT wn.name_string_id, ns.name, ns.kind, ns.rank, wn.placement_method, wn.usage_id, wn.taxon_path, wn.code,
+           wn.taxgroup, wn.salience, wn.main_subject, wn.only_reference, wn.mention_count, wn.act_types, wn.best_snippet,
+           COALESCE(own.usage_name, other.usage_name) AS usage_name,
+           COALESCE(own.usage_rank, other.usage_rank) AS usage_rank,
+           COALESCE(own.usage_status, other.usage_status) AS usage_status,
+           COALESCE(own.classification, other.classification, '[]'::jsonb)::text AS classification
+    FROM work_name wn
+    JOIN name_string ns ON ns.id = wn.name_string_id
+    LEFT JOIN LATERAL (
+      SELECT nm.* FROM name_match nm JOIN xr_release r ON r.key = nm.release_key AND r.current
+      WHERE wn.usage_id IS NOT NULL AND nm.name_string_id = wn.name_string_id AND nm.usage_id = wn.usage_id
+      ORDER BY (nm.hint_key = '') DESC, nm.hint_key LIMIT 1) own ON true
+    LEFT JOIN LATERAL (
+      SELECT nm.* FROM name_match nm JOIN xr_release r ON r.key = nm.release_key AND r.current
+      WHERE own.name_string_id IS NULL AND wn.usage_id IS NOT NULL AND nm.usage_id = wn.usage_id
+      ORDER BY nm.name_string_id, nm.hint_key LIMIT 1) other ON true
+    WHERE wn.work_id = #{workId}
+    ORDER BY wn.main_subject DESC, wn.salience DESC, ns.name
+  </select>
+</mapper>
