@@ -1,0 +1,529 @@
+{
+ "id": "https://openalex.org/W7221721627",
+ "doi": "https://doi.org/10.3897/zookeys.1294.203117",
+ "title": "Integrative taxonomy reveals a new species, Anadara adiastola sp. nov. (Bivalvia, Arcidae) from the northern Arabian/Persian Gulf, north-western Indian Ocean",
+ "publication_date": "2026-10-13",
+ "biblio": {
+  "volume": "1294",
+  "issue": null,
+  "first_page": "333",
+  "last_page": "353"
+ },
+ "authorships": [
+  {
+   "author_position": "first",
+   "author": {
+    "id": "https://openalex.org/A5017826176",
+    "display_name": "Manal Al-Kandari",
+    "orcid": "https://orcid.org/0000-0003-0073-7929"
+   }
+  },
+  {
+   "author_position": "middle",
+   "author": {
+    "id": "https://openalex.org/A5039643245",
+    "display_name": "Matteo Garzia",
+    "orcid": "https://orcid.org/0000-0002-0918-9925"
+   }
+  },
+  {
+   "author_position": "middle",
+   "author": {
+    "id": "https://openalex.org/A5025095386",
+    "display_name": "Daniele Salvi",
+    "orcid": "https://orcid.org/0000-0002-3804-2690"
+   }
+  },
+  {
+   "author_position": "last",
+   "author": {
+    "id": "https://openalex.org/A5158613865",
+    "display_name": "P. Graham Oliver",
+    "orcid": null
+   }
+  }
+ ],
+ "type": "article",
+ "language": "en",
+ "open_access": {
+  "is_oa": true,
+  "oa_status": "gold",
+  "oa_url": "https://zookeys.pensoft.net/article/203117/download/pdf/",
+  "any_repository_has_fulltext": true
+ },
+ "best_oa_location": {
+  "license": "cc-by",
+  "landing_page_url": "https://doi.org/10.3897/zookeys.1294.203117",
+  "pdf_url": "https://zookeys.pensoft.net/article/203117/download/pdf/",
+  "is_oa": true
+ },
+ "primary_location": {
+  "license": "cc-by",
+  "landing_page_url": "https://doi.org/10.3897/zookeys.1294.203117",
+  "pdf_url": "https://zookeys.pensoft.net/article/203117/download/pdf/",
+  "is_oa": true,
+  "source": {
+   "id": "https://openalex.org/S199213172",
+   "display_name": "ZooKeys"
+  }
+ },
+ "abstract_inverted_index": {
+  "A": [
+   0
+  ],
+  "new": [
+   1,
+   42
+  ],
+  "species": [
+   2,
+   43,
+   84
+  ],
+  "of": [
+   3,
+   77,
+   146,
+   157,
+   175
+  ],
+  "the": [
+   4,
+   60,
+   72,
+   88,
+   120,
+   143,
+   155,
+   158,
+   173
+  ],
+  "arcid": [
+   5
+  ],
+  "genus": [
+   6
+  ],
+  "Anadara": [
+   7,
+   21,
+   83,
+   152
+  ],
+  "is": [
+   8,
+   26,
+   44
+  ],
+  "described": [
+   9
+  ],
+  "from": [
+   10,
+   81,
+   87,
+   99,
+   113,
+   119
+  ],
+  "intertidal": [
+   11
+  ],
+  "and": [
+   12,
+   31,
+   34,
+   63,
+   93,
+   105,
+   118,
+   135,
+   169
+  ],
+  "shallow": [
+   13
+  ],
+  "subtidal": [
+   14
+  ],
+  "habitats": [
+   15
+  ],
+  "in": [
+   16,
+   129,
+   151
+  ],
+  "Kuwait,": [
+   17
+  ],
+  "northern": [
+   18
+  ],
+  "Arabian/Persian": [
+   19,
+   89
+  ],
+  "Gulf.": [
+   20
+  ],
+  "adiastola": [
+   22,
+   177
+  ],
+  "sp.": [
+   23,
+   178
+  ],
+  "nov": [
+   24,
+   179
+  ],
+  ".": [
+   25,
+   180
+  ],
+  "diagnosed": [
+   27
+  ],
+  "using": [
+   28
+  ],
+  "shell": [
+   29
+  ],
+  "morphology": [
+   30
+  ],
+  "soft-part": [
+   32
+  ],
+  "anatomy": [
+   33
+  ],
+  "further": [
+   35
+  ],
+  "assessed": [
+   36
+  ],
+  "through": [
+   37
+  ],
+  "COI": [
+   38,
+   97
+  ],
+  "sequence": [
+   39
+  ],
+  "data.": [
+   40
+  ],
+  "The": [
+   41,
+   125,
+   161
+  ],
+  "characterised": [
+   45
+  ],
+  "by": [
+   46,
+   139
+  ],
+  "an": [
+   47
+  ],
+  "oblong": [
+   48
+  ],
+  "to": [
+   49
+  ],
+  "subtrapezoidal": [
+   50
+  ],
+  "shell,": [
+   51
+  ],
+  "31–35": [
+   52
+  ],
+  "radial": [
+   53
+  ],
+  "ribs,": [
+   54,
+   62
+  ],
+  "weak": [
+   55
+  ],
+  "cross": [
+   56
+  ],
+  "bars": [
+   57
+  ],
+  "mainly": [
+   58
+  ],
+  "on": [
+   59,
+   71
+  ],
+  "anterior": [
+   61
+  ],
+  "a": [
+   64,
+   103,
+   182
+  ],
+  "thick": [
+   65
+  ],
+  "periostracum": [
+   66
+  ],
+  "forming": [
+   67
+  ],
+  "long": [
+   68
+  ],
+  "bristles,": [
+   69
+  ],
+  "especially": [
+   70
+  ],
+  "posterior": [
+   73
+  ],
+  "slope.": [
+   74
+  ],
+  "This": [
+   75
+  ],
+  "combination": [
+   76
+  ],
+  "characters": [
+   78
+  ],
+  "distinguishes": [
+   79
+  ],
+  "it": [
+   80
+  ],
+  "all": [
+   82,
+   114
+  ],
+  "previously": [
+   85
+  ],
+  "recorded": [
+   86
+  ],
+  "Gulf,": [
+   90
+  ],
+  "Arabian": [
+   91
+  ],
+  "Sea,": [
+   92
+  ],
+  "western": [
+   94
+  ],
+  "Indian": [
+   95
+  ],
+  "Ocean.": [
+   96
+  ],
+  "sequences": [
+   98
+  ],
+  "Kuwaiti": [
+   100,
+   159
+  ],
+  "specimens": [
+   101
+  ],
+  "formed": [
+   102
+  ],
+  "distinct": [
+   104,
+   183
+  ],
+  "highly": [
+   106
+  ],
+  "divergent": [
+   107
+  ],
+  "lineage": [
+   108
+  ],
+  "within": [
+   109
+  ],
+  "Anadarinae,": [
+   110
+  ],
+  "clearly": [
+   111
+  ],
+  "separated": [
+   112
+  ],
+  "available": [
+   115
+  ],
+  "GenBank": [
+   116,
+   147
+  ],
+  "lineages": [
+   117,
+   128
+  ],
+  "regional": [
+   121
+  ],
+  "taxa": [
+   122
+  ],
+  "considered": [
+   123
+  ],
+  "morphologically.": [
+   124
+  ],
+  "nearest": [
+   126
+  ],
+  "molecular": [
+   127,
+   170
+  ],
+  "public": [
+   130
+  ],
+  "databases": [
+   131
+  ],
+  "are": [
+   132
+  ],
+  "geographically": [
+   133
+  ],
+  "distant": [
+   134
+  ],
+  "include": [
+   136
+  ],
+  "records": [
+   137
+  ],
+  "affected": [
+   138
+  ],
+  "probable": [
+   140
+  ],
+  "misidentifications,": [
+   141
+  ],
+  "highlighting": [
+   142
+  ],
+  "current": [
+   144
+  ],
+  "limitations": [
+   145
+  ],
+  "for": [
+   148
+  ],
+  "comparative": [
+   149
+  ],
+  "taxonomy": [
+   150
+  ],
+  "while": [
+   153
+  ],
+  "supporting": [
+   154
+  ],
+  "distinctiveness": [
+   156
+  ],
+  "lineage.": [
+   160
+  ],
+  "integrative": [
+   162
+  ],
+  "taxonomic": [
+   163
+  ],
+  "approach": [
+   164
+  ],
+  "combining": [
+   165
+  ],
+  "morphological,": [
+   166
+  ],
+  "anatomical,": [
+   167
+  ],
+  "geographic,": [
+   168
+  ],
+  "evidence": [
+   171
+  ],
+  "supports": [
+   172
+  ],
+  "recognition": [
+   174
+  ],
+  "A.": [
+   176
+  ],
+  "as": [
+   181
+  ],
+  "species.": [
+   184
+  ]
+ },
+ "ids": {
+  "openalex": "https://openalex.org/W7221721627",
+  "doi": "https://doi.org/10.3897/zookeys.1294.203117",
+  "pmid": "https://pubmed.ncbi.nlm.nih.gov/42909213",
+  "pmcid": "https://www.ncbi.nlm.nih.gov/pmc/articles/13684320"
+ },
+ "has_content": {
+  "grobid_xml": true,
+  "pdf": true
+ }
+}

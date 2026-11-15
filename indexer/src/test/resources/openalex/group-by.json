@@ -1,0 +1,15 @@
+{
+ "meta": {
+  "count": 65,
+  "page": 1,
+  "per_page": 200,
+  "groups_count": 1
+ },
+ "group_by": [
+  {
+   "key": "https://openalex.org/S199213172",
+   "key_display_name": "ZooKeys",
+   "count": 65
+  }
+ ]
+}
