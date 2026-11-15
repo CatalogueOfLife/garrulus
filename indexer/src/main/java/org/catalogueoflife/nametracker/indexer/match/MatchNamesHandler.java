@@ -86,7 +86,7 @@ public class MatchNamesHandler implements TaskHandler {
     List<MentionRow> mentions = index.mentions(workId);
     Map<Long, Placement> placements = new LinkedHashMap<>();
     if (!mentions.isEmpty()) {
-      xr.current(); // pin (or outage) before any name is matched
+      xr.currentVerified(); // pin (or outage, or a swapped bundle) before any name is matched
       Map<Long, ContextRow> contexts = new HashMap<>();
       ContextRow document = null;
       for (ContextRow c : index.contexts(workId)) {

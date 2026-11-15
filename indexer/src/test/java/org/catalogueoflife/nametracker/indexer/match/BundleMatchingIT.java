@@ -150,4 +150,37 @@ class BundleMatchingIT extends AbstractPostgresIT {
         .isInstanceOf(UnmatchableNameException.class);
     verify(1, getRequestedFor(urlPathEqualTo(M)).withQueryParam("scientificName", equalTo("Animalia")));
   }
+
+  @Test
+  void aBundleSwappedAfterAVerifyIsCaughtAtTheNextTaskBeforeAnyCacheWrite() throws Exception {
+    handler.handle(task(workWithName())); // pins 316691 and verifies it
+    jdbc.update("DELETE FROM name_match");
+    stubFor(get("/dataset").willReturn(json("{\"key\":999,\"alias\":\"other\"}"))); // swapped, within the TTL
+    long w2 = workWithName();
+    assertThatThrownBy(() -> handler.handle(task(w2))).isInstanceOf(XrMismatchException.class)
+        .hasMessageContaining("999").hasMessageContaining("316691");
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM name_match", Integer.class)).isZero();
+  }
+
+  @Test
+  void theTtlAppliesWithinATaskAndExpires() {
+    java.util.concurrent.atomic.AtomicReference<Instant> now = new java.util.concurrent.atomic.AtomicReference<>(
+        Instant.parse("2026-11-16T10:00:00Z"));
+    Clock clock = new Clock() {
+      public java.time.ZoneId getZone() { return java.time.ZoneOffset.UTC; }
+      public Clock withZone(java.time.ZoneId z) { return this; }
+      public Instant instant() { return now.get(); }
+    };
+    XrReleaseService x = new XrReleaseService(index, clb, clock);
+    x.current(); // pins
+    x.current(); // first verify
+    int before = findAll(getRequestedFor(urlEqualTo("/dataset"))).size();
+    x.current();
+    assertThat(findAll(getRequestedFor(urlEqualTo("/dataset")))).hasSize(before); // within TTL: no call
+    stubFor(get("/dataset").willReturn(json("{\"key\":999,\"alias\":\"other\"}")));
+    x.current(); // still within TTL, not noticed
+    now.set(now.get().plusSeconds(31));
+    assertThatThrownBy(x::current).isInstanceOf(XrMismatchException.class); // re-verified after the TTL
+    assertThatThrownBy(x::currentVerified).isInstanceOf(XrMismatchException.class);
+  }
 }

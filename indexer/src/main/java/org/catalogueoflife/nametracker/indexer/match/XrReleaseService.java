@@ -1,10 +1,15 @@
 package org.catalogueoflife.nametracker.indexer.match;
 
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.concurrent.atomic.AtomicReference;
 import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
 import org.catalogueoflife.nametracker.store.index.XrRelease;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Component;
 
@@ -19,10 +24,17 @@ public class XrReleaseService {
 
   private final IndexMapper index;
   private final ClbClient clb;
+  private final Clock clock;
 
   public XrReleaseService(IndexMapper index, ClbClient clb) {
+    this(index, clb, Clock.systemUTC());
+  }
+
+  @Autowired
+  public XrReleaseService(IndexMapper index, ClbClient clb, Clock clock) {
     this.index = index;
     this.clb = clb;
+    this.clock = clock;
   }
 
   /**
@@ -43,19 +55,29 @@ public class XrReleaseService {
   }
 
   /** The bundle is asked at most this often by {@link #current()}; a match call must not ask it every time. */
-  static final long VERIFY_TTL_NANOS = 30_000_000_000L;
+  static final Duration VERIFY_TTL = Duration.ofSeconds(30);
 
-  private volatile long verifiedAt;
-  private volatile int verifiedKey;
+  private record Verified(int key, Instant at) {}
+
+  private final AtomicReference<Verified> verified = new AtomicReference<>();
+
+  /**
+   * Like {@link #current()}, but a local bundle is asked now, whatever the TTL: the start of a task must not trust a
+   * check made before the bundle may have been swapped.
+   */
+  public int currentVerified() {
+    verified.set(null);
+    return current();
+  }
 
   /** With a local bundle: its release must be the pinned one, else the match is refused. */
   private void verifyBundle(int pinned) {
-    long now = System.nanoTime();
-    if (verifiedAt != 0 && verifiedKey == pinned && now - verifiedAt < VERIFY_TTL_NANOS) return;
+    Instant now = clock.instant();
+    Verified v = verified.get();
+    if (v != null && v.key() == pinned && Duration.between(v.at(), now).compareTo(VERIFY_TTL) < 0) return;
     ClbClient.XrInfo b = clb.currentXr();
     if (b.key() != pinned) throw new XrMismatchException(pinned, b.key(), b.alias());
-    verifiedKey = pinned;
-    verifiedAt = now == 0 ? 1 : now;
+    verified.set(new Verified(pinned, now));
   }
 
   /**

@@ -88,7 +88,12 @@ migration of one table; nothing outside `IndexMapper` depends on its layout.
   (`key`, `alias`). With no release pinned yet, `XR_CHECK` (or the first `MATCH_NAMES`) pins that key. With a release
   pinned and a different bundle key, matching is refused: `MATCH_NAMES` fails with a `NonRetryableTaskException` naming
   both keys, which the dispatcher turns into a DEAD task at once (no retries, no NONE placements, no endless deferral),
-  and `XR_CHECK` logs an ERROR. The bundle is asked at most every 30 seconds per process. Switching the pin is M5.
+  and `XR_CHECK` logs an ERROR. Every `MATCH_NAMES` task asks the bundle for its release before its first match call (a bundle swapped under a
+  running indexer must not write wrong-release matches into `name_match` under the pinned key; match responses carry
+  no dataset key); inside a task the answer is reused for 30 seconds. Switching the pin is M5.
+- To rerun the mismatch-DEAD tasks once the right bundle runs (`data/run/psql.sh`):
+  `UPDATE task SET state='QUEUED', attempts=0, run_after=now(), finished=NULL, last_error=NULL, locked_by=NULL,
+  locked_at=NULL WHERE type='MATCH_NAMES' AND state='DEAD' AND last_error LIKE '%XrMismatchException%';`
 - A bundle that cannot be reached (refused, or its host does not resolve) is an outage, deferred like CLB.
 - The `name_match` cache stays valid: ids and the release key are the same as on `api.checklistbank.org`.
 
