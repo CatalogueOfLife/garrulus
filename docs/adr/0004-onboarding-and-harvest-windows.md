@@ -5,8 +5,7 @@ Date: 2026-11-15. Status: accepted.
 ## Context
 
 M2 harvests the registry's journals from OpenAlex and Crossref and resolves content for the new works. This ADR
-records what we decided while building it and the facts we verified against the live APIs (2026-11-15). Task numbers
-refer to `.superpowers/sdd/2026-11-15-m2-harvest-and-content/`.
+records what we decided while building it and the facts we verified against the live APIs (2026-11-15).
 
 ## Decisions
 
@@ -33,6 +32,9 @@ refer to `.superpowers/sdd/2026-11-15-m2-harvest-and-content/`.
   - Onboarding: `onboard:<sourceId>:<pos>`.
   - A deferral at the same position adds `:d<retryAt epoch seconds>`, because the running task already holds the key
     of its own position.
+  - An outage (a retryable HTTP failure that outlasted the HTTP layer's retries) re-enqueues the same page after
+    `nametracker.harvest.outage-delay` (30 minutes) under `<position key>:r<epoch minute>`, with the run `DEFERRED`;
+    any other failure marks the run `FAILED` before the task is retried or goes `DEAD`.
 - The scheduler's first tasks are `harvest:openalex:<LIVE|SWEEP>:<date>`, `harvest:crossref:<harvested day>`,
   `openalex-recheck:<date>` and `seed-sources:<yyyy-MM>`.
 - The scheduler skips an OpenAlex window while a chain of it is still QUEUED or RUNNING (`TaskMapper.countLive`, a
@@ -54,6 +56,23 @@ refer to `.superpowers/sdd/2026-11-15-m2-harvest-and-content/`.
   downloads additionally keep the `content.reserve-usd` free.
 - A **spent day** defers the task to the next **00:05 UTC**. A **final 429** (after the HTTP layer's retries) defers
   it by **15 minutes**, without marking the day spent. Work is deferred, never failed into `DEAD`.
+- The harvest handlers defer their own pages. For every other handler the dispatcher does it: a
+  `BudgetExhaustedException`, also as the cause of another exception, puts the task back to `QUEUED` at its `retryAt`
+  without using an attempt (fenced by the attempt number like completion and failure).
+
+### OpenAlex `corpus` is not used
+
+The design's query adds `corpus=all`. OpenAlex documents `corpus` on works requests (verified 2026-11-15): `core`
+(the default, about 320M curated works), `expansion` and `all` (core plus the Walden expansion of about 190M works,
+mainly datasets and single-repository records, formerly XPAC). We send no `corpus`, so we harvest the core. Journal
+articles of the registry's sources are core works; the expansion would mostly add datasets and repository copies,
+which `type:article|review` and the source filter exclude or duplicate. Revisit if a source's articles turn out to be
+missing from the core.
+
+### Deployment is not part of M2
+
+M2 runs on a developer machine against the dev database (`docs/m2-dev-run.md`). Deployment, and with it the public
+URL (`garrulus.catalogueoflife.org` is only proposed), move to the first deployment milestone.
 
 ### Crossref
 
