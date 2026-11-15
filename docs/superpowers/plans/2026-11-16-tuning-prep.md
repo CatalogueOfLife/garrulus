@@ -69,6 +69,12 @@ This was carried from M2: GROBID puts a space before commas (`Hohenheim , Instit
 - [ ] **Missing space after a full stop.** Insert a space after a sentence-ending `.` that is directly followed by an upper-case letter starting a word, but only at node boundaries. Do not touch abbreviations such as "U.S." or "e.g." when they sit inside one node.
   - Tests use real snippets from cached TEIs in `eval/work/pdf/` (copy small excerpts into test resources).
   - Cover a binomial with an authorship, "Aus bus L., 1758", and a figure reference.
+- [ ] **Stray backslashes (Markus, 2026-11-16).** Some names carry stray backslashes from GROBID, for example "Themus \ (Telephorops) \ coelestis" in doi:10.3897/zookeys.340.5470 (the TEI is cached under `eval/work/acts-tei/` or `eval/work/pdf/`).
+  - Find where they come from in the TEI: a literal `\`, an escaped character, or a font-mapping artefact.
+  - Remove a lone backslash token surrounded by whitespace. Remove a backslash next to a name part when it is a GROBID artefact.
+  - The example must come out as "Themus (Telephorops) coelestis".
+  - Count how often this happens across the cached TEIs, before and after, and put the counts in the report.
+  - Add a test with that snippet.
 - [ ] **Measure mode B.** Run `run --finder pipeline --corpus eval/corpus/pensoft --split dev --mode B --cache-only`, plus the gnfinder baseline, before and after the change.
   - Commit the after-reports.
   - Put the before/after F1 in the commit message body.
