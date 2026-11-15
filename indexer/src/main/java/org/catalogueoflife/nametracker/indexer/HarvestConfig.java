@@ -1,11 +1,13 @@
 package org.catalogueoflife.nametracker.indexer;
 
 import java.math.BigDecimal;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
@@ -67,6 +69,16 @@ public class HarvestConfig {
 
   static Map<String, Duration> intervals(Environment env) {
     Map<String, Duration> intervals = new HashMap<>(PoliteHttp.defaultIntervals());
+    // a local CLB bundle is not rate limited (unless configured below)
+    String match = env.getProperty("nametracker.clb.match-base-url", "");
+    if (!match.isBlank()) {
+      try {
+        String host = URI.create(match.strip()).getHost();
+        if (host != null) intervals.put(host.toLowerCase(Locale.ROOT), Duration.ZERO);
+      } catch (IllegalArgumentException e) {
+        // an unusable URL fails where it is used
+      }
+    }
     // bound as text: a Map<String, Duration> would split a host name at its dots
     Binder.get(env).bind("nametracker.http.min-interval", Bindable.mapOf(String.class, String.class))
         .ifBound(m -> m.forEach((host, v) -> intervals.put(host, DurationStyle.detectAndParse(v))));
@@ -96,8 +108,9 @@ public class HarvestConfig {
 
   @Bean
   ClbClient clbClient(PoliteHttp http, HarvestOutage outage,
-      @Value("${nametracker.clb.base-url:https://api.checklistbank.org}") String baseUrl) {
-    return new ClbClient(http, baseUrl, outage);
+      @Value("${nametracker.clb.base-url:https://api.checklistbank.org}") String baseUrl,
+      @Value("${nametracker.clb.match-base-url:}") String matchBaseUrl) {
+    return new ClbClient(http, baseUrl, matchBaseUrl, outage);
   }
 
   @Bean

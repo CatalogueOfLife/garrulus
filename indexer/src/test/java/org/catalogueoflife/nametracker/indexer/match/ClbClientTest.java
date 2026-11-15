@@ -63,6 +63,21 @@ class ClbClientTest {
   }
 
   @Test
+  void aBundleServesTheMatchesAndTheReleaseKey(WireMockRuntimeInfo w) throws IOException {
+    PoliteHttp http = new PoliteHttp(HttpClient.newHttpClient(), Map.of("localhost", Duration.ZERO),
+        PoliteHttp.userAgent(), Clock.systemUTC(), d -> { });
+    ClbClient c = new ClbClient(http, "http://localhost:1", w.getHttpBaseUrl() + "/",
+        new HarvestOutage(Duration.ofMinutes(30), CLOCK));
+    stubFor(get("/dataset").willReturn(json("{\"key\":316691,\"alias\":\"COL26.10 XR\"}")));
+    assertThat(c.localBundle()).isTrue();
+    assertThat(c.currentXr()).isEqualTo(new ClbClient.XrInfo(316691, "COL26.10 XR"));
+    stubFor(get(urlPathEqualTo(M)).willReturn(json(fixture("match-carabus-nemoralis.json"))));
+    assertThat(c.match(316691, new MatchQuery("Carabus nemoralis", null, null, new TreeMap<>())).usageId())
+        .isEqualTo("5WYRN");
+    verify(getRequestedFor(urlPathEqualTo(M)));
+  }
+
+  @Test
   void exactMatchPathIsUsageThenClassification(WireMockRuntimeInfo w) throws IOException {
     ClbMatch m = match(w, "match-carabus-nemoralis.json", "Carabus nemoralis");
     assertThat(m.type()).isEqualTo("variant");

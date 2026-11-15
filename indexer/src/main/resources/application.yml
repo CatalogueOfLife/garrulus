@@ -91,6 +91,9 @@ nametracker:
   clb:
     # ChecklistBank API: the pinned XR (dataset 3LXR) and name matching, at most 10 requests a second
     base-url: ${NAMETRACKER_CLB_BASE_URL:https://api.checklistbank.org}
+    # a local CLB release bundle (http://localhost:18100): serves all match calls and the N1 probe, and tells the release
+    # key to pin; not rate limited. Empty means base-url.
+    match-base-url: ${NAMETRACKER_CLB_MATCH_BASE_URL:}
   salience:
     # work_name salience (see Salience): weights of the title, abstract, act, heading, share-of-body-mentions and
     # repeat terms, the penalty for ubiquitous names, and the score from which a name is a main subject

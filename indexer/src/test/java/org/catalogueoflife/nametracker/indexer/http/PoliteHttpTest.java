@@ -166,6 +166,21 @@ class PoliteHttpTest {
   }
 
   @Test
+  void localHostsAreNotThrottledUnlessConfigured() {
+    FakeTime t = new FakeTime();
+    PoliteHttp h = new PoliteHttp(HttpClient.newHttpClient(), Map.of("127.0.0.1", Duration.ofMillis(50)),
+        PoliteHttp.userAgent(), t, t::sleep);
+    assertEquals(Duration.ZERO, h.intervalFor("localhost"));
+    assertEquals(Duration.ZERO, h.intervalFor("::1"));
+    assertEquals(Duration.ofMillis(50), h.intervalFor("127.0.0.1"));
+    assertEquals(Duration.ofMillis(100), new PoliteHttp(HttpClient.newHttpClient(), PoliteHttp.defaultIntervals(),
+        PoliteHttp.userAgent(), t, t::sleep).intervalFor("api.checklistbank.org"));
+    assertEquals(PoliteHttp.DEFAULT_INTERVAL, h.intervalFor("example.org"));
+    for (int i = 0; i < 5; i++) h.limiterFor("localhost").acquire();
+    assertTrue(t.sleeps.isEmpty());
+  }
+
+  @Test
   void defaultResponseCapIs50MiB() {
     assertEquals(52428800L, PoliteHttp.DEFAULT_MAX_RESPONSE_BYTES);
   }

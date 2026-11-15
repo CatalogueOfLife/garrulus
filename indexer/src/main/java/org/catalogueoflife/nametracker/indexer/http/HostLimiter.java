@@ -24,6 +24,10 @@ public class HostLimiter {
     this.sleeper = sleeper;
   }
 
+  public Duration minInterval() {
+    return minInterval;
+  }
+
   /** Blocks until minInterval has passed since the previous start. Each caller gets its own slot. */
   public void acquire() {
     Duration wait;

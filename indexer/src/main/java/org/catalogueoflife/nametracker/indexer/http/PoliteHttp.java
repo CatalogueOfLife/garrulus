@@ -87,7 +87,18 @@ public class PoliteHttp {
     String h = host.toLowerCase(Locale.ROOT);
     String key = h.equals("pensoft.net") || h.endsWith(".pensoft.net") ? PENSOFT_KEY : h;
     return limiters.computeIfAbsent(key,
-        k -> new HostLimiter(intervals.getOrDefault(k, DEFAULT_INTERVAL), clock, sleeper));
+        k -> new HostLimiter(intervals.getOrDefault(k, loopback(k) ? Duration.ZERO : DEFAULT_INTERVAL), clock,
+            sleeper));
+  }
+
+  /** A local service (a CLB bundle) is not rate limited unless configured. */
+  static boolean loopback(String host) {
+    return host.equals("localhost") || host.equals("127.0.0.1") || host.equals("::1") || host.equals("[::1]");
+  }
+
+  /** The spacing of requests to a host (after the defaults and configuration). */
+  Duration intervalFor(String host) {
+    return limiterFor(host).minInterval();
   }
 
   /** Replaces the values of the secret query parameters {@code api_key} and {@code mailto} with {@code ***}. */

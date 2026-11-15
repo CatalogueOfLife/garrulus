@@ -153,7 +153,8 @@ public class TaskDispatcher implements DisposableBean {
       }
       LOG.warn("Task {} ({}) failed on attempt {}", task.id(), task.type(), task.attempts(), e);
       try {
-        if (!queue.fail(task.id(), task.attempts(), truncate(e.toString()), maxAttempts, backoff)) {
+        if (!queue.fail(task.id(), task.attempts(), truncate(e.toString()),
+            nonRetryable(e) ? task.attempts() : maxAttempts, backoff)) {
           LOG.warn("Task {} ({}) attempt {} failed, but it was requeued or claimed again meanwhile; result ignored",
               task.id(), task.type(), task.attempts());
         }
@@ -164,6 +165,13 @@ public class TaskDispatcher implements DisposableBean {
       running.remove(task.id());
       inFlight.decrementAndGet();
     }
+  }
+
+  public static boolean nonRetryable(Throwable e) {
+    for (Throwable t = e; t != null; t = t.getCause() == t ? null : t.getCause()) {
+      if (t instanceof NonRetryableTaskException) return true;
+    }
+    return false;
   }
 
   /** A spent budget or a service outage is not a failure: the task waits without using an attempt. */

@@ -12,6 +12,7 @@ import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
 import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
+import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -35,20 +36,51 @@ public class ClbClient {
 
   private final PoliteHttp http;
   private final String base;
+  private final String matchBase;
+  private final String matchHost;
   private final HarvestOutage outage;
 
   public ClbClient(PoliteHttp http, String baseUrl, HarvestOutage outage) {
+    this(http, baseUrl, null, outage);
+  }
+
+  /**
+   * @param matchBaseUrl a local CLB release bundle that serves the match calls (and the release key, see
+   *     {@link #currentXr()}); null or blank means everything goes to {@code baseUrl}
+   */
+  public ClbClient(PoliteHttp http, String baseUrl, @Nullable String matchBaseUrl, HarvestOutage outage) {
     this.http = http;
-    this.base = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+    this.base = trim(baseUrl);
+    this.matchBase = matchBaseUrl == null || matchBaseUrl.isBlank() ? null : trim(matchBaseUrl.strip());
+    this.matchHost = matchBase == null ? null : URI.create(matchBase).getHost();
     this.outage = outage;
   }
 
+  private static String trim(String url) {
+    return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
+  }
+
+  /** True when matching goes to a local release bundle that also tells the release key. */
+  public boolean localBundle() {
+    return matchBase != null;
+  }
+
+  private String matchRoot() {
+    return matchBase != null ? matchBase : base;
+  }
+
+  /**
+   * The current XR: dataset 3LXR of the CLB API, or with a local bundle the one release it serves ({@code GET
+   * /dataset} of a bundle is rewritten to that release).
+   */
   public XrInfo currentXr() {
-    JsonNode d = getJson(URI.create(base + "/dataset/" + XR_DATASET));
+    URI uri = URI.create(localBundle() ? matchBase + "/dataset" : base + "/dataset/" + XR_DATASET);
+    JsonNode d = getJson(uri);
+    if (d.isArray() && !d.isEmpty()) d = d.get(0);
     JsonNode key = d.path("key");
     if (!key.isNumber()) {
-      throw new HttpProblem(URI.create(base + "/dataset/" + XR_DATASET), 200, false,
-          "CLB dataset " + XR_DATASET + " has no key", null);
+      throw new HttpProblem(uri, 200, false, "CLB dataset " + (localBundle() ? "of the bundle" : XR_DATASET)
+          + " has no key", null);
     }
     JsonNode alias = d.path("alias");
     return new XrInfo(key.asInt(), alias.isString() ? alias.asString() : "XR " + key.asInt());
@@ -76,7 +108,7 @@ public class ClbClient {
   }
 
   private URI matchUri(int releaseKey, Map<String, String> params) {
-    StringBuilder sb = new StringBuilder(base).append("/dataset/").append(releaseKey).append("/match/nameusage");
+    StringBuilder sb = new StringBuilder(matchRoot()).append("/dataset/").append(releaseKey).append("/match/nameusage");
     char sep = '?';
     for (Map.Entry<String, String> e : params.entrySet()) {
       sb.append(sep).append(e.getKey()).append('=').append(enc(e.getValue()));
@@ -113,7 +145,7 @@ public class ClbClient {
     try {
       resp = http.get(uri, Map.of("Accept", "application/json"));
     } catch (HttpProblem e) {
-      if (HarvestOutage.retryable(e) != null) throw new ServiceOutageException(SERVICE, outage.retryAt(), e);
+      if (HarvestOutage.retryable(e) != null || unknownMatchHost(e)) throw new ServiceOutageException(SERVICE, outage.retryAt(), e);
       throw e;
     }
     int status = resp.statusCode();
@@ -125,6 +157,11 @@ public class ClbClient {
     } catch (RuntimeException e) {
       throw new HttpProblem(uri, status, false, "Unreadable CLB response: " + uri, e);
     }
+  }
+
+  /** A bundle host that does not resolve is as down as a CLB host that does not. */
+  private boolean unknownMatchHost(HttpProblem e) {
+    return matchHost != null && PoliteHttp.unknownHost(e) && e.uri() != null && matchHost.equalsIgnoreCase(e.uri().getHost());
   }
 
   private static String enc(String s) {

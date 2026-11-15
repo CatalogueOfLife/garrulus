@@ -32,16 +32,44 @@ public class XrReleaseService {
    */
   public int current() {
     XrRelease r = index.currentRelease();
-    if (r != null) return r.key();
+    if (r != null) {
+      if (clb.localBundle()) verifyBundle(r.key());
+      return r.key();
+    }
     check();
     r = index.currentRelease();
     if (r == null) throw new IllegalStateException("No current XR release after the check");
     return r.key();
   }
 
-  /** Asks CLB for the XR and records it: pinned if there is no current release, else only remembered. Idempotent. */
+  /** The bundle is asked at most this often by {@link #current()}; a match call must not ask it every time. */
+  static final long VERIFY_TTL_NANOS = 30_000_000_000L;
+
+  private volatile long verifiedAt;
+  private volatile int verifiedKey;
+
+  /** With a local bundle: its release must be the pinned one, else the match is refused. */
+  private void verifyBundle(int pinned) {
+    long now = System.nanoTime();
+    if (verifiedAt != 0 && verifiedKey == pinned && now - verifiedAt < VERIFY_TTL_NANOS) return;
+    ClbClient.XrInfo b = clb.currentXr();
+    if (b.key() != pinned) throw new XrMismatchException(pinned, b.key(), b.alias());
+    verifiedKey = pinned;
+    verifiedAt = now == 0 ? 1 : now;
+  }
+
+  /**
+   * Asks CLB (or the local bundle) for the XR and records it: pinned if there is no current release, else only
+   * remembered. Idempotent. A local bundle with another release than the pinned one is logged as an ERROR and not
+   * recorded.
+   */
   public void check() {
     ClbClient.XrInfo x = clb.currentXr();
+    XrRelease pinned = index.currentRelease();
+    if (clb.localBundle() && pinned != null && pinned.key() != x.key()) {
+      LOG.error("{}", new XrMismatchException(pinned.key(), x.key(), x.alias()).getMessage());
+      return;
+    }
     if (index.releaseExists(x.key())) return;
     boolean pin = index.currentRelease() == null;
     try {

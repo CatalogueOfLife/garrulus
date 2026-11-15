@@ -66,6 +66,11 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
     outage (connection refused, unknown host, connect timeout, HTTP 502/503/504, also from a finder service) defers the
     task 30 minutes without using an attempt. Any other gnfinder or finder error (4xx, 500, a read timeout) fails the
     task like any error: it uses attempts and ends `DEAD`.
+  - `NAMETRACKER_CLB_BASE_URL` (default `https://api.checklistbank.org`) serves the XR and everything but matching when
+    `NAMETRACKER_CLB_MATCH_BASE_URL` is set: a local CLB release bundle for all match calls and the N1 probe, e.g.
+    `NAMETRACKER_CLB_MATCH_BASE_URL=http://localhost:18100` (never 8080/8081). It is not throttled, its `GET /dataset`
+    gives the release key to pin, and a bundle of another release than the pinned one makes `MATCH_NAMES` fail DEAD
+    (ADR-0005, "Local bundle matching").
   - `NAMETRACKER_HARVEST_OUTAGE_DELAY` (30m): a harvest or onboarding page that meets an outage is enqueued again after
     this delay instead of failing.
 - `indexer` matching and index (ADR-0005):

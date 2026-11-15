@@ -77,6 +77,21 @@ migration of one table; nothing outside `IndexMapper` depends on its layout.
   - Every outage deferral of a task first enqueued more than 24 hours ago is logged as a WARN (task id, type,
     service), so a task that waits for days is noticed.
 
+### Local bundle matching
+
+- `NAMETRACKER_CLB_MATCH_BASE_URL` (`nametracker.clb.match-base-url`, default empty = `nametracker.clb.base-url`)
+  points all match calls and the N1 probe at a local CLB release bundle (backend `docs/BUNDLE.md`), which serves the
+  same keyed API: `/dataset/{releaseKey}/match/nameusage`. Everything else stays on `base-url`. The bundle is not
+  throttled (`localhost`, `127.0.0.1`, `::1` and the host of the match URL have no interval, unless configured under
+  `nametracker.http.min-interval`); retries and the Garrulus User-Agent stay.
+- The release key comes from the bundle: `GET {match-base-url}/dataset` is rewritten by the bundle to its one release
+  (`key`, `alias`). With no release pinned yet, `XR_CHECK` (or the first `MATCH_NAMES`) pins that key. With a release
+  pinned and a different bundle key, matching is refused: `MATCH_NAMES` fails with a `NonRetryableTaskException` naming
+  both keys, which the dispatcher turns into a DEAD task at once (no retries, no NONE placements, no endless deferral),
+  and `XR_CHECK` logs an ERROR. The bundle is asked at most every 30 seconds per process. Switching the pin is M5.
+- A bundle that cannot be reached (refused, or its host does not resolve) is an outage, deferred like CLB.
+- The `name_match` cache stays valid: ids and the release key are the same as on `api.checklistbank.org`.
+
 ### Placement rules
 
 `Placer.place` decides one `placement_method` per name and work:
