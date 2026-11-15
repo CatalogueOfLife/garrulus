@@ -38,6 +38,10 @@ nametracker:
     requeue-interval: ${NAMETRACKER_INDEXER_REQUEUE_INTERVAL:10m}
     heartbeat-interval: ${NAMETRACKER_INDEXER_HEARTBEAT_INTERVAL:2m}
 
+  stats:
+    # nightly REBUILD_STATS (name ubiquity, taxon stats, spool purge); UTC, six fields; not behind the harvest switch
+    cron: ${NAMETRACKER_STATS_CRON:0 30 4 * * *}
+
   harvest:
     # master switch of the scheduled harvests; off means nothing is enqueued on a schedule (handlers still run for
     # tasks enqueued by hand). Crons are UTC, six fields.
