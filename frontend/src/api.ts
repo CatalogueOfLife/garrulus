@@ -1,0 +1,264 @@
+// Typed client of the public Garrulus API; the types follow web/.../static/api/openapi.yaml.
+
+export type JournalType = 'TAXONOMIC' | 'GENERAL';
+export type Tier = 'CORE' | 'BROAD' | 'CANDIDATE' | 'EXCLUDED';
+export type OaModel = 'DIAMOND' | 'GOLD' | 'HYBRID' | 'CLOSED';
+export type FacetName = 'code' | 'taxgroup' | 'journalType' | 'year' | 'source' | 'hasActs';
+
+export interface Error400 {
+  status: number;
+  error: string;
+}
+
+export class ApiError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+export interface TaxonRef { id?: string | null; name?: string | null; rank?: string | null }
+export interface SourceRef { id: number; title: string }
+export interface NameRef {
+  id: number;
+  name: string;
+  placementMethod: 'MATCH' | 'GENUS' | 'VERBATIM_CONTEXT' | 'NONE';
+  usageId?: string | null;
+}
+export interface WorkSummary {
+  id: number;
+  doi?: string | null;
+  title?: string | null;
+  year?: number | null;
+  publicationDate?: string | null;
+  source?: SourceRef | null;
+  authors: string[];
+  authorCount: number;
+  textLevel?: 'FULLTEXT' | 'ABSTRACT_ONLY' | 'NO_TEXT' | null;
+  hasActs: boolean;
+  mainNames: NameRef[];
+}
+export interface FacetCount { value: string; count: number }
+export interface WorkPage {
+  total: number;
+  limit: number;
+  offset: number;
+  results: WorkSummary[];
+  facets: Partial<Record<FacetName, FacetCount[]>>;
+}
+export interface Author { name: string; orcid?: string | null }
+export interface NameDetail {
+  id: number;
+  name: string;
+  kind: string;
+  rank?: string | null;
+  placementMethod: string;
+  usageId?: string | null;
+  usageName?: string | null;
+  usageRank?: string | null;
+  usageStatus?: string | null;
+  code?: string | null;
+  taxgroup?: string | null;
+  salience: number;
+  mainSubject: boolean;
+  onlyReference: boolean;
+  mentionCount: number;
+  actTypes: string[];
+  bestSnippet: string;
+  classification: TaxonRef[];
+}
+export interface MentionSpan {
+  id: number;
+  nameId: number;
+  startCp: number;
+  endCp: number;
+  verbatim: string;
+  actType?: string | null;
+}
+export interface TextBlock {
+  id: string;
+  type: string;
+  level: number;
+  sectionPath: string[];
+  text: string;
+  mentions: MentionSpan[];
+}
+export interface Context {
+  localId: string;
+  verbatim: string;
+  ranks: Record<string, string>;
+  scope: string;
+  blockId: string;
+  untilBlockId?: string | null;
+}
+export interface WorkDetail {
+  id: number;
+  doi?: string | null;
+  title?: string | null;
+  year?: number | null;
+  publicationDate?: string | null;
+  source?: SourceRef | null;
+  authors: Author[];
+  volume?: string | null;
+  issue?: string | null;
+  pages?: string | null;
+  language?: string | null;
+  type?: string | null;
+  oaStatus?: string | null;
+  bestOaUrl?: string | null;
+  abstract?: string | null;
+  licence?: string | null;
+  retained: boolean;
+  textLevel?: string | null;
+  hasActs: boolean;
+  codes: string[];
+  taxgroups: string[];
+  names: NameDetail[];
+  contexts: Context[];
+  text?: TextBlock[] | null;
+}
+export interface NameHit { id: number; name: string; kind: string; rank?: string | null; works: number }
+export interface NameMatch {
+  usageId?: string | null;
+  usageName?: string | null;
+  rank?: string | null;
+  status?: string | null;
+  acceptedId?: string | null;
+  classification: TaxonRef[];
+}
+export interface NameFull {
+  id: number;
+  name: string;
+  kind: string;
+  rank?: string | null;
+  match?: NameMatch | null;
+  timeline: { year: number; works: number }[];
+  firstAppearance?: { workId: number; title?: string | null; publicationDate?: string | null } | null;
+}
+export interface TaxonStats {
+  taxonId: string;
+  total: number;
+  mainSubjectTotal: number;
+  years: { year: number; works: number; mainSubjectWorks: number }[];
+}
+export interface SourceItem {
+  id: number;
+  title: string;
+  publisher?: string | null;
+  tier: 'CORE' | 'BROAD';
+  journalType?: JournalType | null;
+  primarySubfield?: string | null;
+  subfields: string[];
+  taxgroups: string[];
+  codes: string[];
+  oaModel?: OaModel | null;
+  country?: string | null;
+  nameDensity?: number | null;
+  actRate?: number | null;
+  worksPerYear?: number | null;
+}
+export interface SourcePage { total: number; limit: number; offset: number; results: SourceItem[] }
+export interface SourceDetail extends SourceItem {
+  issnL?: string | null;
+  taxgroupShares?: Record<string, number> | null;
+  recentWorks: WorkSummary[];
+}
+export interface TaxGroup { name: string; parents: string[]; codes: string[]; icon: string }
+export interface Xr { key: number; alias: string }
+
+/** The search filters; the names are those of the URL query string and of the API. */
+export interface WorkFilter {
+  taxon?: string;
+  name?: string;
+  code?: string;
+  taxgroup?: string;
+  subfield?: string;
+  journalType?: string;
+  tier?: string;
+  oa?: string;
+  country?: string;
+  source?: string;
+  yearFrom?: string;
+  yearTo?: string;
+  hasActs?: string;
+  actType?: string;
+  mainSubjectOnly?: string;
+  q?: string;
+  limit?: string;
+  offset?: string;
+}
+
+export const FILTER_KEYS: (keyof WorkFilter)[] = [
+  'taxon', 'name', 'code', 'taxgroup', 'subfield', 'journalType', 'tier', 'oa', 'country', 'source',
+  'yearFrom', 'yearTo', 'hasActs', 'actType', 'mainSubjectOnly', 'q', 'limit', 'offset',
+];
+
+export function filterFromParams(params: URLSearchParams): WorkFilter {
+  const f: WorkFilter = {};
+  for (const k of FILTER_KEYS) {
+    const v = params.get(k);
+    if (v) f[k] = v;
+  }
+  return f;
+}
+
+export function filterToParams(filter: WorkFilter): URLSearchParams {
+  const p = new URLSearchParams();
+  for (const k of FILTER_KEYS) {
+    const v = filter[k];
+    if (v !== undefined && v !== '') p.set(k, v);
+  }
+  return p;
+}
+
+async function getJson<T>(url: string): Promise<T> {
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!res.ok) {
+    let msg = `Request failed (${res.status})`;
+    try {
+      const body = (await res.json()) as Partial<Error400>;
+      if (body.error) msg = body.error;
+    } catch {
+      /* not JSON */
+    }
+    throw new ApiError(res.status, msg);
+  }
+  return (await res.json()) as T;
+}
+
+export function searchWorks(filter: WorkFilter, facets: FacetName[] = []): Promise<WorkPage> {
+  const p = filterToParams(filter);
+  for (const f of facets) p.append('facet', f);
+  return getJson<WorkPage>(`/api/works?${p}`);
+}
+export const getWork = (id: number | string) => getJson<WorkDetail>(`/api/works/${encodeURIComponent(id)}`);
+export const getName = (id: number | string) => getJson<NameFull>(`/api/names/${encodeURIComponent(id)}`);
+export const searchNames = (q: string, limit = 10) =>
+  getJson<NameHit[]>(`/api/names?${new URLSearchParams({ q, limit: String(limit) })}`);
+export const getTaxonStats = (id: string) => getJson<TaxonStats>(`/api/taxa/${encodeURIComponent(id)}/stats`);
+export const getSource = (id: number | string) => getJson<SourceDetail>(`/api/sources/${encodeURIComponent(id)}`);
+export const listSources = (params: { q?: string; tier?: string; journalType?: string; limit?: number; offset?: number } = {}) => {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== '') p.set(k, String(v));
+  return getJson<SourcePage>(`/api/sources?${p}`);
+};
+export const getXr = () => getJson<Xr>('/api/xr');
+export const getTaxGroups = () => getJson<TaxGroup[]>('/api/vocab/taxgroup');
+
+export const CLB_BASE = 'https://api.checklistbank.org';
+
+export interface TaxonSuggestion {
+  match: string;
+  context?: string;
+  usageId: string;
+  rank?: string;
+  status?: string;
+  suggestion: string;
+}
+
+/** The browser calls the CLB suggest API directly, in the pinned XR dataset. */
+export function suggestTaxa(xrKey: number, q: string): Promise<TaxonSuggestion[]> {
+  return getJson<TaxonSuggestion[]>(`${CLB_BASE}/dataset/${xrKey}/nameusage/suggest?${new URLSearchParams({ q })}`);
+}
