@@ -1,0 +1,48 @@
+import { screen, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
+import { Route, Routes } from 'react-router-dom';
+import { SourcePage } from './SourcePage';
+import { server, work, taxGroupHandler } from '../test/server';
+import { renderApp } from '../test/render';
+
+function renderSource() {
+  renderApp(<Routes><Route path="/source/:id" element={<SourcePage />} /></Routes>, '/source/7');
+}
+
+describe('SourcePage', () => {
+  it('sourcePageShowsCategorisationAndRecentWorks', async () => {
+    server.use(
+      taxGroupHandler,
+      http.get('/api/sources/7', () => HttpResponse.json({
+        id: 7, title: 'Zootaxa', publisher: 'Magnolia Press', tier: 'CORE', journalType: 'TAXONOMIC',
+        primarySubfield: 'Animal Science and Zoology', subfields: ['Animal Science and Zoology', 'Insect Science'],
+        taxgroups: ['Insects', 'Animals'], taxgroupShares: { Animals: 0.12, Insects: 0.62 },
+        codes: ['ZOOLOGICAL'], oaModel: 'HYBRID', country: 'NZ', nameDensity: 4.2, actRate: 0.31, worksPerYear: 1500,
+        recentWorks: [work(1, 'A recent paper')],
+      })),
+    );
+    renderSource();
+    expect(await screen.findByRole('heading', { name: 'Zootaxa' })).toBeInTheDocument();
+    expect(screen.getByText(/Magnolia Press/)).toBeInTheDocument();
+    const groups = screen.getByRole('region', { name: 'Taxonomic groups' });
+    expect(await within(groups).findByText('62%')).toBeInTheDocument();
+    expect(within(groups).getByText('12%')).toBeInTheDocument();
+    expect(await within(groups).findByRole('img', { name: 'Insects' })).toHaveAttribute('src', 'https://icons.example/insects.svg');
+    const cat = screen.getByRole('region', { name: 'Categorisation' });
+    expect(within(cat).getByText('ZOOLOGICAL')).toBeInTheDocument();
+    expect(within(cat).getByText('TAXONOMIC')).toBeInTheDocument();
+    expect(within(cat).getByText('Insect Science')).toBeInTheDocument();
+    expect(within(cat).getByText('HYBRID')).toBeInTheDocument();
+    expect(within(cat).getByText('NZ')).toBeInTheDocument();
+    const recent = screen.getByRole('region', { name: 'Recent papers' });
+    expect(within(recent).getByText('A recent paper')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /All papers/ })).toHaveAttribute('href', '/?source=7');
+    expect(document.title).toBe('Garrulus — Zootaxa');
+  });
+
+  it('unknownSourceIsFriendly', async () => {
+    server.use(taxGroupHandler, http.get('/api/sources/7', () => HttpResponse.json({ error: 'nope' }, { status: 404 })));
+    renderSource();
+    expect(await screen.findByText(/journal was not found/i)).toBeInTheDocument();
+  });
+});

@@ -1,20 +1,10 @@
 import { Alert, Anchor, Badge, Grid, Group, Loader, Stack, Text, Title } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getWork, type NameDetail } from '../api';
 import { HighlightedText } from '../components/HighlightedText';
+import { Section } from '../components/Section';
 import { usePageTitle } from '../usePageTitle';
-
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  const id = `sec-${title.replace(/\W+/g, '-')}`;
-  return (
-    <section aria-labelledby={id}>
-      <Title order={4} id={id} mb="xs">{title}</Title>
-      {children}
-    </section>
-  );
-}
 
 function NameRow({ n, withTaxon }: { n: NameDetail; withTaxon: boolean }) {
   const path = n.classification.map((t) => t.name).filter(Boolean).join(' › ');

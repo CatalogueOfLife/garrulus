@@ -13,10 +13,12 @@ describe('App', () => {
     expect(document.title).toBe('Garrulus — Search');
   });
 
-  it('has the placeholder routes', async () => {
-    server.use(xrHandler);
+  it('routes /source/:id to the journal page', async () => {
+    server.use(xrHandler, taxGroupHandler, http.get('/api/sources/5', () => HttpResponse.json({
+      id: 5, title: 'Zootaxa', tier: 'CORE', subfields: [], taxgroups: [], codes: [], recentWorks: [],
+    })));
     renderApp(<App />, '/source/5');
-    expect(await screen.findByRole('heading', { name: 'Source' })).toBeInTheDocument();
-    expect(document.title).toBe('Garrulus — Source 5');
+    expect(await screen.findByRole('heading', { name: 'Zootaxa' })).toBeInTheDocument();
+    expect(document.title).toBe('Garrulus — Zootaxa');
   });
 });

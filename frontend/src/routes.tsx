@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom';
 import { SearchPage } from './pages/SearchPage';
-import { NamePage, SourcePage } from './pages/Placeholders';
+import { NamePage } from './pages/NamePage';
+import { SourcePage } from './pages/SourcePage';
 import { TaxonPage } from './pages/TaxonPage';
 import { WorkPage } from './pages/WorkPage';
 

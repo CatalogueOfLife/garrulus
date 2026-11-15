@@ -1,21 +1,11 @@
 import { Alert, Anchor, Badge, Group, Loader, Stack, Text, Title } from '@mantine/core';
 import { useQuery, useQueries } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getClbClassification, getClbTaxon, getTaxonStats, getWork, getXr, searchWorks } from '../api';
 import { WorkList } from '../components/WorkList';
 import { YearBars } from '../components/YearBars';
+import { Section } from '../components/Section';
 import { usePageTitle } from '../usePageTitle';
-
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  const id = `sec-${title.replace(/\W+/g, '-')}`;
-  return (
-    <section aria-labelledby={id}>
-      <Title order={4} id={id} mb="xs">{title}</Title>
-      {children}
-    </section>
-  );
-}
 
 export function TaxonPage() {
   const { id = '' } = useParams();
