@@ -11,6 +11,7 @@ the run was started, how to stop it, the first-check numbers and the success cri
   - 10:25:36 UTC, after the HTTP/1.1 fix (commit `9e133bf`, see below). From then on both apps run from copies of
     their jars in `data/run/`, so a later `mvn install` cannot pull a class out from under a running JVM.
   - 11:08:26 UTC, after the round 2 fixes (`acd2c63`, `74c176f`, `07d54cb`). Both apps now listen on 127.0.0.1 only.
+  - 11:54:03 UTC, the indexer only, after the final-review fixes (round 3, below).
 - **Keyless:** no `OPENALEX_API_KEY` and no `CROSSREF_MAILTO`. OpenAlex runs on the keyless $0.10/day per IP, group-by
   sees one page (200 groups), page paging stops at 10,000 results and the TEI route does not apply (ADR-0004). Crossref
   runs in the public pool.
@@ -140,6 +141,23 @@ calls, most of them free singleton gets).
     (1.7/s).
   - DEAD tasks: 0. OpenAlex: $0.0265 spent in 4,584 calls. Onboarded: CORE 119 of 120, BROAD 55 of 89; the rest are
     running now that the LIVE queue is empty. Blobs: 52 MB.
+
+## Round 3 (final-review fixes; restart 11:54:03 UTC)
+
+The indexer only (pid 56563, same jar copy, port and env as above); no web file changed, so web keeps running. No
+migration.
+
+- `c619118` the Pensoft route applies only to a `[a-z0-9-]+` slug and a numeric id, and stays on `*.pensoft.net`.
+- `640da35` the indexer ITs are hermetic: unroutable base URLs, no key or mailto, no `.env` (`nametracker.dotenv`).
+- `94692ec` a spent OpenAlex budget requeues any task at `retryAt` without using an attempt (dispatcher level).
+- `70b13f2` an outage defers a harvest or onboarding page by 30 minutes (`NAMETRACKER_HARVEST_OUTAGE_DELAY`), the run
+  `DEFERRED`; other failures mark the run `FAILED`.
+- `35a1943` Crossref catches up every missed day (at most 14 days back) instead of skipping a day while a chain runs.
+  The next fire (2026-11-16 03:00 UTC) enqueues 2026-11-15, the day after the last `CROSSREF` run.
+- `537eddb` content re-checks only for works that are not `BACKFILL` and published within 90 days (or undated).
+- `58fb3d9` an unknown host fails at once, without 10 s of retries.
+- **Check at 11:59 UTC, five minutes after the restart:** 1,044 tasks finished, all `DONE` (3.5/s); 0 `DEAD` and no
+  task with a `last_error`; `ONBOARD_SOURCE` 226 done, 31 queued; `RESOLVE_CONTENT` 10,330 done, 20,798 queued.
 
 ## Open points
 
