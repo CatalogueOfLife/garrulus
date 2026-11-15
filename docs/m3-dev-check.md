@@ -129,3 +129,40 @@ is placed under Carabidae belongs there. Screenshot of `http://localhost:5174/ta
 The indexer works through the backlog: about 27,500 `FIND_NAMES` and then their `MATCH_NAMES` (CLB at 10 requests a
 second); expect some hours. The nightly crons run as before (harvests 02:00/03:00, stats 04:30, spool purge 05:30,
 `XR_CHECK` 06:00 UTC).
+
+## Final fix wave (2026-11-15)
+
+The whole-milestone review fixes (`ef7fd70`..`a4cec59`): depth-first follow-ups, `ABBREVIATED` names on their genus,
+the name page match of hinted names, outage classification for gnfinder and CLB, and the smaller items in ADR-0005.
+`mvn -B verify` green (812 tests and ITs, 0 failures); frontend 11 files, 26 tests, build ok.
+
+- **Restart.** `mvn -B -DskipTests clean install`, jars copied to `data/run/`, old logs kept as `indexer-7.log` and
+  `web-5.log` (no WARN or ERROR in either). Only the pids in `data/run/*.pid` were stopped (22:36:42 UTC); same env,
+  ports and `.env` as before. **Indexer up 22:36:53 UTC** (Flyway applied V5, the `name_match (release_key, usage_id)`
+  index), **web up 22:36:59 UTC**.
+- **Re-match of the indexed works**, so that placements made by the old `Placer` are redone. There is no bulk admin
+  task for matching, so the tasks were inserted with `data/run/psql.sh` at 22:37:07 UTC:
+
+  ```sql
+  INSERT INTO task (type, payload, priority, dedup_key, run_after)
+  SELECT 'MATCH_NAMES', jsonb_build_object('workId', w.id), 1, 'match:' || w.id || ':fix-wave',
+         timestamptz '2026-11-15 21:55:00+00'
+  FROM work w WHERE w.state = 'INDEXED'
+  ON CONFLICT (dedup_key) WHERE state IN ('QUEUED','RUNNING') DO NOTHING;
+  ```
+
+  1,021 tasks at `REPROCESS` (priority 1). `run_after` is set just before the oldest queued `REPROCESS` task
+  (21:55:03), so the re-match runs ahead of the `FIND_NAMES` backlog instead of behind it. All 1,021 `DONE` between
+  22:37:09 and 22:41:25 UTC (matches came from the `name_match` cache), none failed.
+- **`/api/works/187`** after the re-match: *Uenoites microps*, *U. angulosus*, *U. oculatus* and *U. setipes*
+  (`ABBREVIATED`, sp. nov.) are now `GENUS` on *Uenoites* 8KZF7 instead of `VERBATIM_CONTEXT` on Trechini. *U. gregoryi
+  robustus* stays `VERBATIM_CONTEXT` (Trechini): its match is `higherrank` to the species *U. gregoryi*, which is a
+  context fallback by the ADR-0005 rule. Saliences moved down a little (e.g. *Uenoites* 0.86 to 0.84), because
+  re-indexing applies the `name_ubiquity` penalty that did not exist when the works were first indexed. Over all works,
+  `ABBREVIATED` placements are now MATCH 526, GENUS 105, NONE 37, VERBATIM_CONTEXT 18.
+- **`/api/names/6664`** (*Uenoites gregoryi*, matched only with context hints and its authorship) now shows its match,
+  7DD8W *Uenoites gregoryi* (species) with its classification; before, the page said "not matched". This needed no
+  re-match, only the new query. `/api/names/6666` (*U. microps*) shows the genus *Uenoites* it is placed on.
+- **Depth first in the live queue.** After the re-match the backlog resumed with each `FIND_NAMES` followed by its own
+  `MATCH_NAMES` about two seconds (one poll) later, for example work 22914: found 22:41:27.02, matched 22:41:29.01.
+  Works are `INDEXED` steadily now instead of after the whole `FIND_NAMES` backlog.
