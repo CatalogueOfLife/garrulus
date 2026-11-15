@@ -40,12 +40,14 @@ class OpenApiCoverageTest extends AbstractPostgresIT {
     assertThat(doc.get("openapi").toString()).startsWith("3.1");
     Set<String> documented = ((Map<String, Object>) doc.get("paths")).keySet();
     Set<String> missing = new TreeSet<>();
+    Set<String> mapped = new TreeSet<>();
     for (RequestMappingInfo info : mapping.getHandlerMethods().keySet()) {
       if (!info.getMethodsCondition().getMethods().contains(RequestMethod.GET) || info.getPathPatternsCondition() == null) {
         continue;
       }
       for (String p : info.getPathPatternsCondition().getPatternValues()) {
         if (p.startsWith("/api/") && !p.startsWith("/api/admin")) {
+          mapped.add(p);
           if (!documented.contains(p)) {
             missing.add(p);
           }
@@ -53,7 +55,8 @@ class OpenApiCoverageTest extends AbstractPostgresIT {
       }
     }
     assertThat(missing).as("public GET mappings missing from openapi.yaml").isEmpty();
-    // and nothing documented that does not exist, nothing admin
+    // nothing documented that does not exist as a GET mapping, nothing admin
+    assertThat(documented).as("documented but not mapped").allMatch(mapped::contains);
     assertThat(documented).noneMatch(p -> p.startsWith("/api/admin"));
   }
 

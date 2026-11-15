@@ -94,8 +94,43 @@ class NameControllerIT extends AbstractPostgresIT {
     assertThat(all.get(0).path("name").asString()).isEqualTo("Abies balsamea");
     assertThat(all.get(0).path("works").asInt()).isEqualTo(2);
     assertThat(all).hasSize(3);
+    // a trigram-similar name that is no prefix match appears, after all prefix hits
+    long notPrefix = name("Abise alba");
+    mention(w1, notPrefix, false);
+    mention(w2, notPrefix, false);
+    JsonNode sim = JSON.readTree(get("/api/names?q=Abies%20alb").body());
+    boolean seenSimilar = false;
+    boolean found = false;
+    for (JsonNode n : sim) {
+      boolean prefix = n.path("name").asString().startsWith("Abies alb");
+      assertThat(seenSimilar && prefix).as("prefix hit after a similarity hit").isFalse();
+      seenSimilar |= !prefix;
+      if ("Abise alba".equals(n.path("name").asString())) {
+        found = true;
+        assertThat(n.path("works").asInt()).isEqualTo(2);
+        assertThat(prefix).isFalse();
+      }
+    }
+    assertThat(found).isTrue();
     // LIKE wildcards are literal
     assertThat(JSON.readTree(get("/api/names?q=%25%25").body())).isEmpty();
+  }
+
+  @Test
+  void nameSearchBoundsItsCandidates() throws Exception {
+    long w = work("10.1/z", 2020, "2020-01-01", "INDEXED");
+    long last = 0;
+    for (int i = 0; i < 250; i++) {
+      last = name(String.format("Zed %03d", i));
+    }
+    mention(w, last, false); // 'Zed 249' is beyond the 200 candidates taken by name, so it never gets counted
+    JsonNode r = JSON.readTree(get("/api/names?q=Zed&limit=50").body());
+    assertThat(r).hasSize(50);
+    for (JsonNode n : r) {
+      assertThat(n.path("name").asString()).isNotEqualTo("Zed 249");
+      assertThat(n.path("works").asInt()).isZero();
+    }
+    assertThat(r.get(0).path("name").asString()).isEqualTo("Zed 000");
   }
 
   @Test

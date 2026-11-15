@@ -51,15 +51,21 @@
       WHERE wn.name_string_id = n.id AND w.state IN ('INDEXED', 'NOTIFIED'))
   </sql>
 
+  <!-- at most 200 prefix hits (by name) and 200 similarity hits (by similarity) are counted, then ranked -->
   <select id="search" resultMap="hit">
-    SELECT id, name, kind, rank, works FROM (
-      SELECT n.id, n.name, n.kind, n.rank, <include refid="worksOf"/> AS works,
-             (n.name ILIKE #{prefix} ESCAPE '\') AS prefix_hit
-      FROM name_string n
-      WHERE n.name ILIKE #{prefix} ESCAPE '\'
-         OR (n.name % #{q} AND similarity(n.name, #{q}) > 0.3)
-    ) t
-    ORDER BY prefix_hit DESC, works DESC, name, id
+    WITH pre AS (
+      SELECT n.id, n.name, n.kind, n.rank, true AS prefix_hit FROM name_string n
+      WHERE n.name ILIKE #{prefix} ESCAPE '\' ORDER BY n.name, n.id LIMIT 200
+    ), sim AS (
+      SELECT n.id, n.name, n.kind, n.rank, false AS prefix_hit FROM name_string n
+      WHERE n.name % #{q} AND similarity(n.name, #{q}) > 0.3 AND NOT (n.name ILIKE #{prefix} ESCAPE '\')
+      ORDER BY similarity(n.name, #{q}) DESC, n.name, n.id LIMIT 200
+    ), cand AS (
+      SELECT * FROM pre UNION ALL SELECT * FROM sim
+    )
+    SELECT n.id, n.name, n.kind, n.rank, <include refid="worksOf"/> AS works, n.prefix_hit
+    FROM cand n
+    ORDER BY n.prefix_hit DESC, works DESC, n.name, n.id
     LIMIT #{limit}
   </select>
 
