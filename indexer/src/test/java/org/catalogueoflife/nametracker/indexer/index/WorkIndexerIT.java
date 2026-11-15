@@ -62,7 +62,7 @@ class WorkIndexerIT extends AbstractPostgresIT {
   void workColumnsAggregateMainSubjectsOnly() throws Exception {
     long w = work("FULLTEXT");
     long a = mention(w, "Carabus auratus", "TITLE", 0, "title", "sp. nov.");
-    long b = mention(w, "Escherichia coli", "PARAGRAPH", 5, "para", null);
+    long b = mention(w, "Escherichia coli", "ABSTRACT", 5, "para", null);
     jdbc.update("INSERT INTO name_ubiquity (name_string_id, works, share) VALUES (?, 100, 0.05)", b);
     indexer.index(w, Map.of(a, placement("ZOOLOGICAL", "Coleoptera"), b, placement("BACTERIAL", "Bacteria")));
     Map<Long, WorkName> by = new java.util.HashMap<>();
@@ -113,5 +113,31 @@ class WorkIndexerIT extends AbstractPostgresIT {
     long a = mention(w, "Carabus auratus", "PARAGRAPH", 0, "p", null);
     indexer.index(w, Map.of(a, placement(null, null)));
     assertThat(index.workNames(w).get(0).inAbstract()).isTrue();
+  }
+
+  @Test
+  void referenceActGivesNoActWeight() {
+    long w = work("FULLTEXT");
+    long a = mention(w, "Carabus auratus", "PARAGRAPH", 0, "body", null);
+    mention(w, "Carabus auratus", "REFERENCE", 20, "ref", "sp. nov.");
+    indexer.index(w, Map.of());
+    WorkName n = index.workNames(w).get(0);
+    assertThat(n.nameStringId()).isEqualTo(a);
+    assertThat(n.actTypes()).containsExactly("sp. nov.");
+    // share 0.25 only: no act (0.35), so below the 0.35 threshold
+    assertThat(n.salience()).isEqualTo(0.25f);
+    assertThat(n.mainSubject()).isFalse();
+  }
+
+  @Test
+  void workWithoutMentionsEndsIndexedEmpty() throws Exception {
+    long w = work("NO_TEXT");
+    indexer.index(w, Map.of());
+    assertThat(index.workNames(w)).isEmpty();
+    Map<String, Object> row = jdbc.queryForMap("SELECT state, codes, taxgroups, has_acts FROM work WHERE id = ?", w);
+    assertThat(row.get("state")).isEqualTo("INDEXED");
+    assertThat(((Array) row.get("codes")).getArray()).asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.ARRAY).isEmpty();
+    assertThat(((Array) row.get("taxgroups")).getArray()).asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.ARRAY).isEmpty();
+    assertThat(row.get("has_acts")).isEqualTo(false);
   }
 }

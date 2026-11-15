@@ -24,15 +24,15 @@ public class IndexerConfig {
   /** Salience weights and threshold ({@code nametracker.salience.*}, defaults in application.yml). */
   @Bean
   SalienceProperties salienceProperties(
-      @Value("${nametracker.salience.title:0.40}") double title,
-      @Value("${nametracker.salience.abstract:0.20}") double abstractWeight,
-      @Value("${nametracker.salience.act:0.35}") double act,
-      @Value("${nametracker.salience.heading:0.15}") double heading,
-      @Value("${nametracker.salience.share:0.25}") double share,
-      @Value("${nametracker.salience.repeat:0.15}") double repeat,
-      @Value("${nametracker.salience.ubiquity:0.50}") double ubiquity,
-      @Value("${nametracker.salience.ubiquity-full-share:0.02}") double ubiquityFullShare,
-      @Value("${nametracker.salience.threshold:0.35}") double threshold) {
+      @Value("${nametracker.salience.title}") double title,
+      @Value("${nametracker.salience.abstract}") double abstractWeight,
+      @Value("${nametracker.salience.act}") double act,
+      @Value("${nametracker.salience.heading}") double heading,
+      @Value("${nametracker.salience.share}") double share,
+      @Value("${nametracker.salience.repeat}") double repeat,
+      @Value("${nametracker.salience.ubiquity}") double ubiquity,
+      @Value("${nametracker.salience.ubiquity-full-share}") double ubiquityFullShare,
+      @Value("${nametracker.salience.threshold}") double threshold) {
     return new SalienceProperties(title, abstractWeight, act, heading, share, repeat, ubiquity, ubiquityFullShare,
         threshold);
   }

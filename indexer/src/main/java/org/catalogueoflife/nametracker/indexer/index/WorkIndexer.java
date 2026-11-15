@@ -69,11 +69,13 @@ public class WorkIndexer implements WorkIndexing {
       int body = bodyCount(ms);
       boolean inTitle = false, inAbstract = false, inHeading = false;
       Set<String> acts = new LinkedHashSet<>();
+      boolean bodyAct = false;
       MentionRow title = null, abs = null, firstBody = null;
       for (MentionRow m : ms) {
         boolean ref = "REFERENCE".equals(m.blockType());
         if (m.actType() != null) acts.add(m.actType());
         if (ref) continue;
+        if (m.actType() != null) bodyAct = true;
         if (firstBody == null) firstBody = m;
         switch (m.blockType()) {
           case "TITLE" -> {
@@ -90,7 +92,7 @@ public class WorkIndexer implements WorkIndexing {
       }
       if (abstractOnly && body > 0) inAbstract = true;
       MentionRow best = title != null ? title : abs != null ? abs : firstBody != null ? firstBody : ms.get(0);
-      double s = salience.score(new Salience.Inputs(inTitle, inAbstract, !acts.isEmpty(), inHeading, body, maxBody,
+      double s = salience.score(new Salience.Inputs(inTitle, inAbstract, bodyAct, inHeading, body, maxBody,
           ubiquity.getOrDefault(e.getKey(), 0.0)));
       boolean main = body > 0 && salience.isMainSubject(s);
       Placement p = placements.get(e.getKey());
