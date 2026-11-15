@@ -127,11 +127,12 @@ class JudgeTunerTest {
   void overridesJsonHoldsOnlyChangedWeights() throws Exception {
     PipelineConfig base = finder().config();
     Map<String, Double> w = new java.util.HashMap<>(base.judgeWeights());
-    w.put("italic", 2.0);
+    double italic = base.judgeWeights().get("italic") + 1.5; // a value the defaults do not have, whatever tuning gave
+    w.put("italic", italic);
     String json = new JudgeTuner.Setting(0.6, w).overridesJson(base);
-    assertThat(json).isEqualTo("{\"judgeThreshold\":0.6,\"judgeWeights\":{\"italic\":2.0}}");
+    assertThat(json).isEqualTo("{\"judgeThreshold\":0.6,\"judgeWeights\":{\"italic\":" + italic + "}}");
     PipelineConfig tuned = base.withOverrides(json);
-    assertThat(tuned.judgeWeights().get("italic")).isEqualTo(2.0);
+    assertThat(tuned.judgeWeights().get("italic")).isEqualTo(italic);
     assertThat(tuned.judgeThreshold()).isEqualTo(0.6);
   }
 
