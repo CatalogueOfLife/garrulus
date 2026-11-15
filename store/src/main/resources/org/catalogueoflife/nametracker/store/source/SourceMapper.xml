@@ -31,6 +31,8 @@
       <arg column="last_harvested" javaType="java.time.Instant"/>
       <arg column="created" javaType="java.time.Instant"/>
       <arg column="modified" javaType="java.time.Instant"/>
+      <arg column="onboarded_at" javaType="java.time.Instant"/>
+      <arg column="tier_set_by" javaType="string"/>
     </constructor>
   </resultMap>
 
@@ -73,4 +75,40 @@
       modified = now()
     WHERE id = #{o.id}
   </update>
+
+  <select id="findByOpenalexId" resultMap="result">
+    SELECT * FROM source WHERE openalex_id = #{id}
+  </select>
+
+  <select id="listHarvestable" resultMap="result">
+    SELECT * FROM source WHERE active AND tier IN ('CORE','BROAD') AND onboarded_at IS NOT NULL ORDER BY id
+  </select>
+
+  <select id="listToOnboard" resultMap="result">
+    SELECT * FROM source WHERE active AND tier IN ('CORE','BROAD') AND onboarded_at IS NULL ORDER BY id
+  </select>
+
+  <update id="setOnboarded">
+    UPDATE source SET onboarded_at = #{at}, modified = now() WHERE id = #{id}
+  </update>
+
+  <update id="setLastHarvested">
+    UPDATE source SET last_harvested = #{at}, modified = now() WHERE id = #{id}
+  </update>
+
+  <update id="setTier">
+    UPDATE source SET tier = #{tier}, active = #{active}, tier_set_by = #{tierSetBy}, modified = now()
+    WHERE id = #{id}
+  </update>
+
+  <select id="upsertSeed" resultType="long" flushCache="true">
+    INSERT INTO source (openalex_id, issn_l, issns, title, publisher, host, is_oa, in_doaj, tier, origin, adapter_config, active, subfields, primary_subfield, journal_type, taxgroups, taxgroup_shares, codes, oa_model, country, name_density, act_rate, works_per_year, last_harvested, tier_set_by)
+    VALUES (#{o.openalexId}, #{o.issnL}, COALESCE(#{o.issns, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[]), #{o.title}, #{o.publisher}, #{o.host}, #{o.isOa}, #{o.inDoaj}, COALESCE(#{o.tier}, 'CANDIDATE'), #{o.origin}, COALESCE(#{o.adapterConfig, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, '{}'::jsonb), COALESCE(#{o.active}, true), COALESCE(#{o.subfields, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[]), #{o.primarySubfield}, #{o.journalType}, COALESCE(#{o.taxgroups, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[]), COALESCE(#{o.taxgroupShares, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, '{}'::jsonb), COALESCE(#{o.codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[]), #{o.oaModel}, #{o.country}, #{o.nameDensity}, #{o.actRate}, #{o.worksPerYear}, #{o.lastHarvested}, COALESCE(#{o.tierSetBy}, 'SEED'))
+    ON CONFLICT (openalex_id) DO UPDATE SET
+      issn_l = EXCLUDED.issn_l, issns = EXCLUDED.issns, title = EXCLUDED.title, publisher = EXCLUDED.publisher,
+      host = EXCLUDED.host, is_oa = EXCLUDED.is_oa, in_doaj = EXCLUDED.in_doaj, subfields = EXCLUDED.subfields,
+      primary_subfield = EXCLUDED.primary_subfield, oa_model = EXCLUDED.oa_model, country = EXCLUDED.country,
+      works_per_year = EXCLUDED.works_per_year, modified = now()
+    RETURNING id
+  </select>
 </mapper>

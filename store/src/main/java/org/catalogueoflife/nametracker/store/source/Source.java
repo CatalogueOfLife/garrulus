@@ -31,5 +31,7 @@ public record Source(
     Integer worksPerYear,
     Instant lastHarvested,
     Instant created,
-    Instant modified) {
+    Instant modified,
+    Instant onboardedAt,
+    String tierSetBy) {
 }

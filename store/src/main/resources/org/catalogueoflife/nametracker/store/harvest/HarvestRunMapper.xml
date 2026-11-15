@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.nametracker.store.harvest.HarvestRunMapper">
+
+  <resultMap id="result" type="org.catalogueoflife.nametracker.store.harvest.HarvestRun">
+    <constructor>
+      <idArg column="id" javaType="long"/>
+      <arg column="adapter" javaType="string"/>
+      <arg column="window_from" javaType="java.time.LocalDate"/>
+      <arg column="window_to" javaType="java.time.LocalDate"/>
+      <arg column="started" javaType="java.time.Instant"/>
+      <arg column="finished" javaType="java.time.Instant"/>
+      <arg column="calls" javaType="int"/>
+      <arg column="works_seen" javaType="int"/>
+      <arg column="works_new" javaType="int"/>
+      <arg column="state" javaType="string"/>
+      <arg column="error" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <select id="start" resultType="long" flushCache="true">
+    INSERT INTO harvest_run (adapter, window_from, window_to) VALUES (#{adapter}, #{from}, #{to})
+    RETURNING id
+  </select>
+
+  <update id="finish">
+    UPDATE harvest_run SET state = #{state}, calls = #{calls}, works_seen = #{seen}, works_new = #{created},
+      error = #{error}, finished = now()
+    WHERE id = #{id}
+  </update>
+
+  <select id="recent" resultMap="result">
+    SELECT * FROM harvest_run ORDER BY started DESC, id DESC LIMIT #{limit}
+  </select>
+</mapper>

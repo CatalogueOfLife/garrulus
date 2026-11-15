@@ -31,5 +31,9 @@ public record Work(
     List<String> taxgroups,
     Boolean hasActs,
     Instant firstSeenAt,
-    Instant modified) {
+    Instant modified,
+    String abstractJats,
+    String pmcid,
+    Boolean openalexHasTei,
+    Instant openalexCheckedAt) {
 }

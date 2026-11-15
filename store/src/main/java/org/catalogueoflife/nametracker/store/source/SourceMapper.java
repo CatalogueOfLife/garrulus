@@ -1,5 +1,7 @@
 package org.catalogueoflife.nametracker.store.source;
 
+import java.time.Instant;
+import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -13,4 +15,25 @@ public interface SourceMapper {
 
   /** Updates all columns of the row with the argument's id and bumps modified. */
   int update(@Param("o") Source o);
+
+  Source findByOpenalexId(@Param("id") String id);
+
+  /** Active CORE/BROAD sources that have been onboarded, ordered by id. */
+  List<Source> listHarvestable();
+
+  /** Active CORE/BROAD sources not yet onboarded, ordered by id. */
+  List<Source> listToOnboard();
+
+  int setOnboarded(@Param("id") long id, @Param("at") Instant at);
+
+  int setLastHarvested(@Param("id") long id, @Param("at") Instant at);
+
+  int setTier(@Param("id") long id, @Param("tier") String tier, @Param("active") boolean active,
+      @Param("tierSetBy") String tierSetBy);
+
+  /**
+   * Inserts, or on an openalex_id conflict refreshes only the metadata columns. Never touches tier, active, origin,
+   * tier_set_by or onboarded_at. Returns the id of the row.
+   */
+  long upsertSeed(@Param("o") Source o);
 }
