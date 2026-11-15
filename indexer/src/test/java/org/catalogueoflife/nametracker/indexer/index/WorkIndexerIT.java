@@ -127,6 +127,8 @@ class WorkIndexerIT extends AbstractPostgresIT {
     // share 0.25 only: no act (0.35), so below the 0.35 threshold
     assertThat(n.salience()).isEqualTo(0.25f);
     assertThat(n.mainSubject()).isFalse();
+    // an act cited in the references is not an act of this work
+    assertThat(jdbc.queryForObject("SELECT has_acts FROM work WHERE id = ?", Boolean.class, w)).isFalse();
   }
 
   @Test

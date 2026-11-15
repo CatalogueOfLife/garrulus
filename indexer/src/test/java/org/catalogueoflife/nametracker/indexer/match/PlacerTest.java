@@ -46,6 +46,18 @@ class PlacerTest {
   }
 
   @Test
+  void higherrankToGenusOfAnAbbreviatedNameIsGenus() throws Exception {
+    // "U. microps sp. nov.", expanded to Uenoites microps: a new species lands on its genus, not on the context
+    ClbMatch ctx = fixture("match-carabidae.json");
+    Placement p = Placer.place(ns("Carabus xyzzyus", "ABBREVIATED", "SPECIES"), fixture("match-carabus-xyzzyus.json"),
+        List.of(ctx));
+    assertThat(p.method()).isEqualTo("GENUS");
+    assertThat(p.usageId()).isEqualTo("8KVGQ");
+    assertThat(Placer.needsContext(ns("Carabus xyzzyus", "ABBREVIATED", "SPECIES"),
+        fixture("match-carabus-xyzzyus.json"))).isFalse();
+  }
+
+  @Test
   void higherrankToGenusNeedsABinomialKind() throws Exception {
     Placement p = Placer.place(ns("Carabus", "UNINOMIAL", "GENUS"), fixture("match-carabus-xyzzyus.json"), List.of());
     assertThat(p.method()).isEqualTo("NONE");

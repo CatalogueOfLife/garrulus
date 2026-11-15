@@ -18,6 +18,8 @@ import tools.jackson.databind.JsonNode;
  * The ChecklistBank API: the current COL eXtended Release (dataset 3LXR) and name usage matching in a given release
  * ({@code mode=RELAXED}). A CLB that is down (retryable failure, or its name does not resolve) is a
  * {@link ServiceOutageException} due after the harvest outage delay; any other failure is an {@link HttpProblem}.
+ * A match call that fails retryably is checked with a probe of {@code GET /dataset/3LXR}: if that answers, CLB is up
+ * and the name is at fault ({@link UnmatchableNameException}), as it is for a 4xx on a match call.
  */
 public class ClbClient {
 
@@ -60,7 +62,27 @@ public class ClbClient {
       sb.append(sep).append(e.getKey()).append('=').append(enc(e.getValue()));
       sep = '&';
     }
-    return ClbMatch.parse(getJson(URI.create(sb.toString())));
+    JsonNode json;
+    try {
+      json = getJson(URI.create(sb.toString()));
+    } catch (ServiceOutageException e) {
+      if (!up()) throw e;
+      throw new UnmatchableNameException(q.name(), e.getCause() == null ? e : e.getCause());
+    } catch (HttpProblem e) {
+      if (e.status() >= 400 && e.status() < 500) throw new UnmatchableNameException(q.name(), e);
+      throw e;
+    }
+    return ClbMatch.parse(json);
+  }
+
+  /** The probe after a failed match call: true if CLB answers {@code GET /dataset/3LXR}. */
+  private boolean up() {
+    try {
+      currentXr();
+      return true;
+    } catch (RuntimeException e) {
+      return false;
+    }
   }
 
   private JsonNode getJson(URI uri) {

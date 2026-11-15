@@ -19,7 +19,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Aggregates the mentions of a work into {@code work_name} rows with salience and main-subject flag, fills the work's
- * codes, taxgroups and has_acts and moves it to INDEXED. One transaction that locks the work row first, so a redelivery
+ * codes, taxgroups and has_acts (acts outside the references only; {@code act_types} keeps them all) and moves it to
+ * INDEXED. One transaction that locks the work row first, so a redelivery
  * replaces the rows and gives identical ones.
  */
 @Component
@@ -49,7 +50,7 @@ public class WorkIndexer implements WorkIndexing {
     boolean hasActs = false;
     for (MentionRow m : index.mentions(workId)) {
       byName.computeIfAbsent(m.nameStringId(), k -> new ArrayList<>()).add(m);
-      if (m.actType() != null) hasActs = true;
+      if (m.actType() != null && !"REFERENCE".equals(m.blockType())) hasActs = true; // a cited act is not this work's
     }
     Map<Long, Double> ubiquity = new HashMap<>();
     List<Long> ids = new ArrayList<>(byName.keySet());

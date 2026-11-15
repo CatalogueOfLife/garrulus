@@ -44,6 +44,11 @@ class IndexMapperIT extends AbstractPostgresIT {
         .containsEntry("kind", "SCIENTIFIC").containsEntry("rank", "species");
     long id2 = index.nameStringId("Quercus", "SCIENTIFIC", null);
     assertThat(id2).isNotEqualTo(id);
+    // an existing name is not written to: same row version
+    String xmin = jdbc.queryForObject("SELECT xmin::text FROM name_string WHERE id = ?", String.class, id);
+    assertThat(index.nameStringId("Abies alba", "SCIENTIFIC", "species")).isEqualTo(id);
+    assertThat(jdbc.queryForObject("SELECT xmin::text FROM name_string WHERE id = ?", String.class, id)).isEqualTo(xmin);
+    assertThat(index.nameStringIdByName("Quercus")).isEqualTo(id2);
   }
 
   @Test

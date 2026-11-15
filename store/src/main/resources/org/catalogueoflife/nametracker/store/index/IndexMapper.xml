@@ -108,10 +108,20 @@
     RETURNING id
   </select>
 
-  <select id="nameStringId" resultType="long" flushCache="true">
-    INSERT INTO name_string (name, kind, rank) VALUES (#{name}, #{kind}, #{rank})
-    ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
-    RETURNING id
+  <!-- No DO UPDATE: an existing name is neither locked nor rewritten. The union finds it when the insert did nothing. -->
+  <select id="insertNameString" resultType="java.lang.Long" flushCache="true">
+    WITH ins AS (
+      INSERT INTO name_string (name, kind, rank) VALUES (#{name}, #{kind}, #{rank})
+      ON CONFLICT (name) DO NOTHING
+      RETURNING id)
+    SELECT id FROM ins
+    UNION ALL
+    SELECT id FROM name_string WHERE name = #{name}
+    LIMIT 1
+  </select>
+
+  <select id="nameStringIdByName" resultType="long" flushCache="true">
+    SELECT id FROM name_string WHERE name = #{name}
   </select>
 
   <delete id="deleteMentions">DELETE FROM mention WHERE work_id = #{workId}</delete>
@@ -207,10 +217,6 @@
   <select id="nameString" resultMap="nameStringRow">
     SELECT id, name, kind, rank FROM name_string WHERE id = #{id}
   </select>
-
-  <update id="setMatched">
-    UPDATE work SET state = 'MATCHED', modified = now() WHERE id = #{workId}
-  </update>
 
   <update id="updateIndexed">
     UPDATE work SET codes = #{codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler},

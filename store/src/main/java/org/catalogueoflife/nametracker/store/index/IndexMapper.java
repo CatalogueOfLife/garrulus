@@ -11,8 +11,21 @@ public interface IndexMapper {
   /** Upserts the run (identity is name, version, configHash and dictionaryKey, null included) and returns its id. */
   long finderRunId(@Param("o") FinderRun o);
 
-  /** Upserts by name and returns the id; kind and rank of an existing row are never changed. */
-  long nameStringId(@Param("name") String name, @Param("kind") String kind, @Param("rank") @Nullable String rank);
+  /**
+   * The id of the name string, inserted if new; kind and rank of an existing row are never changed, and an existing
+   * row is not written to (no row lock, no dead tuple).
+   */
+  default long nameStringId(String name, String kind, @Nullable String rank) {
+    Long id = insertNameString(name, kind, rank);
+    // null only when a concurrent transaction committed the name after this statement's snapshot: look again
+    return id != null ? id : nameStringIdByName(name);
+  }
+
+  /** Inserts the name unless it exists; the id of the new or the existing row, null if the latter is not visible. */
+  @Nullable Long insertNameString(@Param("name") String name, @Param("kind") String kind,
+      @Param("rank") @Nullable String rank);
+
+  long nameStringIdByName(@Param("name") String name);
 
   /** Deletes the mentions, contexts and work_name rows of the work. */
   default void deleteWorkIndex(long workId) {
@@ -80,8 +93,6 @@ public interface IndexMapper {
 
   @Nullable NameString nameString(@Param("id") long id);
 
-  /** Sets state MATCHED. */
-  void setMatched(@Param("workId") long workId);
 
   /** Sets codes, taxgroups and has_acts, and also state INDEXED and indexed_at = now(). */
   default void setIndexed(long workId, String[] codes, String[] taxgroups, boolean hasActs) {

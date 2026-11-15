@@ -28,7 +28,10 @@ import tools.jackson.core.type.TypeReference;
  * {@code MATCH_NAMES}, payload {@code {"workId":n}}. Matches every distinct name of the work in the current XR (hints
  * from the classification context of its first mention that has one, else the document context), places it, and hands
  * the placements to {@link WorkIndexing}. A CLB outage surfaces as a {@code ServiceOutageException} from the match
- * cache and defers the task without using an attempt. Matches are cached per name and hint set, so a repeat is cheap.
+ * cache and defers the task without using an attempt. A name CLB cannot match while it is up
+ * ({@link UnmatchableNameException}) is placed NONE (a context element counts as unmatched), logged as a WARN and not
+ * cached; the work goes on. Matches are cached per name and hint set, so a repeat is cheap. Context elements are asked
+ * with the rank stored on their name string, so a cached match always answers the same query.
  */
 @Component
 public class MatchNamesHandler implements TaskHandler {
@@ -101,15 +104,24 @@ public class MatchNamesHandler implements TaskHandler {
     String authorship = mentions.stream().map(MentionRow::authorship).filter(a -> a != null && !a.isBlank())
         .findFirst().orElse(null);
 
-    ClbMatch own = toClb(cache.match(nameStringId, new MatchQuery(n.name(), n.rank(), authorship, hints(ranked))));
+    ClbMatch own;
+    try {
+      own = toClb(cache.match(nameStringId, new MatchQuery(n.name(), n.rank(), authorship, hints(ranked))));
+    } catch (UnmatchableNameException e) {
+      LOG.warn("Name \"{}\" ({}) placed NONE: {}", n.name(), nameStringId, e.getMessage());
+      return withContextGroup(Placer.place(n, NO_MATCH, null), n, ranked);
+    }
     List<ClbMatch> ctxMatches = null;
     if (Placer.needsContext(n, own)) {
       ctxMatches = new ArrayList<>();
       for (RankedName r : ranked) ctxMatches.add(contextMatch(r, contextMatches));
     }
-    Placement p = Placer.place(n, own, ctxMatches);
+    return withContextGroup(Placer.place(n, own, ctxMatches), n, ranked);
+  }
+
+  /** Nothing on the XR: the verbatim classification may still tell the group. */
+  private static Placement withContextGroup(Placement p, NameString n, List<RankedName> ranked) {
     if (p.taxgroup() == null && Placement.NONE.equals(p.method())) {
-      // nothing on the XR: the verbatim classification may still tell the group
       TaxGroup g = TaxGroups.of(n.name(), n.rank(), ranked);
       NomCode c = TaxGroups.codeOf(g);
       if (g != null) p = p.withGroup(c == null ? null : c.name(), g.name());
@@ -121,12 +133,23 @@ public class MatchNamesHandler implements TaskHandler {
     return FinderJson.mapper().readValue(c.ranks(), RANKED);
   }
 
-  /** Matches one context element alone, without hints, as its own UNINOMIAL name string; once per work. */
+  /**
+   * Matches one context element alone, without hints, as its own UNINOMIAL name string; once per work. The query uses
+   * the rank of the stored name string (its first-seen rank), not the rank of this context: the cache key has no rank,
+   * so the cached match must always answer the same query.
+   */
   private ClbMatch contextMatch(RankedName r, Map<Long, ClbMatch> done) {
     long id = index.nameStringId(r.name(), "UNINOMIAL", r.rank().name());
     ClbMatch cm = done.get(id);
     if (cm == null) {
-      cm = toClb(cache.match(id, new MatchQuery(r.name(), r.rank().name(), null, new TreeMap<>())));
+      NameString ns = index.nameString(id);
+      String rank = ns == null ? r.rank().name() : ns.rank();
+      try {
+        cm = toClb(cache.match(id, new MatchQuery(r.name(), rank, null, new TreeMap<>())));
+      } catch (UnmatchableNameException e) {
+        LOG.warn("Context name \"{}\" ({}) left unmatched: {}", r.name(), id, e.getMessage());
+        cm = NO_MATCH;
+      }
       done.put(id, cm);
     }
     return cm;

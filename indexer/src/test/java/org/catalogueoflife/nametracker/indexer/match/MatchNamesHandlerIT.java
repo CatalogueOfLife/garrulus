@@ -10,7 +10,9 @@ import java.net.http.HttpClient;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.catalogueoflife.nametracker.indexer.AbstractPostgresIT;
 import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
@@ -33,6 +35,7 @@ class MatchNamesHandlerIT extends AbstractPostgresIT {
   @Autowired JdbcTemplate jdbc;
 
   Map<Long, Placement> indexed;
+  List<Long> indexedWorks;
   MatchNamesHandler handler;
 
   @BeforeEach
@@ -47,10 +50,12 @@ class MatchNamesHandlerIT extends AbstractPostgresIT {
     ClbClient clb = new ClbClient(http, w.getHttpBaseUrl(), new HarvestOutage(Duration.ofMinutes(30), Clock.systemUTC()));
     XrReleaseService xr = new XrReleaseService(index, clb);
     indexed = new HashMap<>();
+    indexedWorks = new ArrayList<>();
     handler = new MatchNamesHandler(index, new MatchCache(index, clb, xr), xr, (id, m) -> {
       indexed.putAll(m);
-      index.setMatched(id);
+      indexedWorks.add(id);
     });
+    stubFor(get(urlEqualTo("/dataset/3LXR")).willReturn(json("dataset-3LXR.json")));
     stubFor(get(urlPathEqualTo(M)).atPriority(10).willReturn(json("match-none.json")));
     stubFor(get(urlPathEqualTo(M)).withQueryParam("scientificName", equalTo("Carabus xyzzyus"))
         .willReturn(json("match-carabus-xyzzyus.json")));
@@ -88,7 +93,7 @@ class MatchNamesHandlerIT extends AbstractPostgresIT {
 
   private static Task task(long workId) {
     return new Task(1, "MATCH_NAMES", "{\"workId\":" + workId + "}", TaskPriority.LIVE, null, 1, Instant.now(), null,
-        null, null, "k");
+        null, null, "k", null);
   }
 
   private static final String ORDER_FAMILY = "[{\"rank\":\"ORDER\",\"name\":\"Coleoptera\"},"
@@ -114,7 +119,7 @@ class MatchNamesHandlerIT extends AbstractPostgresIT {
     // the NONE path still gets group and code from the verbatim classification
     assertThat(indexed.get(fallback).taxgroup()).isEqualTo("Animals");
     assertThat(indexed.get(fallback).code()).isEqualTo("ZOOLOGICAL");
-    assertThat(jdbc.queryForObject("SELECT state FROM work WHERE id = ?", String.class, w)).isEqualTo("MATCHED");
+    assertThat(indexedWorks).containsExactly(w);
   }
 
   @Test
@@ -146,16 +151,17 @@ class MatchNamesHandlerIT extends AbstractPostgresIT {
   }
 
   @Test
-  void noMentionsStillMarksMatched() throws Exception {
+  void noMentionsIsStillIndexed() throws Exception {
     long w = work();
     handler.handle(task(w));
     assertThat(indexed).isEmpty();
-    assertThat(jdbc.queryForObject("SELECT state FROM work WHERE id = ?", String.class, w)).isEqualTo("MATCHED");
+    assertThat(indexedWorks).containsExactly(w);
   }
 
   @Test
   void clbOutageDefersWithoutAttempt() {
     stubFor(get(urlPathEqualTo(M)).atPriority(1).willReturn(aResponse().withStatus(503)));
+    stubFor(get(urlEqualTo("/dataset/3LXR")).atPriority(1).willReturn(aResponse().withStatus(503))); // the probe fails too
     long w = work();
     mention(w, "Carabus xyzzyus", "BINOMIAL", "SPECIES", null, 0);
     assertThatThrownBy(() -> handler.handle(task(w))).isInstanceOf(ServiceOutageException.class);
@@ -191,5 +197,62 @@ class MatchNamesHandlerIT extends AbstractPostgresIT {
 
     verify(1, getRequestedFor(urlPathEqualTo(M)).withQueryParam("scientificName", equalTo("Carabus xyzzyus"))
         .withQueryParam("order", equalTo("Coleoptera")).withQueryParam("family", equalTo("Carabidae")));
+  }
+
+  @Test
+  void aNameClbFailsOnWhileItIsUpIsNoneAndNotCached() throws Exception {
+    stubFor(get(urlPathEqualTo(M)).withQueryParam("scientificName", equalTo("Bad name"))
+        .willReturn(aResponse().withStatus(500)));
+    stubFor(get(urlPathEqualTo(M)).withQueryParam("scientificName", equalTo("Odd name"))
+        .willReturn(aResponse().withStatus(400)));
+    long w = work();
+    long sec = context(w, "s", ORDER_FAMILY, "SECTION");
+    long bad = mention(w, "Bad name", "BINOMIAL", "SPECIES", sec, 0);
+    long odd = mention(w, "Odd name", "BINOMIAL", "SPECIES", null, 20);
+    long good = mention(w, "Carabus xyzzyus", "BINOMIAL", "SPECIES", sec, 40);
+
+    handler.handle(task(w));
+
+    assertThat(indexedWorks).containsExactly(w);
+    assertThat(indexed.get(bad).method()).isEqualTo("NONE");
+    assertThat(indexed.get(bad).taxgroup()).isEqualTo("Coleoptera"); // the group still comes from the context
+    assertThat(indexed.get(odd).method()).isEqualTo("NONE");
+    assertThat(indexed.get(good).method()).isEqualTo("GENUS");
+    // the probe told CLB was up
+    verify(getRequestedFor(urlEqualTo("/dataset/3LXR")));
+    // not cached: a later run asks CLB again
+    for (long id : new long[] {bad, odd}) {
+      assertThat(jdbc.queryForObject("SELECT count(*) FROM name_match WHERE name_string_id = ?", Integer.class, id))
+          .isZero();
+    }
+  }
+
+  @Test
+  void aContextElementClbFailsOnIsUnmatched() throws Exception {
+    stubFor(get(urlPathEqualTo(M)).withQueryParam("scientificName", equalTo("Carabidae"))
+        .atPriority(1).willReturn(aResponse().withStatus(500)));
+    long w = work();
+    long sec = context(w, "s", ORDER_FAMILY, "SECTION");
+    long unknown = mention(w, "Xyzzy foo", "BINOMIAL", "SPECIES", sec, 0);
+
+    handler.handle(task(w));
+
+    Placement p = indexed.get(unknown);
+    assertThat(p.method()).isEqualTo("VERBATIM_CONTEXT");
+    assertThat(p.usageId()).isEqualTo("C2L"); // Coleoptera, the next matched element
+  }
+
+  @Test
+  void contextElementsAreAskedWithTheRankOfTheirNameString() throws Exception {
+    index.nameStringId("Carabidae", "UNINOMIAL", "FAMILY"); // first seen as a family
+    long w = work();
+    long sec = context(w, "s", "[{\"rank\":\"SUBFAMILY\",\"name\":\"Carabidae\"}]", "SECTION");
+    mention(w, "Xyzzy foo", "BINOMIAL", "SPECIES", sec, 0);
+
+    handler.handle(task(w));
+
+    verify(1, getRequestedFor(urlPathEqualTo(M)).withQueryParam("scientificName", equalTo("Carabidae"))
+        .withQueryParam("rank", equalTo("family")));
+    verify(0, getRequestedFor(urlPathEqualTo(M)).withQueryParam("rank", equalTo("subfamily")));
   }
 }

@@ -144,13 +144,33 @@ class ClbClientTest {
   @Test
   void clbDownThrowsServiceOutage(WireMockRuntimeInfo w) {
     stubFor(get(urlPathEqualTo(M)).willReturn(aResponse().withStatus(503)));
+    stubFor(get("/dataset/3LXR").willReturn(aResponse().withStatus(503))); // the probe fails as well
     assertThatThrownBy(() -> client(w).match(316691, new MatchQuery("Carabus", null, null, new TreeMap<>())))
         .isInstanceOfSatisfying(ServiceOutageException.class, e -> {
           assertThat(e.service()).isEqualTo("CLB");
           assertThat(e.retryAt()).isEqualTo(NOW.plus(Duration.ofMinutes(30)));
         });
-    stubFor(get("/dataset/3LXR").willReturn(aResponse().withStatus(503)));
     assertThatThrownBy(() -> client(w).currentXr()).isInstanceOf(ServiceOutageException.class);
+  }
+
+  @Test
+  void aMatchFailingWhileClbIsUpIsTheNamesFault(WireMockRuntimeInfo w) throws IOException {
+    stubFor(get(urlPathEqualTo(M)).willReturn(aResponse().withStatus(500)));
+    stubFor(get("/dataset/3LXR").willReturn(json(fixture("dataset-3LXR.json"))));
+    assertThatThrownBy(() -> client(w).match(316691, new MatchQuery("Carabus", null, null, new TreeMap<>())))
+        .isInstanceOfSatisfying(UnmatchableNameException.class, e -> {
+          assertThat(e.name()).isEqualTo("Carabus");
+          assertThat(e).hasRootCauseInstanceOf(HttpProblem.class).hasMessageContaining("HTTP 500");
+        });
+    verify(1, getRequestedFor(urlEqualTo("/dataset/3LXR")));
+  }
+
+  @Test
+  void aMatchFailingWithAProbeThatFailsIsAnOutage(WireMockRuntimeInfo w) {
+    stubFor(get(urlPathEqualTo(M)).willReturn(aResponse().withStatus(500)));
+    stubFor(get("/dataset/3LXR").willReturn(aResponse().withStatus(502)));
+    assertThatThrownBy(() -> client(w).match(316691, new MatchQuery("Carabus", null, null, new TreeMap<>())))
+        .isInstanceOf(ServiceOutageException.class);
   }
 
   @Test
@@ -167,8 +187,16 @@ class ClbClientTest {
   }
 
   @Test
-  void otherErrorsAreNotOutages(WireMockRuntimeInfo w) {
+  void aClientErrorOnAMatchIsTheNamesFault(WireMockRuntimeInfo w) {
     stubFor(get(urlPathEqualTo(M)).willReturn(aResponse().withStatus(400)));
+    assertThatThrownBy(() -> client(w).match(316691, new MatchQuery("Carabus", null, null, new TreeMap<>())))
+        .isInstanceOf(UnmatchableNameException.class).hasCauseInstanceOf(HttpProblem.class);
+    verify(0, getRequestedFor(urlEqualTo("/dataset/3LXR"))); // no probe needed
+  }
+
+  @Test
+  void otherErrorsAreNotOutages(WireMockRuntimeInfo w) {
+    stubFor(get(urlPathEqualTo(M)).willReturn(json("not json")));
     assertThatThrownBy(() -> client(w).match(316691, new MatchQuery("Carabus", null, null, new TreeMap<>())))
         .isInstanceOf(HttpProblem.class);
   }

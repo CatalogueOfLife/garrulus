@@ -9,13 +9,13 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Decides where a name goes on the XR. An exact, variant or canonical match is a MATCH. A higherrank match to a genus
- * for a binomial, trinomial or infrageneric name is GENUS. Otherwise the lowest matched classification context taxon
+ * for a binomial, trinomial, infrageneric or abbreviated name (an expanded "U. microps") is GENUS. Otherwise the lowest matched classification context taxon
  * is the VERBATIM_CONTEXT fallback, else NONE. A name that is an OTU is never matched.
  */
 public final class Placer {
 
   private static final Set<String> MATCH_TYPES = Set.of("exact", "variant", "canonical");
-  private static final Set<String> GENUS_KINDS = Set.of("BINOMIAL", "TRINOMIAL", "INFRAGENERIC");
+  private static final Set<String> GENUS_KINDS = Set.of("BINOMIAL", "TRINOMIAL", "INFRAGENERIC", "ABBREVIATED");
 
   private Placer() {}
 
