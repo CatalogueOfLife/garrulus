@@ -1,0 +1,492 @@
+openapi: 3.1.0
+info:
+  title: Garrulus public API
+  version: "0.1"
+  description: >
+    Read-only, unauthenticated API of Garrulus, the name-literature index of the Catalogue of Life. Only works in
+    state INDEXED or NOTIFIED are listed. Errors are `{status, error}`. The `/api/taxa/**` endpoints send CORS headers
+    for the COL portal origins (GET only). The admin endpoints under `/api/admin` are not part of this API.
+  license:
+    name: Apache 2.0
+    identifier: Apache-2.0
+servers:
+  - url: /
+tags:
+  - name: works
+  - name: names
+  - name: taxa
+  - name: sources
+  - name: reference
+paths:
+  /api/ping:
+    get:
+      tags: [reference]
+      summary: Health check
+      operationId: ping
+      responses:
+        "200":
+          description: The text `pong`.
+          content:
+            text/plain:
+              schema: {type: string, examples: [pong]}
+  /api/works:
+    get:
+      tags: [works]
+      summary: Search works
+      description: >
+        Newest first. All filters combine with AND. `taxon` matches works that name the usage or any descendant
+        outside references; with `mainSubjectOnly` only names that are the main subject of the work count.
+      operationId: searchWorks
+      parameters:
+        - {name: taxon, in: query, description: "A usage id of the current XR.", schema: {type: string}}
+        - {name: name, in: query, description: "A name id (see /api/names).", schema: {type: integer, format: int64}}
+        - {name: code, in: query, description: "NomCode name, e.g. ZOOLOGICAL.", schema: {type: string}}
+        - {name: taxgroup, in: query, description: "TaxGroup name (see /api/vocab/taxgroup); hierarchical.", schema: {type: string}}
+        - {name: subfield, in: query, schema: {type: string}}
+        - {name: journalType, in: query, schema: {type: string, enum: [TAXONOMIC, GENERAL]}}
+        - {name: tier, in: query, schema: {type: string, enum: [CORE, BROAD, CANDIDATE, EXCLUDED]}}
+        - {name: oa, in: query, schema: {type: string, enum: [DIAMOND, GOLD, HYBRID, CLOSED]}}
+        - {name: country, in: query, schema: {type: string}}
+        - {name: source, in: query, schema: {type: integer, format: int64}}
+        - {name: yearFrom, in: query, schema: {type: integer}}
+        - {name: yearTo, in: query, schema: {type: integer}}
+        - {name: hasActs, in: query, schema: {type: boolean}}
+        - {name: actType, in: query, schema: {type: string}}
+        - {name: mainSubjectOnly, in: query, schema: {type: boolean, default: false}}
+        - {name: q, in: query, description: "Full-text query over title and abstract.", schema: {type: string}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+        - {name: offset, in: query, schema: {type: integer, minimum: 0, maximum: 10000, default: 0}}
+        - name: facet
+          in: query
+          description: Repeatable.
+          schema:
+            type: array
+            items: {type: string, enum: [code, taxgroup, journalType, year, source, hasActs]}
+          explode: true
+      responses:
+        "200":
+          description: A page of works.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/WorkPage"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+  /api/works/{id}:
+    get:
+      tags: [works]
+      summary: One work with its names, classifications and, if retained, its text
+      operationId: getWork
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, format: int64}}
+      responses:
+        "200":
+          description: The work.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/WorkDetail"}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /api/names:
+    get:
+      tags: [names]
+      summary: Find names by prefix, then by trigram similarity
+      description: Prefix matches come first, each group ordered by number of works descending.
+      operationId: searchNames
+      parameters:
+        - {name: q, in: query, required: true, description: "At least 2 characters.", schema: {type: string, minLength: 2}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 10}}
+      responses:
+        "200":
+          description: Matching names.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/NameHit"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+  /api/names/{id}:
+    get:
+      tags: [names]
+      summary: A name with its match in the current XR, its timeline and first appearance
+      description: The timeline counts indexed works per year that mention the name in any block, references included.
+      operationId: getName
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, format: int64}}
+      responses:
+        "200":
+          description: The name.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/NameFull"}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /api/taxa/{colId}/works:
+    get:
+      tags: [taxa]
+      summary: Works that name a taxon or a descendant
+      description: >
+        Same as /api/works with `taxon={colId}`, but `mainSubjectOnly` defaults to true. Same response. CORS enabled.
+      operationId: taxonWorks
+      parameters:
+        - {name: colId, in: path, required: true, description: "A usage id of the current XR.", schema: {type: string}}
+        - {name: mainSubjectOnly, in: query, schema: {type: boolean, default: true}}
+        - {name: yearFrom, in: query, schema: {type: integer}}
+        - {name: yearTo, in: query, schema: {type: integer}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+        - {name: offset, in: query, schema: {type: integer, minimum: 0, maximum: 10000, default: 0}}
+      responses:
+        "200":
+          description: A page of works.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/WorkPage"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+  /api/taxa/{colId}/stats:
+    get:
+      tags: [taxa]
+      summary: Works per year of a taxon, from the nightly taxon_stats
+      description: Unknown taxa and taxa without works give zero totals and no years. CORS enabled.
+      operationId: taxonStats
+      parameters:
+        - {name: colId, in: path, required: true, schema: {type: string}}
+      responses:
+        "200":
+          description: The statistics.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TaxonStats"}
+  /api/sources:
+    get:
+      tags: [sources]
+      summary: The followed journals (active CORE and BROAD sources)
+      operationId: listSources
+      parameters:
+        - {name: q, in: query, description: "Case-insensitive title substring.", schema: {type: string}}
+        - {name: tier, in: query, schema: {type: string, enum: [CORE, BROAD]}}
+        - {name: journalType, in: query, schema: {type: string, enum: [TAXONOMIC, GENERAL]}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+        - {name: offset, in: query, schema: {type: integer, minimum: 0, maximum: 10000, default: 0}}
+      responses:
+        "200":
+          description: A page of sources, by title.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/SourcePage"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+  /api/sources/{id}:
+    get:
+      tags: [sources]
+      summary: A followed journal with its 10 most recent works
+      operationId: getSource
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, format: int64}}
+      responses:
+        "200":
+          description: The source.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/SourceDetail"}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /api/xr:
+    get:
+      tags: [reference]
+      summary: The COL extended release that names are matched against
+      operationId: getXr
+      responses:
+        "200":
+          description: The pinned XR.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key, alias]
+                properties:
+                  key: {type: integer}
+                  alias: {type: string, examples: ["COL26.10 XR"]}
+        "404":
+          description: No XR release is known yet (before the first XR_CHECK).
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+  /api/vocab/taxgroup:
+    get:
+      tags: [reference]
+      summary: The TaxGroup vocabulary of ChecklistBank
+      operationId: taxGroups
+      responses:
+        "200":
+          description: All groups.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/TaxGroup"}
+components:
+  responses:
+    BadRequest:
+      description: An invalid parameter.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    NotFound:
+      description: Unknown, or not public.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+  schemas:
+    Error:
+      type: object
+      required: [status, error]
+      properties:
+        status: {type: integer}
+        error: {type: string}
+    TaxonRef:
+      type: object
+      properties:
+        id: {type: [string, "null"]}
+        name: {type: [string, "null"]}
+        rank: {type: [string, "null"]}
+    SourceRef:
+      type: object
+      required: [id, title]
+      properties:
+        id: {type: integer, format: int64}
+        title: {type: string}
+    NameRef:
+      type: object
+      required: [id, name, placementMethod]
+      properties:
+        id: {type: integer, format: int64}
+        name: {type: string}
+        placementMethod: {type: string, enum: [MATCH, GENUS, VERBATIM_CONTEXT, NONE]}
+        usageId: {type: [string, "null"]}
+    WorkSummary:
+      type: object
+      description: authors holds at most 3 names, mainNames at most 5.
+      required: [id, authors, authorCount, hasActs, mainNames]
+      properties:
+        id: {type: integer, format: int64}
+        doi: {type: [string, "null"]}
+        title: {type: [string, "null"]}
+        year: {type: [integer, "null"]}
+        publicationDate: {type: [string, "null"], format: date}
+        source: {oneOf: [{$ref: "#/components/schemas/SourceRef"}, {type: "null"}]}
+        authors: {type: array, items: {type: string}}
+        authorCount: {type: integer}
+        textLevel: {type: [string, "null"], enum: [FULLTEXT, ABSTRACT_ONLY, NO_TEXT, null]}
+        hasActs: {type: boolean}
+        mainNames: {type: array, items: {$ref: "#/components/schemas/NameRef"}}
+    FacetCount:
+      type: object
+      required: [value, count]
+      properties:
+        value: {type: string}
+        count: {type: integer, format: int64}
+    WorkPage:
+      type: object
+      required: [total, limit, offset, results, facets]
+      properties:
+        total: {type: integer, format: int64}
+        limit: {type: integer}
+        offset: {type: integer}
+        results: {type: array, items: {$ref: "#/components/schemas/WorkSummary"}}
+        facets:
+          type: object
+          description: The requested facets, each the 100 most frequent values.
+          additionalProperties:
+            type: array
+            items: {$ref: "#/components/schemas/FacetCount"}
+    Author:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string}
+        orcid: {type: [string, "null"]}
+    NameDetail:
+      type: object
+      required: [id, name, kind, placementMethod, salience, mainSubject, onlyReference, mentionCount, actTypes, bestSnippet, classification]
+      properties:
+        id: {type: integer, format: int64}
+        name: {type: string}
+        kind: {type: string}
+        rank: {type: [string, "null"]}
+        placementMethod: {type: string}
+        usageId: {type: [string, "null"]}
+        usageName: {type: [string, "null"]}
+        usageRank: {type: [string, "null"]}
+        usageStatus: {type: [string, "null"]}
+        code: {type: [string, "null"]}
+        taxgroup: {type: [string, "null"]}
+        salience: {type: number}
+        mainSubject: {type: boolean}
+        onlyReference: {type: boolean}
+        mentionCount: {type: integer}
+        actTypes: {type: array, items: {type: string}}
+        bestSnippet: {type: string}
+        classification: {type: array, items: {$ref: "#/components/schemas/TaxonRef"}}
+    MentionSpan:
+      type: object
+      description: startCp and endCp (exclusive) are code-point offsets into the block text.
+      required: [id, nameId, startCp, endCp, verbatim]
+      properties:
+        id: {type: integer, format: int64}
+        nameId: {type: integer, format: int64}
+        startCp: {type: integer}
+        endCp: {type: integer}
+        verbatim: {type: string}
+        actType: {type: [string, "null"]}
+    TextBlock:
+      type: object
+      required: [id, type, level, sectionPath, text, mentions]
+      properties:
+        id: {type: string}
+        type: {type: string}
+        level: {type: integer}
+        sectionPath: {type: array, items: {type: string}}
+        text: {type: string}
+        mentions: {type: array, items: {$ref: "#/components/schemas/MentionSpan"}}
+    Context:
+      type: object
+      description: A verbatim classification of the article; ranks maps rank to name.
+      required: [localId, verbatim, ranks, scope, blockId]
+      properties:
+        localId: {type: string}
+        verbatim: {type: string}
+        ranks: {type: object, additionalProperties: {type: string}}
+        scope: {type: string}
+        blockId: {type: string}
+        untilBlockId: {type: [string, "null"]}
+    WorkDetail:
+      type: object
+      description: text is null unless the work has a retained full-text document.
+      required: [id, authors, retained, hasActs, codes, taxgroups, names, contexts]
+      properties:
+        id: {type: integer, format: int64}
+        doi: {type: [string, "null"]}
+        title: {type: [string, "null"]}
+        year: {type: [integer, "null"]}
+        publicationDate: {type: [string, "null"], format: date}
+        source: {oneOf: [{$ref: "#/components/schemas/SourceRef"}, {type: "null"}]}
+        authors: {type: array, items: {$ref: "#/components/schemas/Author"}}
+        volume: {type: [string, "null"]}
+        issue: {type: [string, "null"]}
+        pages: {type: [string, "null"]}
+        language: {type: [string, "null"]}
+        type: {type: [string, "null"]}
+        oaStatus: {type: [string, "null"]}
+        bestOaUrl: {type: [string, "null"]}
+        abstract: {type: [string, "null"]}
+        licence: {type: [string, "null"]}
+        retained: {type: boolean}
+        textLevel: {type: [string, "null"]}
+        hasActs: {type: boolean}
+        codes: {type: array, items: {type: string}}
+        taxgroups: {type: array, items: {type: string}}
+        names: {type: array, items: {$ref: "#/components/schemas/NameDetail"}}
+        contexts: {type: array, items: {$ref: "#/components/schemas/Context"}}
+        text:
+          type: [array, "null"]
+          items: {$ref: "#/components/schemas/TextBlock"}
+    NameHit:
+      type: object
+      required: [id, name, kind, works]
+      properties:
+        id: {type: integer, format: int64}
+        name: {type: string}
+        kind: {type: string}
+        rank: {type: [string, "null"]}
+        works: {type: integer, format: int64, description: "Indexed works that mention the name."}
+    NameFull:
+      type: object
+      required: [id, name, kind, timeline]
+      properties:
+        id: {type: integer, format: int64}
+        name: {type: string}
+        kind: {type: string}
+        rank: {type: [string, "null"]}
+        match:
+          description: The match in the current XR, null if there is none.
+          oneOf:
+            - type: object
+              required: [classification]
+              properties:
+                usageId: {type: [string, "null"]}
+                usageName: {type: [string, "null"]}
+                rank: {type: [string, "null"]}
+                status: {type: [string, "null"]}
+                acceptedId: {type: [string, "null"]}
+                classification: {type: array, items: {$ref: "#/components/schemas/TaxonRef"}}
+            - type: "null"
+        timeline:
+          type: array
+          items:
+            type: object
+            required: [year, works]
+            properties:
+              year: {type: integer}
+              works: {type: integer, format: int64}
+        firstAppearance:
+          oneOf:
+            - type: object
+              required: [workId]
+              properties:
+                workId: {type: integer, format: int64}
+                title: {type: [string, "null"]}
+                publicationDate: {type: [string, "null"], format: date}
+            - type: "null"
+    TaxonStats:
+      type: object
+      required: [taxonId, total, mainSubjectTotal, years]
+      properties:
+        taxonId: {type: string}
+        total: {type: integer, format: int64}
+        mainSubjectTotal: {type: integer, format: int64}
+        years:
+          type: array
+          items:
+            type: object
+            required: [year, works, mainSubjectWorks]
+            properties:
+              year: {type: integer}
+              works: {type: integer}
+              mainSubjectWorks: {type: integer}
+    SourceItem:
+      type: object
+      required: [id, title, tier, subfields, taxgroups, codes]
+      properties:
+        id: {type: integer, format: int64}
+        title: {type: string}
+        publisher: {type: [string, "null"]}
+        tier: {type: string, enum: [CORE, BROAD]}
+        journalType: {type: [string, "null"], enum: [TAXONOMIC, GENERAL, null]}
+        primarySubfield: {type: [string, "null"]}
+        subfields: {type: array, items: {type: string}}
+        taxgroups: {type: array, items: {type: string}}
+        codes: {type: array, items: {type: string}}
+        oaModel: {type: [string, "null"], enum: [DIAMOND, GOLD, HYBRID, CLOSED, null]}
+        country: {type: [string, "null"]}
+        nameDensity: {type: [number, "null"]}
+        actRate: {type: [number, "null"]}
+        worksPerYear: {type: [integer, "null"]}
+    SourcePage:
+      type: object
+      required: [total, limit, offset, results]
+      properties:
+        total: {type: integer, format: int64}
+        limit: {type: integer}
+        offset: {type: integer}
+        results: {type: array, items: {$ref: "#/components/schemas/SourceItem"}}
+    SourceDetail:
+      allOf:
+        - {$ref: "#/components/schemas/SourceItem"}
+        - type: object
+          required: [recentWorks]
+          properties:
+            issnL: {type: [string, "null"]}
+            taxgroupShares: {type: [object, "null"], additionalProperties: {type: number}}
+            recentWorks: {type: array, items: {$ref: "#/components/schemas/WorkSummary"}}
+    TaxGroup:
+      type: object
+      required: [name, parents, codes, icon]
+      properties:
+        name: {type: string}
+        parents: {type: array, items: {type: string}}
+        codes: {type: array, items: {type: string}}
+        icon: {type: string, format: uri}

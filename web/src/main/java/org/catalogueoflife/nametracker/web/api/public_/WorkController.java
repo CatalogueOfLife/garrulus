@@ -111,12 +111,7 @@ public class WorkController {
       @RequestParam(defaultValue = "20") int limit,
       @RequestParam(defaultValue = "0") int offset,
       @RequestParam(name = "facet", required = false) @Nullable List<String> facet) {
-    if (limit < 1 || limit > MAX_LIMIT) {
-      throw bad("limit must be 1.." + MAX_LIMIT);
-    }
-    if (offset < 0 || offset > MAX_OFFSET) {
-      throw bad("offset must be 0.." + MAX_OFFSET);
-    }
+    checkPaging(limit, offset);
     requireOneOf("code", code, CODES);
     requireOneOf("taxgroup", taxgroup, TAXGROUPS);
     requireOneOf("tier", tier, TIERS);
@@ -128,7 +123,20 @@ public class WorkController {
     }
     WorkFilter f = new WorkFilter(blankToNull(taxon), name, code, taxgroup, blankToNull(subfield), journalType, tier, oa,
         blankToNull(country), source, yearFrom, yearTo, hasActs, blankToNull(actType), mainSubjectOnly, blankToNull(q));
+    return page(f, limit, offset, facets);
+  }
 
+  static void checkPaging(int limit, int offset) {
+    if (limit < 1 || limit > MAX_LIMIT) {
+      throw bad("limit must be 1.." + MAX_LIMIT);
+    }
+    if (offset < 0 || offset > MAX_OFFSET) {
+      throw bad("offset must be 0.." + MAX_OFFSET);
+    }
+  }
+
+  /** The search, count and facets of one filter: the code path of /api/works, shared by the taxon and source endpoints. */
+  WorkPage page(WorkFilter f, int limit, int offset, List<String> facets) {
     List<WorkHit> hits = search.search(f, limit, offset);
     Map<Long, List<NameRef>> mainNames = hits.isEmpty() ? Map.of()
         : search.mainNames(hits.stream().map(WorkHit::id).toList()).stream().collect(
@@ -244,7 +252,7 @@ public class WorkController {
     }
   }
 
-  private static ResponseStatusException bad(String reason) {
+  static ResponseStatusException bad(String reason) {
     return new ResponseStatusException(HttpStatus.BAD_REQUEST, reason);
   }
 }

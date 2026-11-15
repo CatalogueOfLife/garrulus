@@ -43,6 +43,13 @@ public interface SourceMapper {
   List<Source> list(@Param("tier") @Nullable String tier, @Param("active") @Nullable Boolean active,
       @Param("q") @Nullable String q, @Param("limit") int limit, @Param("offset") int offset);
 
+  /** Public listing: active CORE and BROAD sources only, optional tier, journal type and title substring; by title. */
+  List<Source> listPublic(@Param("q") @Nullable String q, @Param("tier") @Nullable String tier,
+      @Param("journalType") @Nullable String journalType, @Param("limit") int limit, @Param("offset") int offset);
+
+  long countPublic(@Param("q") @Nullable String q, @Param("tier") @Nullable String tier,
+      @Param("journalType") @Nullable String journalType);
+
   /** Rows tier, n. */
   List<Map<String, Object>> countByTier();
 

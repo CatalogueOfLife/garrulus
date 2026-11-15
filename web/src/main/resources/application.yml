@@ -35,3 +35,6 @@ nametracker:
     token: ${ADMIN_TOKEN:}
   blobs:
     dir: ${NAMETRACKER_BLOBS_DIR:./data/blobs}
+  web:
+    # origins allowed to call /api/taxa/** from a browser (comma-separated)
+    cors-origins: ${NAMETRACKER_WEB_CORS_ORIGINS:https://www.catalogueoflife.org,https://dev.catalogueoflife.org,https://preview.catalogueoflife.org}

@@ -46,6 +46,21 @@
     SELECT * FROM source WHERE id = #{id}
   </select>
 
+  <sql id="publicWhere">
+    WHERE active AND tier IN ('CORE', 'BROAD')
+    <if test="tier != null"> AND tier = #{tier}</if>
+    <if test="journalType != null"> AND journal_type = #{journalType}</if>
+    <if test="q != null"> AND title ILIKE '%' || #{q} || '%'</if>
+  </sql>
+
+  <select id="listPublic" resultMap="result">
+    SELECT * FROM source <include refid="publicWhere"/> ORDER BY title, id LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countPublic" resultType="long">
+    SELECT count(*) FROM source <include refid="publicWhere"/>
+  </select>
+
   <update id="update">
     UPDATE source SET
       openalex_id = #{o.openalexId},

@@ -61,6 +61,11 @@ cd frontend && npm run dev | npm test | npm run build   # Vite on 5173, proxies 
 - `indexer` salience (properties only, no env variables; set them in `application.yml`, `.env` or as `-D`/args):
   `nametracker.salience.{title=0.40, abstract=0.20, act=0.35, heading=0.15, share=0.25, repeat=0.15, ubiquity=0.50,
   ubiquity-full-share=0.02, threshold=0.35}`. A name with salience >= threshold is a main subject of the work.
+- `web` public API: `nametracker.web.cors-origins` (env `NAMETRACKER_WEB_CORS_ORIGINS`, comma-separated, default
+  `https://www.catalogueoflife.org,https://dev.catalogueoflife.org,https://preview.catalogueoflife.org`) are the origins
+  allowed to call `/api/taxa/**` from a browser (GET only; no other path sends CORS headers). The hand-written
+  OpenAPI file `web/src/main/resources/static/api/openapi.yaml` is served at `/api/openapi.yaml`; add every new public
+  GET under `/api` to it (`OpenApiCoverageTest` fails otherwise).
 - `finder-service`: `FINDER_DICTIONARY` (required), `GNFINDER_URL`, `FINDER_CONFIG` (a JSON file of pipeline overrides),
   `FINDER_SERVICE_PORT` (8095) and `FINDER_SERVICE_ADDRESS` (default `127.0.0.1`, loopback only; `0.0.0.0` to serve
   other hosts). A text or block over 100,000 code points (`maxChunkCodePoints`) is a 413; invalid documents are a 400.
