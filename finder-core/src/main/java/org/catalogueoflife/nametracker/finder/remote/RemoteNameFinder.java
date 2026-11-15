@@ -16,8 +16,8 @@ import java.util.Map;
 
 /**
  * A {@link NameFinder} that calls a finder service speaking {@code finder-api.yaml}: {@code GET /v1/info} (fetched once)
- * and {@code POST /v1/find}. Free of Spring, so any tool can use it. Only a 503 (the service cannot reach gnfinder) and
- * a failure to connect are a {@link FinderUnavailableException}; any other status, a read timeout or a broken connection
+ * and {@code POST /v1/find}. Free of Spring, so any tool can use it. Only 502/503/504 (503: the service cannot reach
+ * gnfinder; 502/504: a gateway in front of it) and a failure to connect are a {@link FinderUnavailableException}; any other status, a read timeout or a broken connection
  * is a plain {@link IllegalStateException}, a failure of this document.
  */
 public class RemoteNameFinder implements NameFinder {
@@ -82,7 +82,8 @@ public class RemoteNameFinder implements NameFinder {
         String b = resp.body() == null ? "" : resp.body();
         String msg = "Finder at " + req.uri() + " returned HTTP " + resp.statusCode() + ": "
             + (b.length() > EXCERPT ? b.substring(0, EXCERPT) + "..." : b);
-        throw resp.statusCode() == 503 ? new FinderUnavailableException(msg) : new IllegalStateException(msg);
+        throw ConnectFailures.isUnavailableStatus(resp.statusCode()) ? new FinderUnavailableException(msg)
+            : new IllegalStateException(msg);
       }
       return MAPPER.readValue(resp.body(), type);
     } catch (IOException e) {

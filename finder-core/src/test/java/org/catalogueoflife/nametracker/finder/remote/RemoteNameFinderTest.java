@@ -53,10 +53,13 @@ class RemoteNameFinderTest {
   }
 
   @Test
-  void only503IsUnavailable(WireMockRuntimeInfo wm) {
-    stubFor(post("/v1/find").willReturn(aResponse().withStatus(503).withBody("{}")));
-    assertThatThrownBy(() -> finder(wm).find(DOC, FinderOptions.defaults())).isInstanceOf(FinderUnavailableException.class);
-    for (int status : new int[] {400, 500, 502}) {
+  void only502To504AreUnavailable(WireMockRuntimeInfo wm) {
+    for (int status : new int[] {502, 503, 504}) {
+      stubFor(post("/v1/find").willReturn(aResponse().withStatus(status).withBody("{}")));
+      assertThatThrownBy(() -> finder(wm).find(DOC, FinderOptions.defaults()))
+          .isInstanceOf(FinderUnavailableException.class).hasMessageContaining("HTTP " + status);
+    }
+    for (int status : new int[] {400, 404, 500}) {
       stubFor(post("/v1/find").willReturn(aResponse().withStatus(status).withBody("{}")));
       assertThatThrownBy(() -> finder(wm).find(DOC, FinderOptions.defaults()))
           .isInstanceOf(IllegalStateException.class).isNotInstanceOf(FinderUnavailableException.class)

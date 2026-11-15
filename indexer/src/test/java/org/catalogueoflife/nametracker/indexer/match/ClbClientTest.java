@@ -143,8 +143,8 @@ class ClbClientTest {
 
   @Test
   void clbDownThrowsServiceOutage(WireMockRuntimeInfo w) {
-    stubFor(get(urlPathEqualTo(M)).willReturn(aResponse().withStatus(503)));
-    stubFor(get("/dataset/3LXR").willReturn(aResponse().withStatus(503))); // the probe fails as well
+    stubFor(get(urlPathEqualTo(M)).willReturn(aResponse().withStatus(503))); // the probe of the endpoint fails as well
+    stubFor(get("/dataset/3LXR").willReturn(aResponse().withStatus(503)));
     assertThatThrownBy(() -> client(w).match(316691, new MatchQuery("Carabus", null, null, new TreeMap<>())))
         .isInstanceOfSatisfying(ServiceOutageException.class, e -> {
           assertThat(e.service()).isEqualTo("CLB");
@@ -156,19 +156,23 @@ class ClbClientTest {
   @Test
   void aMatchFailingWhileClbIsUpIsTheNamesFault(WireMockRuntimeInfo w) throws IOException {
     stubFor(get(urlPathEqualTo(M)).willReturn(aResponse().withStatus(500)));
-    stubFor(get("/dataset/3LXR").willReturn(json(fixture("dataset-3LXR.json"))));
+    stubProbe(json(fixture("match-coleoptera.json")));
     assertThatThrownBy(() -> client(w).match(316691, new MatchQuery("Carabus", null, null, new TreeMap<>())))
         .isInstanceOfSatisfying(UnmatchableNameException.class, e -> {
           assertThat(e.name()).isEqualTo("Carabus");
           assertThat(e).hasRootCauseInstanceOf(HttpProblem.class).hasMessageContaining("HTTP 500");
         });
-    verify(1, getRequestedFor(urlEqualTo("/dataset/3LXR")));
+    // the probe asks the same endpoint and release, not /dataset/3LXR (another CLB server behind Varnish)
+    verify(1, getRequestedFor(urlPathEqualTo(M)).withQueryParam("scientificName", equalTo("Animalia"))
+        .withQueryParam("rank", equalTo("kingdom")).withQueryParam("mode", equalTo("RELAXED")));
+    verify(0, getRequestedFor(urlEqualTo("/dataset/3LXR")));
   }
 
   @Test
   void aMatchFailingWithAProbeThatFailsIsAnOutage(WireMockRuntimeInfo w) {
     stubFor(get(urlPathEqualTo(M)).willReturn(aResponse().withStatus(500)));
-    stubFor(get("/dataset/3LXR").willReturn(aResponse().withStatus(502)));
+    stubFor(get("/dataset/3LXR").willReturn(json("{\"key\":316691}"))); // the read-only server answers
+    stubProbe(aResponse().withStatus(502));
     assertThatThrownBy(() -> client(w).match(316691, new MatchQuery("Carabus", null, null, new TreeMap<>())))
         .isInstanceOf(ServiceOutageException.class);
   }
@@ -187,11 +191,32 @@ class ClbClientTest {
   }
 
   @Test
-  void aClientErrorOnAMatchIsTheNamesFault(WireMockRuntimeInfo w) {
+  void aClientErrorOnAMatchIsTheNamesFaultWhenTheProbeAnswers(WireMockRuntimeInfo w) throws IOException {
     stubFor(get(urlPathEqualTo(M)).willReturn(aResponse().withStatus(400)));
+    stubProbe(json(fixture("match-coleoptera.json")));
     assertThatThrownBy(() -> client(w).match(316691, new MatchQuery("Carabus", null, null, new TreeMap<>())))
         .isInstanceOf(UnmatchableNameException.class).hasCauseInstanceOf(HttpProblem.class);
-    verify(0, getRequestedFor(urlEqualTo("/dataset/3LXR"))); // no probe needed
+    verify(1, getRequestedFor(urlPathEqualTo(M)).withQueryParam("scientificName", equalTo("Animalia")));
+  }
+
+  @Test
+  void aClientErrorOnTheProbeTooIsAnOrdinaryFailure(WireMockRuntimeInfo w) {
+    stubFor(get(urlPathEqualTo(M)).willReturn(aResponse().withStatus(404))); // release removed or private
+    assertThatThrownBy(() -> client(w).match(316691, new MatchQuery("Carabus", null, null, new TreeMap<>())))
+        .isExactlyInstanceOf(HttpProblem.class).hasMessageContaining("probe").hasMessageContaining("316691")
+        .satisfies(e -> assertThat(((HttpProblem) e).retryable()).isFalse());
+  }
+
+  @Test
+  void aRetryableFailureAndAClientErrorOnTheProbeIsAnOrdinaryFailure(WireMockRuntimeInfo w) {
+    stubFor(get(urlPathEqualTo(M)).willReturn(aResponse().withStatus(500)));
+    stubProbe(aResponse().withStatus(400));
+    assertThatThrownBy(() -> client(w).match(316691, new MatchQuery("Carabus", null, null, new TreeMap<>())))
+        .isExactlyInstanceOf(HttpProblem.class).hasMessageContaining("probe");
+  }
+
+  static void stubProbe(ResponseDefinitionBuilder r) {
+    stubFor(get(urlPathEqualTo(M)).withQueryParam("scientificName", equalTo("Animalia")).atPriority(1).willReturn(r));
   }
 
   @Test

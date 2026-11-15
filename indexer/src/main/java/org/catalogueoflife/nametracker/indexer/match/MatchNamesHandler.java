@@ -9,6 +9,8 @@ import java.util.TreeMap;
 import life.catalogue.api.vocab.TaxGroup;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.finder.api.RankedName;
+import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
+import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.index.ContextRow;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
@@ -30,13 +32,16 @@ import tools.jackson.core.type.TypeReference;
  * the placements to {@link WorkIndexing}. A CLB outage surfaces as a {@code ServiceOutageException} from the match
  * cache and defers the task without using an attempt. A name CLB cannot match while it is up
  * ({@link UnmatchableNameException}) is placed NONE (a context element counts as unmatched), logged as a WARN and not
- * cached; the work goes on. Matches are cached per name and hint set, so a repeat is cheap. Context elements are asked
+ * cached; the work goes on. More than {@link #MAX_NAMES_AT_FAULT} such names in one task is not the names' fault: the
+ * task is deferred as a CLB outage and nothing of it is written. Matches are cached per name and hint set, so a repeat is cheap. Context elements are asked
  * with the rank stored on their name string, so a cached match always answers the same query.
  */
 @Component
 public class MatchNamesHandler implements TaskHandler {
 
   public static final String TYPE = "MATCH_NAMES";
+  /** More names "at fault" than this in one task trip the breaker: something systemic, deferred as an outage. */
+  static final int MAX_NAMES_AT_FAULT = 3;
   private static final Logger LOG = LoggerFactory.getLogger(MatchNamesHandler.class);
   private static final TypeReference<List<RankedName>> RANKED = new TypeReference<>() {};
 
@@ -46,12 +51,28 @@ public class MatchNamesHandler implements TaskHandler {
   private final MatchCache cache;
   private final XrReleaseService xr;
   private final WorkIndexing indexing;
+  private final HarvestOutage outage;
 
-  public MatchNamesHandler(IndexMapper index, MatchCache cache, XrReleaseService xr, WorkIndexing indexing) {
+  public MatchNamesHandler(IndexMapper index, MatchCache cache, XrReleaseService xr, WorkIndexing indexing,
+      HarvestOutage outage) {
     this.index = index;
     this.cache = cache;
     this.xr = xr;
     this.indexing = indexing;
+    this.outage = outage;
+  }
+
+  /** Counts the names of one task that CLB fails on while it is up; trips after {@link #MAX_NAMES_AT_FAULT}. */
+  private final class Faults {
+    private int n;
+
+    void add(String what, long nameStringId, UnmatchableNameException e) {
+      if (++n > MAX_NAMES_AT_FAULT) {
+        throw new ServiceOutageException(ClbClient.SERVICE, outage.retryAt(), new IllegalStateException(
+            "CLB failed on " + n + " names of one task, last " + what + " \"" + e.name() + "\"", e));
+      }
+      LOG.warn("{} \"{}\" ({}) left unmatched (NONE): {}", what, e.name(), nameStringId, e.getMessage());
+    }
   }
 
   @Override
@@ -76,11 +97,12 @@ public class MatchNamesHandler implements TaskHandler {
       for (MentionRow m : mentions) byName.computeIfAbsent(m.nameStringId(), k -> new ArrayList<>()).add(m);
       // the higher taxa of every verbatim classification are matched and stored, whether a placement needs them or not
       Map<Long, ClbMatch> contextMatches = new HashMap<>();
+      Faults faults = new Faults();
       for (ContextRow c : contexts.values()) {
-        for (RankedName r : ranked(c)) contextMatch(r, contextMatches);
+        for (RankedName r : ranked(c)) contextMatch(r, contextMatches, faults);
       }
       for (Map.Entry<Long, List<MentionRow>> e : byName.entrySet()) {
-        placements.put(e.getKey(), placeName(e.getKey(), e.getValue(), contexts, document, contextMatches));
+        placements.put(e.getKey(), placeName(e.getKey(), e.getValue(), contexts, document, contextMatches, faults));
       }
     }
     indexing.index(workId, placements);
@@ -88,7 +110,7 @@ public class MatchNamesHandler implements TaskHandler {
   }
 
   private Placement placeName(long nameStringId, List<MentionRow> mentions, Map<Long, ContextRow> contexts,
-      @Nullable ContextRow document, Map<Long, ClbMatch> contextMatches) {
+      @Nullable ContextRow document, Map<Long, ClbMatch> contextMatches, Faults faults) {
     NameString n = index.nameString(nameStringId);
     if (n == null) throw new IllegalStateException("Unknown name string " + nameStringId);
     if (!Placer.needsMatch(n)) return Placer.place(n, NO_MATCH, null);
@@ -108,13 +130,13 @@ public class MatchNamesHandler implements TaskHandler {
     try {
       own = toClb(cache.match(nameStringId, new MatchQuery(n.name(), n.rank(), authorship, hints(ranked))));
     } catch (UnmatchableNameException e) {
-      LOG.warn("Name \"{}\" ({}) placed NONE: {}", n.name(), nameStringId, e.getMessage());
+      faults.add("Name", nameStringId, e);
       return withContextGroup(Placer.place(n, NO_MATCH, null), n, ranked);
     }
     List<ClbMatch> ctxMatches = null;
     if (Placer.needsContext(n, own)) {
       ctxMatches = new ArrayList<>();
-      for (RankedName r : ranked) ctxMatches.add(contextMatch(r, contextMatches));
+      for (RankedName r : ranked) ctxMatches.add(contextMatch(r, contextMatches, faults));
     }
     return withContextGroup(Placer.place(n, own, ctxMatches), n, ranked);
   }
@@ -138,7 +160,7 @@ public class MatchNamesHandler implements TaskHandler {
    * the rank of the stored name string (its first-seen rank), not the rank of this context: the cache key has no rank,
    * so the cached match must always answer the same query.
    */
-  private ClbMatch contextMatch(RankedName r, Map<Long, ClbMatch> done) {
+  private ClbMatch contextMatch(RankedName r, Map<Long, ClbMatch> done, Faults faults) {
     long id = index.nameStringId(r.name(), "UNINOMIAL", r.rank().name());
     ClbMatch cm = done.get(id);
     if (cm == null) {
@@ -147,7 +169,7 @@ public class MatchNamesHandler implements TaskHandler {
       try {
         cm = toClb(cache.match(id, new MatchQuery(r.name(), rank, null, new TreeMap<>())));
       } catch (UnmatchableNameException e) {
-        LOG.warn("Context name \"{}\" ({}) left unmatched: {}", r.name(), id, e.getMessage());
+        faults.add("Context name", id, e);
         cm = NO_MATCH;
       }
       done.put(id, cm);

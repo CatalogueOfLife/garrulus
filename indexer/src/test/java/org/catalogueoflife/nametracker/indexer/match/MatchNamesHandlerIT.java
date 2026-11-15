@@ -47,15 +47,15 @@ class MatchNamesHandlerIT extends AbstractPostgresIT {
     index.addRelease(316691, "COL XR test", true);
     PoliteHttp http = new PoliteHttp(HttpClient.newHttpClient(), Map.of("localhost", Duration.ZERO),
         PoliteHttp.userAgent(), Clock.systemUTC(), d -> { });
-    ClbClient clb = new ClbClient(http, w.getHttpBaseUrl(), new HarvestOutage(Duration.ofMinutes(30), Clock.systemUTC()));
+    HarvestOutage outage = new HarvestOutage(Duration.ofMinutes(30), Clock.systemUTC());
+    ClbClient clb = new ClbClient(http, w.getHttpBaseUrl(), outage);
     XrReleaseService xr = new XrReleaseService(index, clb);
     indexed = new HashMap<>();
     indexedWorks = new ArrayList<>();
     handler = new MatchNamesHandler(index, new MatchCache(index, clb, xr), xr, (id, m) -> {
       indexed.putAll(m);
       indexedWorks.add(id);
-    });
-    stubFor(get(urlEqualTo("/dataset/3LXR")).willReturn(json("dataset-3LXR.json")));
+    }, outage);
     stubFor(get(urlPathEqualTo(M)).atPriority(10).willReturn(json("match-none.json")));
     stubFor(get(urlPathEqualTo(M)).withQueryParam("scientificName", equalTo("Carabus xyzzyus"))
         .willReturn(json("match-carabus-xyzzyus.json")));
@@ -161,7 +161,6 @@ class MatchNamesHandlerIT extends AbstractPostgresIT {
   @Test
   void clbOutageDefersWithoutAttempt() {
     stubFor(get(urlPathEqualTo(M)).atPriority(1).willReturn(aResponse().withStatus(503)));
-    stubFor(get(urlEqualTo("/dataset/3LXR")).atPriority(1).willReturn(aResponse().withStatus(503))); // the probe fails too
     long w = work();
     mention(w, "Carabus xyzzyus", "BINOMIAL", "SPECIES", null, 0);
     assertThatThrownBy(() -> handler.handle(task(w))).isInstanceOf(ServiceOutageException.class);
@@ -218,8 +217,9 @@ class MatchNamesHandlerIT extends AbstractPostgresIT {
     assertThat(indexed.get(bad).taxgroup()).isEqualTo("Coleoptera"); // the group still comes from the context
     assertThat(indexed.get(odd).method()).isEqualTo("NONE");
     assertThat(indexed.get(good).method()).isEqualTo("GENUS");
-    // the probe told CLB was up
-    verify(getRequestedFor(urlEqualTo("/dataset/3LXR")));
+    // the probe of the match endpoint told CLB was up
+    verify(2, getRequestedFor(urlPathEqualTo(M)).withQueryParam("scientificName", equalTo("Animalia"))
+        .withQueryParam("rank", equalTo("kingdom")).withQueryParam("mode", equalTo("RELAXED")));
     // not cached: a later run asks CLB again
     for (long id : new long[] {bad, odd}) {
       assertThat(jdbc.queryForObject("SELECT count(*) FROM name_match WHERE name_string_id = ?", Integer.class, id))
@@ -254,5 +254,63 @@ class MatchNamesHandlerIT extends AbstractPostgresIT {
     verify(1, getRequestedFor(urlPathEqualTo(M)).withQueryParam("scientificName", equalTo("Carabidae"))
         .withQueryParam("rank", equalTo("family")));
     verify(0, getRequestedFor(urlPathEqualTo(M)).withQueryParam("rank", equalTo("subfamily")));
+  }
+
+  @Test
+  void matchEndpointDownDefersAndWritesNothing() {
+    // only the read-write server behind the match endpoint is down: the name and the probe both get 503
+    stubFor(get(urlPathEqualTo(M)).atPriority(1).willReturn(aResponse().withStatus(503)));
+    stubFor(get(urlEqualTo("/dataset/3LXR")).willReturn(json("dataset-3LXR.json"))); // the read-only server is fine
+    long w = work();
+    long n = mention(w, "Carabus xyzzyus", "BINOMIAL", "SPECIES", null, 0);
+    assertThatThrownBy(() -> handler.handle(task(w))).isInstanceOf(ServiceOutageException.class);
+    verify(getRequestedFor(urlPathEqualTo(M)).withQueryParam("scientificName", equalTo("Animalia")));
+    assertThat(indexedWorks).isEmpty();
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM name_match WHERE name_string_id = ?", Integer.class, n))
+        .isZero();
+  }
+
+  @Test
+  void clientErrorOnTheNameAndOnTheProbeFailsTheTask() {
+    stubFor(get(urlPathEqualTo(M)).atPriority(1).willReturn(aResponse().withStatus(404))); // release gone
+    long w = work();
+    mention(w, "Carabus xyzzyus", "BINOMIAL", "SPECIES", null, 0);
+    assertThatThrownBy(() -> handler.handle(task(w)))
+        .isInstanceOf(org.catalogueoflife.nametracker.indexer.http.HttpProblem.class)
+        .isNotInstanceOf(ServiceOutageException.class)
+        .hasMessageContaining("probe");
+    assertThat(org.catalogueoflife.nametracker.indexer.task.TaskDispatcher.outageCause(
+        org.assertj.core.api.Assertions.catchThrowable(() -> handler.handle(task(w))))).isNull();
+    assertThat(indexedWorks).isEmpty(); // no name placed NONE
+  }
+
+  @Test
+  void theBreakerTripsAtTheFourthNameAtFault() throws Exception {
+    for (String bad : new String[] {"Bad one", "Bad two", "Bad three", "Bad four"}) {
+      stubFor(get(urlPathEqualTo(M)).withQueryParam("scientificName", equalTo(bad))
+          .willReturn(aResponse().withStatus(500)));
+    }
+    // three names at fault: still placed NONE and indexed
+    long w3 = work();
+    mention(w3, "Bad one", "BINOMIAL", "SPECIES", null, 0);
+    mention(w3, "Bad two", "BINOMIAL", "SPECIES", null, 20);
+    mention(w3, "Bad three", "BINOMIAL", "SPECIES", null, 40);
+    handler.handle(task(w3));
+    assertThat(indexedWorks).containsExactly(w3);
+
+    // the fourth trips the breaker: deferred as an outage, nothing of the task written
+    indexedWorks.clear();
+    indexed.clear();
+    long w4 = work();
+    mention(w4, "Bad one", "BINOMIAL", "SPECIES", null, 0);
+    mention(w4, "Bad two", "BINOMIAL", "SPECIES", null, 20);
+    mention(w4, "Bad three", "BINOMIAL", "SPECIES", null, 40);
+    mention(w4, "Bad four", "BINOMIAL", "SPECIES", null, 60);
+    mention(w4, "Carabus xyzzyus", "BINOMIAL", "SPECIES", null, 80);
+    assertThatThrownBy(() -> handler.handle(task(w4))).isInstanceOfSatisfying(ServiceOutageException.class,
+        e -> assertThat(e.service()).isEqualTo("CLB"));
+    assertThat(indexedWorks).isEmpty();
+    assertThat(indexed).isEmpty();
+    assertThat(jdbc.queryForObject("SELECT state FROM work WHERE id = ?", String.class, w4)).isEqualTo("NAMES_FOUND");
   }
 }

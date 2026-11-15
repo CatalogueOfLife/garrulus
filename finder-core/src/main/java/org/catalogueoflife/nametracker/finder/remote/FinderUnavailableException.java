@@ -1,7 +1,7 @@
 package org.catalogueoflife.nametracker.finder.remote;
 
 /**
- * The finder service could not be asked or answered 503 (for example because it cannot reach gnfinder): the request
+ * The finder service could not be asked or answered 502, 503 or 504 (503: it cannot reach gnfinder): the request
  * may succeed later. An IllegalStateException, so callers that only know that type keep working.
  */
 public class FinderUnavailableException extends IllegalStateException {

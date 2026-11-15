@@ -63,7 +63,7 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
     `FINDER_CONFIG`) builds the finder in process; with neither set the handler is off (one WARN) and the tasks wait.
     `NAMETRACKER_SPOOL_DIR` (`./data/spool`) holds closed full text until the finder has run (purged after 14 days).
     Admin task `FIND_PENDING` (`{"limit":n}`) enqueues `FIND_NAMES` for works never seen by the finder. A gnfinder
-    outage (connection refused, unknown host, connect timeout, HTTP 502/503/504; a finder service's 503) defers the
+    outage (connection refused, unknown host, connect timeout, HTTP 502/503/504, also from a finder service) defers the
     task 30 minutes without using an attempt. Any other gnfinder or finder error (4xx, 500, a read timeout) fails the
     task like any error: it uses attempts and ends `DEAD`.
   - `NAMETRACKER_HARVEST_OUTAGE_DELAY` (30m): a harvest or onboarding page that meets an outage is enqueued again after
@@ -71,8 +71,10 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
 - `indexer` matching and index (ADR-0005):
   - `NAMETRACKER_CLB_BASE_URL` (`https://api.checklistbank.org`): the XR (`GET /dataset/3LXR`) and name matching, at
     most 10 requests a second. A CLB outage defers `MATCH_NAMES`/`XR_CHECK` 30 minutes without using an attempt. When
-    a single match call fails (after the HTTP retries, or with a 4xx) while `GET /dataset/3LXR` still answers, the name
-    is at fault: it is placed `NONE` (not cached), logged as a WARN and the work goes on.
+    a single match call fails (after the HTTP retries, or with a 4xx), the same match endpoint and release are probed
+    with `Animalia`/kingdom: probe ok → the name is at fault, placed `NONE` (not cached, WARN) and the work goes on;
+    probe fails retryably → outage; probe 4xx → ordinary failure (attempts, `DEAD`). More than 3 names at fault in one
+    task → the whole task is deferred as an outage and nothing is written.
   - A task deferred by an outage that was first enqueued more than 24 hours ago is logged as a WARN on every deferral.
   - `NAMETRACKER_SPOOL_MAX_AGE` (14d) bounds the spool; it is purged daily at 05:30 UTC.
   - `NAMETRACKER_STATS_CRON` (`0 30 4 * * *`): nightly `REBUILD_STATS` (ubiquity, taxon stats) at `LIVE` priority, which
