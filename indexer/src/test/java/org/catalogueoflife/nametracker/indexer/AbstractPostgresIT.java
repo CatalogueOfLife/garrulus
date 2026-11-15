@@ -23,6 +23,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
     "nametracker.openalex.base-url=" + AbstractPostgresIT.UNROUTABLE,
     "nametracker.openalex.content.base-url=" + AbstractPostgresIT.UNROUTABLE,
     "nametracker.openalex.api-key=",
+    "nametracker.clb.base-url=" + AbstractPostgresIT.UNROUTABLE,
     "nametracker.crossref.base-url=" + AbstractPostgresIT.UNROUTABLE,
     "nametracker.crossref.mailto=",
     "nametracker.europepmc.base-url=" + AbstractPostgresIT.UNROUTABLE,

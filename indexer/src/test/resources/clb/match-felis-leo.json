@@ -1,0 +1,179 @@
+{
+ "usage": {
+  "id": "CFSCR",
+  "name": "Felis leo",
+  "authorship": "Linnaeus, 1758",
+  "rank": "species",
+  "code": "zoological",
+  "status": "synonym",
+  "namesIndexId": 3590876,
+  "sectorKey": 1508,
+  "classification": [
+   {
+    "id": "4CGXP",
+    "name": "Panthera leo",
+    "authorship": "(Linnaeus, 1758)",
+    "rank": "species",
+    "code": "zoological",
+    "status": "accepted",
+    "namesIndexId": 6525746,
+    "sectorKey": 1508,
+    "parentId": "6DBT"
+   },
+   {
+    "id": "6DBT",
+    "name": "Panthera",
+    "authorship": "Oken, 1816",
+    "rank": "genus",
+    "code": "zoological",
+    "status": "accepted",
+    "namesIndexId": 3590155,
+    "sectorKey": 1508,
+    "parentId": "628LP"
+   },
+   {
+    "id": "628LP",
+    "name": "Pantherinae",
+    "authorship": "Pocock, 1917",
+    "rank": "subfamily",
+    "code": "zoological",
+    "status": "accepted",
+    "namesIndexId": 6526362,
+    "sectorKey": 1508,
+    "parentId": "623RM"
+   },
+   {
+    "id": "623RM",
+    "name": "Felidae",
+    "authorship": "Fischer de Waldheim, 1817",
+    "rank": "family",
+    "code": "zoological",
+    "status": "accepted",
+    "namesIndexId": 3589417,
+    "sectorKey": 1508,
+    "parentId": "4DL"
+   },
+   {
+    "id": "4DL",
+    "name": "Feliformia",
+    "authorship": "Kretzoi, 1945",
+    "rank": "suborder",
+    "code": "zoological",
+    "status": "accepted",
+    "namesIndexId": 3589449,
+    "sectorKey": 1508,
+    "parentId": "VS"
+   },
+   {
+    "id": "VS",
+    "name": "Carnivora",
+    "authorship": "Bowdich, 1821",
+    "rank": "order",
+    "code": "zoological",
+    "status": "accepted",
+    "namesIndexId": 1612246,
+    "sectorKey": 1508,
+    "parentId": "LG"
+   },
+   {
+    "id": "LG",
+    "name": "Eutheria",
+    "authorship": "Gill, 1872",
+    "rank": "infraclass",
+    "code": "zoological",
+    "status": "accepted",
+    "namesIndexId": 3564263,
+    "sectorKey": 1508,
+    "parentId": "6226C"
+   },
+   {
+    "id": "6226C",
+    "name": "Theria",
+    "authorship": "Parker & Haswell, 1897",
+    "rank": "subclass",
+    "code": "zoological",
+    "status": "accepted",
+    "namesIndexId": 9043350,
+    "sectorKey": 1508,
+    "parentId": "6224G"
+   },
+   {
+    "id": "6224G",
+    "name": "Mammalia",
+    "authorship": "Linnaeus, 1758",
+    "rank": "class",
+    "code": "zoological",
+    "status": "accepted",
+    "namesIndexId": 17558,
+    "sectorKey": 1508,
+    "parentId": "9CK8W"
+   },
+   {
+    "id": "9CK8W",
+    "name": "Tetrapoda",
+    "rank": "megaclass",
+    "status": "accepted",
+    "namesIndexId": 9018099,
+    "parentId": "8VVWB"
+   },
+   {
+    "id": "8VVWB",
+    "name": "Osteichthyes",
+    "rank": "parvphylum",
+    "status": "accepted",
+    "namesIndexId": 6433538,
+    "parentId": "8V4V5"
+   },
+   {
+    "id": "8V4V5",
+    "name": "Gnathostomata",
+    "rank": "infraphylum",
+    "status": "accepted",
+    "namesIndexId": 3877458,
+    "parentId": "8V4V3"
+   },
+   {
+    "id": "8V4V3",
+    "name": "Vertebrata",
+    "rank": "subphylum",
+    "status": "accepted",
+    "namesIndexId": 150889,
+    "parentId": "CH2"
+   },
+   {
+    "id": "CH2",
+    "name": "Chordata",
+    "rank": "phylum",
+    "status": "accepted",
+    "namesIndexId": 10276,
+    "parentId": "N"
+   },
+   {
+    "id": "N",
+    "name": "Animalia",
+    "rank": "kingdom",
+    "status": "accepted",
+    "namesIndexId": 9237,
+    "parentId": "CS5HF"
+   },
+   {
+    "id": "CS5HF",
+    "name": "Eukaryota",
+    "authorship": "(Chatton, 1925) Whittaker & Margulis, 1978",
+    "rank": "domain",
+    "status": "accepted",
+    "namesIndexId": 3444548
+   }
+  ],
+  "parentId": "4CGXP"
+ },
+ "sectorKey": 1508,
+ "type": "variant",
+ "original": {
+  "name": "Felis leo",
+  "status": "accepted"
+ },
+ "issues": {},
+ "id": "CFSCR",
+ "match": true
+}

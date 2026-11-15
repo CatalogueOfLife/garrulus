@@ -48,6 +48,8 @@ public interface IndexMapper {
 
   @Nullable XrRelease currentRelease();
 
+  boolean releaseExists(@Param("key") int key);
+
   void addRelease(@Param("key") int key, @Param("alias") String alias, @Param("current") boolean current);
 
   /** Sets current_finder_run, names_doc_sha and state NAMES_FOUND. */

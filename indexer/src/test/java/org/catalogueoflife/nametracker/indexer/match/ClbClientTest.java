@@ -1,0 +1,175 @@
+package org.catalogueoflife.nametracker.indexer.match;
+
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder;
+import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
+import com.github.tomakehurst.wiremock.junit5.WireMockTest;
+import java.io.IOException;
+import java.net.URI;
+import java.net.UnknownHostException;
+import java.net.http.HttpClient;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.Map;
+import java.util.TreeMap;
+import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
+import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
+import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
+import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
+import org.junit.jupiter.api.Test;
+
+@WireMockTest
+class ClbClientTest {
+
+  static final Instant NOW = Instant.parse("2026-11-15T10:00:00Z");
+  static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
+  static final String M = "/dataset/316691/match/nameusage";
+
+  static String fixture(String name) throws IOException {
+    try (var in = ClbClientTest.class.getResourceAsStream("/clb/" + name)) {
+      return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+    }
+  }
+
+  static ResponseDefinitionBuilder json(String body) {
+    return aResponse().withHeader("Content-Type", "application/json").withBody(body);
+  }
+
+  static ClbClient client(WireMockRuntimeInfo w) {
+    PoliteHttp http = new PoliteHttp(HttpClient.newHttpClient(), Map.of("localhost", Duration.ZERO),
+        PoliteHttp.userAgent(), Clock.systemUTC(), d -> { });
+    return new ClbClient(http, w.getHttpBaseUrl(), new HarvestOutage(Duration.ofMinutes(30), CLOCK));
+  }
+
+  static ClbMatch match(WireMockRuntimeInfo w, String file, String name) throws IOException {
+    stubFor(get(urlPathEqualTo(M)).withQueryParam("scientificName", equalTo(name)).willReturn(json(fixture(file))));
+    return client(w).match(316691, new MatchQuery(name, null, null, new TreeMap<>()));
+  }
+
+  @Test
+  void currentXrReadsKeyAndAlias(WireMockRuntimeInfo w) throws IOException {
+    stubFor(get("/dataset/3LXR").willReturn(json(fixture("dataset-3LXR.json"))));
+    ClbClient.XrInfo x = client(w).currentXr();
+    assertThat(x.key()).isEqualTo(316691);
+    assertThat(x.alias()).isEqualTo("COL26.10 XR");
+    verify(getRequestedFor(urlEqualTo("/dataset/3LXR")).withHeader("User-Agent", containing("Garrulus/")));
+  }
+
+  @Test
+  void exactMatchPathIsUsageThenClassification(WireMockRuntimeInfo w) throws IOException {
+    ClbMatch m = match(w, "match-carabus-nemoralis.json", "Carabus nemoralis");
+    assertThat(m.type()).isEqualTo("variant");
+    assertThat(m.usageId()).isEqualTo("5WYRN");
+    assertThat(m.usageName()).isEqualTo("Carabus (Archicarabus) nemoralis");
+    assertThat(m.usageRank()).isEqualTo("species");
+    assertThat(m.usageStatus()).isEqualTo("accepted");
+    assertThat(m.acceptedId()).isEqualTo("5WYRN");
+    assertThat(m.taxonPath()).startsWith("5WYRN", "8LTQG", "8KVGQ").contains("8KTL7");
+    assertThat(m.classification()).hasSize(m.taxonPath().size() - 1);
+    assertThat(m.classification().get(0)).isEqualTo(new ClbMatch.Taxon("8LTQG", "Carabus (Archicarabus)", "subgenus"));
+  }
+
+  @Test
+  void synonymPathStartsWithAcceptedLineage(WireMockRuntimeInfo w) throws IOException {
+    ClbMatch m = match(w, "match-felis-leo.json", "Felis leo");
+    assertThat(m.usageStatus()).isEqualTo("synonym");
+    assertThat(m.usageId()).isEqualTo("CFSCR");
+    assertThat(m.acceptedId()).isEqualTo("4CGXP");
+    assertThat(m.taxonPath()).startsWith("CFSCR", "4CGXP", "6DBT").contains("623RM");
+  }
+
+  @Test
+  void higherRankMatchKeepsTheHigherUsage(WireMockRuntimeInfo w) throws IOException {
+    ClbMatch m = match(w, "match-carabus-xyzzyus.json", "Carabus xyzzyus");
+    assertThat(m.type()).isEqualTo("higherrank");
+    assertThat(m.usageId()).isEqualTo("8KVGQ");
+    assertThat(m.taxonPath()).startsWith("8KVGQ", "8LTMH").contains("8KTL7");
+  }
+
+  @Test
+  void noneHasEmptyPath(WireMockRuntimeInfo w) throws IOException {
+    ClbMatch m = match(w, "match-none.json", "Xyzzy foo");
+    assertThat(m.type()).isEqualTo("none");
+    assertThat(m.usageId()).isNull();
+    assertThat(m.acceptedId()).isNull();
+    assertThat(m.code()).isNull();
+    assertThat(m.taxonPath()).isEmpty();
+    assertThat(m.classification()).isEmpty();
+  }
+
+  @Test
+  void codeIsMappedToNomCodeName(WireMockRuntimeInfo w) throws IOException {
+    assertThat(match(w, "match-carabidae.json", "Carabidae").code()).isEqualTo("ZOOLOGICAL");
+  }
+
+  @Test
+  void sendsOnlyTheGivenParameters(WireMockRuntimeInfo w) throws IOException {
+    stubFor(get(urlPathEqualTo(M)).willReturn(json(fixture("match-none.json"))));
+    TreeMap<String, String> hints = new TreeMap<>(Map.of("family", "Carabidae", "order", "Coleoptera"));
+    client(w).match(316691, new MatchQuery("Carabus nemoralis", "Species", "Mueller, 1764", hints));
+    verify(1, getRequestedFor(urlPathEqualTo(M)).withQueryParam("scientificName", equalTo("Carabus nemoralis"))
+        .withQueryParam("rank", equalTo("species")).withQueryParam("authorship", equalTo("Mueller, 1764"))
+        .withQueryParam("family", equalTo("Carabidae")).withQueryParam("order", equalTo("Coleoptera"))
+        .withQueryParam("mode", equalTo("RELAXED")).withoutQueryParam("genus").withoutQueryParam("kingdom"));
+    client(w).match(316691, new MatchQuery("Carabus", null, null, new TreeMap<>()));
+    verify(1, getRequestedFor(urlPathEqualTo(M)).withQueryParam("scientificName", equalTo("Carabus"))
+        .withoutQueryParam("rank").withoutQueryParam("authorship"));
+  }
+
+  @Test
+  void hintKeyIsSortedAndStable() {
+    TreeMap<String, String> a = new TreeMap<>();
+    a.put("order", "Coleoptera");
+    a.put("family", "Carabidae");
+    TreeMap<String, String> b = new TreeMap<>();
+    b.put("family", "Carabidae");
+    b.put("order", "Coleoptera");
+    assertThat(new MatchQuery("X y", null, null, a).hintKey()).isEqualTo("family=Carabidae|order=Coleoptera");
+    assertThat(new MatchQuery("X y", "species", null, b).hintKey()).isEqualTo(new MatchQuery("X y", null, null, a).hintKey());
+    assertThat(new MatchQuery("X y", null, "L., 1758", a).hintKey())
+        .isEqualTo("family=Carabidae|order=Coleoptera|authorship=L., 1758");
+    assertThat(new MatchQuery("X y", null, "L., 1758", new TreeMap<>()).hintKey()).isEqualTo("authorship=L., 1758");
+    assertThat(new MatchQuery("X y", null, null, new TreeMap<>()).hintKey()).isEmpty();
+    assertThatThrownBy(() -> new MatchQuery("X y", null, null, new TreeMap<>(Map.of("species", "x"))))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void clbDownThrowsServiceOutage(WireMockRuntimeInfo w) {
+    stubFor(get(urlPathEqualTo(M)).willReturn(aResponse().withStatus(503)));
+    assertThatThrownBy(() -> client(w).match(316691, new MatchQuery("Carabus", null, null, new TreeMap<>())))
+        .isInstanceOfSatisfying(ServiceOutageException.class, e -> {
+          assertThat(e.service()).isEqualTo("CLB");
+          assertThat(e.retryAt()).isEqualTo(NOW.plus(Duration.ofMinutes(30)));
+        });
+    stubFor(get("/dataset/3LXR").willReturn(aResponse().withStatus(503)));
+    assertThatThrownBy(() -> client(w).currentXr()).isInstanceOf(ServiceOutageException.class);
+  }
+
+  @Test
+  void unknownHostIsAnOutageToo() {
+    PoliteHttp http = new PoliteHttp(HttpClient.newHttpClient(), Map.of(), PoliteHttp.userAgent(), Clock.systemUTC(),
+        d -> { }) {
+      @Override
+      public HttpResponse<byte[]> get(URI uri, Map<String, String> headers) {
+        throw new HttpProblem(uri, 0, false, "Unknown host: " + uri, new UnknownHostException("api.checklistbank.org"));
+      }
+    };
+    ClbClient c = new ClbClient(http, "https://api.checklistbank.org", new HarvestOutage(Duration.ofMinutes(30), CLOCK));
+    assertThatThrownBy(c::currentXr).isInstanceOf(ServiceOutageException.class);
+  }
+
+  @Test
+  void otherErrorsAreNotOutages(WireMockRuntimeInfo w) {
+    stubFor(get(urlPathEqualTo(M)).willReturn(aResponse().withStatus(400)));
+    assertThatThrownBy(() -> client(w).match(316691, new MatchQuery("Carabus", null, null, new TreeMap<>())))
+        .isInstanceOf(HttpProblem.class);
+  }
+}

@@ -155,6 +155,8 @@
     SELECT * FROM xr_release WHERE current
   </select>
 
+  <select id="releaseExists" resultType="boolean">SELECT EXISTS (SELECT 1 FROM xr_release WHERE key = #{key})</select>
+
   <insert id="addRelease">
     INSERT INTO xr_release (key, alias, current) VALUES (#{key}, #{alias}, #{current})
   </insert>

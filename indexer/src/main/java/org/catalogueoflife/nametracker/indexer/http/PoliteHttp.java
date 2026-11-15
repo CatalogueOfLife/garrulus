@@ -70,6 +70,7 @@ public class PoliteHttp {
     Map<String, Duration> m = new HashMap<>();
     m.put("api.openalex.org", Duration.ofMillis(100));
     m.put("content.openalex.org", Duration.ofSeconds(1));
+    m.put("api.checklistbank.org", Duration.ofMillis(100));
     m.put("api.crossref.org", Duration.ofMillis(250));
     m.put("www.ebi.ac.uk", Duration.ofMillis(200));
     m.put("pmc-oa-opendata.s3.amazonaws.com", Duration.ofMillis(100));

@@ -15,7 +15,9 @@ import org.catalogueoflife.nametracker.store.blob.FileBlobStore;
 import org.catalogueoflife.nametracker.indexer.content.LicencePolicy;
 import org.catalogueoflife.nametracker.indexer.cost.OpenAlexBudget;
 import org.catalogueoflife.nametracker.indexer.crossref.CrossrefClient;
+import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
+import org.catalogueoflife.nametracker.indexer.match.ClbClient;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient;
 import org.catalogueoflife.nametracker.indexer.source.SeedProperties;
 import org.catalogueoflife.nametracker.indexer.source.SourceSeeder;
@@ -90,6 +92,12 @@ public class HarvestConfig {
   CrossrefClient crossrefClient(PoliteHttp http, @Value("${nametracker.crossref.mailto:}") String mailto,
       @Value("${nametracker.crossref.base-url:https://api.crossref.org}") String baseUrl) {
     return new CrossrefClient(http, mailto.isBlank() ? null : mailto, baseUrl);
+  }
+
+  @Bean
+  ClbClient clbClient(PoliteHttp http, HarvestOutage outage,
+      @Value("${nametracker.clb.base-url:https://api.checklistbank.org}") String baseUrl) {
+    return new ClbClient(http, baseUrl, outage);
   }
 
   @Bean

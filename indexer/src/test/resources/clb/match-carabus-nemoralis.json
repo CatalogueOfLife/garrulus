@@ -1,0 +1,150 @@
+{
+ "usage": {
+  "id": "5WYRN",
+  "name": "Carabus (Archicarabus) nemoralis",
+  "authorship": "O.F.Müller, 1764",
+  "rank": "species",
+  "code": "zoological",
+  "status": "accepted",
+  "namesIndexId": 1590972,
+  "sectorKey": 60399,
+  "classification": [
+   {
+    "id": "8LTQG",
+    "name": "Carabus (Archicarabus)",
+    "authorship": "Seidlitz, 1887",
+    "rank": "subgenus",
+    "code": "zoological",
+    "status": "accepted",
+    "namesIndexId": 721342,
+    "sectorKey": 60399,
+    "parentId": "8KVGQ"
+   },
+   {
+    "id": "8KVGQ",
+    "name": "Carabus",
+    "authorship": "Linnaeus, 1758",
+    "rank": "genus",
+    "code": "zoological",
+    "status": "accepted",
+    "namesIndexId": 1589759,
+    "sectorKey": 60399,
+    "parentId": "8LTMH"
+   },
+   {
+    "id": "8LTMH",
+    "name": "Carabina",
+    "authorship": "Linnaeus, 1802",
+    "rank": "subtribe",
+    "code": "zoological",
+    "status": "accepted",
+    "namesIndexId": 1588786,
+    "sectorKey": 60399,
+    "parentId": "8KTT7"
+   },
+   {
+    "id": "8KTT7",
+    "name": "Carabini",
+    "authorship": "Linnaeus, 1802",
+    "rank": "tribe",
+    "code": "zoological",
+    "status": "accepted",
+    "namesIndexId": 1588789,
+    "sectorKey": 60399,
+    "parentId": "8KTNH"
+   },
+   {
+    "id": "8KTNH",
+    "name": "Carabinae",
+    "authorship": "Linnaeus, 1802",
+    "rank": "subfamily",
+    "code": "zoological",
+    "status": "accepted",
+    "namesIndexId": 1588788,
+    "sectorKey": 60399,
+    "parentId": "8KTL7"
+   },
+   {
+    "id": "8KTL7",
+    "name": "Carabidae",
+    "authorship": "Latreille, 1802",
+    "rank": "family",
+    "code": "zoological",
+    "status": "accepted",
+    "namesIndexId": 10176,
+    "sectorKey": 60399,
+    "parentId": "DDH7R"
+   },
+   {
+    "id": "DDH7R",
+    "name": "Adephaga",
+    "rank": "suborder",
+    "code": "zoological",
+    "status": "accepted",
+    "namesIndexId": 205209,
+    "parentId": "C2L"
+   },
+   {
+    "id": "C2L",
+    "name": "Coleoptera",
+    "rank": "order",
+    "code": "zoological",
+    "status": "accepted",
+    "namesIndexId": 10318,
+    "parentId": "H6"
+   },
+   {
+    "id": "H6",
+    "name": "Insecta",
+    "rank": "class",
+    "status": "accepted",
+    "namesIndexId": 17393,
+    "parentId": "L2655"
+   },
+   {
+    "id": "L2655",
+    "name": "Hexapoda",
+    "rank": "subphylum",
+    "code": "zoological",
+    "status": "accepted",
+    "namesIndexId": 17333,
+    "parentId": "RT"
+   },
+   {
+    "id": "RT",
+    "name": "Arthropoda",
+    "rank": "phylum",
+    "status": "accepted",
+    "namesIndexId": 9289,
+    "parentId": "N"
+   },
+   {
+    "id": "N",
+    "name": "Animalia",
+    "rank": "kingdom",
+    "status": "accepted",
+    "namesIndexId": 9237,
+    "parentId": "CS5HF"
+   },
+   {
+    "id": "CS5HF",
+    "name": "Eukaryota",
+    "authorship": "(Chatton, 1925) Whittaker & Margulis, 1978",
+    "rank": "domain",
+    "status": "accepted",
+    "namesIndexId": 3444548
+   }
+  ],
+  "parentId": "8LTQG"
+ },
+ "sectorKey": 60399,
+ "type": "variant",
+ "original": {
+  "name": "Carabus nemoralis",
+  "rank": "species",
+  "status": "accepted"
+ },
+ "issues": {},
+ "id": "5WYRN",
+ "match": true
+}

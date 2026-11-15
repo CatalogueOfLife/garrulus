@@ -1,0 +1,83 @@
+{
+ "usage": {
+  "id": "8KTL7",
+  "name": "Carabidae",
+  "authorship": "Latreille, 1802",
+  "rank": "family",
+  "code": "zoological",
+  "status": "accepted",
+  "namesIndexId": 10176,
+  "sectorKey": 60399,
+  "classification": [
+   {
+    "id": "DDH7R",
+    "name": "Adephaga",
+    "rank": "suborder",
+    "code": "zoological",
+    "status": "accepted",
+    "namesIndexId": 205209,
+    "parentId": "C2L"
+   },
+   {
+    "id": "C2L",
+    "name": "Coleoptera",
+    "rank": "order",
+    "code": "zoological",
+    "status": "accepted",
+    "namesIndexId": 10318,
+    "parentId": "H6"
+   },
+   {
+    "id": "H6",
+    "name": "Insecta",
+    "rank": "class",
+    "status": "accepted",
+    "namesIndexId": 17393,
+    "parentId": "L2655"
+   },
+   {
+    "id": "L2655",
+    "name": "Hexapoda",
+    "rank": "subphylum",
+    "code": "zoological",
+    "status": "accepted",
+    "namesIndexId": 17333,
+    "parentId": "RT"
+   },
+   {
+    "id": "RT",
+    "name": "Arthropoda",
+    "rank": "phylum",
+    "status": "accepted",
+    "namesIndexId": 9289,
+    "parentId": "N"
+   },
+   {
+    "id": "N",
+    "name": "Animalia",
+    "rank": "kingdom",
+    "status": "accepted",
+    "namesIndexId": 9237,
+    "parentId": "CS5HF"
+   },
+   {
+    "id": "CS5HF",
+    "name": "Eukaryota",
+    "authorship": "(Chatton, 1925) Whittaker & Margulis, 1978",
+    "rank": "domain",
+    "status": "accepted",
+    "namesIndexId": 3444548
+   }
+  ],
+  "parentId": "DDH7R"
+ },
+ "sectorKey": 60399,
+ "type": "variant",
+ "original": {
+  "name": "Carabidae",
+  "status": "accepted"
+ },
+ "issues": {},
+ "id": "8KTL7",
+ "match": true
+}

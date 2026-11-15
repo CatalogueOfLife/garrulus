@@ -84,3 +84,6 @@ nametracker:
     base-url: ${NAMETRACKER_CROSSREF_BASE_URL:https://api.crossref.org}
     # blank means the public pool
     mailto: ${CROSSREF_MAILTO:}
+  clb:
+    # ChecklistBank API: the pinned XR (dataset 3LXR) and name matching, at most 10 requests a second
+    base-url: ${NAMETRACKER_CLB_BASE_URL:https://api.checklistbank.org}
