@@ -326,7 +326,8 @@ public final class Scorer {
 
   // ---- helpers
 
-  static String norm(String s) {
+  /** Collapses whitespace runs and trims: how names are compared throughout the eval. */
+  public static String norm(String s) {
     return WS.matcher(s).replaceAll(" ").trim();
   }
 

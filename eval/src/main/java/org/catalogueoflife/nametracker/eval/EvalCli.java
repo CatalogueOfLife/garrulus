@@ -33,6 +33,8 @@ import org.catalogueoflife.nametracker.eval.modeb.ModeBRunner;
 import org.catalogueoflife.nametracker.eval.modeb.PdfDownloader;
 import org.catalogueoflife.nametracker.eval.modeb.PmcPdfLocator;
 import org.catalogueoflife.nametracker.eval.tune.JudgeTuner;
+import org.catalogueoflife.nametracker.eval.tune.SalienceTuner;
+import org.catalogueoflife.nametracker.finder.salience.SalienceProperties;
 import org.catalogueoflife.nametracker.finder.api.BlockType;
 import org.catalogueoflife.nametracker.finder.api.CodePoints;
 import org.catalogueoflife.nametracker.finder.api.Document;
@@ -65,7 +67,7 @@ import java.util.stream.Collectors;
 
 /** The evaluation command line. More subcommands arrive with later tasks. */
 @Command(name = "eval", mixinStandardHelpOptions = true, subcommands = {EvalCli.FetchPensoft.class, EvalCli.RebuildPensoft.class, EvalCli.Run.class, EvalCli.CuratedSelect.class,
-    EvalCli.CuratedAddActs.class, EvalCli.LsExport.class, EvalCli.LsImport.class, EvalCli.LsProvisional.class, EvalCli.BuildDictionary.class, EvalCli.FetchPdf.class, EvalCli.Tune.class},
+    EvalCli.CuratedAddActs.class, EvalCli.LsExport.class, EvalCli.LsImport.class, EvalCli.LsProvisional.class, EvalCli.BuildDictionary.class, EvalCli.FetchPdf.class, EvalCli.Tune.class, EvalCli.TuneSalience.class},
     description = "Name finder evaluation")
 public class EvalCli implements Runnable {
   public static void main(String[] args) {
@@ -366,6 +368,63 @@ public class EvalCli implements Runnable {
             m.recall(), m.f1(), m.fp(), m.fn()));
       }
       System.out.println(sb);
+    }
+  }
+
+  @Command(name = "tune-salience", mixinStandardHelpOptions = true,
+      description = "Searches the salience weights and threshold that best reproduce the curated main-subject labels (micro F1 over documents with labels); prints nametracker.salience.* overrides and writes a report")
+  public static class TuneSalience implements Callable<Integer> {
+    @Option(names = "--corpus", required = true, description = "curated corpus directory holding gold.jsonl.gz") Path corpus;
+    @Option(names = "--split", defaultValue = "dev", description = "dev or test; tune on dev, default ${DEFAULT-VALUE}") String split;
+    @Option(names = "--report", defaultValue = "eval/work/salience-tuning.md", description = "markdown report, default ${DEFAULT-VALUE}") Path report;
+    @Option(names = "--weights", split = ",", description = "values tried for each weight, default 0,0.1,0.2,0.3,0.4,0.5") double[] weights;
+    @Option(names = "--thresholds", split = ",", description = "values tried for the threshold, default 0.20 to 0.60 step 0.05") double[] thresholds;
+    @Option(names = "--dictionary", description = "COL dictionary file, default $FINDER_DICTIONARY") Path dictionary;
+
+    @Override
+    public Integer call() throws Exception {
+      checkSplit(split);
+      var dflt = SalienceTuner.Grids.defaults();
+      var grids = new SalienceTuner.Grids(weights != null ? weights : dflt.weights(), thresholds != null ? thresholds : dflt.thresholds());
+      NameFinder f = FinderFactory.create("pipeline", dictionary);
+      List<GoldDocument> docs = readSplit(corpus, split);
+      String corpusName = corpus.toAbsolutePath().normalize().getFileName().toString();
+      long t0 = System.nanoTime();
+      var labelled = SalienceTuner.prepareAll(docs, g -> f.find(g.document(), FinderOptions.defaults()));
+      int labels = labelled.stream().mapToInt(d -> d.gold().size()).sum();
+      System.out.printf(Locale.ROOT, "%s/%s: %d documents, %d with main-subject labels (%d labels); finder run in %.0f s%n",
+          corpusName, split, docs.size(), labelled.size(), labels, (System.nanoTime() - t0) / 1e9);
+      if (labelled.isEmpty()) throw new IllegalStateException("No document with main-subject labels in " + corpusName + "/" + split);
+      var base = SalienceProperties.DEFAULTS;
+      // two starts: the defaults, and flat weights that escape the empty plateau a coordinate search cannot leave
+      var flat = new SalienceProperties(0.2, 0.2, 0.2, 0.2, 0.2, 0.2, base.ubiquityWeight(), base.ubiquityFullShare(), base.threshold());
+      Metrics before = SalienceTuner.evaluate(labelled, base);
+      var best = SalienceTuner.search(labelled, List.of(base, flat), grids);
+      String yaml = SalienceTuner.yaml(best.props());
+      System.out.println("defaults: " + line(before));
+      System.out.println("best:     " + line(best.metrics()) + " (" + best.evaluations() + " evaluations, " + best.passes() + " passes)");
+      System.out.println("Best application.yml overrides:");
+      System.out.println(yaml);
+      StringBuilder md = new StringBuilder("# Salience tuning\n\n");
+      md.append(String.format(Locale.ROOT, "Corpus %s, split %s: %d documents, %d with main-subject labels (%d labels). Ubiquity 0 (no index); "
+          + "ubiquity weight %.2f and full share %.2f unchanged.%n%n", corpusName, split, docs.size(), labelled.size(), labels,
+          base.ubiquityWeight(), base.ubiquityFullShare()));
+      md.append("Search: coordinate descent over title, abstract, act, heading, share, repeat, threshold from the defaults and from flat weights 0.2; best of the two.\n\n");
+      md.append("| | P | R | F1 | tp | fp | fn |\n|---|---|---|---|---|---|---|\n");
+      md.append(row("defaults", before)).append(row("best", best.metrics()));
+      md.append("\n```yaml\n").append(yaml).append("```\n");
+      Files.createDirectories(report.toAbsolutePath().getParent());
+      Files.writeString(report, md.toString());
+      System.out.println("Report: " + report);
+      return 0;
+    }
+
+    private static String line(Metrics m) {
+      return String.format(Locale.ROOT, "P=%.3f R=%.3f F1=%.3f (tp %d, fp %d, fn %d)", m.precision(), m.recall(), m.f1(), m.tp(), m.fp(), m.fn());
+    }
+
+    private static String row(String l, Metrics m) {
+      return String.format(Locale.ROOT, "| %s | %.3f | %.3f | %.3f | %d | %d | %d |%n", l, m.precision(), m.recall(), m.f1(), m.tp(), m.fp(), m.fn());
     }
   }
 

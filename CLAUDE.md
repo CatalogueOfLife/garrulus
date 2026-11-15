@@ -191,6 +191,12 @@ on any command lists its options.
   - `run --mode B` reads that cache, fetches what is missing, and always scores names per document. With
     `--cache-only` it skips uncached documents instead, so all finders score the same set. Skipped documents are listed
     in the report.
+- **Salience tuning:** `tune-salience --corpus eval/corpus/curated --split dev [--report eval/work/salience-tuning.md]`
+  runs the pipeline finder (needs gnfinder and the dictionary), builds the salience inputs per document with the
+  indexer's code (ubiquity 0) and searches title, abstract, act, heading, share, repeat and threshold by coordinate
+  descent (two starts: the defaults and flat 0.2 weights; grids 0 to 0.5 and 0.20 to 0.60) for the best micro F1 of main-subject
+  names against the curated labels (documents with at least one label only). It prints `nametracker.salience.*`
+  overrides; copy them into `indexer/src/main/resources/application.yml` by hand. A document with only TITLE/ABSTRACT blocks counts as abstract-only.
 - **Tuning:** `tune --corpus eval/corpus/pensoft --split dev --modes A,B` is a grid search over the judge threshold and
   weights.
   - It prints the best overrides; copy them into
