@@ -1,0 +1,3070 @@
+{
+  "finder" : "italics",
+  "info" : {
+    "name" : "italics",
+    "version" : "0.1",
+    "configHash" : "italics-1-3-words"
+  },
+  "corpus" : "pensoft",
+  "split" : "test",
+  "mode" : "B",
+  "documents" : 196,
+  "names" : {
+    "tp" : 0,
+    "fp" : 0,
+    "fn" : 11207
+  },
+  "byCategory" : {
+    "kind:ABBREVIATED" : {
+      "tp" : 0,
+      "fp" : 0,
+      "fn" : 3044
+    },
+    "kind:BINOMIAL" : {
+      "tp" : 0,
+      "fp" : 0,
+      "fn" : 4760
+    },
+    "kind:TRINOMIAL" : {
+      "tp" : 0,
+      "fp" : 0,
+      "fn" : 232
+    },
+    "kind:UNINOMIAL" : {
+      "tp" : 0,
+      "fp" : 0,
+      "fn" : 3171
+    },
+    "lang:en" : {
+      "tp" : 0,
+      "fp" : 0,
+      "fn" : 9740
+    },
+    "lang:und" : {
+      "tp" : 0,
+      "fp" : 0,
+      "fn" : 1467
+    }
+  },
+  "nameCorrectByKind" : { },
+  "acts" : {
+    "tp" : 0,
+    "fp" : 0,
+    "fn" : 305
+  },
+  "contexts" : {
+    "tp" : 0,
+    "fp" : 0,
+    "fn" : 1541
+  },
+  "mainSubject" : {
+    "tp" : 0,
+    "fp" : 0,
+    "fn" : 445
+  },
+  "falsePositives" : [ ],
+  "falseNegatives" : [ {
+    "docId" : "pensoft:zookeys.1291.204651",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cyclotornidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e161845",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Polyplacophora",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e118010",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Orthoptera",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e191590",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Canis aureus",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1196.117947",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cnemaspis galaxia",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.110.134132",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Paradingleyomyces lepidopterorum",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e186195",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Amphipoda",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1279.188050",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Sphenomorphus puhoatensis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.279.207098",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Imperata",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e134521",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Ischnochiton",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.124.172775",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Aspergillus",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e180342",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Asteraceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1244.146861",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Diptera",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.125.168474",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Mortierellomycota",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1236.145914",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Orthoptera",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1225.125030",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Isopoda",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1268.173464",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cristariina",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1214.132950",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Peltidium nayarit",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.123.160960",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Daldinia",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.251.135126",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Primulina xingyiensis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.133.187172",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Trichoderma",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.107.122026",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Pestalotiopsis",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1275.178507",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cyrtodactylus (Geckoella) nebulosus",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.251.137015",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Agapetes hongheensis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1265.168108",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Paragomphus alami",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.257.153202",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Silene dawoensis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1232.142699",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Acari",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1258.168452",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Monomicrocaryon trimarginalis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.128.178090",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cainiaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.270.174879",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Impatiens longcanggouensis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e116039",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Platyhelminthes",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.134.187344",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Durabilispora",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1210.125611",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Amemboa",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.280.206680",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Eureiandra orientalis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e119481",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Clavicornaltica",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1216.128080",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Trichopeltis",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1240.151021",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Nitocrella",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.263.163711",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Pternopetalum wulingense",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.276.181524",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Ornithoboea brachycarpa",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.257.147262",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Favratia zoysii",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.275.183837",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cyrtomium lacrimipinnum",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1202.115935",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Intybia",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1240.146399",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Acantholycosa",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.142.207158",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Sirococcus",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1265.171020",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Tylototriton anguliceps",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1241.148348",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Araneae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1204.114932",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Eurrhacini",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.111.133046",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Hypoxylaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1295.205971",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Katianiridae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1250.154226",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Erechthias",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.280.207010",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Mussaenda saxatilis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e126744",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Pomacentridae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1245.154908",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Synagelides",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.123.163999",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Lepiota",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e139010",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Metzgeria epiphylla",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.142.208876",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Azadirachta",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1220.125590",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Anguilliformes",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.119.156745",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Yamadazyma akebiae",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e113125",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Pomacanthus zonipectus",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1198.120353",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Larca",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e189416",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Scabiosa",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.13.e171683",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Roeslerstammia erxlebella",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1253.165585",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Linyphiidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e129214",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Amolops minutus",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1291.210036",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Triramidesmus",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.243.127579",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cyrtomium adenotrichum",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e181750",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Aphaereta (Atopandrium) debilitata",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.256.152884",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Eriolaena bacgiangensis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.261.161917",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Sinojohnstonia henanensis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.256.140316",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Pleurothallis",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.267.170789",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Monstera",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1206.123841",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Hebius",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1238.124514",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Chrysomeloidea",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e191990",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Quercus pubescens",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.114.138647",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Erioscyphella",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1210.127106",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Scutiger",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1281.182881",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Sarcophaga",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.13.e154423",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Rhizotrogus",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1255.154710",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Conostigmus",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.242.117481",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Rosaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1214.130171",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Aciurina luminaria",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1213.123839",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Homidia",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.142.204939",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Hohenbuehelia",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.13.e154073",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Setophaga striata",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e215033",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Callinectes sapidus",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1195.118632",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Araneae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.269.176789",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Arachniodes × tohtomiensis",
+    "category" : "TRINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1280.176598",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Formicinae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.139.206673",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Veronaea",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1249.154110",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Pseudophoxinus",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.13.e156603",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Picolistrus",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e197476",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Charophyceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1278.186655",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cyrtodactylus",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1291.204651",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Epipyropidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e161845",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Plaxiphora aurata",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e118010",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Stenobothrus lineatus",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e191590",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Amorpha fruticosa",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1196.117947",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Squamata",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.110.134132",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Hypocreales",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e186195",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Amphilochidea",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1279.188050",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Squamata",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.279.207098",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Poaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e134521",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Polyplacophora",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.124.172775",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cavernicolarum",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e180342",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Caryophyllaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1244.146861",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Phoridae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.125.168474",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Linnemannia",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1236.145914",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Tetrigidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1225.125030",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Oniscidea",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1268.173464",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Bivalvia",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1214.132950",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Copepoda",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.123.160960",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Hypoxylaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.251.135126",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Gesneriaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.133.187172",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Hypocreaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.107.122026",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Amphisphaeriales",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1275.178507",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Reptilia",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.251.137015",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Ericaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1265.168108",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Odonata",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.257.153202",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Caryophyllaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1232.142699",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Hydrachnidia",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1258.168452",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Ciliophora",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.128.178090",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Xylariales",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.270.174879",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Balsaminaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e116039",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Proseriata",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.134.187344",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Durabilispora carpatica",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1210.125611",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Hemiptera",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.280.206680",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cucurbitaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e119481",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Coleoptera",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1216.128080",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Diplopoda",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1240.151021",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Copepoda",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.263.163711",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Apiaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.276.181524",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Gesneriaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.257.147262",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Campanulaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.275.183837",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Dryopteridaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1202.115935",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Coleoptera",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1240.146399",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Araneae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.142.207158",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Diaporthales",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1265.171020",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Tylototriton ngoclinhensis",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1241.148348",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Thomisidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1204.114932",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Coleoptera",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.111.133046",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Xylariales",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1295.205971",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Crustacea",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1250.154226",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Lepidoptera",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.280.207010",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Rubiaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e126744",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Thunnus",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1245.154908",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Araneae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.123.163999",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Agaricales",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e139010",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Metzgeriales",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.142.208876",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Meliaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1220.125590",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Anguillidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.119.156745",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Yamadazyma hainanensis",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:bdj.12.e113125",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Epinephelidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1198.120353",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Pseudoscorpiones",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e189416",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Scabiosa ochroleuca",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.13.e171683",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Lepidoptera",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1253.165585",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Arachnida",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e129214",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Amolops ottorum",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1291.210036",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Polydesmidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.243.127579",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Dryopteridaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e181750",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Elasmosoma berolinense",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.256.152884",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Malvaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.261.161917",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Boraginaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.256.140316",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Orchidaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.267.170789",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Araceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1206.123841",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Squamata",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1238.124514",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Coleoptera",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e191990",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Quercus pubescens subsp. anatolica",
+    "category" : "TRINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.114.138647",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Leotiomycetes",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1210.127106",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Anura",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1281.182881",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Diptera",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.13.e154423",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Scarabaeidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1255.154710",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Hymenoptera",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.242.117481",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Photinia",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1214.130171",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Insecta",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1213.123839",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Collembola",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.142.204939",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Agaricales",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.13.e154073",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Amazona albifrons",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e215033",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Decapoda",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1195.118632",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Theridiidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.269.176789",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Dryopteridaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1280.176598",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Hymenoptera",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.139.206673",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Herpotrichiellaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1249.154110",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Teleostei",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.13.e156603",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Coleoptera",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e197476",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Nitella gracilis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1278.186655",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Reptilia",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1291.204651",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Zygaenoidea",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e161845",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Chitonidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e118010",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Tetrigidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e191590",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Amorpha",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1196.117947",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Gekkonidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.110.134132",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Polycephalomycetaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e186195",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Colomastigidea",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1279.188050",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Scincidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.279.207098",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Andropogoneae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e134521",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Ischnochitonidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.124.172775",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Nigri",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e180342",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Lamiaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1244.146861",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Woodiphora",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.125.168474",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Mortierella",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1236.145914",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Metrodorinae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1225.125030",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Porcellio scaber",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1268.173464",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Unionidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1214.132950",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Harpaticoida",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.123.160960",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Xylariales",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.251.135126",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Primulina davidioides",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:mycokeys.133.187172",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Hypocreales",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.107.122026",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Sporocadaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1275.178507",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Squamata",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.251.137015",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Agapetes mannii",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1265.168108",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Gomphidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.257.153202",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Silene batangensis",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1232.142699",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Iranothyas marismortui",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1258.168452",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Hypotricha",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.128.178090",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Sordariomycetes",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.270.174879",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Impatiens recurvicornis",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:bdj.12.e116039",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Rhabdocoela",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.134.187344",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Dominikia tatrensis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1210.125611",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Heteroptera",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.280.206680",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Eureiandra",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e119481",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Chrysomelidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1216.128080",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Polydesmida",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1240.151021",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Harpacticoida",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.263.163711",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Pternopetalum",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.276.181524",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Ornithoboea",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.257.147262",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Favratia",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.275.183837",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cyrtomium pachyphyllum",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1202.115935",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Melyridae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1240.146399",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Lycosidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.142.207158",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Gnomoniaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1265.171020",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Caudata",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1241.148348",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Ibana",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1204.114932",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Lycidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.111.133046",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Ascomycota",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1295.205971",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Isopoda",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1250.154226",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Tineidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.280.207010",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Mussaenda",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e126744",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Anguilla",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1245.154908",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Salticidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.123.163999",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Verrucosporaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e139010",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Metzgeriaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.142.208876",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Sapindales",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1220.125590",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Anguilla",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.119.156745",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Debaryomycetaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e113125",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Serranidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1198.120353",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Larcidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e189416",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Lomelosia isetensis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.13.e171683",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Roeslerstammiidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1253.165585",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Araneae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e129214",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Anura",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1291.210036",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Diplopoda",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.243.127579",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cyrtomium nephrolepioides",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:phytokeys.256.152884",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Eriolaena",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.261.161917",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Sinojohnstonia chekiangensis",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:phytokeys.256.140316",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Pleurothallidinae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.267.170789",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Monsteroideae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1206.123841",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Natricidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1238.124514",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cerambycidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e191990",
+    "start" : -1,
+    "end" : -1,
+    "text" : "anatolica",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.114.138647",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Helotiales",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1210.127106",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Megophryidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1281.182881",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Sarcophagidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.13.e154423",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Melolonthinae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1255.154710",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Megaspilidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.242.117481",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Malinae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1214.130171",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Diptera",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1213.123839",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Entomobryidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.142.204939",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Basidiomycota",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.13.e154073",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Piranga leucoptera",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e215033",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Portunidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1195.118632",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Knoflachia kurilensis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.269.176789",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Arachniodes",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1280.176598",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Formicidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.139.206673",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Chaetothyriales",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1249.154110",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cypriniformes",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.13.e156603",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Dasytidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e197476",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Nitelletum gracilis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1278.186655",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Gekkonidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1291.204651",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Lepidoptera",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e161845",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Chaetopleuridae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e118010",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Gryllidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1196.117947",
+    "start" : -1,
+    "end" : -1,
+    "text" : "ornata",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.110.134132",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Paradingleyomyces",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e186195",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Hyperiidea",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1279.188050",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Sphenomorphus",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.279.207098",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Imperata brasiliensis",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:bdj.12.e134521",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Chiton",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.124.172775",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Eurotiales",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e180342",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Brassicaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1244.146861",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Megaselia",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.125.168474",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Mortierellaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1236.145914",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Macromotettixoides",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1225.125030",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Armadillidium versicolor",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1268.173464",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cristaria liboi",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1214.132950",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Peltidiidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.123.160960",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Indocalamus hirsutissimus",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.251.135126",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Primulina",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.133.187172",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Trichoderma flavobritdaniae",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:mycokeys.107.122026",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Aporosa dioica",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1275.178507",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cyrtodactylus (Geckoella)",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.251.137015",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Agapetes hosseana",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1265.168108",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Paragomphus",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.257.153202",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Silene longiuscula",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1232.142699",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Iranothyas alhajarica",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1258.168452",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Monomicrocaryon euglenivorum euglenivorum",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:mycokeys.128.178090",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Poaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.270.174879",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Impatiens",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e116039",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Phonorhynchopsis haegheni",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.134.187344",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Glomerales",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1210.125611",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Gerridae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.280.206680",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Eureiandra fasciculata",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:bdj.12.e119481",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Galerucinae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1216.128080",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cryptodesmidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1240.151021",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Nitocrella grandicaudis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.263.163711",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Pternopetalum trichomanifolium",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:phytokeys.276.181524",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Ornithoboea feddei",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:phytokeys.257.147262",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Campanula zoysii",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.275.183837",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cyrtomium",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1202.115935",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Malachiinae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1240.146399",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Acantholycosa aborigenica",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:mycokeys.142.207158",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Gnomoniopsis",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1265.171020",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Salamandridae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1241.148348",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Crockeria",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1204.114932",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Calopterini",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.111.133046",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Annulohypoxylon fusisporum",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1295.205971",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Asellota",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1250.154226",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Erechthias itoi",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:phytokeys.280.207010",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Mussaenda hainanensis",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:bdj.12.e126744",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Pomacentrus",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1245.154908",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Synagelides dajueshan",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:mycokeys.123.163999",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Lepiota sect. Lepiota",
+    "category" : "TRINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e139010",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Metzgeria",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.142.208876",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Azadirachta indica",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1220.125590",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Anguilla japonica",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:mycokeys.119.156745",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Saccharomycetales",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e113125",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Labridae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1198.120353",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Larca boulderica",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e189416",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Lumbricidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.13.e171683",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Roeslerstammia",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1253.165585",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Gongylidioides heimifengensis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e129214",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Ranidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1291.210036",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Polydesmida",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.243.127579",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cyrtomium obliquum",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:phytokeys.256.152884",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Eriolaena candollei",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:phytokeys.261.161917",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Sinojohnstonia ruhuaii",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:phytokeys.256.140316",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Pleurothallis matrisilvae",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.267.170789",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Monstera corana",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1206.123841",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Hebius taronensis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1238.124514",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Chrysomelidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e191990",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Quercus humilis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.114.138647",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Lachnaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1210.127106",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Scutiger nepalensis",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1281.182881",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Sarcophaga tsushimae",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:bdj.13.e154423",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Rhizotrogini",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1255.154710",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Conostigmus rotundus",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:phytokeys.242.117481",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Lindleyinae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1214.130171",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Tephritidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1213.123839",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Homidia longiantenna",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.142.204939",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Hohenbuehelia albomarginata",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.13.e154073",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Lithobates taylori",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e215033",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Portunus segnis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1195.118632",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Anelosimus",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.269.176789",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Arachniodes exilis",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1280.176598",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Acropyga",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.139.206673",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Veronaea guizhouensis",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1249.154110",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Leuciscidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.13.e156603",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Listrinae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e197476",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Nitella",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1278.186655",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cyrtodactylus gubernatoris",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1291.204651",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Douglasioidea",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e161845",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Tonicia",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e118010",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Bradyporinae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1196.117947",
+    "start" : -1,
+    "end" : -1,
+    "text" : "beddomei",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.110.134132",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Perennicordyceps",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e186195",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Hyperiopsidea",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1279.188050",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Sphenomorphus tamchucensis",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:phytokeys.279.207098",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Imperata contracta",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:bdj.12.e134521",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Ischnochiton hayamii",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:mycokeys.124.172775",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Aspergillaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e180342",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Hieracium",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1244.146861",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cyclorrhapha",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.125.168474",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Linnemannia chlamydospora",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1236.145914",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Metrodolrinae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1225.125030",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Armadillidium vulgare",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1268.173464",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cristaria beirensis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1214.132950",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Peltidium",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.123.160960",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Rubus idaeus",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.251.135126",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Primulina malingheensis",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:mycokeys.133.187172",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Trichoderma foliatum",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:mycokeys.107.122026",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Rhaphiolepis indica",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1275.178507",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cyrtodactylus teraiensis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.251.137015",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Agapetes",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1265.168108",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Paragomphus lacustris",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:phytokeys.257.153202",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Silene markamensis",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1232.142699",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Sperchon fundamentalis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1258.168452",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Quadristicha",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.128.178090",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Arecaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.270.174879",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Impatiens nushanensis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e116039",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Polycystididae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.134.187344",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Glomeromycota",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1210.125611",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Amemboa hainanica",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.280.206680",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Eureiandra balfourii",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:bdj.12.e119481",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Clavicornaltica mataikanensis",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1216.128080",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Trichopeltis jiyue",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1240.151021",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Nitocrella thailandensis",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:phytokeys.263.163711",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Apieae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.276.181524",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Kaisupeea",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.257.147262",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Potentillo clusianae",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.275.183837",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Polystichum",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1202.115935",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Intybia klapperichi",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1240.146399",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Acantholycosa lignaria",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:mycokeys.142.207158",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Fagaceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1265.171020",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Tylototriton",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1241.148348",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Ascurisoma",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1204.114932",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Calocladon",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.111.133046",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Hypoxylon xmatkuilense",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1295.205971",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Natalianira bicornuta",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1250.154226",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Erechthias zebrina",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:phytokeys.280.207010",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Dialypetalanthoideae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e126744",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Chrysiptera biocellata",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1245.154908",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Synagelides guangfeng",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:mycokeys.123.163999",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Lepiota brunneophora",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:bdj.12.e139010",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Apometzgeria",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.142.208876",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Neomassaria azadirachtae",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1220.125590",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Anguilla marmorata",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:mycokeys.119.156745",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Yamadazyma",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e113125",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Pomacentridae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1198.120353",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Archeolarca",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e189416",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Pinus sylvestris",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.13.e171683",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Gracillarioidea",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1253.165585",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Gongylidium subbifurcatum",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e129214",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Amolops",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1291.210036",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Triramidesmus kazakhstanus",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.243.127579",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cyrtomium sinningense",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:phytokeys.256.152884",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Eriolaena wallichii",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:phytokeys.261.161917",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Sinojohnstonia",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.256.140316",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Pleurothallis bothros",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:phytokeys.267.170789",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Monstera colossica",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1206.123841",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Hebius venningi",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1238.124514",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Megalopodidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e191990",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Pteris tripartita",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.114.138647",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Erioscyphella ailaoensis",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1210.127106",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Scutiger kanjiroba",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1281.182881",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Sarcophaga (Beziella) shenzhenensis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.13.e154423",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Rhizotrogus pallidipennis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1255.154710",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Conostigmus clayulatus",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:phytokeys.242.117481",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Vauqueliniinae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1214.130171",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Aciurina",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1213.123839",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Homidia guangxiensis",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:mycokeys.142.204939",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Hohenbuehelia striata",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.13.e154073",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Agalychnis annae",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e215033",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Alpheus crassimanus",
+    "category" : "TRINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1195.118632",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Anelosimus studiosus",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:phytokeys.269.176789",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Arachniodes tsutsuiana",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1280.176598",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Acropyga epedana",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.139.206673",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Veronaea terrestris",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1249.154110",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Pseudophoxinus kervillei",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.13.e156603",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cleroidea",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e197476",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Charophyta",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1278.186655",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cyrtodactylus himalayicus",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1291.204651",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Aididae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e161845",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Chiton",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e118010",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Ephippigerida rosae",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1196.117947",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cnemaspis",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.110.134132",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Dingleyomyces",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e186195",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Pseudingolfiellidea",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1279.188050",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Leptobrachella puhoatensis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.279.207098",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Imperata tenuis",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:bdj.12.e134521",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Ischnochiton boninensis",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:mycokeys.124.172775",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Aspergillus hebeiensis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.14.e180342",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Centaurea",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1244.146861",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Platypezoidea",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.125.168474",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Linnemannia longigemmata",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1236.145914",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Edentatettix",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1225.125030",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Philoscia muscorum",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1268.173464",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cristaria plicata",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1214.132950",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Peltidiinae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.123.160960",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Daldinia rubi",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:phytokeys.251.135126",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Petrocodon",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.133.187172",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Trichoderma fulviclavum",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:mycokeys.107.122026",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Pestalotiopsis aporosae-dioicae",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1275.178507",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cyrtodactylus nebulosus",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:phytokeys.251.137015",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Phoebe macrocarpa",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1265.168108",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Paragomphus elpidius",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:phytokeys.257.153202",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Silene",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1232.142699",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Sperchon glandulosus",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:zookeys.1258.168452",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Oxytrichidae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.128.178090",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Arecophila",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.270.174879",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Impatiens chenmoui",
+    "category" : "ABBREVIATED"
+  }, {
+    "docId" : "pensoft:bdj.12.e116039",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Phonorhynchopsis",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:mycokeys.134.187344",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Rhizoglomeraceae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1210.125611",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Amemboa burmensis",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.280.206680",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Cucurbitoideae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:bdj.12.e119481",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Staphylinoidea",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1216.128080",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Paraterga",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:zookeys.1240.151021",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Ameiridae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.263.163711",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Apioideae",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.276.181524",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Rhabdothamnopsis",
+    "category" : "UNINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.257.147262",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Campanuletum zoysii",
+    "category" : "BINOMIAL"
+  }, {
+    "docId" : "pensoft:phytokeys.275.183837",
+    "start" : -1,
+    "end" : -1,
+    "text" : "Phanerophlebia",
+    "category" : "UNINOMIAL"
+  } ],
+  "matchMode" : "STRICT",
+  "documentLevel" : true,
+  "notes" : [ "Mode B: 196 of 200 documents converted from PDF by GROBID and scored; 4 skipped (download or conversion failed): pensoft:zookeys.1294.205145, pensoft:bdj.14.e191625, pensoft:zookeys.1294.205518, pensoft:mycokeys.141.209682.", "PDF sources: 196 from the PMC Article Datasets on AWS (copies identical in spot checks (MD5)), 0 from pensoft.net.", "The JSON keeps the first 500 error samples of each kind: 0 of 0 recorded false positives, 500 of 5000 false negatives. All counts are complete." ]
+}
