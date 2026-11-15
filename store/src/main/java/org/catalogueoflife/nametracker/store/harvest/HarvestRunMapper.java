@@ -31,6 +31,9 @@ public interface HarvestRunMapper {
 
   HarvestRun get(@Param("id") long id);
 
+  /** The latest {@code window_to} among the adapter's runs that did not fail; null when there is none. */
+  @Nullable LocalDate latestWindowTo(@Param("adapter") String adapter);
+
   /** Most recently started first. */
   List<HarvestRun> recent(@Param("limit") int limit);
 }

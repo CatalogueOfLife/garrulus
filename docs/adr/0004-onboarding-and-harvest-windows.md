@@ -33,10 +33,14 @@ refer to `.superpowers/sdd/2026-11-15-m2-harvest-and-content/`.
   - Onboarding: `onboard:<sourceId>:<pos>`.
   - A deferral at the same position adds `:d<retryAt epoch seconds>`, because the running task already holds the key
     of its own position.
-- The scheduler's first tasks are `harvest:openalex:<LIVE|SWEEP>:<date>`, `harvest:crossref:<date>`,
-  `openalex-recheck:<date>` and `seed-sources:<yyyy-MM>`. The scheduler skips a window while a chain of it is still
-  QUEUED or RUNNING (`TaskMapper.countLive`, a payload match on `window`; for Crossref any live `HARVEST_CROSSREF`),
-  so a run that outlasts the day is not started again on top of itself.
+- The scheduler's first tasks are `harvest:openalex:<LIVE|SWEEP>:<date>`, `harvest:crossref:<harvested day>`,
+  `openalex-recheck:<date>` and `seed-sources:<yyyy-MM>`.
+- The scheduler skips an OpenAlex window while a chain of it is still QUEUED or RUNNING (`TaskMapper.countLive`, a
+  payload match on `window`), so a run that outlasts the day is not started again on top of itself; the windows
+  overlap, so the next fire covers what a skip left out.
+- Crossref is never skipped, because its days do not overlap and a skipped day would be lost: each fire enqueues every
+  day from the one after the latest non-FAILED `CROSSREF` run up to yesterday (at most 14 days back, only yesterday
+  when there is no run yet), each under its own dated key, so a re-fire adds nothing.
 - Windows: LIVE re-reads the last 120 days, SWEEP the last 400. They overlap on purpose: a late-indexed or updated
   work is caught by the next window, and the upsert never changes `origin` or `first_seen_at`.
 

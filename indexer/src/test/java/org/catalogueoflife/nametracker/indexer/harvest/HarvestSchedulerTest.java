@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import org.catalogueoflife.nametracker.store.harvest.HarvestRunMapper;
 import org.catalogueoflife.nametracker.store.task.TaskMapper;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
@@ -28,13 +29,14 @@ class HarvestSchedulerTest {
 
   TaskQueue queue = mock(TaskQueue.class);
   TaskMapper tasks = mock(TaskMapper.class);
+  HarvestRunMapper runs = mock(HarvestRunMapper.class);
   MockEnvironment env = new MockEnvironment();
   HarvestScheduler scheduler;
 
   @BeforeEach
   void setUp() {
     Clock clock = Clock.fixed(Instant.parse("2026-11-15T02:00:00Z"), ZoneOffset.UTC);
-    scheduler = new HarvestScheduler(queue, tasks, clock, env);
+    scheduler = new HarvestScheduler(queue, tasks, runs, clock, env);
   }
 
   void runAll() {
@@ -69,7 +71,7 @@ class HarvestSchedulerTest {
     assertThat(key.getAllValues()).containsExactly(
         "harvest:openalex:LIVE:2026-11-15",
         "harvest:openalex:SWEEP:2026-11-15",
-        "harvest:crossref:2026-11-15",
+        "harvest:crossref:2026-11-14",
         "openalex-recheck:2026-11-15",
         "seed-sources:2026-11");
     assertThat(payload.getAllValues().get(0)).contains("\"window\":\"LIVE\"");
@@ -78,17 +80,17 @@ class HarvestSchedulerTest {
   }
 
   @Test
-  void skipsAWindowWhoseChainIsStillLive() {
+  void skipsAnOpenAlexWindowWhoseChainIsStillLive() {
     env.setProperty(FLAG, "true");
     when(tasks.countLive("HARVEST_OPENALEX", "LIVE")).thenReturn(1L);
-    when(tasks.countLive("HARVEST_CROSSREF", null)).thenReturn(3L);
+    when(tasks.countLive("HARVEST_CROSSREF", null)).thenReturn(3L); // no longer blocks Crossref (dated keys instead)
     runAll();
-    // SWEEP, the re-check and the seeding still run
+    // SWEEP, Crossref, the re-check and the seeding still run
     ArgumentCaptor<String> key = ArgumentCaptor.forClass(String.class);
-    verify(queue, org.mockito.Mockito.times(3)).enqueue(anyString(), anyString(), any(), key.capture());
+    verify(queue, org.mockito.Mockito.times(4)).enqueue(anyString(), anyString(), any(), key.capture());
     assertThat(key.getAllValues()).containsExactly("harvest:openalex:SWEEP:2026-11-15",
-        "openalex-recheck:2026-11-15", "seed-sources:2026-11");
-    verify(queue, never()).enqueue(eq("HARVEST_CROSSREF"), anyString(), any(), anyString());
+        "harvest:crossref:2026-11-14", "openalex-recheck:2026-11-15", "seed-sources:2026-11");
+    verify(queue, never()).enqueue(eq("HARVEST_OPENALEX"), anyString(), any(), eq("harvest:openalex:LIVE:2026-11-15"));
   }
 
   @Test
