@@ -132,6 +132,19 @@ class FindControllerTest {
   }
 
   @Test
+  void jatsEntitiesAreNeverResolved() throws Exception {
+    String xml = "<?xml version=\"1.0\"?><!DOCTYPE article [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]>"
+        + "<article><body><p>Carabus &xxe; nigrus</p></body></article>";
+    int status = mvc.perform(post("/v1/find/jats").contentType(MediaType.APPLICATION_XML).content(xml)).andReturn().getResponse().getStatus();
+    // either refused or the entity ignored; never resolved
+    assertThat(status).isIn(200, 400);
+    if (status == 200) {
+      assertThat(STUB.docs.getFirst().blocks()).allSatisfy(b -> assertThat(b.text()).doesNotContain("root:"));
+      assertThat(STUB.docs.getFirst().blocks().getFirst().text()).isEqualTo("Carabus nigrus");
+    }
+  }
+
+  @Test
   void utf16JatsIs400() throws Exception {
     byte[] xml = "<article><body/></article>".getBytes(StandardCharsets.UTF_16);
     mvc.perform(post("/v1/find/jats").contentType(MediaType.APPLICATION_XML).content(xml))

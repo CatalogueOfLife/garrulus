@@ -294,6 +294,15 @@ class JatsConverterTest {
     assertThat(b.text()).isEqualTo("(Aus bus), Aus cus-like and Aus dus");
   }
 
+  @Test void internalSubsetEntitiesAreNeverExpanded() {
+    // an internal DTD subset declaring an external (XXE) and an internal entity: neither may be resolved or expanded
+    String xml = "<?xml version=\"1.0\"?><!DOCTYPE article [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">"
+      + "<!ENTITY secret \"expanded\">]><article><body><p>a &xxe; b &secret; c</p></body></article>";
+    Conversion c = convertXml(xml);
+    String text = c.document().blocks().get(0).text();
+    assertThat(text).isEqualTo("a b c").doesNotContain("root").doesNotContain("expanded");
+  }
+
   @Test void entityLookalikeInCdataSurvives() {
     Conversion c = convertXml("<article><body><p>a <![CDATA[x &foo; y]]> b &nbsp; c</p></body></article>");
     assertThat(c.document().blocks().get(0).text()).isEqualTo("a x &foo; y b c");
