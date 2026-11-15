@@ -5,7 +5,7 @@ first. All commands run from the repo root with JDK 25 (`source ~/.sdkman/bin/sd
 `mvn -B -DskipTests install` once if `exec:java` cannot resolve modules. Setup:
 
 ```
-export FINDER_DICTIONARY=$PWD/eval/work/dictionary-<releaseKey>.bin   # see CLAUDE.md, build-dictionary
+export FINDER_DICTIONARY=$PWD/eval/work/dictionary-316691.bin   # the pinned XR; rebuild with build-dictionary for a new one
 docker compose up -d gnfinder                                          # needed by pipeline, gnfinder, tune-salience
 ```
 
@@ -79,7 +79,7 @@ trusting its own optimum). Copy the printed `nametracker.salience.*` values into
 first so it reads the new weights). `ADMIN_TOKEN` is in `.env`; never print it:
 
 ```
-set -a; . ./.env; set +a
+set -a; . ./.env; set +a          # in bash (zsh cannot source this .env)
 curl -s -X POST localhost:18080/api/admin/tasks -H "X-Admin-Token: $ADMIN_TOKEN" -H 'Content-Type: application/json' \
   -d '{"type":"RESCORE_SALIENCE","payload":{"all":true},"priority":"LIVE","dedupKey":"rescore-salience:manual"}'
 ```
