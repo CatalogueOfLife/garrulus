@@ -31,7 +31,7 @@ public class MatchCache {
     if (hit != null) return hit;
     ClbMatch m = clb.match(release, q);
     NameMatch nm = new NameMatch(nameStringId, hintKey, release, m.type(), m.usageId(), m.usageName(), m.usageRank(),
-        m.usageStatus(), m.acceptedId(), m.code(), null, m.taxonPath(), classificationJson(m.classification()), null);
+        m.usageStatus(), m.acceptedId(), m.code(), m.group(), m.taxonPath(), classificationJson(m.classification()), null);
     index.putMatch(nm);
     NameMatch stored = index.match(nameStringId, hintKey, release);
     return stored != null ? stored : nm;

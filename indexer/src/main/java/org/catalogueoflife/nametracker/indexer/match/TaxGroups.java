@@ -21,6 +21,13 @@ public final class TaxGroups {
   /** The group of the matched usage and its classification; null without a match or when none can be told. */
   public static @Nullable TaxGroup of(ClbMatch m) {
     if (m.usageId() == null) return null;
+    if (m.group() != null) {
+      try {
+        return TaxGroup.valueOf(m.group());
+      } catch (IllegalArgumentException e) {
+        // unknown to this CLB version: analyse the classification instead
+      }
+    }
     SimpleName sn = new SimpleName(m.usageId(), m.usageName(), null, rank(m.usageRank()), nomCode(m.code()));
     List<SimpleName> cls = new ArrayList<>();
     for (ClbMatch.Taxon t : m.classification()) cls.add(new SimpleName(t.id(), t.name(), null, rank(t.rank())));

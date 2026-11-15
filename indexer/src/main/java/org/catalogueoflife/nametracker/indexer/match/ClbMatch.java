@@ -9,11 +9,17 @@ import tools.jackson.databind.JsonNode;
 /**
  * A CLB name usage match, reduced to what the index keeps. {@code taxonPath} is the usage id followed by the
  * classification ids in response order (top-level ancestors last); for a synonym the classification starts with the
- * accepted name. {@code type} is lower-case as CLB sends it; {@code code} is the upper-case NomCode name.
+ * accepted name. {@code type} is lower-case as CLB sends it; {@code code} is the upper-case NomCode name; {@code group} is the TaxGroup name when CLB sends one.
  */
 public record ClbMatch(String type, @Nullable String usageId, @Nullable String usageName, @Nullable String usageRank,
     @Nullable String usageStatus, @Nullable String acceptedId, @Nullable String code, List<String> taxonPath,
-    List<Taxon> classification) {
+    List<Taxon> classification, @Nullable String group) {
+
+  public ClbMatch(String type, @Nullable String usageId, @Nullable String usageName, @Nullable String usageRank,
+      @Nullable String usageStatus, @Nullable String acceptedId, @Nullable String code, List<String> taxonPath,
+      List<Taxon> classification) {
+    this(type, usageId, usageName, usageRank, usageStatus, acceptedId, code, taxonPath, classification, null);
+  }
 
   public record Taxon(String id, String name, String rank) {}
 
@@ -22,7 +28,7 @@ public record ClbMatch(String type, @Nullable String usageId, @Nullable String u
     JsonNode u = root.path("usage");
     if (type == null) type = "none";
     if (!u.isObject() || text(u, "id") == null) {
-      return new ClbMatch(type, null, null, null, null, null, null, List.of(), List.of());
+      return new ClbMatch(type, null, null, null, null, null, null, List.of(), List.of(), null);
     }
     String id = text(u, "id");
     String status = text(u, "status");
@@ -38,7 +44,7 @@ public record ClbMatch(String type, @Nullable String usageId, @Nullable String u
     String accepted = synonym ? (cls.isEmpty() ? null : cls.get(0).id()) : id;
     String code = text(u, "code");
     return new ClbMatch(type, id, text(u, "name"), text(u, "rank"), status, accepted,
-        code == null ? null : code.toUpperCase(Locale.ROOT), List.copyOf(path), List.copyOf(cls));
+        code == null ? null : code.toUpperCase(Locale.ROOT), List.copyOf(path), List.copyOf(cls), text(u, "group"));
   }
 
   private static @Nullable String text(JsonNode n, String field) {

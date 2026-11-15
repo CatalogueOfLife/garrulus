@@ -48,15 +48,15 @@
     "status": "accepted",
     "namesIndexId": 3444548
    }
-  ]
+  ],
+  "parentId": "H6"
  },
- "sectorKey": 60399,
- "type": "variant",
+ "type": "exact",
  "original": {
   "name": "Coleoptera",
   "status": "accepted"
  },
  "issues": {},
- "id": "8KTL7",
+ "id": "C2L",
  "match": true
 }

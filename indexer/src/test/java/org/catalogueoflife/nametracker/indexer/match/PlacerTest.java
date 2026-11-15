@@ -98,4 +98,16 @@ class PlacerTest {
         List.of(fixture("match-carabidae.json")));
     assertThat(p.method()).isEqualTo("NONE");
   }
+
+  @Test
+  void unrankedContextMatchDoesNotBeatARankedOne() throws Exception {
+    ClbMatch f = fixture("match-coleoptera.json");
+    ClbMatch unranked = new ClbMatch("exact", "U1", "Weird", "unranked", "accepted", "U1", "ZOOLOGICAL",
+        List.of("U1"), List.of());
+    Placement p = Placer.place(ns("Xyzzy foo", "BINOMIAL", "SPECIES"), NONE,
+        List.of(f, unranked));
+    assertThat(p.usageId()).isEqualTo("C2L");
+    assertThat(Placer.place(ns("Xyzzy foo", "BINOMIAL", "SPECIES"), NONE, List.of(unranked)).usageId())
+        .isEqualTo("U1");
+  }
 }

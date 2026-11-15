@@ -36,5 +36,21 @@ class TaxGroupsTest {
     assertThat(TaxGroups.codeOf(TaxGroup.Plants)).isEqualTo(NomCode.BOTANICAL);
     assertThat(TaxGroups.codeOf(TaxGroup.Eukaryotes)).isNull();
     assertThat(TaxGroups.codeOf(null)).isNull();
+    assertThat(TaxGroups.codeOf(TaxGroup.Algae)).isNull();
+    assertThat(TaxGroups.codeOf(TaxGroup.Prokaryotes)).isEqualTo(NomCode.BACTERIAL);
+  }
+
+  @Test
+  void groupFromTheResponseWins() throws Exception {
+    ClbMatch f = PlacerTest.fixture("match-carabus-xyzzyus.json");
+    ClbMatch g = new ClbMatch(f.type(), f.usageId(), f.usageName(), f.usageRank(), f.usageStatus(), f.acceptedId(),
+        f.code(), f.taxonPath(), f.classification(), "Diptera");
+    assertThat(TaxGroups.of(g)).isEqualTo(TaxGroup.Diptera);
+    ClbMatch unknown = new ClbMatch(f.type(), f.usageId(), f.usageName(), f.usageRank(), f.usageStatus(),
+        f.acceptedId(), f.code(), f.taxonPath(), f.classification(), "NoSuchGroup");
+    assertThat(TaxGroups.of(unknown)).isEqualTo(TaxGroup.Coleoptera);
+    var json = tools.jackson.databind.json.JsonMapper.builder().build().readTree(
+        "{\"type\":\"exact\",\"usage\":{\"id\":\"X\",\"name\":\"Foo\",\"rank\":\"genus\",\"group\":\"Diptera\"}}");
+    assertThat(ClbMatch.parse(json).group()).isEqualTo("Diptera");
   }
 }

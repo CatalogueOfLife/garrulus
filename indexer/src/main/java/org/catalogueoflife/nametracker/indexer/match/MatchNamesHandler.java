@@ -71,7 +71,11 @@ public class MatchNamesHandler implements TaskHandler {
       }
       Map<Long, List<MentionRow>> byName = new LinkedHashMap<>();
       for (MentionRow m : mentions) byName.computeIfAbsent(m.nameStringId(), k -> new ArrayList<>()).add(m);
+      // the higher taxa of every verbatim classification are matched and stored, whether a placement needs them or not
       Map<Long, ClbMatch> contextMatches = new HashMap<>();
+      for (ContextRow c : contexts.values()) {
+        for (RankedName r : ranked(c)) contextMatch(r, contextMatches);
+      }
       for (Map.Entry<Long, List<MentionRow>> e : byName.entrySet()) {
         placements.put(e.getKey(), placeName(e.getKey(), e.getValue(), contexts, document, contextMatches));
       }
@@ -93,7 +97,7 @@ public class MatchNamesHandler implements TaskHandler {
         break;
       }
     }
-    List<RankedName> ranked = ctx == null ? List.of() : FinderJson.mapper().readValue(ctx.ranks(), RANKED);
+    List<RankedName> ranked = ctx == null ? List.of() : ranked(ctx);
     String authorship = mentions.stream().map(MentionRow::authorship).filter(a -> a != null && !a.isBlank())
         .findFirst().orElse(null);
 
@@ -101,15 +105,7 @@ public class MatchNamesHandler implements TaskHandler {
     List<ClbMatch> ctxMatches = null;
     if (Placer.needsContext(n, own)) {
       ctxMatches = new ArrayList<>();
-      for (RankedName r : ranked) {
-        long id = index.nameStringId(r.name(), "UNINOMIAL", r.rank().name());
-        ClbMatch cm = contextMatches.get(id);
-        if (cm == null) {
-          cm = toClb(cache.match(id, new MatchQuery(r.name(), r.rank().name(), null, new TreeMap<>())));
-          contextMatches.put(id, cm);
-        }
-        ctxMatches.add(cm);
-      }
+      for (RankedName r : ranked) ctxMatches.add(contextMatch(r, contextMatches));
     }
     Placement p = Placer.place(n, own, ctxMatches);
     if (p.taxgroup() == null && Placement.NONE.equals(p.method())) {
@@ -119,6 +115,21 @@ public class MatchNamesHandler implements TaskHandler {
       if (g != null) p = p.withGroup(c == null ? null : c.name(), g.name());
     }
     return p;
+  }
+
+  private static List<RankedName> ranked(ContextRow c) {
+    return FinderJson.mapper().readValue(c.ranks(), RANKED);
+  }
+
+  /** Matches one context element alone, without hints, as its own UNINOMIAL name string; once per work. */
+  private ClbMatch contextMatch(RankedName r, Map<Long, ClbMatch> done) {
+    long id = index.nameStringId(r.name(), "UNINOMIAL", r.rank().name());
+    ClbMatch cm = done.get(id);
+    if (cm == null) {
+      cm = toClb(cache.match(id, new MatchQuery(r.name(), r.rank().name(), null, new TreeMap<>())));
+      done.put(id, cm);
+    }
+    return cm;
   }
 
   static TreeMap<String, String> hints(List<RankedName> ranked) {
@@ -146,6 +157,6 @@ public class MatchNamesHandler implements TaskHandler {
     List<ClbMatch.Taxon> cls = FinderJson.mapper().readValue(m.classification(),
         new TypeReference<List<ClbMatch.Taxon>>() {});
     return new ClbMatch(m.matchType(), m.usageId(), m.usageName(), m.usageRank(), m.usageStatus(), m.acceptedId(),
-        m.code(), m.taxonPath(), cls);
+        m.code(), m.taxonPath(), cls, m.taxgroup());
   }
 }

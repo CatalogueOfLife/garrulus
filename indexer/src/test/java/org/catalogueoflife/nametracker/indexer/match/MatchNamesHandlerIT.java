@@ -111,6 +111,9 @@ class MatchNamesHandlerIT extends AbstractPostgresIT {
         .withQueryParam("kingdom", equalTo("Animalia")).withoutQueryParam("order"));
     assertThat(indexed.get(own).method()).isEqualTo("GENUS");
     assertThat(indexed.get(fallback).method()).isEqualTo("NONE"); // Animalia is stubbed unmatched
+    // the NONE path still gets group and code from the verbatim classification
+    assertThat(indexed.get(fallback).taxgroup()).isEqualTo("Animals");
+    assertThat(indexed.get(fallback).code()).isEqualTo("ZOOLOGICAL");
     assertThat(jdbc.queryForObject("SELECT state FROM work WHERE id = ?", String.class, w)).isEqualTo("MATCHED");
   }
 
@@ -157,5 +160,36 @@ class MatchNamesHandlerIT extends AbstractPostgresIT {
     mention(w, "Carabus xyzzyus", "BINOMIAL", "SPECIES", null, 0);
     assertThatThrownBy(() -> handler.handle(task(w))).isInstanceOf(ServiceOutageException.class);
     assertThat(jdbc.queryForObject("SELECT state FROM work WHERE id = ?", String.class, w)).isEqualTo("NAMES_FOUND");
+  }
+
+  @Test
+  void contextsAreMatchedEvenWhenTheNameMatchesDirectly() throws Exception {
+    long w = work();
+    long sec = context(w, "s", ORDER_FAMILY, "SECTION");
+    long unreferenced = context(w, "u", "[{\"rank\":\"GENUS\",\"name\":\"Nebria\"}]", "SECTION");
+    long own = mention(w, "Carabus xyzzyus", "BINOMIAL", "SPECIES", sec, 0);
+
+    handler.handle(task(w));
+
+    assertThat(indexed.get(own).method()).isEqualTo("GENUS");
+    for (String n : new String[] {"Coleoptera", "Carabidae", "Nebria"}) {
+      verify(1, getRequestedFor(urlPathEqualTo(M)).withQueryParam("scientificName", equalTo(n)));
+      long id = index.nameStringId(n, "UNINOMIAL", null);
+      assertThat(jdbc.queryForObject("SELECT count(*) FROM name_match WHERE name_string_id = ?", Integer.class, id))
+          .isEqualTo(1);
+    }
+  }
+
+  @Test
+  void firstMentionWithoutContextDoesNotHideALaterOne() throws Exception {
+    long w = work();
+    long sec = context(w, "s", ORDER_FAMILY, "SECTION");
+    mention(w, "Carabus xyzzyus", "BINOMIAL", "SPECIES", null, 0);
+    mention(w, "Carabus xyzzyus", "BINOMIAL", "SPECIES", sec, 30);
+
+    handler.handle(task(w));
+
+    verify(1, getRequestedFor(urlPathEqualTo(M)).withQueryParam("scientificName", equalTo("Carabus xyzzyus"))
+        .withQueryParam("order", equalTo("Coleoptera")).withQueryParam("family", equalTo("Carabidae")));
   }
 }

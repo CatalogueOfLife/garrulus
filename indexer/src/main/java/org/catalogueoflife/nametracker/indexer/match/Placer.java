@@ -57,8 +57,9 @@ public final class Placer {
     for (ClbMatch m : matches) {
       if (!isMatch(m)) continue;
       Rank r = TaxGroups.rank(m.usageRank());
+      if (r != null && r.otherOrUnranked()) r = null;
       // the later of equal ranks wins: a verbatim classification lists the higher names first
-      if (best == null || (r != null && (bestRank == null || r.ordinal() >= bestRank.ordinal()))) {
+      if (best == null || bestRank == null && r != null || (r != null && r.ordinal() >= bestRank.ordinal())) {
         best = m;
         bestRank = r;
       }
