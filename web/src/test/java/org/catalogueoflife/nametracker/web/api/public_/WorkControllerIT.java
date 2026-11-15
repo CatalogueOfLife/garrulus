@@ -142,7 +142,9 @@ class WorkControllerIT extends AbstractPostgresIT {
     Document doc = new Document("d", "en", List.of(
         new Block("b0", BlockType.HEADING, 1, "Intro", List.of(), List.of("Intro")),
         new Block("b1", BlockType.PARAGRAPH, 0, text, List.of(), List.of("Intro"))), Map.of());
-    content(w, true, blobs.put(FinderJson.mapper().writeValueAsBytes(doc)));
+    String docSha = blobs.put(FinderJson.mapper().writeValueAsBytes(doc));
+    content(w, true, docSha);
+    jdbc.update("UPDATE work SET names_doc_sha = ? WHERE id = ?", docSha, w);
     long ns = nameString("Abies alba");
     jdbc.update("INSERT INTO mention (work_id, name_string_id, block_id, block_type, start_cp, end_cp, verbatim, "
         + "confidence, snippet) VALUES (?, ?, 'b1', 'PARAGRAPH', ?, ?, 'Abies alba (L.) Mill.', 0.9, 's')",
@@ -182,5 +184,19 @@ class WorkControllerIT extends AbstractPostgresIT {
     assertThat(n.path("classification").get(1).path("name").asString()).isEqualTo("Pinaceae");
     assertThat(d.path("contexts").get(0).path("verbatim").asString()).isEqualTo("Fam. Pinaceae");
     assertThat(d.path("authors")).hasSize(4);
+
+    // the content now points at another document than the one the names were found in: no text, no stale spans
+    jdbc.update("UPDATE work SET names_doc_sha = 'other' WHERE id = ?", w);
+    JsonNode stale = JSON.readTree(get("/api/works/" + w).body());
+    assertThat(stale.path("retained").asBoolean()).isTrue();
+    assertThat(stale.path("text").isNull()).isTrue();
+    assertThat(stale.path("names")).hasSize(1);
+  }
+
+  @Test
+  void typeMismatchIs400WithBody() throws Exception {
+    HttpResponse<String> r = get("/api/works?limit=abc");
+    assertThat(r.statusCode()).isEqualTo(400);
+    assertThat(JSON.readTree(r.body()).path("status").asInt()).isEqualTo(400);
   }
 }

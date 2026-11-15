@@ -38,4 +38,7 @@ public interface SearchMapper {
    * the name itself with that usage id if there is one, otherwise any row (genus or context match) with that usage id.
    */
   List<WorkNameRow> workNames(@Param("workId") long workId);
+
+  /** The sha of the document the finder saw when it found the names of the work (work.names_doc_sha), or null. */
+  @org.jspecify.annotations.Nullable String namesDocSha(@Param("workId") long workId);
 }

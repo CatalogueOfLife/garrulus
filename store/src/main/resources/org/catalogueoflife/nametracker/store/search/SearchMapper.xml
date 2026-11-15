@@ -140,6 +140,10 @@
     SELECT EXISTS (SELECT 1 FROM work WHERE id = #{workId} AND state IN ('INDEXED', 'NOTIFIED'))
   </select>
 
+  <select id="namesDocSha" resultType="string">
+    SELECT names_doc_sha FROM work WHERE id = #{workId}
+  </select>
+
   <select id="workNames" resultMap="workNameRow">
     SELECT wn.name_string_id, ns.name, ns.kind, ns.rank, wn.placement_method, wn.usage_id, wn.taxon_path, wn.code,
            wn.taxgroup, wn.salience, wn.main_subject, wn.only_reference, wn.mention_count, wn.act_types, wn.best_snippet,

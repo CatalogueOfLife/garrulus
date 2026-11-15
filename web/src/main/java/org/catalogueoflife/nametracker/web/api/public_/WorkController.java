@@ -157,7 +157,7 @@ public class WorkController {
     List<NameDetail> names = search.workNames(id).stream().map(WorkController::nameDetail).toList();
     List<MentionRow> mentions = index.mentions(id);
     List<ContextDto> contexts = index.contexts(id).stream().map(WorkController::context).toList();
-    List<TextBlock> text = retained ? text(full.get(), mentions) : null;
+    List<TextBlock> text = retained ? text(id, full.get(), mentions) : null;
 
     return new WorkDetail(w.id(), w.doi(), w.title(), w.year() == null ? null : (int) w.year(), w.publicationDate(),
         src == null ? null : new SourceRef(src.id(), src.title()), authors(w.authors()), w.volume(), w.issue(),
@@ -166,9 +166,10 @@ public class WorkController {
         w.taxgroups() == null ? List.of() : w.taxgroups(), names, contexts, text);
   }
 
-  /** The blocks of the retained document with their mention spans, or null if the blob is gone or unreadable. */
-  private @Nullable List<TextBlock> text(Content row, List<MentionRow> mentions) {
-    if (row.docSha256() == null) {
+  /** The blocks of the retained document with their mention spans, or null if the blob is gone or unreadable, or if it is not the document the names were found in (names_doc_sha). */
+  private @Nullable List<TextBlock> text(long workId, Content row, List<MentionRow> mentions) {
+    // the mention offsets belong to the document the finder saw; serve text only if that is this document
+    if (row.docSha256() == null || !row.docSha256().equals(search.namesDocSha(workId))) {
       return null;
     }
     Optional<byte[]> json = blobs.get(row.docSha256());

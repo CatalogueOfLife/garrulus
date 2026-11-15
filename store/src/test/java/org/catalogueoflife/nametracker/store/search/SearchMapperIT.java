@@ -64,7 +64,7 @@ class SearchMapperIT extends AbstractPostgresIT {
   }
 
   long indexed(String date, String title, String[] groups) {
-    return work("INDEXED", date, title, null, new String[] {"ICZN"}, groups, null);
+    return work("INDEXED", date, title, null, new String[] {"ZOOLOGICAL"}, groups, null);
   }
 
   void name(long work, String taxonId, boolean onlyRef, boolean main) {
@@ -151,13 +151,13 @@ class SearchMapperIT extends AbstractPostgresIT {
   void facetsCountTheFilteredSet() {
     long tax = source("TAXONOMIC");
     long gen = source("GENERAL");
-    work("INDEXED", "2026-01-01", "a", null, new String[] {"ICZN"}, new String[] {"Insects", "Animals"}, tax);
-    work("INDEXED", "2026-02-01", "b", null, new String[] {"ICZN", "ICN"}, new String[] {"Animals"}, tax);
-    work("INDEXED", "2025-02-01", "c", null, new String[] {"ICN"}, new String[] {"Plants"}, gen);
-    work("DISCOVERED", "2025-02-01", "d", null, new String[] {"ICN"}, new String[] {"Plants"}, gen);
+    work("INDEXED", "2026-01-01", "a", null, new String[] {"ZOOLOGICAL"}, new String[] {"Insects", "Animals"}, tax);
+    work("INDEXED", "2026-02-01", "b", null, new String[] {"ZOOLOGICAL", "BOTANICAL"}, new String[] {"Animals"}, tax);
+    work("INDEXED", "2025-02-01", "c", null, new String[] {"BOTANICAL"}, new String[] {"Plants"}, gen);
+    work("DISCOVERED", "2025-02-01", "d", null, new String[] {"BOTANICAL"}, new String[] {"Plants"}, gen);
 
     assertThat(search.facet(filter(x -> x), "code"))
-        .containsExactly(new FacetCount("ICN", 2), new FacetCount("ICZN", 2));
+        .containsExactly(new FacetCount("BOTANICAL", 2), new FacetCount("ZOOLOGICAL", 2));
     assertThat(search.facet(filter(x -> x), "year"))
         .containsExactlyInAnyOrder(new FacetCount("2026", 2), new FacetCount("2025", 1));
     assertThat(search.facet(filter(x -> x), "journalType"))
@@ -167,6 +167,40 @@ class SearchMapperIT extends AbstractPostgresIT {
         .containsExactly(new FacetCount("Animals", 2), new FacetCount("Insects", 1));
     assertThat(search.facet(filter(x -> x.taxgroup("Plants")), "source")).containsExactly(new FacetCount("" + gen, 1));
     assertThat(search.facet(filter(x -> x), "hasActs")).containsExactly(new FacetCount("false", 3));
+  }
+
+  @Test
+  void actTypeHasActsYearAndNameFilters() {
+    long a = work("INDEXED", "2024-05-01", "a", null, new String[] {}, new String[] {}, null);
+    long b = work("INDEXED", "2026-05-01", "b", null, new String[] {}, new String[] {}, null);
+    jdbc.update("UPDATE work SET has_acts = true WHERE id = ?", a);
+    long ns = jdbc.queryForObject("INSERT INTO name_string (name, kind) VALUES ('Act name', 'SCIENTIFIC') RETURNING id", Long.class);
+    jdbc.update("INSERT INTO mention (work_id, name_string_id, block_id, block_type, start_cp, end_cp, verbatim, "
+        + "confidence, act_type, snippet) VALUES (?, ?, 'b', 'PARAGRAPH', 0, 3, 'Act', 0.9, 'sp. nov.', 's')", a, ns);
+    jdbc.update("INSERT INTO work_name (work_id, name_string_id, mention_count, body_count, in_title, in_abstract, "
+        + "in_heading, only_reference, best_snippet, placement_method, salience, main_subject) "
+        + "VALUES (?, ?, 1, 1, false, false, false, true, 's', 'NONE', 0.5, false)", b, ns);
+    WorkFilter none = filter(x -> x);
+    assertThat(ids(new WorkFilter(null, null, null, null, null, null, null, null, null, null, null, null, null, "sp. nov.", false, null)))
+        .containsExactly(a);
+    assertThat(ids(new WorkFilter(null, null, null, null, null, null, null, null, null, null, null, null, null, "comb. nov.", false, null)))
+        .isEmpty();
+    assertThat(ids(new WorkFilter(null, null, null, null, null, null, null, null, null, null, null, null, true, null, false, null)))
+        .containsExactly(a);
+    assertThat(ids(new WorkFilter(null, null, null, null, null, null, null, null, null, null, null, null, false, null, false, null)))
+        .containsExactly(b);
+    assertThat(ids(new WorkFilter(null, null, null, null, null, null, null, null, null, null, 2025, null, null, null, false, null)))
+        .containsExactly(b);
+    assertThat(ids(new WorkFilter(null, null, null, null, null, null, null, null, null, null, null, 2025, null, null, false, null)))
+        .containsExactly(a);
+    assertThat(ids(new WorkFilter(null, null, null, null, null, null, null, null, null, null, 2024, 2026, null, null, false, null)))
+        .containsExactlyInAnyOrder(a, b);
+    // the name filter keeps reference-only occurrences
+    assertThat(ids(new WorkFilter(null, ns, null, null, null, null, null, null, null, null, null, null, null, null, false, null)))
+        .containsExactlyInAnyOrder(b);
+    assertThat(ids(new WorkFilter(null, ns, null, null, null, null, null, null, null, null, null, null, null, null, true, null)))
+        .isEmpty();
+    assertThat(ids(none)).hasSize(2);
   }
 
   @Test
