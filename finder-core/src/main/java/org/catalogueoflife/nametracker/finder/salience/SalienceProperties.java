@@ -1,4 +1,4 @@
-package org.catalogueoflife.nametracker.indexer.index;
+package org.catalogueoflife.nametracker.finder.salience;
 
 /** Weights and threshold of the salience score ({@code nametracker.salience.*}). */
 public record SalienceProperties(double titleWeight, double abstractWeight, double actWeight, double headingWeight,

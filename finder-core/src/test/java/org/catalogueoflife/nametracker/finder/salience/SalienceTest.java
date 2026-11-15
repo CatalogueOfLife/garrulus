@@ -1,8 +1,8 @@
-package org.catalogueoflife.nametracker.indexer.index;
+package org.catalogueoflife.nametracker.finder.salience;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import org.catalogueoflife.nametracker.indexer.index.Salience.Inputs;
+import org.catalogueoflife.nametracker.finder.salience.Salience.Inputs;
 import org.junit.jupiter.api.Test;
 
 class SalienceTest {

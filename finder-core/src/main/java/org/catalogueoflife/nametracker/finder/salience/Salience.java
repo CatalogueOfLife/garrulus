@@ -1,4 +1,4 @@
-package org.catalogueoflife.nametracker.indexer.index;
+package org.catalogueoflife.nametracker.finder.salience;
 
 /** How much a work is about a name. Counts passed in exclude REFERENCE blocks. */
 public final class Salience {

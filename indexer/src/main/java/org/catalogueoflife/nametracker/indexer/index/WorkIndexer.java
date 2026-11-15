@@ -8,6 +8,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import life.catalogue.api.vocab.TaxGroup;
+import org.catalogueoflife.nametracker.finder.salience.Salience;
+import org.catalogueoflife.nametracker.finder.salience.SalienceInputs;
+import org.catalogueoflife.nametracker.finder.salience.SalienceInputs.MentionView;
+import org.catalogueoflife.nametracker.finder.salience.SalienceProperties;
 import org.catalogueoflife.nametracker.indexer.match.Placement;
 import org.catalogueoflife.nametracker.indexer.match.WorkIndexing;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
@@ -52,15 +56,19 @@ public class WorkIndexer implements WorkIndexing {
       byName.computeIfAbsent(m.nameStringId(), k -> new ArrayList<>()).add(m);
       if (m.actType() != null && !"REFERENCE".equals(m.blockType())) hasActs = true; // a cited act is not this work's
     }
-    Map<Long, Double> ubiquity = new HashMap<>();
+    // SalienceInputs keys by string: the name string id
+    List<MentionView> views = new ArrayList<>();
+    for (List<MentionRow> ms : byName.values()) {
+      for (MentionRow m : ms) views.add(new MentionView(String.valueOf(m.nameStringId()), m.blockType(), m.actType()));
+    }
+    Map<String, Double> ubiquity = new HashMap<>();
     List<Long> ids = new ArrayList<>(byName.keySet());
     for (int i = 0; i < ids.size(); i += CHUNK) {
       for (NameUbiquity u : index.ubiquity(ids.subList(i, Math.min(ids.size(), i + CHUNK)))) {
-        ubiquity.put(u.nameStringId(), (double) u.share());
+        ubiquity.put(String.valueOf(u.nameStringId()), (double) u.share());
       }
     }
-    int maxBody = 0;
-    for (List<MentionRow> ms : byName.values()) maxBody = Math.max(maxBody, bodyCount(ms));
+    Map<String, Salience.Inputs> inputs = SalienceInputs.of(views, abstractOnly, ubiquity);
 
     List<WorkName> rows = new ArrayList<>();
     Set<String> codes = new LinkedHashSet<>();
@@ -68,33 +76,19 @@ public class WorkIndexer implements WorkIndexing {
     for (Map.Entry<Long, List<MentionRow>> e : byName.entrySet()) {
       List<MentionRow> ms = e.getValue();
       int body = bodyCount(ms);
-      boolean inTitle = false, inAbstract = false, inHeading = false;
+      Salience.Inputs in = inputs.get(String.valueOf(e.getKey()));
+      boolean inTitle = in.inTitle(), inAbstract = in.inAbstract(), inHeading = in.inHeading();
       Set<String> acts = new LinkedHashSet<>();
-      boolean bodyAct = false;
       MentionRow title = null, abs = null, firstBody = null;
       for (MentionRow m : ms) {
-        boolean ref = "REFERENCE".equals(m.blockType());
         if (m.actType() != null) acts.add(m.actType());
-        if (ref) continue;
-        if (m.actType() != null) bodyAct = true;
+        if ("REFERENCE".equals(m.blockType())) continue;
         if (firstBody == null) firstBody = m;
-        switch (m.blockType()) {
-          case "TITLE" -> {
-            inTitle = true;
-            if (title == null) title = m;
-          }
-          case "ABSTRACT" -> {
-            inAbstract = true;
-            if (abs == null) abs = m;
-          }
-          case "HEADING" -> inHeading = true;
-          default -> { }
-        }
+        if (title == null && "TITLE".equals(m.blockType())) title = m;
+        if (abs == null && "ABSTRACT".equals(m.blockType())) abs = m;
       }
-      if (abstractOnly && body > 0) inAbstract = true;
       MentionRow best = title != null ? title : abs != null ? abs : firstBody != null ? firstBody : ms.get(0);
-      double s = salience.score(new Salience.Inputs(inTitle, inAbstract, bodyAct, inHeading, body, maxBody,
-          ubiquity.getOrDefault(e.getKey(), 0.0)));
+      double s = salience.score(in);
       boolean main = body > 0 && salience.isMainSubject(s);
       Placement p = placements.get(e.getKey());
       if (p == null) p = new Placement(Placement.NONE, null, List.of(), null, null);
