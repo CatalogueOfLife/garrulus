@@ -17,7 +17,11 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.TestPropertySource;
 
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@TestPropertySource(properties = "nametracker.indexer.workers=8")
 @Import({TaskDispatcherIT.BoomConfig.class, TaskDispatcherIT.ErrorConfig.class})
 class TaskDispatcherIT extends AbstractPostgresIT {
 

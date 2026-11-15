@@ -16,11 +16,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.TestPropertySource;
 
 /** Stale threshold far below the handler runtime: the heartbeat must keep the live task from being requeued. */
 @Import(TaskDispatcherStaleIT.SlowConfig.class)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @TestPropertySource(properties = {
+    "nametracker.indexer.workers=8",
     "nametracker.indexer.stale-after=1s",
     "nametracker.indexer.requeue-interval=200ms",
     "nametracker.indexer.heartbeat-interval=200ms"})

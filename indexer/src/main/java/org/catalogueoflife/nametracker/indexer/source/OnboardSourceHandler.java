@@ -1,0 +1,102 @@
+package org.catalogueoflife.nametracker.indexer.source;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.Map;
+import org.catalogueoflife.nametracker.finder.api.FinderJson;
+import org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException;
+import org.catalogueoflife.nametracker.indexer.harvest.WorksPager;
+import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
+import org.catalogueoflife.nametracker.store.source.Source;
+import org.catalogueoflife.nametracker.store.source.SourceMapper;
+import org.catalogueoflife.nametracker.store.task.Task;
+import org.catalogueoflife.nametracker.store.task.TaskPriority;
+import org.catalogueoflife.nametracker.store.task.TaskQueue;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+import tools.jackson.databind.JsonNode;
+
+/**
+ * {@code ONBOARD_SOURCE}, payload {@code {"sourceId":n}} (plus {@code from}, {@code cursor} and {@code page} in
+ * continuations): imports the last 120 days of one source with origin ONBOARDING, its RESOLVE_CONTENT tasks at BACKFILL
+ * priority. Paging works as in {@link org.catalogueoflife.nametracker.indexer.harvest.OpenAlexHarvestHandler}. After the
+ * last page the source is marked onboarded, from when LIVE and SWEEP harvest it.
+ */
+@Component
+public class OnboardSourceHandler implements TaskHandler {
+
+  public static final String TYPE = "ONBOARD_SOURCE";
+  static final int DAYS = 120;
+  private static final Logger LOG = LoggerFactory.getLogger(OnboardSourceHandler.class);
+
+  private final WorksPager pager;
+  private final SourceMapper sources;
+  private final TaskQueue queue;
+  private final Clock clock;
+
+  public OnboardSourceHandler(WorksPager pager, SourceMapper sources, TaskQueue queue, Clock clock) {
+    this.pager = pager;
+    this.sources = sources;
+    this.queue = queue;
+    this.clock = clock;
+  }
+
+  @Override
+  public String type() {
+    return TYPE;
+  }
+
+  @Override
+  public void handle(Task task) {
+    JsonNode p = FinderJson.mapper().readTree(task.payload());
+    long sourceId = p.path("sourceId").asLong(0);
+    Source source = sourceId == 0 ? null : sources.get(sourceId);
+    if (source == null) {
+      throw new IllegalArgumentException("ONBOARD_SOURCE needs the id of an existing source: " + task.payload());
+    }
+    if (source.onboardedAt() != null || !Boolean.TRUE.equals(source.active()) || source.openalexId() == null
+        || !("CORE".equals(source.tier()) || "BROAD".equals(source.tier()))) {
+      return; // already done, or no longer wanted
+    }
+    LocalDate today = LocalDate.now(clock.withZone(ZoneOffset.UTC));
+    String fromText = WorksPager.text(p, "from");
+    LocalDate from = fromText == null ? today.minusDays(DAYS) : LocalDate.parse(fromText);
+    String cursor = WorksPager.text(p, "cursor");
+    int page = p.path("page").asInt(1);
+
+    String filter = "primary_location.source.id:" + source.openalexId() + ",from_publication_date:" + from
+        + ",type:article|review";
+    WorksPager.Outcome out;
+    try {
+      out = pager.page(filter, cursor, page, Map.of(source.openalexId(), sourceId), "ONBOARDING",
+          TaskPriority.BACKFILL);
+    } catch (BudgetExhaustedException e) {
+      Instant retryAt = e.retryAt();
+      LOG.info("OpenAlex budget spent; onboarding of source {} resumes at {}", sourceId, retryAt);
+      queue.enqueue(TYPE, payload(sourceId, from, cursor, page), task.priority(),
+          "onboard:" + sourceId + ":" + WorksPager.pos(cursor, page) + ":d" + retryAt.getEpochSecond(), retryAt);
+      return;
+    }
+    if (!out.last()) {
+      queue.enqueue(TYPE, payload(sourceId, from, out.nextCursor(), out.nextPage()), task.priority(),
+          "onboard:" + sourceId + ":" + WorksPager.pos(out.nextCursor(), out.nextPage()));
+      return;
+    }
+    Instant now = clock.instant();
+    sources.setLastHarvested(sourceId, now);
+    sources.setOnboarded(sourceId, now);
+  }
+
+  private static String payload(long sourceId, LocalDate from, @Nullable String cursor, int page) {
+    Map<String, Object> m = WorksPager.map();
+    m.put("sourceId", sourceId);
+    m.put("from", from.toString());
+    m.put("cursor", cursor);
+    m.put("page", page);
+    return WorksPager.json(m);
+  }
+}
