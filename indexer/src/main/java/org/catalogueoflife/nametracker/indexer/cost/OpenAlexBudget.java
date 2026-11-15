@@ -64,6 +64,14 @@ public class OpenAlexBudget {
     }
   }
 
+  /** How long a 429 of unknown kind (burst or daily) defers the work. */
+  public static final java.time.Duration SOON = java.time.Duration.ofMinutes(15);
+
+  /** For a final 429: retryAt is now + {@link #SOON}. The next-day deferral comes only from {@link #check}. */
+  public BudgetExhaustedException exhaustedSoon() {
+    return new BudgetExhaustedException(clock.instant().plus(SOON));
+  }
+
   /** The exception for a spent budget, with retryAt the next 00:05 UTC. */
   public BudgetExhaustedException exhausted() {
     Instant now = clock.instant();

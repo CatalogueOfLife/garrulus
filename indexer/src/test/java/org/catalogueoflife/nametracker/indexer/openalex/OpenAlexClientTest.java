@@ -186,7 +186,9 @@ class OpenAlexClientTest {
         .withBody("{\"error\":\"Rate limit exceeded\"}")));
     BudgetExhaustedException e = assertThrows(BudgetExhaustedException.class,
         () -> client(w, null).listWorks("f:1", "id", null, 1));
-    assertEquals(Instant.parse("2026-11-16T00:05:00Z"), e.retryAt());
+    assertEquals(NOON.instant().plus(Duration.ofMinutes(15)), e.retryAt(), "a 429 defers only briefly");
+    stubFor(get(urlPathEqualTo("/works")).willReturn(json("{\"meta\":{},\"results\":[]}")));
+    client(w, null).listWorks("f:1", "id", null, 1); // the budget itself was not marked as spent
   }
 
   @Test
@@ -195,7 +197,8 @@ class OpenAlexClientTest {
         .withHeader("X-RateLimit-Remaining-USD", "0")));
     OpenAlexClient c = client(w, null);
     c.listWorks("f:1", "id", null, 1);
-    assertThrows(BudgetExhaustedException.class, () -> c.listWorks("f:1", "id", null, 2));
+    BudgetExhaustedException e = assertThrows(BudgetExhaustedException.class, () -> c.listWorks("f:1", "id", null, 2));
+    assertEquals(Instant.parse("2026-11-16T00:05:00Z"), e.retryAt(), "a recorded remaining of 0 defers to the next day");
     verify(1, getRequestedFor(urlPathEqualTo("/works")));
   }
 

@@ -71,7 +71,16 @@ public class PoliteHttp {
         k -> new HostLimiter(intervals.getOrDefault(k, DEFAULT_INTERVAL), clock, sleeper));
   }
 
+  /** Replaces the values of the secret query parameters {@code api_key} and {@code mailto} with {@code ***}. */
+  public static URI redact(URI uri) {
+    String q = uri.getRawQuery();
+    if (q == null) return uri;
+    String r = q.replaceAll("(?i)(^|&)(api_key|mailto)=[^&]*", "$1$2=***");
+    return r.equals(q) ? uri : URI.create(uri.toString().replace("?" + q, "?" + r));
+  }
+
   public HttpResponse<byte[]> get(URI uri, Map<String, String> headers) {
+    URI safe = redact(uri);
     HostLimiter limiter = limiterFor(uri.getHost());
     HttpRequest.Builder b = HttpRequest.newBuilder(uri).GET().timeout(REQUEST_TIMEOUT)
         .header("User-Agent", userAgent);
@@ -88,13 +97,13 @@ public class PoliteHttp {
         int s = resp.statusCode();
         if (s == 429 || s == 503) {
           if (throttled >= THROTTLE_RETRIES) {
-            throw new HttpProblem(uri, s, true, "HTTP " + s + " after " + throttled + " retries: " + uri, null);
+            throw new HttpProblem(safe, s, true, "HTTP " + s + " after " + throttled + " retries: " + safe, null);
           }
           throttled++;
           wait = retryAfter(resp);
         } else if (s >= 500) {
           if (failed >= ERROR_BACKOFF.length) {
-            throw new HttpProblem(uri, s, true, "HTTP " + s + " after " + failed + " retries: " + uri, null);
+            throw new HttpProblem(safe, s, true, "HTTP " + s + " after " + failed + " retries: " + safe, null);
           }
           wait = ERROR_BACKOFF[failed++];
         } else {
@@ -102,14 +111,14 @@ public class PoliteHttp {
         }
       } catch (IOException e) {
         if (failed >= ERROR_BACKOFF.length) {
-          throw new HttpProblem(uri, 0, true, "I/O failure after " + failed + " retries: " + uri, e);
+          throw new HttpProblem(safe, 0, true, "I/O failure after " + failed + " retries: " + safe, e);
         }
         wait = ERROR_BACKOFF[failed++];
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
-        throw new HttpProblem(uri, 0, false, "Interrupted: " + uri, e);
+        throw new HttpProblem(safe, 0, false, "Interrupted: " + safe, e);
       }
-      sleep(uri, wait);
+      sleep(safe, wait);
     }
   }
 

@@ -88,6 +88,19 @@ class PoliteHttpTest {
   }
 
   @Test
+  void secretsNeverReachMessagesOrUris(WireMockRuntimeInfo w) {
+    stubFor(get(urlPathEqualTo("/secret")).willReturn(aResponse().withStatus(500)));
+    URI u = uri(w, "/secret?filter=a:1&api_key=SECRET&mailto=a@b.c");
+    HttpProblem p = assertThrows(HttpProblem.class, () -> http(new FakeTime()).get(u, Map.of()));
+    for (String s : new String[] {p.getMessage(), p.uri().toString()}) {
+      assertFalse(s.contains("SECRET"), s);
+      assertFalse(s.contains("a@b.c"), s);
+    }
+    assertTrue(p.uri().toString().contains("api_key=***") && p.uri().toString().contains("filter=a:1"));
+    verify(getRequestedFor(urlPathEqualTo("/secret")).withQueryParam("api_key", equalTo("SECRET")));
+  }
+
+  @Test
   void other5xxRetriesTwiceAfter2sAnd8s(WireMockRuntimeInfo w) {
     stubFor(get("/boom").willReturn(aResponse().withStatus(500)));
     FakeTime t = new FakeTime();

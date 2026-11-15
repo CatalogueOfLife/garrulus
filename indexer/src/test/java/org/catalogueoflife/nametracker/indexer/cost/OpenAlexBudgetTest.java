@@ -36,6 +36,12 @@ class OpenAlexBudgetTest {
   }
 
   @Test
+  void exhaustedSoonDefersFifteenMinutes() {
+    OpenAlexBudget b = new OpenAlexBudget(new FakeApiUsage(), d("1.00"), d("0.30"), NOON);
+    assertEquals(Instant.parse("2026-11-15T12:15:00Z"), b.exhaustedSoon().retryAt());
+  }
+
+  @Test
   void tomorrowStartsFresh() {
     FakeApiUsage usage = new FakeApiUsage();
     usage.add("openalex", TODAY, 5, d("1.00"), d("0"));

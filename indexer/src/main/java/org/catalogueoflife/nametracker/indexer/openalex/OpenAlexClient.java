@@ -32,7 +32,8 @@ import tools.jackson.databind.JsonNode;
  * headers are used when present; otherwise the credit headers are converted.
  *
  * <p>A 429 is retried by PoliteHttp; once its retries are spent the HttpProblem(429) becomes a
- * {@link BudgetExhaustedException}, because a daily-budget 429 keeps coming back until the day rolls over.
+ * {@link BudgetExhaustedException} that defers by 15 minutes (a burst limit and the daily limit look alike). The
+ * next-day deferral comes from {@code budget.check}, once a response has recorded a remaining amount of 0.
  */
 public class OpenAlexClient {
 
@@ -158,7 +159,7 @@ public class OpenAlexClient {
     try {
       resp = http.get(uri, Map.of("Accept", "application/json"));
     } catch (HttpProblem p) {
-      if (p.status() == 429) throw budget.exhausted();
+      if (p.status() == 429) throw budget.exhaustedSoon();
       throw p;
     }
     int status = resp.statusCode();
@@ -166,12 +167,12 @@ public class OpenAlexClient {
         usd(resp, "X-RateLimit-Remaining-USD", "X-RateLimit-Remaining"));
     if (status == 404 && missingIsOk) return new Reply(404, null);
     if (status < 200 || status >= 300) {
-      throw new HttpProblem(uri, status, false, "HTTP " + status + " from OpenAlex: " + redact(uri), null);
+      throw new HttpProblem(PoliteHttp.redact(uri), status, false, "HTTP " + status + " from OpenAlex: " + PoliteHttp.redact(uri), null);
     }
     try {
       return new Reply(status, FinderJson.mapper().readTree(resp.body()));
     } catch (RuntimeException e) {
-      throw new HttpProblem(uri, status, false, "Unreadable OpenAlex response: " + redact(uri), e);
+      throw new HttpProblem(PoliteHttp.redact(uri), status, false, "Unreadable OpenAlex response: " + PoliteHttp.redact(uri), e);
     }
   }
 
@@ -202,11 +203,6 @@ public class OpenAlexClient {
     }
     if (apiKey != null) sb.append(sep).append("api_key=").append(enc(apiKey));
     return URI.create(sb.toString());
-  }
-
-  /** Never put the key in a log line or exception message. */
-  private static String redact(URI uri) {
-    return uri.toString().replaceAll("api_key=[^&]*", "api_key=***");
   }
 
   private static String enc(String s) {
