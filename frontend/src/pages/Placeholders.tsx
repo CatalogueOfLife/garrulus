@@ -13,7 +13,5 @@ function Placeholder({ kind }: { kind: string }) {
   );
 }
 
-export const TaxonPage = () => <Placeholder kind="Taxon" />;
 export const NamePage = () => <Placeholder kind="Name" />;
-export const WorkPage = () => <Placeholder kind="Work" />;
 export const SourcePage = () => <Placeholder kind="Source" />;

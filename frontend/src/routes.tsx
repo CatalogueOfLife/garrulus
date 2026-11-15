@@ -1,6 +1,8 @@
 import { Route, Routes } from 'react-router-dom';
 import { SearchPage } from './pages/SearchPage';
-import { NamePage, SourcePage, TaxonPage, WorkPage } from './pages/Placeholders';
+import { NamePage, SourcePage } from './pages/Placeholders';
+import { TaxonPage } from './pages/TaxonPage';
+import { WorkPage } from './pages/WorkPage';
 
 export function AppRoutes() {
   return (

@@ -262,3 +262,19 @@ export interface TaxonSuggestion {
 export function suggestTaxa(xrKey: number, q: string): Promise<TaxonSuggestion[]> {
   return getJson<TaxonSuggestion[]>(`${CLB_BASE}/dataset/${xrKey}/nameusage/suggest?${new URLSearchParams({ q })}`);
 }
+
+export interface ClbTaxon {
+  id: string;
+  label?: string;
+  status?: string;
+  parentId?: string | null;
+  name: { scientificName: string; rank?: string };
+}
+export interface ClbClassificationItem { id: string; name: string; rank?: string; label?: string }
+
+/** The taxon header, straight from CLB in the pinned XR dataset. */
+export const getClbTaxon = (xrKey: number, id: string) =>
+  getJson<ClbTaxon>(`${CLB_BASE}/dataset/${xrKey}/taxon/${encodeURIComponent(id)}`);
+/** The classification of a taxon, root first. */
+export const getClbClassification = (xrKey: number, id: string) =>
+  getJson<ClbClassificationItem[]>(`${CLB_BASE}/dataset/${xrKey}/taxon/${encodeURIComponent(id)}/classification`);

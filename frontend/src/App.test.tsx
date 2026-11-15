@@ -15,8 +15,8 @@ describe('App', () => {
 
   it('has the placeholder routes', async () => {
     server.use(xrHandler);
-    renderApp(<App />, '/work/5');
-    expect(await screen.findByRole('heading', { name: 'Work' })).toBeInTheDocument();
-    expect(document.title).toBe('Garrulus — Work 5');
+    renderApp(<App />, '/source/5');
+    expect(await screen.findByRole('heading', { name: 'Source' })).toBeInTheDocument();
+    expect(document.title).toBe('Garrulus — Source 5');
   });
 });
