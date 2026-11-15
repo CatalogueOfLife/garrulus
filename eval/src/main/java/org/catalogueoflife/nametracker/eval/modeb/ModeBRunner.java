@@ -57,7 +57,7 @@ public final class ModeBRunner {
     }
 
     /**
-     * For Pensoft: the byte-identical copy in the PMC Article Datasets on AWS if there is one (fast), else
+     * For Pensoft: the copy in the PMC Article Datasets (identical in spot checks (MD5)) on AWS if there is one (fast), else
      * {@link PensoftFetcher#pdfUrl} (slow, throttled by Pensoft). A failure of the PMC route falls back to Pensoft.
      */
     static PdfSource pmcThenPensoft(PdfDownloader downloader, PmcPdfLocator pmc, Consumer<String> log) {

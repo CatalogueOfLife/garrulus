@@ -23,7 +23,7 @@ public class FinderConfig {
 
   @Bean
   NameFinder nameFinder(@Value("${finder.dictionary:}") String dictionary,
-                        @Value("${finder.gnfinder-url:http://localhost:8778}") String gnfinderUrl,
+                        @Value("${finder.gnfinder-url:}") String gnfinderUrl, // blank: PipelineFactory.DEFAULT_GNFINDER_URL
                         @Value("${finder.config:}") String configFile) throws IOException {
     if (dictionary == null || dictionary.isBlank()) throw new IllegalStateException(NO_DICTIONARY);
     Path dict = Path.of(dictionary);

@@ -21,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -79,7 +80,7 @@ class ModeBRunnerTest {
   void convertsThePdfThroughGrobidWithDehyphenationAndCachesBoth(@TempDir Path cache) throws Exception {
     WM.stubFor(get(urlEqualTo("/pdf/d1")).willReturn(aResponse().withHeader("Content-Type", "application/pdf").withBody(PDF)));
     WM.stubFor(post(urlEqualTo("/api/processFulltextDocument")).willReturn(aResponse().withBody(TEI)));
-    List<String> log = new ArrayList<>();
+    List<String> log = Collections.synchronizedList(new ArrayList<>()); // filled from the runner's pool threads
     Recorder finder = new Recorder();
 
     Map<String, FinderResult> results = runner(log).run(List.of(gold("d1")), finder, cache);
@@ -106,7 +107,7 @@ class ModeBRunnerTest {
   void aCachedPdfIsNotDownloadedAgain(@TempDir Path cache) throws Exception {
     Files.write(cache.resolve("d1.pdf"), PDF);
     WM.stubFor(post(urlEqualTo("/api/processFulltextDocument")).willReturn(aResponse().withBody(TEI)));
-    ModeBRunner.Converted c = runner(new ArrayList<>()).convert(List.of(gold("d1")), cache);
+    ModeBRunner.Converted c = runner(Collections.synchronizedList(new ArrayList<>())).convert(List.of(gold("d1")), cache);
     assertThat(c.documents()).containsOnlyKeys("d1");
     assertThat(c.sources()).containsEntry("d1", "unknown");
     WM.verify(0, getRequestedFor(urlEqualTo("/pdf/d1")));
@@ -119,7 +120,7 @@ class ModeBRunnerTest {
     WM.stubFor(get(urlEqualTo("/pdf/html")).willReturn(aResponse().withHeader("Content-Type", "text/html").withBody("<html>login</html>")));
     WM.stubFor(get(urlEqualTo("/pdf/cut")).willReturn(aResponse().withBody("%PDF-1.4 and then nothing")));
     WM.stubFor(post(urlEqualTo("/api/processFulltextDocument")).willReturn(aResponse().withBody(TEI)));
-    List<String> log = new ArrayList<>();
+    List<String> log = Collections.synchronizedList(new ArrayList<>()); // filled from the runner's pool threads
     List<GoldDocument> docs = List.of(gold("ok"), gold("gone"), gold("html"), gold("cut"));
 
     ModeBRunner.Converted c = runner(log).convert(docs, cache);
@@ -140,7 +141,7 @@ class ModeBRunnerTest {
   void grobidFailureSkipsTheDocument(@TempDir Path cache) {
     WM.stubFor(get(urlEqualTo("/pdf/d1")).willReturn(aResponse().withBody(PDF)));
     WM.stubFor(post(urlEqualTo("/api/processFulltextDocument")).willReturn(aResponse().withStatus(500).withBody("pdfalto failed")));
-    Map<String, String> failed = runner(new ArrayList<>()).prefetch(List.of(gold("d1")), cache);
+    Map<String, String> failed = runner(Collections.synchronizedList(new ArrayList<>())).prefetch(List.of(gold("d1")), cache);
     assertThat(failed).containsOnlyKeys("d1");
     assertThat(failed.get("d1")).contains("GrobidException").contains("500");
     // the PDF stays cached, so the next run only needs GROBID
@@ -165,7 +166,7 @@ class ModeBRunnerTest {
         };
       }
     };
-    List<String> log = new ArrayList<>();
+    List<String> log = Collections.synchronizedList(new ArrayList<>()); // filled from the runner's pool threads
     ModeBRunner.PdfSource src = ModeBRunner.PdfSource.pmcThenPensoft(dl, pmc, log::add);
     assertThat(src.fetch(gold("d1")).url()).isEqualTo(WM.baseUrl() + "/pmc/PMC1.1/PMC1.1.pdf");
     // the Pensoft fallback is a real pensoft.net URL; only check that it is chosen, without downloading it

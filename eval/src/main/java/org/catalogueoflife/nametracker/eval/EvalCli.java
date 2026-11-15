@@ -248,11 +248,12 @@ public class EvalCli implements Runnable {
     /**
      * The default grid, besides the threshold: the largest weights that fire on stripped text (italic, gnfinderOdds,
      * ambiguousWord; taxonMarkup never fires there) and the weights behind the main false positive buckets
-     * (dictHit.NONE, partialSupport). The ranges reach past the values the search settled on, except where the brief
-     * fixes them (threshold up to 0.8).
+     * (dictHit.NONE, partialSupport). The threshold range (0.3 to 0.8) is fixed by the plan. A value at the edge of its
+     * range means the search may want to go further: partialSupport settled on -8, the edge of the first grid, so the
+     * grid now reaches -12 (Ruling Z2).
      */
     static final String DEFAULT_GRID = "italic=1,2,3,4,5,6,7;gnfinderOdds=2,4,6,8,10,12,16;ambiguousWord=-1,-2.5,-4,-6;"
-        + "dictHit.NONE=0,-1,-2,-3,-4,-5;partialSupport=-0.5,-2,-4,-6,-8";
+        + "dictHit.NONE=0,-1,-2,-3,-4,-5;partialSupport=-0.5,-2,-4,-6,-8,-10,-12";
 
     @Option(names = "--corpus", required = true, description = "corpus directory holding gold.jsonl.gz") Path corpus;
     @Option(names = "--split", defaultValue = "dev", description = "the split to tune on; never test, default ${DEFAULT-VALUE}") String split;
@@ -402,8 +403,10 @@ public class EvalCli implements Runnable {
             + (converted.failures().isEmpty() ? "." : "; " + converted.failures().size() + " skipped (download or conversion failed): "
             + String.join(", ", converted.failures().keySet()) + "."));
         long pmc = converted.sources().values().stream().filter(u -> u.contains("pmc-oa-opendata")).count();
-        notes.add("PDF sources: " + pmc + " from the PMC Article Datasets on AWS (byte-identical copies), "
-            + (converted.sources().size() - pmc) + " from pensoft.net.");
+        long unknown = converted.sources().values().stream().filter(u -> u.equals("unknown")).count();
+        notes.add("PDF sources: " + pmc + " from the PMC Article Datasets on AWS (copies identical in spot checks (MD5)), "
+            + (converted.sources().size() - pmc - unknown) + " from pensoft.net"
+            + (unknown == 0 ? "." : ", " + unknown + " unknown (cached without a source URL)."));
         if (docs.isEmpty()) throw new IllegalStateException("No document could be converted from PDF");
       }
       String corpusName = corpus.toAbsolutePath().normalize().getFileName().toString();

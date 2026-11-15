@@ -18,8 +18,8 @@ import java.util.regex.Pattern;
 
 /**
  * Finds an open access article's PDF in the PMC Article Datasets on AWS ({@code s3://pmc-oa-opendata}, a public bucket
- * served over HTTPS; free, no account). Pensoft deposits its journals there, and the PDFs are byte-identical to those on
- * pensoft.net (checked by MD5), which throttles downloads to a few KB/s per connection.
+ * served over HTTPS; free, no account). Pensoft deposits its journals there, and the PDFs are identical in spot checks (MD5) to
+ * those on pensoft.net, which throttles downloads to a few KB/s per connection.
  *
  * <p>DOI to PMCID through the Europe PMC search API, then the highest article version {@code PMCxxxx.N/} in the bucket.
  * At most one Europe PMC request per second.

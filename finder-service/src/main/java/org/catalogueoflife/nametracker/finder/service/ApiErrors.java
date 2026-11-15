@@ -22,6 +22,7 @@ import java.util.Map;
 @RestControllerAdvice
 public class ApiErrors {
   private static final System.Logger LOG = System.getLogger(ApiErrors.class.getName());
+  static final String GNFINDER_UNAVAILABLE = "gnfinder unavailable; retry later";
 
   static Map<String, Object> body(int status, String message) {
     Map<String, Object> m = new LinkedHashMap<>();
@@ -76,9 +77,10 @@ public class ApiErrors {
     throw e; // Spring's own handling of the rest: 404, 405, 415 stay what they are, anything else is a logged 500
   }
 
+  /** The detail (with gnfinder's internal URL) goes to the log only; the client learns that it may retry. */
   private static ResponseEntity<Map<String, Object>> unavailable(GnfinderUnavailableException e) {
     LOG.log(System.Logger.Level.WARNING, "gnfinder is not available: {0}", e.getMessage());
-    return reply(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage());
+    return reply(HttpStatus.SERVICE_UNAVAILABLE, GNFINDER_UNAVAILABLE);
   }
 
   private static String tooLarge() {

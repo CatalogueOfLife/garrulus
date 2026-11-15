@@ -15,7 +15,8 @@ import java.util.function.Predicate;
 
 /**
  * Converts GROBID TEI into a {@link Document}. GROBID emits no italics, so blocks never carry style spans. Line-break
- * hyphenation is left untouched; callers apply {@link Dehyphenator} per block with a dictionary. A footnote inside a
+ * hyphenation is undone here, per block on its raw text, with the dictionary given to
+ * {@link #convert(InputStream, String, Predicate)} (see {@link Dehyphenator#join}); callers do not de-hyphenate. A footnote inside a
  * paragraph becomes its own block placed after the paragraph start, and its text is not part of the paragraph.
  * Uses the same hardened parser set up as {@link JatsConverter}.
  */

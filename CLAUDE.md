@@ -71,7 +71,7 @@ on any command lists its options.
 - **Mode B** (PDF path):
   - Start GROBID with `docker compose --profile grobid up -d grobid` (`GROBID_URL`, default `http://localhost:8070`).
   - `fetch-pdf --corpus eval/corpus/pensoft` fills `eval/work/pdf/`: per document the PDF, GROBID's TEI and the source
-    URL. PDFs come from the PMC open data copy on AWS when there is one (byte-identical); pensoft.net is the fallback
+    URL. PDFs come from the PMC open data copy on AWS when there is one (identical in spot checks (MD5)); pensoft.net is the fallback
     and is throttled to a few KB/s.
   - `run --mode B` reads that cache, fetches what is missing, and always scores names per document. With
     `--cache-only` it skips uncached documents instead, so all finders score the same set. Skipped documents are listed

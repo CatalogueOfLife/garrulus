@@ -157,7 +157,8 @@ class FindControllerTest {
         new java.net.ConnectException("refused"));
     mvc.perform(post("/v1/find").contentType(MediaType.APPLICATION_JSON).content(REQUEST))
         .andExpect(status().isServiceUnavailable()).andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.status").value(503)).andExpect(jsonPath("$.error").value(org.hamcrest.Matchers.containsString("gnfinder")));
+        .andExpect(jsonPath("$.status").value(503)).andExpect(jsonPath("$.error").value(ApiErrors.GNFINDER_UNAVAILABLE))
+        .andExpect(jsonPath("$.error").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("http"))));
   }
 
   @Test
@@ -170,7 +171,7 @@ class FindControllerTest {
   void aWrappedGnfinderFailureIs503() throws Exception {
     STUB.failure = new IllegalStateException("pipeline failed", new GnfinderUnavailableException("gnfinder at x returned HTTP 502"));
     mvc.perform(post("/v1/find/text").contentType(MediaType.TEXT_PLAIN).content("x")).andExpect(status().isServiceUnavailable())
-        .andExpect(jsonPath("$.error").value("gnfinder at x returned HTTP 502"));
+        .andExpect(jsonPath("$.error").value(ApiErrors.GNFINDER_UNAVAILABLE));
   }
 
   @Test

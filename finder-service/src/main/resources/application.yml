@@ -18,6 +18,7 @@ management:
 finder:
   # required: a dictionary built by `eval build-dictionary`
   dictionary: ${FINDER_DICTIONARY:}
-  gnfinder-url: ${GNFINDER_URL:http://localhost:8778}
+  # blank means PipelineFactory.DEFAULT_GNFINDER_URL (http://localhost:8778)
+  gnfinder-url: ${GNFINDER_URL:}
   # optional: a file with a JSON object of pipeline config overrides
   config: ${FINDER_CONFIG:}
