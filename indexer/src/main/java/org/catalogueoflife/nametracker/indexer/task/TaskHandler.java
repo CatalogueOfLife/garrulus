@@ -12,6 +12,11 @@ public interface TaskHandler {
 
   String type();
 
+  /** False when the handler cannot work in this process (a missing service); its tasks then wait in the queue. */
+  default boolean enabled() {
+    return true;
+  }
+
   /** Throwing marks the attempt as failed; the task is retried with backoff until it is dead. */
   void handle(Task task) throws Exception;
 }

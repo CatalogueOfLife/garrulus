@@ -66,11 +66,19 @@ nametracker:
     broad-min-share: ${NAMETRACKER_SEED_BROAD_MIN_SHARE:0.50}
     candidate-min-works: ${NAMETRACKER_SEED_CANDIDATE_MIN_WORKS:10}
   finder:
-    # optional COL dictionary (eval build-dictionary output); only used to de-hyphenate TEI text
+    # the name finder of FIND_NAMES: a finder service at url, else the in-process pipeline built from the COL dictionary
+    # (eval build-dictionary output; also used to de-hyphenate TEI text), else none and FIND_NAMES tasks wait
+    url: ${NAMETRACKER_FINDER_URL:}
     dictionary: ${FINDER_DICTIONARY:}
+    gnfinder-url: ${GNFINDER_URL:}
+    # optional file with a JSON object of pipeline overrides
+    config: ${FINDER_CONFIG:}
   blobs:
     dir: ${NAMETRACKER_BLOBS_DIR:./data/blobs}
   content:
+    # transient store of full text that may not be kept, until FIND_NAMES has run; purged after spool-max-age
+    spool-dir: ${NAMETRACKER_SPOOL_DIR:./data/spool}
+    spool-max-age: ${NAMETRACKER_SPOOL_MAX_AGE:14d}
     open-licences: ${NAMETRACKER_CONTENT_OPEN_LICENCES:cc-by,cc-by-sa,cc0,public-domain}
   crossref:
     base-url: ${NAMETRACKER_CROSSREF_BASE_URL:https://api.crossref.org}

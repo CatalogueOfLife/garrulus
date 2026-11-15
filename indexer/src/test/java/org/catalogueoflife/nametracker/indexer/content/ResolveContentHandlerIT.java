@@ -87,6 +87,8 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
   @Autowired ContentMapper contents;
   @Autowired BlobStore blobs;
   @Autowired LicencePolicy policy;
+  @Autowired org.catalogueoflife.nametracker.indexer.finder.Spool spool;
+  @Autowired org.catalogueoflife.nametracker.store.index.IndexMapper index;
   @Autowired TransactionTemplate tx;
   @Autowired JdbcTemplate jdbc;
 
@@ -122,7 +124,7 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
     PmcidResolver resolver = new PmcidResolver(http(), works, base);
     return new ResolveContentHandler(List.of(new PensoftRoute(http(), base + "/{slug}"),
         new EuropePmcRoute(http(), resolver, base), new PmcBucketRoute(http(), resolver, base)),
-        works, sources, contents, blobs, policy, queue, tx, Clock.systemUTC());
+        works, sources, contents, blobs, policy, spool, index, queue, tx, Clock.systemUTC());
   }
 
   private static void pmcBucket() {
@@ -187,7 +189,7 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
     assertThat(pensoft.kind()).isEqualTo("TAXPUB");
     assertThat(pensoft.retained()).isTrue();
     assertThat(new String(blobs.get(pensoft.docSha256()).get(), StandardCharsets.UTF_8)).contains("Ophelia");
-    assertThat(count("SELECT count(*) FROM task")).isZero(); // fulltext: no re-check
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT'")).isZero(); // fulltext: no re-check
   }
 
   private Task task(long workId) {
@@ -263,7 +265,7 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
 
     // running it again does not add a second task
     handler.handle(task(id));
-    assertThat(count("SELECT count(*) FROM task")).isEqualTo(1);
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT'")).isEqualTo(1);
 
     // a work first seen today is re-checked at +7 days
     long fresh = work(source("BROAD"), "T", "A", null, Instant.now());
@@ -278,7 +280,7 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
     handler.handle(task(work(null, "T", "A", null, Instant.now())));
     handler.handle(task(work(source("CORE"), "T", "A", null, Instant.now().minus(Duration.ofDays(91)))));
     handler.handle(task(work(source("CORE"), "T", "A", null, Instant.now().minus(Duration.ofDays(90)).minusSeconds(5))));
-    assertThat(count("SELECT count(*) FROM task")).isZero();
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT'")).isZero();
   }
 
   @Test
@@ -290,7 +292,7 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
     jdbc.update("UPDATE work SET publication_date = current_date - 91 WHERE id = ?", old);
     handler.handle(task(backfill));
     handler.handle(task(old));
-    assertThat(count("SELECT count(*) FROM task")).isZero();
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT'")).isZero();
 
     // recent and undated LIVE or ONBOARDING works are still re-checked
     long recent = work(src, "T", "A", null, Instant.now());
@@ -298,7 +300,7 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
     long undated = work(src, "T", "A", null, Instant.now());
     handler.handle(task(recent));
     handler.handle(task(undated));
-    assertThat(jdbc.queryForList("SELECT dedup_key FROM task ORDER BY dedup_key", String.class))
+    assertThat(jdbc.queryForList("SELECT dedup_key FROM task WHERE type = 'RESOLVE_CONTENT' ORDER BY dedup_key", String.class))
         .containsExactlyInAnyOrder("content:" + recent + ":recheck:1", "content:" + undated + ":recheck:1");
   }
 
@@ -311,7 +313,7 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
         1, Instant.now(), null, null, null, "content:" + id + ":recheck:1"));
     assertThat(works.get(id).state()).isEqualTo("CONTENT_RESOLVED");
     assertThat(works.get(id).textLevel()).isEqualTo("ABSTRACT_ONLY");
-    assertThat(count("SELECT count(*) FROM task")).isZero();
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT'")).isZero();
   }
 
   @Test
@@ -322,7 +324,7 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
     assertThat(w.state()).isEqualTo("CONTENT_RESOLVED");
     assertThat(w.textLevel()).isEqualTo("NO_TEXT");
     assertThat(contents.listByWork(id)).isEmpty();
-    assertThat(count("SELECT count(*) FROM task")).isZero();
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT'")).isZero();
   }
 
   /** A failing and a budget-exhausted route are skipped; the fulltext of a non-open licence is kept as hashes only. */
@@ -335,7 +337,7 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
         "<article/>".getBytes(StandardCharsets.UTF_8), doc, "CC BY-NC 4.0", "https://example.org/x", true)));
     ResolveContentHandler h = new ResolveContentHandler(List.of(broken, broke, good, route("OPENALEX_TEI", w -> {
       throw new AssertionError("a later route must not run after a win");
-    })), works, sources, contents, blobs, policy, queue, tx, Clock.systemUTC());
+    })), works, sources, contents, blobs, policy, spool, index, queue, tx, Clock.systemUTC());
 
     long id = work(source("CORE"), "T", "A", "cc-by", Instant.now());
     h.handle(task(id));
@@ -347,7 +349,7 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
     assertThat(blobs.exists(pmc.rawSha256())).isFalse();
     assertThat(blobs.exists(pmc.docSha256())).isFalse();
     assertThat(blobCount()).isEqualTo(2); // only the open abstract
-    assertThat(count("SELECT count(*) FROM task")).isZero(); // fulltext: no re-check
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT'")).isZero(); // fulltext: no re-check
   }
 
   @Test
@@ -357,15 +359,15 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
         "<article/>".getBytes(StandardCharsets.UTF_8), doc, "cc-by", "https://example.org/x", true)));
     ContentRoute flaky = route("PMC", w -> { throw new IllegalStateException("flaky"); });
     long id = work(source("CORE"), "T", "A", "cc-by", Instant.now());
-    new ResolveContentHandler(List.of(good), works, sources, contents, blobs, policy, queue, tx, Clock.systemUTC())
+    new ResolveContentHandler(List.of(good), works, sources, contents, blobs, policy, spool, index, queue, tx, Clock.systemUTC())
         .handle(task(id));
     assertThat(works.get(id).textLevel()).isEqualTo("FULLTEXT");
 
-    new ResolveContentHandler(List.of(flaky), works, sources, contents, blobs, policy, queue, tx, Clock.systemUTC())
+    new ResolveContentHandler(List.of(flaky), works, sources, contents, blobs, policy, spool, index, queue, tx, Clock.systemUTC())
         .handle(task(id));
     assertThat(works.get(id).textLevel()).isEqualTo("FULLTEXT");
     assertThat(contents.listByWork(id)).hasSize(2);
-    assertThat(count("SELECT count(*) FROM task")).isZero();
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT'")).isZero();
   }
 
   @Test

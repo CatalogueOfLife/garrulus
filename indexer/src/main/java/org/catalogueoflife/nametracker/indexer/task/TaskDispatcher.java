@@ -1,6 +1,7 @@
 package org.catalogueoflife.nametracker.indexer.task;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,7 +30,7 @@ import org.springframework.stereotype.Component;
  * at most {@code nametracker.indexer.workers} at a time. There is a single indexer instance, so every RUNNING
  * task found at startup belongs to a dead process and is requeued (or set DEAD when it already used all its
  * attempts). While a handler runs, a heartbeat refreshes the task's lock time, so the periodic stale requeue only
- * catches tasks whose process stopped heartbeating. A {@link BudgetExhaustedException} (also as a cause) is not a
+ * catches tasks whose process stopped heartbeating. A {@link BudgetExhaustedException} or {@link ServiceOutageException} (also as a cause) is not a
  * failure: the task is QUEUED again at its {@code retryAt} without using an attempt. Completion, failure and that
  * deferral are fenced by the attempt number.
  */
@@ -65,6 +66,10 @@ public class TaskDispatcher implements DisposableBean {
     this.backoff = backoff;
     this.staleAfter = staleAfter;
     for (TaskHandler h : handlerBeans) {
+      if (!h.enabled()) {
+        LOG.info("Task type {} is not handled by this process", h.type());
+        continue;
+      }
       if (handlers.put(h.type(), h) != null) {
         throw new IllegalStateException("Several task handlers for type " + h.type());
       }
@@ -127,7 +132,12 @@ public class TaskDispatcher implements DisposableBean {
     } catch (Throwable e) { // an Error must not leave the task RUNNING either
       BudgetExhaustedException budget = budgetCause(e);
       if (budget != null) {
-        defer(task, budget);
+        defer(task, "the OpenAlex budget", budget.retryAt());
+        return;
+      }
+      ServiceOutageException outage = outageCause(e);
+      if (outage != null) {
+        defer(task, outage.service(), outage.retryAt());
         return;
       }
       LOG.warn("Task {} ({}) failed on attempt {}", task.id(), task.type(), task.attempts(), e);
@@ -145,11 +155,11 @@ public class TaskDispatcher implements DisposableBean {
     }
   }
 
-  /** A spent budget is not a failure: the task waits for the budget without using an attempt. */
-  private void defer(Task task, BudgetExhaustedException e) {
-    LOG.info("Task {} ({}) waits for the OpenAlex budget until {}", task.id(), task.type(), e.retryAt());
+  /** A spent budget or a service outage is not a failure: the task waits without using an attempt. */
+  private void defer(Task task, String waitingFor, Instant retryAt) {
+    LOG.info("Task {} ({}) waits for {} until {}", task.id(), task.type(), waitingFor, retryAt);
     try {
-      if (!queue.defer(task.id(), task.attempts(), e.retryAt())) {
+      if (!queue.defer(task.id(), task.attempts(), retryAt)) {
         LOG.warn("Task {} ({}) attempt {} was deferred, but it was requeued or claimed again meanwhile; ignored",
             task.id(), task.type(), task.attempts());
       }
@@ -162,6 +172,15 @@ public class TaskDispatcher implements DisposableBean {
   public static @Nullable BudgetExhaustedException budgetCause(Throwable e) {
     for (Throwable t = e; t != null; t = t.getCause()) {
       if (t instanceof BudgetExhaustedException b) return b;
+      if (t.getCause() == t) break;
+    }
+    return null;
+  }
+
+  /** The exception itself or its first cause that is a ServiceOutageException, else null. */
+  public static @Nullable ServiceOutageException outageCause(Throwable e) {
+    for (Throwable t = e; t != null; t = t.getCause()) {
+      if (t instanceof ServiceOutageException o) return o;
       if (t.getCause() == t) break;
     }
     return null;

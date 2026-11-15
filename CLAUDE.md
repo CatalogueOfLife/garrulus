@@ -51,6 +51,11 @@ cd frontend && npm run dev | npm test | npm run build   # Vite on 5173, proxies 
     `NAMETRACKER_OPENALEX_CONTENT_ENABLED` (true), `NAMETRACKER_OPENALEX_CONTENT_RESERVE_USD` (0.30),
     `NAMETRACKER_BLOBS_DIR` (`./data/blobs`), `NAMETRACKER_CONTENT_OPEN_LICENCES`, `NAMETRACKER_SEED_*`,
     `NAMETRACKER_OPENALEX_BASE_URL`, `NAMETRACKER_OPENALEX_CONTENT_BASE_URL`, `NAMETRACKER_CROSSREF_BASE_URL`.
+  - Name finding (`FIND_NAMES`): `NAMETRACKER_FINDER_URL` (a finder service) or else `FINDER_DICTIONARY` (+ `GNFINDER_URL`,
+    `FINDER_CONFIG`) builds the finder in process; with neither set the handler is off (one WARN) and the tasks wait.
+    `NAMETRACKER_SPOOL_DIR` (`./data/spool`) holds closed full text until the finder has run (purged after 14 days).
+    Admin task `FIND_PENDING` (`{"limit":n}`) enqueues `FIND_NAMES` for works never seen by the finder. A gnfinder
+    outage defers the task 30 minutes without using an attempt.
   - `NAMETRACKER_HARVEST_OUTAGE_DELAY` (30m): a harvest or onboarding page that meets an outage is enqueued again after
     this delay instead of failing.
 - `finder-service`: `FINDER_DICTIONARY` (required), `GNFINDER_URL`, `FINDER_CONFIG` (a JSON file of pipeline overrides),

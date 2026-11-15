@@ -54,6 +54,16 @@ public interface IndexMapper {
   void setNamesFound(@Param("workId") long workId, @Param("finderRunId") long finderRunId,
       @Param("docSha") String docSha);
 
+  /** The sha of the document the finder last saw for the work, null if it never ran. */
+  @Nullable String namesDocSha(@Param("workId") long workId);
+
+  /** Replaces the finder diagnostics (a JSON object) of the work. */
+  void setDiagnostics(@Param("workId") long workId,
+      @Param("json") String json);
+
+  /** Ids of works in CONTENT_RESOLVED that the finder never saw, newest first. */
+  List<Long> pendingNames(@Param("limit") int limit);
+
   /** Sets codes, taxgroups and has_acts, and also state INDEXED and indexed_at = now(). */
   default void setIndexed(long workId, String[] codes, String[] taxgroups, boolean hasActs) {
     updateIndexed(workId, List.of(codes), List.of(taxgroups), hasActs);

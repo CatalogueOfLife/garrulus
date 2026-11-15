@@ -164,6 +164,17 @@
     WHERE id = #{workId}
   </update>
 
+  <select id="namesDocSha" resultType="string">SELECT names_doc_sha FROM work WHERE id = #{workId}</select>
+
+  <update id="setDiagnostics">
+    UPDATE work SET finder_diagnostics = #{json, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}
+    WHERE id = #{workId}
+  </update>
+
+  <select id="pendingNames" resultType="long">
+    SELECT id FROM work WHERE state = 'CONTENT_RESOLVED' AND names_doc_sha IS NULL ORDER BY id DESC LIMIT #{limit}
+  </select>
+
   <update id="updateIndexed">
     UPDATE work SET codes = #{codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler},
       taxgroups = #{taxgroups, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler},

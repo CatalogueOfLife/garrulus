@@ -1,0 +1,210 @@
+package org.catalogueoflife.nametracker.indexer.finder;
+
+import java.io.UncheckedIOException;
+import java.time.Clock;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import org.catalogueoflife.nametracker.finder.api.Act;
+import org.catalogueoflife.nametracker.finder.api.Block;
+import org.catalogueoflife.nametracker.finder.api.ClassificationContext;
+import org.catalogueoflife.nametracker.finder.api.CodePoints;
+import org.catalogueoflife.nametracker.finder.api.Document;
+import org.catalogueoflife.nametracker.finder.api.FinderInfo;
+import org.catalogueoflife.nametracker.finder.api.FinderJson;
+import org.catalogueoflife.nametracker.finder.api.FinderOptions;
+import org.catalogueoflife.nametracker.finder.api.FinderResult;
+import org.catalogueoflife.nametracker.finder.api.Mention;
+import org.catalogueoflife.nametracker.finder.api.NameFinder;
+import org.catalogueoflife.nametracker.finder.gnfinder.GnfinderUnavailableException;
+import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
+import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
+import org.catalogueoflife.nametracker.store.index.ContextRow;
+import org.catalogueoflife.nametracker.store.index.FinderRun;
+import org.catalogueoflife.nametracker.store.index.IndexMapper;
+import org.catalogueoflife.nametracker.store.index.MentionRow;
+import org.catalogueoflife.nametracker.store.task.Task;
+import org.catalogueoflife.nametracker.store.task.TaskQueue;
+import org.catalogueoflife.nametracker.store.work.Work;
+import org.catalogueoflife.nametracker.store.work.WorkMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.databind.JsonNode;
+
+/**
+ * {@code FIND_NAMES}, payload {@code {"workId":n}}. Loads the document of the work, runs the {@link NameFinder} and, in
+ * one transaction, replaces the work's mentions, contexts and (through the cascade of
+ * {@link IndexMapper#deleteWorkIndex}) its work names, then marks the work NAMES_FOUND. After the commit it deletes the
+ * spool file and enqueues {@code MATCH_NAMES}. A work without text skips the finder. An outage of the finder defers the
+ * task by 30 minutes without using an attempt. Without a configured finder this handler is not enabled and its tasks
+ * wait in the queue.
+ */
+@Component
+public class FindNamesHandler implements TaskHandler {
+
+  public static final String TYPE = "FIND_NAMES";
+  public static final String NEXT_TYPE = "MATCH_NAMES";
+  static final Duration OUTAGE_DELAY = Duration.ofMinutes(30);
+  static final int INSERT_CHUNK = 1000;
+  static final int SNIPPET_MARGIN = 80;
+  static final int SNIPPET_MAX = 200;
+  private static final Logger LOG = LoggerFactory.getLogger(FindNamesHandler.class);
+
+  private final NameFinder finder;
+  private final DocumentLoader loader;
+  private final Spool spool;
+  private final WorkMapper works;
+  private final IndexMapper index;
+  private final TaskQueue queue;
+  private final TransactionTemplate tx;
+  private final Clock clock;
+
+  public FindNamesHandler(ObjectProvider<NameFinder> finder, DocumentLoader loader, Spool spool, WorkMapper works,
+      IndexMapper index, TaskQueue queue, TransactionTemplate tx, Clock clock) {
+    this.finder = finder.getIfAvailable();
+    this.loader = loader;
+    this.spool = spool;
+    this.works = works;
+    this.index = index;
+    this.queue = queue;
+    this.tx = tx;
+    this.clock = clock;
+    if (this.finder == null) {
+      LOG.warn("No name finder configured (set NAMETRACKER_FINDER_URL or FINDER_DICTIONARY): "
+          + "FIND_NAMES tasks wait in the queue");
+    }
+  }
+
+  @Override
+  public String type() {
+    return TYPE;
+  }
+
+  @Override
+  public boolean enabled() {
+    return finder != null;
+  }
+
+  @Override
+  public void handle(Task task) throws Exception {
+    long workId = FinderJson.mapper().readTree(task.payload()).path("workId").asLong();
+    Work work = works.get(workId);
+    if (work == null) {
+      LOG.warn("FIND_NAMES for unknown work {}", workId);
+      return;
+    }
+    DocumentLoader.Loaded loaded = loader.load(work);
+    Document doc = loaded.doc();
+    Map<String, String> diagnostics = new LinkedHashMap<>(loaded.diagnostics());
+
+    // a document without blocks has no text: no finder call, no mentions
+    FinderResult result = doc.blocks().isEmpty() ? null : find(doc);
+    FinderInfo info = result == null ? finder.info() : result.info();
+    if (result != null) diagnostics.putAll(result.diagnostics());
+
+    long[] runId = new long[1];
+    tx.executeWithoutResult(status -> {
+      runId[0] = index.finderRunId(new FinderRun(null, info.name(), info.version(), info.configHash(),
+          info.dictionaryKey()));
+      index.deleteWorkIndex(workId);
+      if (result != null) store(workId, doc, result, diagnostics);
+      index.setNamesFound(workId, runId[0], loaded.docSha());
+      index.setDiagnostics(workId, FinderJson.mapper().writeValueAsString(diagnostics));
+    });
+
+    spool.delete(loaded.docSha());
+    queue.enqueue(NEXT_TYPE, "{\"workId\":" + workId + "}", task.priority(),
+        "match:" + workId + ":" + runId[0] + ":" + loaded.docSha().substring(0, 12));
+  }
+
+  private FinderResult find(Document doc) {
+    try {
+      return finder.find(doc, FinderOptions.defaults());
+    } catch (RuntimeException e) {
+      for (Throwable t = e; t != null; t = t.getCause()) {
+        if (t instanceof GnfinderUnavailableException || t instanceof UncheckedIOException) {
+          throw new ServiceOutageException("gnfinder", clock.instant().plus(OUTAGE_DELAY), e);
+        }
+        if (t.getCause() == t) break;
+      }
+      throw e;
+    }
+  }
+
+  private void store(long workId, Document doc, FinderResult result, Map<String, String> diagnostics) {
+    Map<String, Block> blocks = new HashMap<>();
+    doc.blocks().forEach(b -> blocks.put(b.id(), b));
+
+    Map<String, Long> contextIds = new HashMap<>();
+    for (ClassificationContext c : result.contexts()) {
+      long id = index.insertContext(new ContextRow(null, workId, c.id(), c.verbatim(),
+          FinderJson.mapper().writeValueAsString(c.ranks()), c.scope().name(), c.blockId(), c.untilBlockId()));
+      contextIds.put(c.id(), id);
+    }
+    Map<String, String> actTypes = new HashMap<>();
+    for (Act a : result.acts()) actTypes.putIfAbsent(a.mentionId(), a.type().name());
+
+    // only mentions that point at an exact span of their block are stored
+    List<Mention> valid = new ArrayList<>();
+    for (Mention m : result.mentions()) {
+      Block b = blocks.get(m.blockId());
+      if (b != null && m.start() >= 0 && m.end() > m.start() && m.end() <= CodePoints.length(b.text())
+          && CodePoints.slice(b.text(), m.start(), m.end()).equals(m.verbatim()) && !m.name().isBlank()) {
+        valid.add(m);
+      }
+    }
+    if (valid.size() < result.mentions().size()) {
+      diagnostics.put("droppedMentions", Integer.toString(result.mentions().size() - valid.size()));
+      LOG.warn("Work {}: dropped {} mentions that do not point at their text", workId,
+          result.mentions().size() - valid.size());
+    }
+
+    // name strings in name order, so that concurrent works lock their rows in the same order
+    Map<String, Long> nameIds = new TreeMap<>();
+    Map<String, Mention> firstByName = new HashMap<>();
+    valid.forEach(m -> firstByName.putIfAbsent(m.name(), m));
+    for (String name : new TreeMap<>(firstByName).keySet()) {
+      Mention m = firstByName.get(name);
+      nameIds.put(name, index.nameStringId(name, m.kind().name(), m.rank() == null ? null : m.rank().name()));
+    }
+
+    List<MentionRow> rows = new ArrayList<>(valid.size());
+    for (Mention m : valid) {
+      Block b = blocks.get(m.blockId());
+      rows.add(new MentionRow(null, workId, nameIds.get(m.name()), b.id(), b.type().name(), m.start(), m.end(),
+          m.verbatim(), m.authorship(), m.qualifier(), (float) m.confidence(), actTypes.get(m.id()),
+          m.contextId() == null ? null : contextIds.get(m.contextId()), snippet(b.text(), m.start(), m.end()),
+          FinderJson.mapper().writeValueAsString(m.evidence())));
+    }
+    for (int i = 0; i < rows.size(); i += INSERT_CHUNK) {
+      index.insertMentions(rows.subList(i, Math.min(rows.size(), i + INSERT_CHUNK)));
+    }
+  }
+
+  /**
+   * The text 80 code points either side of the span, cut at the block's edges, with a word cut by the margin dropped
+   * at either end; at most 200 code points.
+   */
+  static String snippet(String text, int start, int end) {
+    int[] cps = text.codePoints().toArray();
+    int margin = Math.max(0, Math.min(SNIPPET_MARGIN, (SNIPPET_MAX - (end - start)) / 2));
+    int from = Math.max(0, start - margin);
+    int to = Math.min(cps.length, end + margin);
+    if (from > 0 && !Character.isWhitespace(cps[from - 1])) {
+      while (from < start && !Character.isWhitespace(cps[from])) from++;
+    }
+    while (from < start && Character.isWhitespace(cps[from])) from++;
+    if (to < cps.length && !Character.isWhitespace(cps[to])) {
+      while (to > end && !Character.isWhitespace(cps[to - 1])) to--;
+    }
+    while (to > end && Character.isWhitespace(cps[to - 1])) to--;
+    return new String(cps, from, to - from);
+  }
+}

@@ -18,6 +18,8 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
     "nametracker.indexer.workers=0",
     "nametracker.dotenv=optional:file:/nonexistent/garrulus-tests.env[.properties]",
     "nametracker.harvest.enabled=false",
+    "nametracker.finder.url=",
+    "nametracker.finder.dictionary=",
     "nametracker.openalex.base-url=" + AbstractPostgresIT.UNROUTABLE,
     "nametracker.openalex.content.base-url=" + AbstractPostgresIT.UNROUTABLE,
     "nametracker.openalex.api-key=",

@@ -9,6 +9,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
+import org.catalogueoflife.nametracker.indexer.finder.DocumentLoader;
+import org.catalogueoflife.nametracker.indexer.finder.FindNamesHandler;
+import org.catalogueoflife.nametracker.indexer.finder.Spool;
+import org.catalogueoflife.nametracker.store.index.IndexMapper;
 import org.catalogueoflife.nametracker.indexer.content.route.AbstractRoute;
 import org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
@@ -32,7 +36,9 @@ import tools.jackson.databind.JsonNode;
 /**
  * {@code RESOLVE_CONTENT}, payload {@code {"workId":n}} (plus {@code "recheck":k} on a re-check). Tries the full-text
  * routes in order, the first fulltext result wins; the abstract is always stored when there is a title or abstract.
- * Raw and Document blobs are written only for open licences. The work ends in CONTENT_RESOLVED with its text level.
+ * Raw and Document blobs are written only for open licences; a closed full text document goes to the transient
+ * {@link Spool} instead. When the document the finder should read differs from the one it last saw, FIND_NAMES is
+ * enqueued. The work ends in CONTENT_RESOLVED with its text level.
  * A work that is only an abstract, from a CORE or BROAD source, not of origin BACKFILL and published within the last 90
  * days (or undated), is looked at again 7, 30 and 90 days after it was first seen (dedup key
  * {@code content:<workId>:recheck:<k>}). The rules are checked again after each re-check, so a work that no longer
@@ -52,20 +58,24 @@ public class ResolveContentHandler implements TaskHandler {
   private final ContentMapper contents;
   private final BlobStore blobs;
   private final LicencePolicy policy;
+  private final Spool spool;
+  private final IndexMapper index;
   private final TaskQueue queue;
   private final TransactionTemplate tx;
   private final Clock clock;
 
   /** The full-text routes in the order given. */
   public ResolveContentHandler(List<ContentRoute> routes, WorkMapper works, SourceMapper sources,
-      ContentMapper contents, BlobStore blobs, LicencePolicy policy, TaskQueue queue, TransactionTemplate tx,
-      Clock clock) {
+      ContentMapper contents, BlobStore blobs, LicencePolicy policy, Spool spool, IndexMapper index, TaskQueue queue,
+      TransactionTemplate tx, Clock clock) {
     this.routes = List.copyOf(routes);
     this.works = works;
     this.sources = sources;
     this.contents = contents;
     this.blobs = blobs;
     this.policy = policy;
+    this.spool = spool;
+    this.index = index;
     this.queue = queue;
     this.tx = tx;
     this.clock = clock;
@@ -74,9 +84,9 @@ public class ResolveContentHandler implements TaskHandler {
   /** Spring: the routes are the beans ordered by {@code @Order}, possibly none. */
   @Autowired
   public ResolveContentHandler(ObjectProvider<ContentRoute> routes, WorkMapper works, SourceMapper sources,
-      ContentMapper contents, BlobStore blobs, LicencePolicy policy, TaskQueue queue, TransactionTemplate tx,
-      Clock clock) {
-    this(routes.orderedStream().toList(), works, sources, contents, blobs, policy, queue, tx, clock);
+      ContentMapper contents, BlobStore blobs, LicencePolicy policy, Spool spool, IndexMapper index, TaskQueue queue,
+      TransactionTemplate tx, Clock clock) {
+    this(routes.orderedStream().toList(), works, sources, contents, blobs, policy, spool, index, queue, tx, clock);
   }
 
   @Override
@@ -121,6 +131,8 @@ public class ResolveContentHandler implements TaskHandler {
       } else {
         rawSha = BlobStore.sha256(f.raw());
         docSha = BlobStore.sha256(doc);
+        // closed full text waits in the transient spool until FIND_NAMES has run
+        if (f.fulltext()) spool.put(docSha, doc);
       }
       rows.add(new Content(null, workId, f.route(), f.kind(), f.license(), retained, rawSha, docSha, f.sourceUrl(),
           null));
@@ -129,6 +141,13 @@ public class ResolveContentHandler implements TaskHandler {
       rows.forEach(contents::upsert);
       works.resolveContent(workId, finalLevel);
     });
+
+    List<Content> stored = contents.listByWork(workId);
+    String chosen = DocumentLoader.chosenSha(work, finalLevel, stored);
+    if (!chosen.equals(index.namesDocSha(workId))) {
+      queue.enqueue(FindNamesHandler.TYPE, "{\"workId\":" + workId + "}", task.priority(),
+          "names:" + workId + ":" + chosen.substring(0, 12));
+    }
 
     if ("ABSTRACT_ONLY".equals(finalLevel)) scheduleRecheck(task, work, source);
   }
