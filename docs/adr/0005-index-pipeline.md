@@ -61,11 +61,19 @@ migration of one table; nothing outside `IndexMapper` depends on its layout.
   - gnfinder: a failure to connect (refused, unknown host, connect timeout) or HTTP 502/503/504. Any other status, a
     read timeout or a connection that breaks after the request was sent fails the task like any error, so a document
     gnfinder always chokes on ends `DEAD` where it can be seen instead of being retried forever. A finder service
-    (`RemoteNameFinder`) is unavailable on 503 and on connection failures only.
-  - CLB: a match call that still fails after `PoliteHttp`'s retries is followed by a probe, `GET /dataset/3LXR`. If
-    the probe answers, CLB is up and the name is at fault: it is placed `NONE` (a context element counts as unmatched),
-    logged as a WARN with the name and not cached, and the work goes on. A 4xx on one match call is treated the same
-    way without a probe. Only when the probe fails too is it an outage.
+    (`RemoteNameFinder`) is unavailable on 502/503/504 and on connection failures only.
+  - CLB: a match call that still fails after `PoliteHttp`'s retries, or that gets a 4xx, is followed by a probe of
+    the **same endpoint and release**: `GET /dataset/{key}/match/nameusage?scientificName=Animalia&rank=kingdom&mode=RELAXED`
+    (through `PoliteHttp`, never cached). Not `GET /dataset/3LXR`: Varnish sends that to CLB's read-only server (and
+    may answer it from cache), while matching runs on the read-write server, so a 3LXR probe would call CLB "up" while
+    every match fails, and every name of every work would end `NONE` for good.
+    - Probe answers: the name is at fault. It is placed `NONE` (a context element counts as unmatched), logged as a
+      WARN with the name and not cached, and the work goes on.
+    - Probe fails retryably (5xx after the retries, connection): CLB is down, the task is deferred (outage).
+    - Probe gets a 4xx (release removed or private, an API change): the release or the API is broken, not the name.
+      The task fails as an ordinary error (attempts, then `DEAD`, visible); no name is placed `NONE`.
+    - **Breaker:** more than 3 names at fault in one `MATCH_NAMES` task is systemic, not bad luck: the task is deferred
+      as an outage and nothing of it is written (`work_name` untouched; matches already cached for other names stay).
   - Every outage deferral of a task first enqueued more than 24 hours ago is logged as a WARN (task id, type,
     service), so a task that waits for days is noticed.
 
@@ -158,6 +166,10 @@ for the planned portal literature widget.
 
 - `FIND_PENDING` (`{"limit":n}`) is an admin task that enqueues `FIND_NAMES` for up to n `CONTENT_RESOLVED` works the
   finder never saw, highest work id first.
+- **V5** adds the index `name_match (release_key, usage_id)` for lookups of the match rows of a usage within a release
+  (the M5 XR switch and usage-based queries). The comment in `V5__name_match_usage_idx.sql` says the name page uses it;
+  that is wrong (the name page reads `name_match` by its primary key, the name string), but the file is an applied
+  migration and a changed comment would change its Flyway checksum, so it stays as is.
 - **Depth-first queue order.** The queue claims by priority, then `run_after`, then id. A follow-up
   (`RESOLVE_CONTENT` → `FIND_NAMES` → `MATCH_NAMES`, `REBUILD_STATS` → `CATEGORISE_SOURCES`) inherits both the priority
   and the `run_after` of the task that enqueues it, so it takes its parent's place in the queue and runs before the

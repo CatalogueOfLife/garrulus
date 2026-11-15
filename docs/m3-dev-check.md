@@ -166,3 +166,12 @@ the name page match of hinted names, outage classification for gnfinder and CLB,
 - **Depth first in the live queue.** After the re-match the backlog resumed with each `FIND_NAMES` followed by its own
   `MATCH_NAMES` about two seconds (one poll) later, for example work 22914: found 22:41:27.02, matched 22:41:29.01.
   Works are `INDEXED` steadily now instead of after the whole `FIND_NAMES` backlog.
+
+## N1: probe of the match endpoint (2026-11-15)
+
+`5ff02f4`: after a failed match call `ClbClient` now probes the match endpoint itself (`Animalia`, kingdom, same
+release) instead of `/dataset/3LXR`, a probe 4xx fails the task instead of placing names `NONE`, and more than 3 names
+at fault in one task defer it as an outage (ADR-0005). `mvn -B verify` green, 817 tests and ITs. Only the indexer was
+restarted: old log kept as `indexer-8.log` (no WARN or ERROR), pid 63095 stopped at 22:53:54 UTC, **indexer up
+22:53:57 UTC** with the same env on 18081; web (18080) kept running. In the first 14 s it finished 27 `FIND_NAMES` and
+26 `MATCH_NAMES`, depth first, with no WARN, ERROR or `DEAD` task.
