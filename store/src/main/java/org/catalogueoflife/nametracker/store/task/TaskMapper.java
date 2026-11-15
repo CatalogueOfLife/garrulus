@@ -1,5 +1,6 @@
 package org.catalogueoflife.nametracker.store.task;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -10,9 +11,10 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface TaskMapper {
 
-  /** Inserts unless a QUEUED/RUNNING task with the same dedup key exists; returns the new id or null. */
+  /** Inserts unless a QUEUED/RUNNING task with the same dedup key exists (run_after null: now); returns the new id or null. */
   Long insert(@Param("type") String type, @Param("payload") String payload,
-              @Param("priority") TaskPriority priority, @Param("dedupKey") String dedupKey);
+              @Param("priority") TaskPriority priority, @Param("dedupKey") String dedupKey,
+              @Param("runAfter") Instant runAfter);
 
   Long findLiveIdByDedupKey(@Param("dedupKey") String dedupKey);
 

@@ -16,6 +16,15 @@ public interface HarvestRunMapper {
   int finish(@Param("id") long id, @Param("state") String state, @Param("calls") int calls,
       @Param("seen") int seen, @Param("created") int created, @Param("error") @Nullable String error);
 
+  /** Adds to the counters of a run that spans several tasks; a DEFERRED run is RUNNING again. */
+  int addProgress(@Param("id") long id, @Param("calls") int calls, @Param("seen") int seen,
+      @Param("created") int created);
+
+  /** Sets the state: finished is now for DONE and FAILED, null otherwise. */
+  int setState(@Param("id") long id, @Param("state") String state, @Param("error") @Nullable String error);
+
+  HarvestRun get(@Param("id") long id);
+
   /** Most recently started first. */
   List<HarvestRun> recent(@Param("limit") int limit);
 }

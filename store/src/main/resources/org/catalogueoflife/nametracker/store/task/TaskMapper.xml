@@ -21,9 +21,10 @@
 
   <!-- A select so that RETURNING works; null when the dedup key is already held by a live task. -->
   <select id="insert" resultType="java.lang.Long" flushCache="true">
-    INSERT INTO task (type, payload, priority, dedup_key)
+    INSERT INTO task (type, payload, priority, dedup_key, run_after)
     VALUES (#{type}, #{payload, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler},
-            #{priority, typeHandler=org.catalogueoflife.nametracker.store.task.TaskPriorityTypeHandler}, #{dedupKey})
+            #{priority, typeHandler=org.catalogueoflife.nametracker.store.task.TaskPriorityTypeHandler}, #{dedupKey},
+            COALESCE(#{runAfter, jdbcType=TIMESTAMP_WITH_TIMEZONE}, now()))
     ON CONFLICT (dedup_key) WHERE state IN ('QUEUED','RUNNING') DO NOTHING
     RETURNING id
   </select>

@@ -3,6 +3,7 @@ package org.catalogueoflife.nametracker.store.task;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -99,6 +100,17 @@ class TaskQueueIT extends AbstractPostgresIT {
     // a finished task no longer blocks a new one
     queue.complete(a, 1);
     assertThat(queue.enqueue("ONBOARD", "{}", TaskPriority.LIVE, "onboard:S1")).isNotEqualTo(a);
+  }
+
+  @Test
+  void taskWithFutureRunAfterIsNotClaimedBeforeThen() {
+    long later = queue.enqueue("PING", "{}", TaskPriority.LIVE, "later", Instant.now().plus(Duration.ofHours(1)));
+    assertThat(queue.claim(Set.of("PING"), "w1", 5)).isEmpty();
+    jdbc.update("UPDATE task SET run_after = now() - interval '1 second' WHERE id = ?", later);
+    assertThat(queue.claim(Set.of("PING"), "w1", 5)).extracting(Task::id).containsExactly(later);
+    // the 4-argument form runs now
+    long now = queue.enqueue("PING", "{}", TaskPriority.LIVE, null);
+    assertThat(queue.claim(Set.of("PING"), "w1", 5)).extracting(Task::id).containsExactly(now);
   }
 
   @Test

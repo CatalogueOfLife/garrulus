@@ -1,6 +1,7 @@
 package org.catalogueoflife.nametracker.store.task;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.List;
@@ -19,9 +20,15 @@ public class TaskQueue {
 
   /** Returns the id of the new task, or of the existing QUEUED/RUNNING task with the same dedup key. */
   public long enqueue(String type, String payloadJson, TaskPriority priority, @Nullable String dedupKey) {
+    return enqueue(type, payloadJson, priority, dedupKey, null);
+  }
+
+  /** As above, but the task is not claimed before {@code runAfter} (null: now). */
+  public long enqueue(String type, String payloadJson, TaskPriority priority, @Nullable String dedupKey,
+      @Nullable Instant runAfter) {
     // The live task holding the key may finish between the failed insert and the lookup; then insert again.
     for (int i = 0; i < 5; i++) {
-      Long id = mapper.insert(type, payloadJson, priority, dedupKey);
+      Long id = mapper.insert(type, payloadJson, priority, dedupKey, runAfter);
       if (id != null) {
         return id;
       }

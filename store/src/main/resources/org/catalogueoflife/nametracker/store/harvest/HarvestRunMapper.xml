@@ -29,6 +29,24 @@
     WHERE id = #{id}
   </update>
 
+  <update id="addProgress">
+    UPDATE harvest_run SET calls = calls + #{calls}, works_seen = works_seen + #{seen},
+      works_new = works_new + #{created},
+      state = CASE WHEN state = 'DEFERRED' THEN 'RUNNING' ELSE state END,
+      finished = CASE WHEN state = 'DEFERRED' THEN NULL ELSE finished END
+    WHERE id = #{id}
+  </update>
+
+  <update id="setState">
+    UPDATE harvest_run SET state = #{state}, error = #{error},
+      finished = CASE WHEN #{state}::text IN ('DONE','FAILED') THEN now() ELSE NULL END
+    WHERE id = #{id}
+  </update>
+
+  <select id="get" resultMap="result">
+    SELECT * FROM harvest_run WHERE id = #{id}
+  </select>
+
   <select id="recent" resultMap="result">
     SELECT * FROM harvest_run ORDER BY started DESC, id DESC LIMIT #{limit}
   </select>
