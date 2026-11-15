@@ -80,6 +80,17 @@ public final class ReportWriter {
       for (String n : r.notes()) sb.append("- ").append(n).append('\n');
       sb.append('\n');
     }
+    sb.append("OTU mentions (BOLD BINs and UNITE SHs, not scored as names): ").append(r.otuMentions());
+    if (!r.otuByScheme().isEmpty()) {
+      sb.append(" (");
+      boolean first = true;
+      for (var e : r.otuByScheme().entrySet()) {
+        sb.append(first ? "" : ", ").append(e.getKey()).append(' ').append(e.getValue());
+        first = false;
+      }
+      sb.append(')');
+    }
+    sb.append("\n\n");
     sb.append("| Metric | TP | FP | FN | Precision | Recall | F1 |\n|---|---:|---:|---:|---:|---:|---:|\n");
     row(sb, "names", r.names());
     r.byCategory().forEach((k, v) -> row(sb, "&nbsp;&nbsp;" + k, v));

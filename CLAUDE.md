@@ -91,7 +91,9 @@ on any command lists its options.
 
 - `finder-api`: `NameFinder` SPI, the document model and its JSON contract `finder-api.yaml`.
 - `finder-core`: `PipelineNameFinder` (built by `PipelineFactory`), the generators (gnfinder client, COL dictionary,
-  suffix, markup), the stages, the judge SPI, the JATS/TEI converters and `RemoteNameFinder`.
+  suffix, markup), the stages, the judge SPI, the JATS/TEI converters and `RemoteNameFinder`. `OtuIdentifierGenerator`
+  emits BOLD BINs and UNITE SH codes as certain `NameKind.OTU` mentions (`hints.scheme`) that bypass merge, parser and judge;
+  the eval scorer counts them apart from names.
 - `finder-service`: thin HTTP wrapper exposing `/v1/find` (plus `/find/text`, `/find/jats`), reusable by CLB and Blixa.
 - `store`: the shared schema, Flyway migrations and MyBatis mappers; used by both apps.
 - `indexer`: the worker app for harvesting, analysis and matching; applies the Flyway migrations; port 8081, bound to 127.0.0.1.

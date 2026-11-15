@@ -31,6 +31,6 @@
   "certainOdds": 8.0,
   "maxChunkCodePoints": 100000,
   "actMaxDistance": 40,
-  "enabledGenerators": ["GNFINDER", "DICTIONARY", "SUFFIX", "ITALIC", "TAXON_MARKUP"],
+  "enabledGenerators": ["OTU", "GNFINDER", "DICTIONARY", "SUFFIX", "ITALIC", "TAXON_MARKUP"],
   "llmJudgeEnabled": false
 }

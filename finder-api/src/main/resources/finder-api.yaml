@@ -192,7 +192,7 @@ components:
         end: {type: integer, description: code point index into Block.text, exclusive}
         verbatim: {type: string, description: exactly Block.text sliced by start and end}
         name: {type: string, description: normalised name, abbreviations expanded}
-        kind: {type: string, enum: [UNINOMIAL, BINOMIAL, TRINOMIAL, INFRAGENERIC, ABBREVIATED]}
+        kind: {type: string, enum: [UNINOMIAL, BINOMIAL, TRINOMIAL, INFRAGENERIC, ABBREVIATED, OTU]}
         rank: {type: string, description: org.gbif.nameparser.api.Rank name}
         authorship: {type: string}
         qualifier: {type: string}
@@ -200,14 +200,14 @@ components:
         evidence: {$ref: '#/components/schemas/Evidence'}
         actId: {type: string}
         contextId: {type: string}
-        hints: {type: object, additionalProperties: {type: string}}
+        hints: {type: object, additionalProperties: {type: string}, description: 'free-form string hints; an OTU mention carries scheme BOLD_BIN or UNITE_SH'}
     Evidence:
       type: object
       required: [generators]
       properties:
         generators:
           type: array
-          items: {type: string, enum: [GNFINDER, DICTIONARY, SUFFIX, ITALIC, TAXON_MARKUP]}
+          items: {type: string, enum: [OTU, GNFINDER, DICTIONARY, SUFFIX, ITALIC, TAXON_MARKUP]}
         gnfinderOddsLog10: {type: number}
         judge: {$ref: '#/components/schemas/JudgeVerdict'}
     JudgeVerdict:

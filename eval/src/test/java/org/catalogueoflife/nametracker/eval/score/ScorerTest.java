@@ -55,6 +55,24 @@ class ScorerTest {
   }
 
   @Test
+  void otuMentionsAreNotScoredAsNames() {
+    Mention otu = new Mention("3", "b1", 34, 46, "BOLD:AAB2345", "BOLD:AAB2345", NameKind.OTU, null, null, null, 1,
+        new Evidence(Set.of(Generator.OTU), null, null), null, null, Map.of("scheme", "BOLD_BIN"));
+    FinderResult base = result(m("1", "b1", 0, 16, "Ophelia limacina", "Ophelia limacina"));
+    FinderResult withOtu = result(m("1", "b1", 0, 16, "Ophelia limacina", "Ophelia limacina"), otu);
+    for (boolean docLevel : new boolean[] {false, true}) {
+      EvalReport a = Scorer.score(List.of(doc()), Map.of("d1", base), opts(MatchMode.STRICT, docLevel));
+      EvalReport b = Scorer.score(List.of(doc()), Map.of("d1", withOtu), opts(MatchMode.STRICT, docLevel));
+      assertThat(b.names()).isEqualTo(a.names());
+      assertThat(b.mainSubject()).isEqualTo(a.mainSubject());
+      assertThat(b.falsePositives()).isEqualTo(a.falsePositives());
+      assertThat(a.otuMentions()).isZero();
+      assertThat(b.otuMentions()).isEqualTo(1);
+      assertThat(b.otuByScheme()).containsExactly(Map.entry("BOLD_BIN", 1));
+    }
+  }
+
+  @Test
   void strictMatchCountsExactSpansOnly() {
     // exact for the first, shifted by one for the second, plus one stray
     FinderResult r = result(m("1", "b1", 0, 16, "Ophelia limacina", "Ophelia limacina"), m("2", "b1", 21, 33, "O. limacina ", "O. limacina"),
@@ -196,7 +214,7 @@ class ScorerTest {
     EvalReport base = Scorer.score(List.of(doc()), Map.of(), opts(MatchMode.STRICT, false), "pipeline", "pensoft", "A");
     EvalReport rep = new EvalReport(base.finder(), base.info(), base.corpus(), base.split(), base.mode(), base.documents(), base.names(),
         base.byCategory(), base.nameCorrect(), base.nameCorrectByKind(), base.acts(), base.contexts(), base.mainSubject(), many,
-        many.subList(0, 3), base.matchMode(), base.documentLevel(), List.of("a note"));
+        many.subList(0, 3), base.matchMode(), base.documentLevel(), List.of("a note"), 0, Map.of());
     java.nio.file.Path md = ReportWriter.write(rep, tmp, java.time.LocalDate.of(2026, 11, 15));
     String json = java.nio.file.Files.readString(tmp.resolve(md.getFileName().toString().replace(".md", ".json")));
     var tree = org.catalogueoflife.nametracker.finder.api.FinderJson.mapper().readTree(json);

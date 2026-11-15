@@ -74,6 +74,8 @@ public final class Scorer {
     List<ErrorSample> fns = new ArrayList<>();
     FinderInfo info = null;
     String split = null;
+    int otuMentions = 0;
+    Map<String, Integer> otuByScheme = new TreeMap<>();
 
     for (GoldDocument d : docs) {
       FinderResult r = results.get(d.docId());
@@ -87,8 +89,16 @@ public final class Scorer {
       Map<String, Block> predBlocks = p == null ? blocks : blocks(p);
 
       List<GoldName> gold = d.names().stream().filter(n -> !excluded(blocks, n.blockId(), opts)).toList();
+      // OTU identifiers are no names: counted apart, never scored
       List<Mention> pred = r == null ? List.of()
-          : r.mentions().stream().filter(m -> !excluded(predBlocks, m.blockId(), opts)).toList();
+          : r.mentions().stream().filter(m -> m.kind() != NameKind.OTU && !excluded(predBlocks, m.blockId(), opts)).toList();
+      if (r != null) {
+        for (Mention m : r.mentions()) {
+          if (m.kind() != NameKind.OTU || excluded(predBlocks, m.blockId(), opts)) continue;
+          otuMentions++;
+          otuByScheme.merge(m.hints().getOrDefault("scheme", "UNKNOWN"), 1, Integer::sum);
+        }
+      }
 
       if (opts.documentLevel()) {
         scoreDocumentLevel(d, gold, pred, lang, stratum, names, cats, fps, fns);
@@ -103,7 +113,7 @@ public final class Scorer {
     cats.forEach((k, v) -> byCat.put(k, v.metrics()));
     return new EvalReport(finderName, info, corpus, split == null ? "" : split, mode, docs.size(), names.metrics(), byCat,
         opts.documentLevel() ? null : nameCorrect.overall, opts.documentLevel() ? Map.of() : nameCorrect.byKind, acts.metrics(),
-        ctxs.metrics(), subj.metrics(), spread(fps), spread(fns), opts.mode(), opts.documentLevel(), List.of());
+        ctxs.metrics(), subj.metrics(), spread(fps), spread(fns), opts.mode(), opts.documentLevel(), List.of(), otuMentions, otuByScheme);
   }
 
   private static Map<String, Block> blocks(Document doc) {
@@ -276,7 +286,7 @@ public final class Scorer {
       Set<String> actMentions = new HashSet<>();
       r.acts().forEach(a -> actMentions.add(a.mentionId()));
       for (Mention m : r.mentions()) {
-        if (excluded(blocks, m.blockId(), opts)) continue;
+        if (m.kind() == NameKind.OTU || excluded(blocks, m.blockId(), opts)) continue;
         Block b = blocks.get(m.blockId());
         if ((b != null && b.type() == BlockType.TITLE) || actMentions.contains(m.id())) predSet.add(norm(m.name()));
       }

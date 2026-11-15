@@ -79,6 +79,12 @@ import java.util.Set;
  * cover all of it), gnfinder on exactly this span {@code oddsLog10 / 10} clamped to [0, 1], wholly italic 0.9, a new name
  * with full support 0.9. Judged names take the judge score. An act takes the confidence of its name.
  *
+ * <p><b>OTU identifiers.</b> BOLD BINs and UNITE species hypotheses ({@link OtuIdentifierGenerator}, generator OTU) are
+ * certain with confidence 1.0 in every block type and bypass the merger, parser, judge, abbreviation expansion and act
+ * tagging. A name candidate wholly inside an identifier's span is dropped. They come out as mentions of kind OTU with hint
+ * {@code scheme}, in document order among the names, and are counted in diagnostic {@code otu} (not in {@code candidates},
+ * {@code accepted} or {@code certain}).
+ *
  * <p><b>Output.</b> Mention name is the expanded, verbatim-shaped name with the qualifier removed; the parser's lossy
  * canonical form is kept in hint {@code canonical}. Mention kind is ABBREVIATED when the verbatim is an abbreviation
  * ("O. limacina"), even when it was expanded, else the parsed kind; the rank is the parsed one. An expanded abbreviation
@@ -134,6 +140,7 @@ public class PipelineNameFinder implements NameFinder {
   private final PipelineConfig cfg;
   private final @Nullable GnfinderClient gnfinder;
   private final List<Gen> generators;
+  private final @Nullable OtuIdentifierGenerator otuGenerator;
   private final EpithetGuard epithetGuard;
   private final AuthorshipAttacher authorship;
   private final AbbreviationExpander abbreviations = new AbbreviationExpander();
@@ -167,6 +174,7 @@ public class PipelineNameFinder implements NameFinder {
       gens.add(new Gen(new MarkupGenerator(dict), EnumSet.of(Generator.ITALIC, Generator.TAXON_MARKUP)));
     }
     this.generators = List.copyOf(gens);
+    this.otuGenerator = on.contains(Generator.OTU) ? new OtuIdentifierGenerator() : null;
     this.epithetGuard = new EpithetGuard(dict);
     this.authorship = new AuthorshipAttacher(parser);
     this.parserStage = new ParserStage(parser, dict);
@@ -220,9 +228,11 @@ public class PipelineNameFinder implements NameFinder {
     private final long gnfinderMs;
     private final int misaligned;
     private final int gnTrimmed;
+    private final List<Candidate> otus;
 
     private Prepared(Document doc, FinderOptions opts, List<ParsedCandidate> parsed, List<CandidateFeatures> features,
-                     boolean[] certain, double[] confidence, int merged, long gnfinderMs, int misaligned, int gnTrimmed) {
+                     boolean[] certain, double[] confidence, int merged, long gnfinderMs, int misaligned, int gnTrimmed,
+                     List<Candidate> otus) {
       this.doc = doc;
       this.opts = opts;
       this.parsed = parsed;
@@ -233,6 +243,7 @@ public class PipelineNameFinder implements NameFinder {
       this.gnfinderMs = gnfinderMs;
       this.misaligned = misaligned;
       this.gnTrimmed = gnTrimmed;
+      this.otus = otus;
     }
 
     public Document document() {
@@ -261,7 +272,7 @@ public class PipelineNameFinder implements NameFinder {
   public Prepared prepare(Document doc, FinderOptions opts) {
     FinderOptions o = opts == null ? FinderOptions.defaults() : opts;
     if (doc.blocks().stream().allMatch(b -> b.text().isBlank())) {
-      return new Prepared(doc, o, List.of(), List.of(), new boolean[0], new double[0], 0, 0, 0, 0);
+      return new Prepared(doc, o, List.of(), List.of(), new boolean[0], new double[0], 0, 0, 0, 0, List.of());
     }
     Map<String, Block> blocks = new HashMap<>();
     doc.blocks().forEach(b -> blocks.putIfAbsent(b.id(), b));
@@ -292,6 +303,11 @@ public class PipelineNameFinder implements NameFinder {
       for (Candidate c : g.generator().generate(doc, flat, ctx)) {
         if (cfg.enabledGenerators().contains(c.generator())) cands.add(c);
       }
+    }
+    // OTU identifiers bypass merge, parser and judge; a name candidate inside one of their spans is dropped
+    List<Candidate> otus = otuGenerator == null ? List.of() : otuGenerator.generate(doc, flat, ctx);
+    if (!otus.isEmpty()) {
+      cands.removeIf(c -> otus.stream().anyMatch(x -> x.blockId().equals(c.blockId()) && c.start() >= x.start() && c.end() <= x.end()));
     }
 
     // 2.-5. merge, authorship, abbreviations, parse
@@ -327,7 +343,7 @@ public class PipelineNameFinder implements NameFinder {
       if (certain[i]) confidence[i] = certainConfidence(parsed.get(i), features.get(i), h);
     }
     return new Prepared(doc, o, List.copyOf(parsed), List.copyOf(features), certain, confidence, merged.size(), gnMs,
-        misaligned, gnTrimmed);
+        misaligned, gnTrimmed, otus);
   }
 
   /** Act types whose name did not exist before: a following marker of one of these makes a new name. */
@@ -377,7 +393,7 @@ public class PipelineNameFinder implements NameFinder {
     FinderOptions o = prepared.opts;
     Map<String, String> diag = new LinkedHashMap<>();
     if (doc.blocks().stream().allMatch(b -> b.text().isBlank())) {
-      diagnostics(diag, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+      diagnostics(diag, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
       return new FinderResult(info, List.of(), List.of(), List.of(), List.of(), diag);
     }
 
@@ -404,16 +420,30 @@ public class PipelineNameFinder implements NameFinder {
     Map<String, String> ctxIds = new HashMap<>();
     List<ClassificationContext> contexts = renumberContexts(doc, ctxResult.contexts(), ctxIds);
 
-    // ids first: an abbreviation may be expanded from a name that follows it
+    // document order of names and OTU identifiers together; ids first: an abbreviation may be expanded from a name that follows it
+    Map<String, Integer> blockIndex = new HashMap<>();
+    for (int i = 0; i < doc.blocks().size(); i++) blockIndex.putIfAbsent(doc.blocks().get(i).id(), i);
+    List<Object> ordered = new ArrayList<>(accepted.size() + prepared.otus.size());
+    ordered.addAll(accepted);
+    ordered.addAll(prepared.otus);
+    ordered.sort(Comparator.comparingInt((Object e) -> blockIndex.getOrDefault(blockOf(e), Integer.MAX_VALUE))
+        .thenComparingInt(PipelineNameFinder::startOf).thenComparingInt(e -> e instanceof Candidate ? 1 : 0));
     Map<AbbreviationExpander.Span, String> idBySpan = new HashMap<>();
-    for (int i = 0; i < accepted.size(); i++) {
-      MergedCandidate c = accepted.get(i).p().c();
-      idBySpan.put(new AbbreviationExpander.Span(c.blockId(), c.start(), c.end()), "m" + (i + 1));
+    for (int i = 0; i < ordered.size(); i++) {
+      if (ordered.get(i) instanceof Judged j) {
+        MergedCandidate c = j.p().c();
+        idBySpan.put(new AbbreviationExpander.Span(c.blockId(), c.start(), c.end()), "m" + (i + 1));
+      }
     }
-    List<Mention> mentions = new ArrayList<>(accepted.size());
+    List<Mention> mentions = new ArrayList<>(ordered.size());
     List<Act> acts = new ArrayList<>();
-    for (Judged j : accepted) {
+    for (Object e : ordered) {
       String id = "m" + (mentions.size() + 1);
+      if (e instanceof Candidate otu) {
+        mentions.add(otuMention(id, otu));
+        continue;
+      }
+      Judged j = (Judged) e;
       ActMatch m = actResult.acts().get(j.p());
       String actId = null;
       if (m != null) {
@@ -428,12 +458,12 @@ public class PipelineNameFinder implements NameFinder {
       for (Judged j : rejected) rejectedMentions.add(mention("r" + (rejectedMentions.size() + 1), j, null, null, idBySpan));
     }
     diagnostics(diag, prepared.merged, prepared.merged - prepared.parsed.size(), certain, accepted.size(), rejected.size(),
-        actResult.actsUnattached(), prepared.gnfinderMs, prepared.misaligned, prepared.gnTrimmed);
+        actResult.actsUnattached(), prepared.gnfinderMs, prepared.misaligned, prepared.gnTrimmed, prepared.otus.size());
     return new FinderResult(info, mentions, acts, contexts, rejectedMentions, diag);
   }
 
   private static void diagnostics(Map<String, String> d, int candidates, int unparsed, int certain, int accepted, int rejected,
-                                  int actsUnattached, long gnfinderMs, int gnfinderMisaligned, int gnfinderTrimmed) {
+                                  int actsUnattached, long gnfinderMs, int gnfinderMisaligned, int gnfinderTrimmed, int otu) {
     d.put("candidates", String.valueOf(candidates));
     d.put("unparsed", String.valueOf(unparsed));
     d.put("certain", String.valueOf(certain));
@@ -443,6 +473,22 @@ public class PipelineNameFinder implements NameFinder {
     d.put("gnfinderMs", String.valueOf(gnfinderMs));
     d.put("gnfinderMisaligned", String.valueOf(gnfinderMisaligned));
     d.put("gnfinderTrimmed", String.valueOf(gnfinderTrimmed));
+    d.put("otu", String.valueOf(otu));
+  }
+
+  private static String blockOf(Object e) {
+    return e instanceof Candidate c ? c.blockId() : ((Judged) e).p().c().blockId();
+  }
+
+  private static int startOf(Object e) {
+    return e instanceof Candidate c ? c.start() : ((Judged) e).p().c().start();
+  }
+
+  /** An OTU identifier: certain, never parsed or judged, so no rank, authorship or qualifier. */
+  private static Mention otuMention(String id, Candidate c) {
+    return new Mention(id, c.blockId(), c.start(), c.end(), c.verbatim(), c.name(), NameKind.OTU, null, null, null, 1.0,
+        new Evidence(Set.of(Generator.OTU), null, null), null, null,
+        Map.of(OtuIdentifierGenerator.SCHEME, String.valueOf(c.features().get(OtuIdentifierGenerator.SCHEME))));
   }
 
   private static Mention mention(String id, Judged j, @Nullable String actId, @Nullable String contextId,

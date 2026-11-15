@@ -745,4 +745,43 @@ class PipelineNameFinderTest {
     assertThat(PipelineConfig.defaults().withOverrides("{\"enabledGenerators\": [\"DICTIONARY\", \"SUFFIX\"]}").configHash())
         .isEqualTo(c.configHash());
   }
+
+  @Test
+  void otuMentionsAreCertainAndUnjudged() {
+    Document d = doc(block("b1", BlockType.PARAGRAPH, "Specimens of BOLD: AAB2345 and SH1556109.08FU occur."),
+        block("b2", BlockType.REFERENCE, "UNITE https://doi.org/10.15156/BIO/SH1556109.08FU"));
+    FinderResult r = finder(new RecordedGnfinder().nothingIn(d)).find(d, new FinderOptions(true, null));
+    List<Mention> otu = r.mentions().stream().filter(m -> m.kind() == NameKind.OTU).toList();
+    assertThat(otu).extracting(Mention::name).containsExactly("BOLD:AAB2345", "SH1556109.08FU", "SH1556109.08FU");
+    assertThat(otu).extracting(m -> m.hints().get("scheme")).containsExactly("BOLD_BIN", "UNITE_SH", "UNITE_SH");
+    assertThat(otu).extracting(Mention::blockId).containsExactly("b1", "b1", "b2");
+    assertThat(otu).allSatisfy(m -> {
+      assertThat(m.confidence()).isEqualTo(1.0);
+      assertThat(m.rank()).isNull();
+      assertThat(m.authorship()).isNull();
+      assertThat(m.qualifier()).isNull();
+      assertThat(m.evidence().judge()).isNull();
+      assertThat(m.evidence().generators()).containsExactly(Generator.OTU);
+      assertThat(m.actId()).isNull();
+    });
+    assertThat(otu.get(0).verbatim()).isEqualTo("BOLD: AAB2345");
+    assertThat(r.rejected().stream().filter(m -> m.kind() == NameKind.OTU)).isEmpty();
+    assertThat(r.mentions()).extracting(Mention::id).containsExactly("m1", "m2", "m3");
+  }
+
+  @Test
+  void binNextToANameLeavesTheNameAlone() {
+    String plain = "Carabus sp. here.";
+    String withBin = "Carabus sp. BOLD:AAB2345 here.";
+    GnName gnName = new GnName(1, "Carabus", "Carabus", null, 9.0, 0, 7, null, "NO_ANNOT");
+    Document d1 = doc(block("b1", BlockType.PARAGRAPH, plain, new StyleSpan(0, 7, Style.ITALIC)));
+    Document d2 = doc(block("b1", BlockType.PARAGRAPH, withBin, new StyleSpan(0, 7, Style.ITALIC)));
+    FinderResult r1 = finder(new RecordedGnfinder().answer(plain, new GnfinderResponse(Map.of(), List.of(gnName)))).find(d1, FinderOptions.defaults());
+    FinderResult r2 = finder(new RecordedGnfinder().answer(withBin, new GnfinderResponse(Map.of(), List.of(gnName)))).find(d2, FinderOptions.defaults());
+    assertThat(r1.mentions()).extracting(Mention::name).contains("Carabus");
+    List<Mention> names = r2.mentions().stream().filter(m -> m.kind() != NameKind.OTU).toList();
+    assertThat(names).extracting(m -> m.verbatim() + "|" + m.name() + "|" + m.kind() + "|" + m.confidence())
+        .containsExactlyElementsOf(r1.mentions().stream().map(m -> m.verbatim() + "|" + m.name() + "|" + m.kind() + "|" + m.confidence()).toList());
+    assertThat(r2.mentions().stream().filter(m -> m.kind() == NameKind.OTU)).hasSize(1);
+  }
 }

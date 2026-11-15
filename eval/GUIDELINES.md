@@ -82,6 +82,11 @@ A region never runs across a blank line.
 - Words that are both a name and an ordinary word ("Acacia" in a street name, "Gemini"): tag only when the text uses it as the
   name of a taxon.
 
+### BOLD BINs and UNITE SH codes
+
+BOLD BINs ("BOLD:AAB2345") and UNITE SH codes ("SH1556109.08FU") are identifiers, not names: do not tag them. The finder
+reports them as separate OTU mentions and the scorer counts them apart.
+
 ### Span boundaries are scored exactly
 
 The score counts a name as right only if start and end match. That is why the pre-tags have to be fixed: gnfinder often

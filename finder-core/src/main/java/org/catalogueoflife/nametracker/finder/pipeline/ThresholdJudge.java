@@ -23,7 +23,7 @@ import java.util.TreeSet;
  *   <li>{@code gnfinderOdds}: oddsLog10 clamped to [0, 20], divided by 20; 0 without gnfinder</li>
  *   <li>{@code dictHit.<DictHit>} and {@code blockType.<BlockType>}: one-hot</li>
  *   <li>{@code docNameDensity}: names per 100 tokens clamped to [0, 20], divided by 20</li>
- *   <li>{@code generatorCount}: the count divided by the number of generators (5), so at most 1</li>
+ *   <li>{@code generatorCount}: the count divided by the number of name generators (5; OTU never judges a name), so at most 1</li>
  *   <li>{@code partialSupport}: the count clamped to [0, 3], divided by 3</li>
  * </ul>
  * A weight that is not given is 0. A weight for an unknown feature name is an error, so typos fail at startup.
@@ -33,6 +33,8 @@ public final class ThresholdJudge implements CandidateJudge {
   static final double MAX_ODDS = 20;
   static final double MAX_DENSITY = 20;
   static final int MAX_PARTIAL = 3;
+  /** The generators that propose names, all but OTU: fixed so that adding the OTU generator changes no score. */
+  static final int NAME_GENERATORS = Generator.values().length - 1;
 
   /** Every feature name a weight may be given for, in vector order. */
   public static final Set<String> FEATURES;
@@ -110,7 +112,7 @@ public final class ThresholdJudge implements CandidateJudge {
     for (BlockType t : BlockType.values()) v.put("blockType." + t.name(), bit(f.blockType() == t));
     v.put("sentenceInitial", bit(f.sentenceInitial()));
     v.put("authorshipFollows", bit(f.authorshipFollows()));
-    v.put("generatorCount", Math.min(f.generatorCount(), Generator.values().length) / (double) Generator.values().length);
+    v.put("generatorCount", Math.min(f.generatorCount(), NAME_GENERATORS) / (double) NAME_GENERATORS);
     v.put("partialSupport", Math.max(0, Math.min(f.partialSupport(), MAX_PARTIAL)) / (double) MAX_PARTIAL);
     return v;
   }
