@@ -20,6 +20,8 @@ mybatis:
 
 server:
   port: 8080
+  # loopback only, like the indexer; 0.0.0.0 to serve other hosts (behind a proxy)
+  address: ${NAMETRACKER_WEB_ADDRESS:127.0.0.1}
 
 management:
   endpoints:

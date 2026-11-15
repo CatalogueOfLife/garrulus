@@ -35,7 +35,8 @@ cd frontend && npm run dev | npm test | npm run build   # Vite on 5173, proxies 
 - Both apps: `NAMETRACKER_DB_URL` (default `jdbc:postgresql://localhost:5434/nametracker`), `NAMETRACKER_DB_USER` and
   `NAMETRACKER_DB_PASSWORD` (both default `nametracker`).
 - `web`: `ADMIN_TOKEN` enables the admin endpoints (`/api/admin/tasks`, `/sources`, `/status`; send it in the
-  `X-Admin-Token` header). If blank, none of them is mapped (404).
+  `X-Admin-Token` header). If blank, none of them is mapped (404). `NAMETRACKER_WEB_ADDRESS` is the bind address
+  (default `127.0.0.1`, loopback only like the indexer; `0.0.0.0` to serve other hosts).
 - `indexer`: `NAMETRACKER_INDEXER_PORT` (8081), `NAMETRACKER_INDEXER_WORKERS`, `NAMETRACKER_INDEXER_POLL_INTERVAL`,
   `NAMETRACKER_INDEXER_MAX_ATTEMPTS`, `NAMETRACKER_INDEXER_BACKOFF`, `NAMETRACKER_INDEXER_STALE_AFTER` (1h),
   `NAMETRACKER_INDEXER_REQUEUE_INTERVAL` (10m), `NAMETRACKER_INDEXER_HEARTBEAT_INTERVAL` (2m). Task delivery is
@@ -130,7 +131,7 @@ on any command lists its options.
 - `finder-service`: thin HTTP wrapper exposing `/v1/find` (plus `/find/text`, `/find/jats`), reusable by CLB and Blixa.
 - `store`: the shared schema, Flyway migrations and MyBatis mappers; used by both apps.
 - `indexer`: the worker app for harvesting, analysis and matching; applies the Flyway migrations; port 8081, bound to 127.0.0.1.
-- `web`: the user-facing read app and the admin task endpoint; validates the schema but does not migrate; port 8080.
+- `web`: the user-facing read app and the admin task endpoint; validates the schema but does not migrate; port 8080, bound to 127.0.0.1.
 - `eval`: evaluation harness for the finder: corpora, scorer, reports, mode B and tuning (see above).
 - `frontend`: Vite, React and Mantine SPA (not a Maven module).
 
