@@ -135,4 +135,35 @@ class GnfinderGeneratorTest {
     assertThat(generate(g, new Document("d", "en", List.of(block("b1", "X" + UMLAUT)), Map.of()))).isEmpty();
     assertThat(g.misaligned()).isEqualTo(1);
   }
+
+  /** A gnfinder stub answering with the given names, located at their verbatim in the text. */
+  private static GnfinderClient answering(String text, String[]... verbatimAndName) {
+    List<GnName> names = new java.util.ArrayList<>();
+    for (String[] vn : verbatimAndName) {
+      int s = text.indexOf(vn[0]);
+      names.add(new GnName(2, vn[0], vn[1], null, 9.0, s, s + vn[0].length(), null, "NO_ANNOT"));
+    }
+    return new GnfinderClient(URI.create("http://gnfinder.invalid")) {
+      @Override
+      public GnfinderResponse find(String t) {
+        return new GnfinderResponse(Map.of(), names);
+      }
+    };
+  }
+
+  @Test
+  void namesWithReplacementCharactersOrGluedPunctuationAreDropped() {
+    // Rodriguésia spot-check: "Diagnosis:" glued to an italic name came back as "Diagnosis\uFFFDscutellaria holguinensis"
+    String text = "Diagnosis:Scutellaria holguinensis differs. Carabus;nigrus and Lepidasthenia elegans (Coleoptera: Carabidae) and Carabus nigrus.";
+    GnfinderClient gn = answering(text,
+        new String[] {"Diagnosis:Scutellaria holguinensis", "Diagnosis\uFFFDscutellaria holguinensis"},
+        new String[] {"Carabus;nigrus", "Carabus nigrus"},
+        new String[] {"Lepidasthenia elegans", "Lepidasthenia\uFFFD\uFFFDelegans"},
+        new String[] {"(Coleoptera:", "Coleoptera"},
+        new String[] {"Carabus nigrus.", "Carabus nigrus"});
+    List<Candidate> cands = generate(new GnfinderGenerator(gn, 100_000), new Document("d", "en", List.of(block("b1", text)), Map.of()));
+    // punctuation outside the trimmed span is fine
+    assertThat(cands).extracting(Candidate::verbatim).containsExactly("Coleoptera", "Carabus nigrus");
+    assertThat(cands).extracting(Candidate::name).noneMatch(n -> n.contains("\uFFFD"));
+  }
 }

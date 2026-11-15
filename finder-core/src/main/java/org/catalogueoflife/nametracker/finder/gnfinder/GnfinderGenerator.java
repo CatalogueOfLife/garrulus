@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Candidates from gnfinder. One call per chunk of {@link FlatText#chunks(int)}. gnfinder spans include surrounding
  * punctuation ("(Coleoptera:"), so they are trimmed to the letters of the name, keeping the dot of an abbreviated genus.
- * Spans that cross a block boundary are dropped.
+ * Spans that cross a block boundary are dropped, and so are garbled names (see {@link #garbled}).
  */
 public class GnfinderGenerator implements CandidateGenerator {
   private static final char BOM = '\uFEFF';
@@ -75,15 +75,26 @@ public class GnfinderGenerator implements CandidateGenerator {
           continue; // starts or ends inside a block separator
         }
         if (!s.blockId().equals(e.blockId())) continue;
+        String verbatim = new String(cps, start, end - start);
+        if (garbled(n.name(), verbatim)) continue;
         Map<String, Object> f = new LinkedHashMap<>();
         f.put("oddsLog10", n.oddsLog10());
         f.put("cardinality", n.cardinality());
         f.put("annotationNomenType", n.annotationNomenType());
         if (n.annotationNomen() != null) f.put("annotationNomen", n.annotationNomen());
-        out.add(new Candidate(s.blockId(), s.offset(), e.offset(), new String(cps, start, end - start), n.name(), Generator.GNFINDER, f));
+        out.add(new Candidate(s.blockId(), s.offset(), e.offset(), verbatim, n.name(), Generator.GNFINDER, f));
       }
     }
     return out;
+  }
+
+  /**
+   * gnfinder replaces characters it cannot fit into a name by U+FFFD ("Diagnosis\uFFFDscutellaria holguinensis" from
+   * "Diagnosis:Scutellaria holguinensis"); a name with one, or a trimmed span with ":" or ";" inside (always between
+   * letters, the span starts and ends with them), is not a name. Dropping it lets the italic or dictionary candidate win.
+   */
+  static boolean garbled(String name, String trimmedVerbatim) {
+    return name.indexOf('\uFFFD') >= 0 || trimmedVerbatim.indexOf(':') >= 0 || trimmedVerbatim.indexOf(';') >= 0;
   }
 
   /** The tight name span of a gnfinder verbatim. */
