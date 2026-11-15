@@ -133,3 +133,44 @@ The order is by expected impact:
 4. Never emit a mention name containing U+FFFD.
 5. Reject an authority initial followed by a common word ("L. es").
 6. Treatment sub-headings and lab reagent names remain a false hit class: "Paratype", "Mycelia", "Conidia", "Canace".
+
+## After the final-review fixes
+
+Date: 2026-11-15. Same five articles, same procedure: each JATS file converted locally without the publisher's taxon
+markup and sent to `POST /v1/find` (rejected candidates included, to see what the judge turned down), plus the raw XML
+to `POST /v1/find/jats`. finder-service on 127.0.0.1:8095 with the re-tuned defaults (config
+`799364566a46508c6817796ff29edb32d09b6343a8dc9a8a8e476f1f20d93153`, dictionary `316691`, gnfinder v1.4.0). Every
+request answered 200 in under 0.5 s. The converter now separates words glued at a `tp:taxon-name` boundary, so some
+block texts differ from the first run.
+
+| Article | Mentions (non-ref) | Acts | Contexts | `/find/jats` (markup kept) |
+|---|---:|---:|---:|---|
+| ZooKeys *Cranopygia* | 118 (was 118) | 27 (22) | 7 (7) | 171, 27, 7 |
+| PhytoKeys *Viola yuelingensis* | 47 (45) | 3 (1) | 0 (0) | 83, 4, 1 |
+| MycoKeys *Microdochium* | 221 (216) | 14 (10) | 5 (5) | 299, 14, 5 |
+| Rodriguésia *Scutellaria holguinensis* | 68 (69) | 4 (4) | 0 (0) | 90, 4, 0 |
+| G3 *Carabus (Platycarabus) depressus* | 32 (32) | 0 (0) | 1 (1) | 41, 0, 1 |
+
+**The five reported problems:**
+
+- ***Viola yuelingensis*: fixed where an act marker follows the name with gnfinder or italics on the whole span.** The
+  title, the abstract ("... Ju H.Huang, a new species") and the table cell "*Viola yuelingensis* sp. nov." are
+  accepted as certain, each with an SP_NOV act; the five "*V. yuelingensis*" abbreviations are accepted too.
+  - Still rejected (judge scores 0.01–0.26): the treatment heading "Viola yuelingensis Y.S.Chen & Ju H.Huang sp.
+    nov.", where gnfinder sees only "Viola" (odds −0.3) and the heading has no italics, so the span lacks the full
+    support the new-name rule needs; the citation paragraph; and the mentions without a marker in paragraphs and
+    captions. The genus is still an ordinary word with negative gnfinder odds.
+- ***Camacho*: fixed.** "C. depressus", "C. problematicus", "C. (Mesocarabus) problematicus" and "C. (Ohomopterus)
+  uenoi" are now expanded to *Carabus* (the title's "*Carabus (Platycarabus) depressus*" is a source now that a
+  subgenus is skipped). "Camacho" in "(Camacho et al. 2009)" is no source and is itself rejected.
+- **U+FFFD: fixed.** No mention name contains U+FFFD. "Diagnosis:Scutellaria holguinensis" now gives the mention
+  "*Scutellaria holguinensis*" from the italics; gnfinder's garbled candidate is dropped.
+- **Glued "sp. nov.": fixed.** No "…sp. nov." is glued to a word in any of the five converted texts. In the MycoKeys
+  abstract "*M. baishamenense*", "*M. bambusina*" and "*M. bambusarum*" are found, expanded to *Microdochium* and carry
+  SP_NOV acts (10 → 14 acts for the article).
+- **"L. es": fixed.** gnfinder does not see "L. es"; the dictionary alone proposed it, and an abbreviation outside
+  italics whose epithet is a common word of the document's language ("es" in Spanish) is now dropped in that case
+  (judged when another generator sees it). It is no longer a mention or a candidate.
+
+**Unchanged:** the place, reagent and descriptive-word false hits ("Lisu", "Loma", "Canace", "Mycelia", "Conidia",
+"Feron", "Insecta data") and the subgenus dropped from the mention name ("Carabus depressus", ADR-0003).
