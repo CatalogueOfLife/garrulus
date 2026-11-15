@@ -48,9 +48,10 @@ public class HarvestConfig {
 
   /** The default per-host intervals, each overridable as {@code nametracker.http.min-interval.<host>=<duration>}. */
   @Bean
-  PoliteHttp politeHttp(Environment env) {
+  PoliteHttp politeHttp(Environment env,
+      @Value("${nametracker.http.max-response-bytes:52428800}") long maxResponseBytes) {
     return new PoliteHttp(httpClient(), intervals(env), PoliteHttp.userAgent(), Clock.systemUTC(),
-        d -> Thread.sleep(d));
+        d -> Thread.sleep(d), maxResponseBytes);
   }
 
   /**
@@ -73,8 +74,9 @@ public class HarvestConfig {
   @Bean
   OpenAlexBudget openAlexBudget(ApiUsageMapper usage, Clock clock,
       @Value("${nametracker.openalex.max-daily-usd:1.00}") BigDecimal maxDailyUsd,
-      @Value("${nametracker.openalex.content.reserve-usd:0.30}") BigDecimal contentReserveUsd) {
-    return new OpenAlexBudget(usage, maxDailyUsd, contentReserveUsd, clock);
+      @Value("${nametracker.openalex.content.reserve-usd:0.30}") BigDecimal contentReserveUsd,
+      @Value("${nametracker.openalex.api-key:}") String apiKey) {
+    return new OpenAlexBudget(usage, maxDailyUsd, contentReserveUsd, clock, apiKey.isBlank() ? null : apiKey);
   }
 
   @Bean

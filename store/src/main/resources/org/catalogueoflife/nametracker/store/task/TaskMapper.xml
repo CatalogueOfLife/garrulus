@@ -105,4 +105,8 @@
     SELECT type, state, count(*) AS n FROM task GROUP BY type, state ORDER BY type, state
   </select>
 
+  <delete id="purgeDone">
+    DELETE FROM task WHERE state = 'DONE' AND finished &lt; now() - make_interval(secs => #{olderThanSeconds})
+  </delete>
+
 </mapper>

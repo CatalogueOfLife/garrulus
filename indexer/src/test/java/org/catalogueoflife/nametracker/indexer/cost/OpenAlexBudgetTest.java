@@ -93,4 +93,26 @@ class OpenAlexBudgetTest {
     assertEquals(0, d("0.9995").compareTo((BigDecimal) usage.get("openalex", TODAY).get("remaining_usd")));
     assertEquals(3, usage.get("openalex", TODAY).get("calls"));
   }
+
+  @Test
+  void remainingFromAnotherKeyIsIgnored() {
+    FakeApiUsage usage = new FakeApiUsage();
+    usage.add("openalex", TODAY, 1, d("0.0001"), d("0.0665"), "none");
+    new OpenAlexBudget(usage, d("1.00"), d("0.30"), NOON, "secret-key").check(Call.CONTENT);
+  }
+
+  @Test
+  void remainingFromSameKeyCounts() {
+    FakeApiUsage usage = new FakeApiUsage();
+    OpenAlexBudget b = new OpenAlexBudget(usage, d("1.00"), d("0.30"), NOON, "secret-key");
+    b.record(Call.LIST, d("0.0001"), d("0.0665"));
+    assertThrows(BudgetExhaustedException.class, () -> b.check(Call.CONTENT));
+  }
+
+  @Test
+  void fingerprintIsTwelveHexDigitsOrNone() {
+    assertEquals("none", OpenAlexBudget.fingerprint(null));
+    assertTrue(OpenAlexBudget.fingerprint("secret-key").matches("[0-9a-f]{12}"));
+    assertFalse(OpenAlexBudget.fingerprint("secret-key").contains("secret"));
+  }
 }

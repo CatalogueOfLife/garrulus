@@ -164,4 +164,23 @@ class PoliteHttpTest {
     assertSame(h.limiterFor("pdfs.pensoft.net"), h.limiterFor("zookeys.pensoft.net"));
     assertNotSame(h.limiterFor("api.crossref.org"), h.limiterFor("api.openalex.org"));
   }
+
+  @Test
+  void defaultResponseCapIs50MiB() {
+    assertEquals(52428800L, PoliteHttp.DEFAULT_MAX_RESPONSE_BYTES);
+  }
+
+  @Test
+  void oversizedResponseIsNotRetried(WireMockRuntimeInfo w) {
+    stubFor(get("/big").willReturn(ok("x".repeat(5000))));
+    stubFor(get("/small").willReturn(ok("x".repeat(900))));
+    FakeTime t = new FakeTime();
+    PoliteHttp h = new PoliteHttp(HttpClient.newHttpClient(), Map.of(), PoliteHttp.userAgent(), t, t::sleep, 1000);
+    HttpProblem p = assertThrows(HttpProblem.class, () -> h.get(uri(w, "/big"), Map.of()));
+    assertFalse(p.retryable());
+    assertTrue(p.getMessage().contains("response larger than"), p.getMessage());
+    verify(1, getRequestedFor(urlEqualTo("/big")));
+    assertTrue(t.sleeps.isEmpty());
+    assertEquals(900, h.get(uri(w, "/small"), Map.of()).body().length);
+  }
 }

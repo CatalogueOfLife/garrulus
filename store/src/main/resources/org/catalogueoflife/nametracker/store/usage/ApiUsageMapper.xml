@@ -3,20 +3,23 @@
 <mapper namespace="org.catalogueoflife.nametracker.store.usage.ApiUsageMapper">
 
   <insert id="add">
-    INSERT INTO api_usage (service, day, calls, usd, remaining_usd)
-    VALUES (#{service}, #{day}, #{calls}, #{usd}, #{remainingUsd})
+    INSERT INTO api_usage (service, day, calls, usd, remaining_usd, key_fingerprint)
+    VALUES (#{service}, #{day}, #{calls}, #{usd}, #{remainingUsd}, #{keyFingerprint})
     ON CONFLICT (service, day) DO UPDATE SET
       calls = api_usage.calls + EXCLUDED.calls,
       usd = api_usage.usd + EXCLUDED.usd,
-      remaining_usd = COALESCE(EXCLUDED.remaining_usd, api_usage.remaining_usd)
+      remaining_usd = CASE WHEN api_usage.key_fingerprint IS NOT DISTINCT FROM EXCLUDED.key_fingerprint
+                           THEN COALESCE(EXCLUDED.remaining_usd, api_usage.remaining_usd)
+                           ELSE EXCLUDED.remaining_usd END,
+      key_fingerprint = EXCLUDED.key_fingerprint
   </insert>
 
   <select id="get" resultType="map">
-    SELECT service, day, calls, usd, remaining_usd FROM api_usage WHERE service = #{service} AND day = #{day}
+    SELECT service, day, calls, usd, remaining_usd, key_fingerprint FROM api_usage WHERE service = #{service} AND day = #{day}
   </select>
 
   <select id="listDay" resultType="map">
-    SELECT service, day, calls, usd, remaining_usd FROM api_usage WHERE day = #{day} ORDER BY service
+    SELECT service, day, calls, usd, remaining_usd, key_fingerprint FROM api_usage WHERE day = #{day} ORDER BY service
   </select>
 
 </mapper>

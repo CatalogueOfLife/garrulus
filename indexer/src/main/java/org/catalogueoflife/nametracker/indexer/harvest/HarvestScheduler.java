@@ -1,6 +1,7 @@
 package org.catalogueoflife.nametracker.indexer.harvest;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
@@ -34,6 +35,7 @@ public class HarvestScheduler {
 
   static final String ENABLED = "nametracker.harvest.enabled";
   static final int CROSSREF_CATCH_UP_DAYS = 14;
+  static final int PURGE_DAYS = 14;
   private static final Logger LOG = LoggerFactory.getLogger(HarvestScheduler.class);
 
   private final TaskQueue queue;
@@ -117,6 +119,17 @@ public class HarvestScheduler {
       return;
     }
     queue.enqueue(OpenAlexRecheckHandler.TYPE, "{}", TaskPriority.LIVE, "openalex-recheck:" + today());
+  }
+
+  /**
+   * Daily: deletes DONE tasks older than {@value #PURGE_DAYS} days (DEAD ones stay for inspection). Not behind the
+   * harvest switch: the table keeps growing whenever tasks run, however they were enqueued.
+   */
+  @Scheduled(cron = "0 0 5 * * *", zone = "UTC")
+  @SchedulerLock(name = "task-purge", lockAtLeastFor = "PT1M")
+  public void purgeDoneTasks() {
+    int n = queue.purgeDone(Duration.ofDays(PURGE_DAYS));
+    if (n > 0) LOG.info("Purged {} DONE tasks older than {} days", n, PURGE_DAYS);
   }
 
   /** Monthly: new journals appear in the registry as CANDIDATE or higher. */

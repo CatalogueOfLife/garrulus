@@ -6,6 +6,9 @@ import java.net.UnknownHostException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.concurrent.Flow;
 import java.nio.channels.UnresolvedAddressException;
 import java.time.Clock;
 import java.time.Duration;
@@ -13,6 +16,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * The one HTTP entry point for every external service: per-host spacing, the Garrulus user agent
@@ -34,9 +38,20 @@ public class PoliteHttp {
   private final Clock clock;
   private final HostLimiter.Sleeper sleeper;
   private final Map<String, HostLimiter> limiters = new ConcurrentHashMap<>();
+  private final long maxResponseBytes;
+
+  /** The default of {@code nametracker.http.max-response-bytes}: 50 MiB. */
+  public static final long DEFAULT_MAX_RESPONSE_BYTES = 52_428_800L;
 
   public PoliteHttp(HttpClient client, Map<String, Duration> minIntervalPerHost, String userAgent,
       Clock clock, HostLimiter.Sleeper sleeper) {
+    this(client, minIntervalPerHost, userAgent, clock, sleeper, DEFAULT_MAX_RESPONSE_BYTES);
+  }
+
+  /** A body above {@code maxResponseBytes} is read no further and fails as a non-retryable {@link HttpProblem}. */
+  public PoliteHttp(HttpClient client, Map<String, Duration> minIntervalPerHost, String userAgent,
+      Clock clock, HostLimiter.Sleeper sleeper, long maxResponseBytes) {
+    this.maxResponseBytes = maxResponseBytes;
     this.client = client;
     this.intervals = Map.copyOf(minIntervalPerHost);
     this.userAgent = userAgent;
@@ -89,13 +104,15 @@ public class PoliteHttp {
     headers.forEach(b::header);
     HttpRequest req = b.build();
 
+    // set by the body subscriber: cancelling the stream can surface as a plain "Stream cancelled" I/O error first
+    AtomicBoolean tooLarge = new AtomicBoolean();
     int throttled = 0;
     int failed = 0;
     while (true) {
       limiter.acquire();
       Duration wait;
       try {
-        HttpResponse<byte[]> resp = client.send(req, HttpResponse.BodyHandlers.ofByteArray());
+        HttpResponse<byte[]> resp = client.send(req, info -> new LimitedSubscriber(maxResponseBytes, tooLarge));
         int s = resp.statusCode();
         if (s == 429 || s == 503) {
           if (throttled >= THROTTLE_RETRIES) {
@@ -112,6 +129,9 @@ public class PoliteHttp {
           return resp;
         }
       } catch (IOException e) {
+        if (tooLarge.get()) {
+          throw new HttpProblem(safe, 0, false, "response larger than " + maxResponseBytes + " bytes: " + safe, e);
+        }
         if (unknownHost(e)) { // a name that does not resolve now will not resolve in a few seconds either
           throw new HttpProblem(safe, 0, false, "Unknown host: " + safe, e);
         }
@@ -124,6 +144,56 @@ public class PoliteHttp {
         throw new HttpProblem(safe, 0, false, "Interrupted: " + safe, e);
       }
       sleep(safe, wait);
+    }
+  }
+
+  /** The byte array body, cancelled and failed as soon as it exceeds the cap. */
+  private static final class LimitedSubscriber implements HttpResponse.BodySubscriber<byte[]> {
+    private final HttpResponse.BodySubscriber<byte[]> delegate = HttpResponse.BodySubscribers.ofByteArray();
+    private final long max;
+    private final AtomicBoolean exceeded;
+    private long total;
+    private boolean failed;
+    private Flow.Subscription subscription;
+
+    LimitedSubscriber(long max, AtomicBoolean exceeded) {
+      this.max = max;
+      this.exceeded = exceeded;
+    }
+
+    @Override
+    public java.util.concurrent.CompletionStage<byte[]> getBody() {
+      return delegate.getBody();
+    }
+
+    @Override
+    public void onSubscribe(Flow.Subscription s) {
+      subscription = s;
+      delegate.onSubscribe(s);
+    }
+
+    @Override
+    public void onNext(List<ByteBuffer> item) {
+      if (failed) return;
+      for (ByteBuffer b : item) total += b.remaining();
+      if (total > max) {
+        failed = true;
+        exceeded.set(true);
+        subscription.cancel();
+        delegate.onError(new java.io.IOException("response too large"));
+      } else {
+        delegate.onNext(item);
+      }
+    }
+
+    @Override
+    public void onError(Throwable t) {
+      if (!failed) delegate.onError(t);
+    }
+
+    @Override
+    public void onComplete() {
+      if (!failed) delegate.onComplete();
     }
   }
 

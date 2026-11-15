@@ -85,6 +85,11 @@ public class TaskQueue {
     return mapper.requeueRunning(lockedLongerThan == null ? null : lockedLongerThan.toMillis() / 1000.0, maxAttempts);
   }
 
+  /** Deletes the DONE tasks finished longer ago than the given age; DEAD, QUEUED and RUNNING tasks stay. */
+  public int purgeDone(Duration olderThan) {
+    return mapper.purgeDone(olderThan.toMillis() / 1000.0);
+  }
+
   public Map<TaskState, Long> countByState() {
     Map<TaskState, Long> result = new EnumMap<>(TaskState.class);
     for (Map<String, Object> row : mapper.countByState()) {

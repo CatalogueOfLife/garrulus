@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 class WorkUpsertIT extends AbstractPostgresIT {
 
   @Autowired WorkMapper works;
+  @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
 
   private static Work work(String openalexId, String doi, String title, String origin) {
     return new Work(null, openalexId, doi, null, title, null, null, null, null, null, null, null, null, null, null,
@@ -93,7 +94,7 @@ class WorkUpsertIT extends AbstractPostgresIT {
     long id = upsert.upsert(work(null, "http://dx.doi.org/10.5/ABC", null, "LIVE")).id();
     assertThat(works.get(id).doi()).isEqualTo("10.5/abc");
     assertThat(upsert.upsert(work(null, "DOI:10.5/Abc", null, "LIVE"))).isEqualTo(
-        new WorkUpsert.UpsertResult(id, false));
+        new WorkUpsert.UpsertResult(id, false, false));
   }
 
   @Test
@@ -137,5 +138,23 @@ class WorkUpsertIT extends AbstractPostgresIT {
       assertThat(r).containsEntry("state", "MATCHED").containsEntry("text_level", "FULLTEXT");
       assertThat(((Number) r.get("n")).longValue()).isGreaterThanOrEqualTo(1);
     });
+  }
+
+  @Test
+  void abstractJatsAddedOnlyForAResolvedWorkWithoutOne() {
+    WorkUpsert upsert = new WorkUpsert(works);
+    WorkUpsert.UpsertResult created = upsert.upsert(work(null, "10.1/late", "T", "LIVE"));
+    assertThat(created.abstractJatsAdded()).isFalse();
+    Work withJats = new Work(null, null, "10.1/late", null, null, null, null, null, null, null, null, null, null, null,
+        null, null, null, null, null, null, null, null, null, null, null, null, "<abstract/>", null, null, null);
+
+    // still DISCOVERED: the first RESOLVE_CONTENT has not run yet
+    assertThat(upsert.upsert(withJats).abstractJatsAdded()).isFalse();
+    long id = created.id();
+    jdbc.update("UPDATE work SET abstract_jats = NULL, state = 'CONTENT_RESOLVED' WHERE id = ?", id);
+
+    assertThat(upsert.upsert(withJats).abstractJatsAdded()).isTrue();
+    assertThat(works.get(id).abstractJats()).isEqualTo("<abstract/>");
+    assertThat(upsert.upsert(withJats).abstractJatsAdded()).isFalse();
   }
 }

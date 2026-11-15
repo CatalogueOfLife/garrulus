@@ -52,4 +52,7 @@ public interface TaskMapper {
 
   /** Rows type, state, n. */
   List<Map<String, Object>> countByTypeAndState();
+
+  /** Deletes DONE tasks finished more than the given number of seconds ago; returns the number deleted. */
+  int purgeDone(@Param("olderThanSeconds") double olderThanSeconds);
 }

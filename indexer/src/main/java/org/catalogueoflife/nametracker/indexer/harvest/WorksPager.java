@@ -70,13 +70,17 @@ public class WorksPager {
 
   /**
    * Upserts the work and, when it is new, queues its RESOLVE_CONTENT task, in one transaction: a crash cannot leave a
-   * new work without its content task. Returns whether the work was created.
+   * new work without its content task. A work that only now got a JATS abstract gets a second one, keyed
+   * {@code content:<id>:jats}. Returns whether the work was created.
    */
   public boolean store(Work work, TaskPriority contentPriority) {
     return Boolean.TRUE.equals(tx.execute(status -> {
       WorkUpsert.UpsertResult r = upsert.upsert(work);
       if (r.created()) {
         queue.enqueue(RESOLVE_CONTENT, "{\"workId\":" + r.id() + "}", contentPriority, "content:" + r.id());
+      } else if (r.abstractJatsAdded()) {
+        // a JATS abstract that arrived after the content was resolved: resolve again, it may now be the full text
+        queue.enqueue(RESOLVE_CONTENT, "{\"workId\":" + r.id() + "}", contentPriority, "content:" + r.id() + ":jats");
       }
       return r.created();
     }));

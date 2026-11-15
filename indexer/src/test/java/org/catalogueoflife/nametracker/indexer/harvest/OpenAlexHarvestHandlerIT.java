@@ -50,6 +50,7 @@ class OpenAlexHarvestHandlerIT extends AbstractPostgresIT {
   @Autowired HarvestRunMapper runs;
   @Autowired ApiUsageMapper usage;
   @Autowired JdbcTemplate jdbc;
+  @Autowired WorksPager pager;
 
   @BeforeEach
   void clean() {
@@ -411,5 +412,26 @@ class OpenAlexHarvestHandlerIT extends AbstractPostgresIT {
     assertThat(step()).isTrue();
     assertThat(count("SELECT count(*) FROM task WHERE state = 'QUEUED' AND type = 'ONBOARD_SOURCE' AND priority = "
         + TaskPriority.LIVE.code())).isEqualTo(1);
+  }
+
+  @Test
+  void lateJatsAbstractReResolves() {
+    org.catalogueoflife.nametracker.store.work.Work plain = new org.catalogueoflife.nametracker.store.work.Work(null,
+        null, "10.1/late", null, "T", null, null, null, null, null, null, null, null, null, null, null, null, null,
+        "LIVE", null, null, null, null, null, null, null, null, null, null, null);
+    org.catalogueoflife.nametracker.store.work.Work withJats = new org.catalogueoflife.nametracker.store.work.Work(null,
+        null, "10.1/late", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+        null, null, null, null, null, null, null, null, "<abstract>x</abstract>", null, null, null);
+    assertThat(pager.store(plain, TaskPriority.LIVE)).isTrue();
+    long id = jdbc.queryForObject("SELECT id FROM work WHERE doi = '10.1/late'", Long.class);
+    jdbc.update("UPDATE work SET state = 'CONTENT_RESOLVED'");
+    jdbc.update("UPDATE task SET state = 'DONE', finished = now()");
+
+    assertThat(pager.store(withJats, TaskPriority.LIVE)).isFalse();
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT' AND state = 'QUEUED' AND dedup_key = 'content:"
+        + id + ":jats'")).isEqualTo(1);
+
+    assertThat(pager.store(withJats, TaskPriority.LIVE)).isFalse();
+    assertThat(count("SELECT count(*) FROM task WHERE dedup_key = 'content:" + id + ":jats'")).isEqualTo(1);
   }
 }

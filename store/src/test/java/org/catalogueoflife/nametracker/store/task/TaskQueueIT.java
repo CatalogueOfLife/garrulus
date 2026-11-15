@@ -291,4 +291,20 @@ class TaskQueueIT extends AbstractPostgresIT {
       assertThat(((Number) r.get("n")).longValue()).isEqualTo(2);
     }).anySatisfy(r -> assertThat(r).containsEntry("type", "OTHER").containsEntry("state", "RUNNING"));
   }
+
+  @Test
+  void purgeDoneKeepsDeadAndRecent() {
+    for (String t : new String[] {"OLD", "RECENT"}) {
+      queue.enqueue(t, "{}", TaskPriority.LIVE, null);
+    }
+    queue.enqueue("DEADT", "{}", TaskPriority.LIVE, null);
+    queue.enqueue("QUEUEDT", "{}", TaskPriority.LIVE, null);
+    jdbc.update("UPDATE task SET state='DONE', finished = now() - interval '15 days' WHERE type='OLD'");
+    jdbc.update("UPDATE task SET state='DONE', finished = now() - interval '13 days' WHERE type='RECENT'");
+    jdbc.update("UPDATE task SET state='DEAD', finished = now() - interval '30 days' WHERE type='DEADT'");
+
+    assertThat(queue.purgeDone(Duration.ofDays(14))).isEqualTo(1);
+    assertThat(jdbc.queryForList("SELECT type FROM task ORDER BY type", String.class))
+        .containsExactly("DEADT", "QUEUEDT", "RECENT");
+  }
 }

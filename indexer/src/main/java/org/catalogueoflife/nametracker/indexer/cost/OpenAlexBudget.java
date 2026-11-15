@@ -1,6 +1,10 @@
 package org.catalogueoflife.nametracker.indexer.cost;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -36,12 +40,35 @@ public class OpenAlexBudget {
   private final BigDecimal maxDailyUsd;
   private final BigDecimal contentReserveUsd;
   private final Clock clock;
+  private final String fingerprint;
 
+  /** Without an API key. */
   public OpenAlexBudget(ApiUsageMapper usage, BigDecimal maxDailyUsd, BigDecimal contentReserveUsd, Clock clock) {
+    this(usage, maxDailyUsd, contentReserveUsd, clock, null);
+  }
+
+  /**
+   * The remaining amount OpenAlex reports belongs to one key (a keyless caller has its own small allowance), so it is
+   * stored with the key's fingerprint and only counts for a budget with the same fingerprint.
+   */
+  public OpenAlexBudget(ApiUsageMapper usage, BigDecimal maxDailyUsd, BigDecimal contentReserveUsd, Clock clock,
+      @Nullable String apiKey) {
+    this.fingerprint = fingerprint(apiKey);
     this.usage = usage;
     this.maxDailyUsd = maxDailyUsd;
     this.contentReserveUsd = contentReserveUsd;
     this.clock = clock;
+  }
+
+  /** The first 12 hex digits of SHA-256 of the key, or {@code none} without a key. The key itself is never kept. */
+  public static String fingerprint(@Nullable String apiKey) {
+    if (apiKey == null || apiKey.isBlank()) return "none";
+    try {
+      byte[] d = MessageDigest.getInstance("SHA-256").digest(apiKey.getBytes(StandardCharsets.UTF_8));
+      return HexFormat.of().formatHex(d, 0, 6);
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   private LocalDate today() {
@@ -53,7 +80,8 @@ public class OpenAlexBudget {
     BigDecimal price = kind.price();
     Map<String, Object> row = usage.get(SERVICE, today());
     BigDecimal spent = row == null ? BigDecimal.ZERO : (BigDecimal) row.get("usd");
-    BigDecimal remaining = row == null ? null : (BigDecimal) row.get("remaining_usd");
+    BigDecimal remaining = row == null || !fingerprint.equals(row.get("key_fingerprint")) ? null
+        : (BigDecimal) row.get("remaining_usd");
 
     if (spent.add(price).compareTo(maxDailyUsd) > 0) throw exhausted();
     if (remaining != null && (remaining.signum() <= 0 || remaining.compareTo(price) < 0)) throw exhausted();
@@ -83,6 +111,7 @@ public class OpenAlexBudget {
 
   /** Header values win; without them the price table counts. Remaining keeps the last known value. */
   public void record(Call kind, @Nullable BigDecimal creditsUsed, @Nullable BigDecimal remaining) {
-    usage.add(SERVICE, today(), 1, creditsUsed != null ? creditsUsed : kind.price(), remaining);
+    usage.add(SERVICE, today(), 1, creditsUsed != null ? creditsUsed : kind.price(), remaining,
+        fingerprint);
   }
 }

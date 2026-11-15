@@ -102,4 +102,10 @@ class HarvestSchedulerTest {
         eq("harvest:openalex:LIVE:2026-11-15"));
     verify(tasks).countLive(eq("HARVEST_OPENALEX"), eq("LIVE"));
   }
+
+  @Test
+  void purgeRunsEvenWhenHarvestIsDisabled() {
+    scheduler.purgeDoneTasks();
+    verify(queue).purgeDone(java.time.Duration.ofDays(14));
+  }
 }

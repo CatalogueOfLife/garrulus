@@ -11,16 +11,20 @@ public class FakeApiUsage implements ApiUsageMapper {
   public final Map<String, Map<String, Object>> rows = new HashMap<>();
 
   @Override
-  public void add(String service, LocalDate day, int calls, BigDecimal usd, BigDecimal remainingUsd) {
+  public void add(String service, LocalDate day, int calls, BigDecimal usd, BigDecimal remainingUsd,
+      String keyFingerprint) {
     Map<String, Object> r = rows.computeIfAbsent(service + "|" + day, k -> {
       Map<String, Object> m = new HashMap<>();
       m.put("calls", 0);
       m.put("usd", BigDecimal.ZERO);
       m.put("remaining_usd", null);
+      m.put("key_fingerprint", null);
       return m;
     });
     r.put("calls", (Integer) r.get("calls") + calls);
     r.put("usd", ((BigDecimal) r.get("usd")).add(usd));
+    if (!keyFingerprint.equals(r.get("key_fingerprint"))) r.put("remaining_usd", null);
+    r.put("key_fingerprint", keyFingerprint);
     if (remainingUsd != null) r.put("remaining_usd", remainingUsd);
   }
 

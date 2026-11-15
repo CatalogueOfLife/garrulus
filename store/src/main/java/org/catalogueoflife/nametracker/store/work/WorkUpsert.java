@@ -13,7 +13,11 @@ import org.jspecify.annotations.Nullable;
  */
 public class WorkUpsert {
 
-  public record UpsertResult(long id, boolean created) {
+  /**
+   * {@code abstractJatsAdded}: the stored work had no abstract_jats, the incoming one has, and the work is already past
+   * DISCOVERED, so the content resolution that ran before has not seen it and should run again.
+   */
+  public record UpsertResult(long id, boolean created, boolean abstractJatsAdded) {
   }
 
   private final WorkMapper mapper;
@@ -48,13 +52,15 @@ public class WorkUpsert {
       if (existing == null) {
         Long id = mapper.insertIfAbsent(incoming);
         if (id != null) {
-          return new UpsertResult(id, true);
+          return new UpsertResult(id, true, false);
         }
         // Lost a race against a concurrent insert: re-read and merge.
         continue;
       }
       mapper.merge(existing.id(), incoming);
-      return new UpsertResult(existing.id(), false);
+      boolean jatsAdded = existing.abstractJats() == null && incoming.abstractJats() != null
+          && !"DISCOVERED".equals(existing.state());
+      return new UpsertResult(existing.id(), false, jatsAdded);
     }
     throw new IllegalStateException("Could not upsert work " + incoming.openalexId() + " / " + incoming.doi());
   }
