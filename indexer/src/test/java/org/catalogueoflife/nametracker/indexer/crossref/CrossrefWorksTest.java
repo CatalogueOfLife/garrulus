@@ -54,4 +54,20 @@ class CrossrefWorksTest {
   void issnsListed() throws IOException {
     assertEquals(java.util.List.of("1313-2970", "1313-2989"), CrossrefWorks.issns(item(0)));
   }
+
+  private static LocalDate latest(String published) {
+    return CrossrefWorks.latestPublished(FinderJson.mapper().readTree("{\"published\":" + published + "}"));
+  }
+
+  /** M2-K2: a partial date counts at its latest possible day. */
+  @Test
+  void latestPublishedDay() {
+    assertEquals(LocalDate.of(2015, 12, 31), latest("{\"date-parts\":[[2015]]}"));
+    assertEquals(LocalDate.of(2024, 2, 29), latest("{\"date-parts\":[[2024, 2]]}"));
+    assertEquals(LocalDate.of(2023, 2, 28), latest("{\"date-parts\":[[2023, 2]]}"));
+    assertEquals(LocalDate.of(2026, 7, 4), latest("{\"date-parts\":[[2026, 7, 4]]}"));
+    assertNull(latest("{\"date-parts\":[[null]]}"));
+    assertNull(latest("{\"date-parts\":[[2026, 13]]}"));
+    assertNull(CrossrefWorks.latestPublished(FinderJson.mapper().readTree("{}")));
+  }
 }

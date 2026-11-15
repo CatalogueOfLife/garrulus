@@ -40,6 +40,24 @@ public final class CrossrefWorks {
         null, null, license(w.path("license")), null, null, text(w, "abstract"), null, null, null);
   }
 
+  /**
+   * The latest day the item can have been published: the full {@code published} date, 31 December for a year only,
+   * the last day of the month for a year and month. Null without a usable year.
+   */
+  public static @Nullable LocalDate latestPublished(JsonNode w) {
+    JsonNode parts = w.path("published").path("date-parts").path(0);
+    if (!parts.path(0).isNumber()) return null;
+    int year = parts.path(0).asInt();
+    try {
+      if (!parts.path(1).isNumber()) return LocalDate.of(year, 12, 31);
+      LocalDate first = LocalDate.of(year, parts.path(1).asInt(), 1);
+      if (!parts.path(2).isNumber()) return first.withDayOfMonth(first.lengthOfMonth());
+      return LocalDate.of(year, parts.path(1).asInt(), parts.path(2).asInt());
+    } catch (DateTimeException e) {
+      return null;
+    }
+  }
+
   /** The ISSNs of the item (print and electronic). */
   public static List<String> issns(JsonNode w) {
     List<String> out = new ArrayList<>();

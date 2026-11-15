@@ -210,11 +210,7 @@ class CrossrefHarvestHandlerIT extends AbstractPostgresIT {
   void oldNewWorksAreBackfillRecentAndUndatedStayLive() throws Exception {
     source();
     LocalDate recent = LocalDate.now(ZoneOffset.UTC).minusDays(10);
-    String page = fixture("works-page-ages.json").replace("{{RECENT}}",
-        "[" + recent.getYear() + ", " + recent.getMonthValue() + ", " + recent.getDayOfMonth() + "]");
-    stubFor(get(urlPathEqualTo("/works")).atPriority(5).willReturn(okJson(fixture("works-empty.json"))));
-    stubFor(get(urlPathEqualTo("/works")).atPriority(1).withQueryParam("cursor", equalTo("*"))
-        .willReturn(okJson(page)));
+    stubAgesPage();
     String oldOa = "10.3897/zookeys.1.1001";
     String newOa = "10.3897/zookeys.1.1002";
     String oldCr = "10.3897/zookeys.1.1003";
@@ -238,6 +234,55 @@ class CrossrefHarvestHandlerIT extends AbstractPostgresIT {
       assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT' AND priority = " + expected
           + " AND payload->>'workId' = '" + w.id() + "'")).as(doi).isEqualTo(1);
     }
-    assertThat(jdbc.queryForObject("SELECT works_new FROM harvest_run", Integer.class)).isEqualTo(4);
+    assertThat(jdbc.queryForObject("SELECT works_new FROM harvest_run", Integer.class)).isEqualTo(8);
+  }
+
+  /** The ages fixture with its relative dates filled in for today (UTC). */
+  private static void stubAgesPage() throws IOException {
+    LocalDate today = LocalDate.now(ZoneOffset.UTC);
+    String page = fixture("works-page-ages.json")
+        .replace("{{RECENT}}", parts(today.minusDays(10)))
+        .replace("{{YEAR_MONTH}}", "[" + today.getYear() + ", " + today.getMonthValue() + "]")
+        .replace("{{D120}}", parts(today.minusDays(120)))
+        .replace("{{D121}}", parts(today.minusDays(121)));
+    stubFor(get(urlPathEqualTo("/works")).atPriority(5).willReturn(okJson(fixture("works-empty.json"))));
+    stubFor(get(urlPathEqualTo("/works")).atPriority(1).withQueryParam("cursor", equalTo("*"))
+        .willReturn(okJson(page)));
+  }
+
+  private static String parts(LocalDate d) {
+    return "[" + d.getYear() + ", " + d.getMonthValue() + ", " + d.getDayOfMonth() + "]";
+  }
+
+  /**
+   * M2-K2: a partial Crossref date counts at its latest possible day (31 December for a year, the month's last day for
+   * a year and month). Exactly 120 days ago is still LIVE, 121 days is BACKFILL. The stored date stays as Crossref
+   * gave it.
+   */
+  @Test
+  void partialDatesCountAtTheirLatestDayAndTheBoundaryIs120Days() throws Exception {
+    source();
+    stubAgesPage();
+    stubFor(get(urlPathMatching("/works/doi:.*")).willReturn(aResponse().withStatus(404)));
+
+    harvestYesterday();
+
+    Work yearOnly = works.findByDoi("10.3897/zookeys.1.1005");
+    assertThat(yearOnly.origin()).isEqualTo("BACKFILL");
+    assertThat(yearOnly.publicationDate()).isNull();
+    assertThat(yearOnly.year()).isEqualTo((short) 2015);
+    Work yearMonth = works.findByDoi("10.3897/zookeys.1.1006");
+    assertThat(yearMonth.origin()).isEqualTo("LIVE");
+    assertThat(yearMonth.publicationDate()).isNull();
+    assertThat(works.findByDoi("10.3897/zookeys.1.1007").origin()).isEqualTo("LIVE");
+    assertThat(works.findByDoi("10.3897/zookeys.1.1008").origin()).isEqualTo("BACKFILL");
+    assertThat(works.findByDoi("10.3897/zookeys.1.1004").origin()).isEqualTo("LIVE"); // no date at all
+    for (String doi : List.of("10.3897/zookeys.1.1005", "10.3897/zookeys.1.1006", "10.3897/zookeys.1.1007",
+        "10.3897/zookeys.1.1008")) {
+      Work w = works.findByDoi(doi);
+      int expected = "LIVE".equals(w.origin()) ? TaskPriority.LIVE.code() : TaskPriority.BACKFILL.code();
+      assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT' AND priority = " + expected
+          + " AND payload->>'workId' = '" + w.id() + "'")).as(doi).isEqualTo(1);
+    }
   }
 }

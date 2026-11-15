@@ -128,7 +128,7 @@ public class CrossrefHarvestHandler implements TaskHandler {
         sourceId = bySource.get(i);
         if (sourceId != null) break;
       }
-      if (store(rec, sourceId, byOpenalexId)) created++;
+      if (store(rec, CrossrefWorks.latestPublished(item), sourceId, byOpenalexId)) created++;
     }
     runs.addProgress(runId, 1, seen, created);
 
@@ -142,7 +142,9 @@ public class CrossrefHarvestHandler implements TaskHandler {
   }
 
   /** Returns whether a new work was created. */
-  private boolean store(WorkRecord rec, @Nullable Long sourceId, Map<String, Long> bySourceOpenalexId) {
+  /** {@code crossrefLatest}: the latest day Crossref's (possibly partial) date allows, for the origin test. */
+  private boolean store(WorkRecord rec, @Nullable LocalDate crossrefLatest, @Nullable Long sourceId,
+      Map<String, Long> bySourceOpenalexId) {
     String doi = rec.doi();
     Work known = works.findByDoi(doi);
     if (known != null) {
@@ -162,20 +164,20 @@ public class CrossrefHarvestHandler implements TaskHandler {
       try {
         WorkRecord full = OpenAlexWorks.parse(oa.get()).with(rec.abstractJats(), doi);
         Long oaSource = full.sourceOpenalexId() == null ? null : bySourceOpenalexId.get(full.sourceOpenalexId());
-        String origin = origin(full.publicationDate());
+        String origin = origin(full.publicationDate() != null ? full.publicationDate() : crossrefLatest);
         return pager.store(full.toWork(oaSource != null ? oaSource : sourceId, origin), priority(origin));
       } catch (IllegalArgumentException | IllegalStateException e) {
         LOG.warn("Unreadable OpenAlex record for {}, using the Crossref metadata: {}", doi, e.toString());
       }
     }
-    String origin = origin(rec.publicationDate());
+    String origin = origin(crossrefLatest);
     return pager.store(rec.toWork(sourceId, origin), priority(origin));
   }
 
   /**
    * The index-date listing also returns DOIs whose metadata merely changed. A new work published more than
    * {@value OpenAlexHarvestHandler#LIVE_DAYS} days before today (UTC) is not news: BACKFILL. Recent and undated works
-   * are LIVE.
+   * are LIVE. A partial Crossref date is passed as its latest possible day ({@link CrossrefWorks#latestPublished}).
    */
   String origin(@Nullable LocalDate publicationDate) {
     LocalDate oldest = LocalDate.now(clock.withZone(ZoneOffset.UTC)).minusDays(OpenAlexHarvestHandler.LIVE_DAYS);

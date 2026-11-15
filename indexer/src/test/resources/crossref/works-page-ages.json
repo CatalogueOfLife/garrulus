@@ -4,7 +4,7 @@
  "message-version": "1.0.0",
  "message": {
   "facets": {},
-  "total-results": 4,
+  "total-results": 8,
   "items": [
    {
     "DOI": "10.3897/zookeys.1.1001",
@@ -112,6 +112,112 @@
      }
     ],
     "abstract": "<jats:p>An undated work only Crossref knows.</jats:p>"
+   },
+   {
+    "DOI": "10.3897/zookeys.1.1005",
+    "type": "journal-article",
+    "title": [
+     "A work dated only by an old year"
+    ],
+    "ISSN": [
+     "1313-2989",
+     "1313-2970"
+    ],
+    "container-title": [
+     "ZooKeys"
+    ],
+    "author": [
+     {
+      "given": "A.",
+      "family": "Author"
+     }
+    ],
+    "abstract": "<jats:p>A work dated only by an old year.</jats:p>",
+    "published": {
+     "date-parts": [
+      [
+       2015
+      ]
+     ]
+    }
+   },
+   {
+    "DOI": "10.3897/zookeys.1.1006",
+    "type": "journal-article",
+    "title": [
+     "A work dated by this year and month"
+    ],
+    "ISSN": [
+     "1313-2989",
+     "1313-2970"
+    ],
+    "container-title": [
+     "ZooKeys"
+    ],
+    "author": [
+     {
+      "given": "A.",
+      "family": "Author"
+     }
+    ],
+    "abstract": "<jats:p>A work dated by this year and month.</jats:p>",
+    "published": {
+     "date-parts": [
+      {{YEAR_MONTH}}
+     ]
+    }
+   },
+   {
+    "DOI": "10.3897/zookeys.1.1007",
+    "type": "journal-article",
+    "title": [
+     "A work published exactly 120 days ago"
+    ],
+    "ISSN": [
+     "1313-2989",
+     "1313-2970"
+    ],
+    "container-title": [
+     "ZooKeys"
+    ],
+    "author": [
+     {
+      "given": "A.",
+      "family": "Author"
+     }
+    ],
+    "abstract": "<jats:p>A work published exactly 120 days ago.</jats:p>",
+    "published": {
+     "date-parts": [
+      {{D120}}
+     ]
+    }
+   },
+   {
+    "DOI": "10.3897/zookeys.1.1008",
+    "type": "journal-article",
+    "title": [
+     "A work published 121 days ago"
+    ],
+    "ISSN": [
+     "1313-2989",
+     "1313-2970"
+    ],
+    "container-title": [
+     "ZooKeys"
+    ],
+    "author": [
+     {
+      "given": "A.",
+      "family": "Author"
+     }
+    ],
+    "abstract": "<jats:p>A work published 121 days ago.</jats:p>",
+    "published": {
+     "date-parts": [
+      {{D121}}
+     ]
+    }
    }
   ],
   "items-per-page": 1000
