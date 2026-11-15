@@ -50,11 +50,14 @@ cd frontend && npm run dev | npm test | npm run build   # Vite on 5173, proxies 
   - `OPENALEX_API_KEY` (recommended, free), `CROSSREF_MAILTO` (optional), `NAMETRACKER_OPENALEX_MAX_DAILY_USD` (1.00),
     `NAMETRACKER_OPENALEX_CONTENT_ENABLED` (true), `NAMETRACKER_OPENALEX_CONTENT_RESERVE_USD` (0.30),
     `NAMETRACKER_BLOBS_DIR` (`./data/blobs`), `NAMETRACKER_CONTENT_OPEN_LICENCES`, `NAMETRACKER_SEED_*`,
-    `NAMETRACKER_OPENALEX_BASE_URL`, `NAMETRACKER_CROSSREF_BASE_URL`.
+    `NAMETRACKER_OPENALEX_BASE_URL`, `NAMETRACKER_OPENALEX_CONTENT_BASE_URL`, `NAMETRACKER_CROSSREF_BASE_URL`.
+  - `NAMETRACKER_HARVEST_OUTAGE_DELAY` (30m): a harvest or onboarding page that meets an outage is enqueued again after
+    this delay instead of failing.
 - `finder-service`: `FINDER_DICTIONARY` (required), `GNFINDER_URL`, `FINDER_CONFIG` (a JSON file of pipeline overrides),
   `FINDER_SERVICE_PORT` (8095) and `FINDER_SERVICE_ADDRESS` (default `127.0.0.1`, loopback only; `0.0.0.0` to serve
   other hosts). A text or block over 100,000 code points (`maxChunkCodePoints`) is a 413; invalid documents are a 400.
-- Both apps also read a local `.env` (git-ignored, see `.env.example`) from the working or the parent directory.
+- Both apps also read a local `.env` (git-ignored, see `.env.example`) from the working or the parent directory. In
+  the indexer, `nametracker.dotenv` replaces that import list; the ITs use it to read no `.env` at all.
 - Port clash (for example a CLB `WsMatchingServer` on 8080 or 8081): `SERVER_PORT=9080 mvn -pl web spring-boot:run`.
 
 ## Harvesting by hand and admin endpoints
@@ -78,7 +81,8 @@ curl ... -d '{"type":"HARVEST_CROSSREF","payload":{"date":"2026-11-14"},"priorit
   for a bad tier.
 - `POST /api/admin/sources` with `{"openalexId":"S123","tier":"CORE"}` enqueues `ADD_SOURCE` (202).
 - `GET /api/admin/status`: task counts by type and state, work counts by state and text level, today's (UTC) `api_usage`
-  rows, the last 20 harvest runs and source counts by tier. Only COUNT/GROUP BY queries, so it is cheap to poll.
+  rows, the last 20 harvest runs and source counts by tier. Only COUNT/GROUP BY queries, but they scan the whole task
+  and work tables, which grow with the backlog: poll it every few minutes, not in a tight loop.
 
 ## Evaluation (`eval`)
 

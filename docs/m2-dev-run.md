@@ -109,7 +109,7 @@ calls, most of them free singleton gets).
 - **Blobs:** `data/blobs` 20 MB in 1,669 files.
 - **Logged route failures** (the work falls through to the next route; nothing goes DEAD): Europe PMC answers HTTP
   500 for `fullTextXML` of a PMCID that OpenAlex gave but that is not open access (250 so far), and five Pensoft
-  journal hosts taken from the source homepage do not resolve in DNS (`asp.pensoft.net`, `vz.pensoft.net`).
+  journal hosts built from the DOI's journal slug do not resolve in DNS (`asp.pensoft.net`, `vz.pensoft.net`).
 
 ## Fixed during the run
 
