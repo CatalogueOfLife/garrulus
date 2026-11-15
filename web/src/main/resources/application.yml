@@ -33,3 +33,5 @@ nametracker:
   admin:
     # blank = the admin endpoint does not exist. Temporary until ORCID admin roles (M4).
     token: ${ADMIN_TOKEN:}
+  blobs:
+    dir: ${NAMETRACKER_BLOBS_DIR:./data/blobs}

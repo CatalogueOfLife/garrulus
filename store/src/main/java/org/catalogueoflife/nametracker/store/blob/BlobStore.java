@@ -1,4 +1,4 @@
-package org.catalogueoflife.nametracker.indexer.content;
+package org.catalogueoflife.nametracker.store.blob;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;

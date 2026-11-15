@@ -1,4 +1,4 @@
-package org.catalogueoflife.nametracker.indexer.content;
+package org.catalogueoflife.nametracker.store.blob;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

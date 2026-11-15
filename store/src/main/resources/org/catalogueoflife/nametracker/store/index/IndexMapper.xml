@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.nametracker.store.index.IndexMapper">
+
+  <resultMap id="mention" type="org.catalogueoflife.nametracker.store.index.MentionRow">
+    <constructor>
+      <idArg column="id" javaType="long"/>
+      <arg column="work_id" javaType="_long"/>
+      <arg column="name_string_id" javaType="_long"/>
+      <arg column="block_id" javaType="string"/>
+      <arg column="block_type" javaType="string"/>
+      <arg column="start_cp" javaType="_int"/>
+      <arg column="end_cp" javaType="_int"/>
+      <arg column="verbatim" javaType="string"/>
+      <arg column="authorship" javaType="string"/>
+      <arg column="qualifier" javaType="string"/>
+      <arg column="confidence" javaType="_float"/>
+      <arg column="act_type" javaType="string"/>
+      <arg column="context_id" javaType="long"/>
+      <arg column="snippet" javaType="string"/>
+      <arg column="evidence" javaType="string" typeHandler="org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler"/>
+    </constructor>
+  </resultMap>
+
+  <resultMap id="context" type="org.catalogueoflife.nametracker.store.index.ContextRow">
+    <constructor>
+      <idArg column="id" javaType="long"/>
+      <arg column="work_id" javaType="_long"/>
+      <arg column="local_id" javaType="string"/>
+      <arg column="verbatim" javaType="string"/>
+      <arg column="ranks" javaType="string" typeHandler="org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler"/>
+      <arg column="scope" javaType="string"/>
+      <arg column="block_id" javaType="string"/>
+      <arg column="until_block_id" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <resultMap id="match" type="org.catalogueoflife.nametracker.store.index.NameMatch">
+    <constructor>
+      <arg column="name_string_id" javaType="_long"/>
+      <arg column="hint_key" javaType="string"/>
+      <arg column="release_key" javaType="_int"/>
+      <arg column="match_type" javaType="string"/>
+      <arg column="usage_id" javaType="string"/>
+      <arg column="usage_name" javaType="string"/>
+      <arg column="usage_rank" javaType="string"/>
+      <arg column="usage_status" javaType="string"/>
+      <arg column="accepted_id" javaType="string"/>
+      <arg column="code" javaType="string"/>
+      <arg column="taxgroup" javaType="string"/>
+      <arg column="taxon_path" javaType="java.util.List" typeHandler="org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler"/>
+      <arg column="classification" javaType="string" typeHandler="org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler"/>
+      <arg column="matched_at" javaType="java.time.Instant"/>
+    </constructor>
+  </resultMap>
+
+  <resultMap id="workName" type="org.catalogueoflife.nametracker.store.index.WorkName">
+    <constructor>
+      <arg column="work_id" javaType="_long"/>
+      <arg column="name_string_id" javaType="_long"/>
+      <arg column="mention_count" javaType="_int"/>
+      <arg column="body_count" javaType="_int"/>
+      <arg column="in_title" javaType="_boolean"/>
+      <arg column="in_abstract" javaType="_boolean"/>
+      <arg column="in_heading" javaType="_boolean"/>
+      <arg column="only_reference" javaType="_boolean"/>
+      <arg column="act_types" javaType="java.util.List" typeHandler="org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler"/>
+      <arg column="best_snippet" javaType="string"/>
+      <arg column="placement_method" javaType="string"/>
+      <arg column="usage_id" javaType="string"/>
+      <arg column="taxon_path" javaType="java.util.List" typeHandler="org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler"/>
+      <arg column="code" javaType="string"/>
+      <arg column="taxgroup" javaType="string"/>
+      <arg column="salience" javaType="_float"/>
+      <arg column="main_subject" javaType="_boolean"/>
+    </constructor>
+  </resultMap>
+
+  <resultMap id="release" type="org.catalogueoflife.nametracker.store.index.XrRelease">
+    <constructor>
+      <idArg column="key" javaType="_int"/>
+      <arg column="alias" javaType="string"/>
+      <arg column="first_seen" javaType="java.time.Instant"/>
+      <arg column="current" javaType="_boolean"/>
+    </constructor>
+  </resultMap>
+
+  <select id="finderRunId" resultType="long" flushCache="true">
+    INSERT INTO finder_run (name, version, config_hash, dictionary_key)
+    VALUES (#{o.name}, #{o.version}, #{o.configHash}, #{o.dictionaryKey})
+    ON CONFLICT (name, version, config_hash, dictionary_key) DO UPDATE SET name = EXCLUDED.name
+    RETURNING id
+  </select>
+
+  <select id="nameStringId" resultType="long" flushCache="true">
+    INSERT INTO name_string (name, kind, rank) VALUES (#{name}, #{kind}, #{rank})
+    ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+    RETURNING id
+  </select>
+
+  <delete id="deleteMentions">DELETE FROM mention WHERE work_id = #{workId}</delete>
+  <delete id="deleteContexts">DELETE FROM classification_context WHERE work_id = #{workId}</delete>
+  <delete id="deleteWorkNames">DELETE FROM work_name WHERE work_id = #{workId}</delete>
+
+  <select id="insertContext" resultType="long" flushCache="true">
+    INSERT INTO classification_context (work_id, local_id, verbatim, ranks, scope, block_id, until_block_id)
+    VALUES (#{o.workId}, #{o.localId}, #{o.verbatim}, #{o.ranks, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, #{o.scope}, #{o.blockId}, #{o.untilBlockId})
+    RETURNING id
+  </select>
+
+  <insert id="insertMentions">
+    INSERT INTO mention (work_id, name_string_id, block_id, block_type, start_cp, end_cp, verbatim, authorship, qualifier, confidence, act_type, context_id, snippet, evidence)
+    VALUES
+    <foreach collection="list" item="m" separator=",">
+      (#{m.workId}, #{m.nameStringId}, #{m.blockId}, #{m.blockType}, #{m.startCp}, #{m.endCp}, #{m.verbatim}, #{m.authorship}, #{m.qualifier}, #{m.confidence}, #{m.actType}, #{m.contextId}, #{m.snippet}, #{m.evidence, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler})
+    </foreach>
+  </insert>
+
+  <select id="mentions" resultMap="mention">
+    SELECT * FROM mention WHERE work_id = #{workId} ORDER BY id
+  </select>
+
+  <select id="contexts" resultMap="context">
+    SELECT * FROM classification_context WHERE work_id = #{workId} ORDER BY id
+  </select>
+
+  <select id="match" resultMap="match">
+    SELECT * FROM name_match
+    WHERE name_string_id = #{nameStringId} AND hint_key = #{hintKey} AND release_key = #{releaseKey}
+  </select>
+
+  <insert id="putMatch">
+    INSERT INTO name_match (name_string_id, hint_key, release_key, match_type, usage_id, usage_name, usage_rank, usage_status, accepted_id, code, taxgroup, taxon_path, classification)
+    VALUES (#{o.nameStringId}, #{o.hintKey}, #{o.releaseKey}, #{o.matchType}, #{o.usageId}, #{o.usageName}, #{o.usageRank}, #{o.usageStatus}, #{o.acceptedId}, #{o.code}, #{o.taxgroup}, #{o.taxonPath, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, #{o.classification, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler})
+    ON CONFLICT (name_string_id, hint_key, release_key) DO UPDATE SET
+      match_type = EXCLUDED.match_type, usage_id = EXCLUDED.usage_id, usage_name = EXCLUDED.usage_name,
+      usage_rank = EXCLUDED.usage_rank, usage_status = EXCLUDED.usage_status, accepted_id = EXCLUDED.accepted_id,
+      code = EXCLUDED.code, taxgroup = EXCLUDED.taxgroup, taxon_path = EXCLUDED.taxon_path,
+      classification = EXCLUDED.classification, matched_at = now()
+  </insert>
+
+  <insert id="insertWorkNames">
+    INSERT INTO work_name (work_id, name_string_id, mention_count, body_count, in_title, in_abstract, in_heading, only_reference, act_types, best_snippet, placement_method, usage_id, taxon_path, code, taxgroup, salience, main_subject)
+    VALUES
+    <foreach collection="list" item="w" separator=",">
+      (#{w.workId}, #{w.nameStringId}, #{w.mentionCount}, #{w.bodyCount}, #{w.inTitle}, #{w.inAbstract}, #{w.inHeading}, #{w.onlyReference}, #{w.actTypes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, #{w.bestSnippet}, #{w.placementMethod}, #{w.usageId}, #{w.taxonPath, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, #{w.code}, #{w.taxgroup}, #{w.salience}, #{w.mainSubject})
+    </foreach>
+  </insert>
+
+  <select id="workNames" resultMap="workName">
+    SELECT * FROM work_name WHERE work_id = #{workId} ORDER BY name_string_id
+  </select>
+
+  <select id="currentRelease" resultMap="release">
+    SELECT * FROM xr_release WHERE current
+  </select>
+
+  <insert id="addRelease">
+    INSERT INTO xr_release (key, alias, current) VALUES (#{key}, #{alias}, #{current})
+  </insert>
+
+  <update id="setNamesFound">
+    UPDATE work SET current_finder_run = #{finderRunId}, names_doc_sha = #{docSha}, state = 'NAMES_FOUND', modified = now()
+    WHERE id = #{workId}
+  </update>
+
+  <update id="updateIndexed">
+    UPDATE work SET codes = #{codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler},
+      taxgroups = #{taxgroups, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler},
+      has_acts = #{hasActs}, state = 'INDEXED', indexed_at = now(), modified = now()
+    WHERE id = #{workId}
+  </update>
+</mapper>
