@@ -12,7 +12,8 @@ the run was started, how to stop it, the first-check numbers and the success cri
     their jars in `data/run/`, so a later `mvn install` cannot pull a class out from under a running JVM.
   - 11:08:26 UTC, after the round 2 fixes (`acd2c63`, `74c176f`, `07d54cb`). Both apps now listen on 127.0.0.1 only.
   - 11:54:03 UTC, the indexer only, after the final-review fixes (round 3, below).
-- **Keyless:** no `OPENALEX_API_KEY` and no `CROSSREF_MAILTO`. OpenAlex runs on the keyless $0.10/day per IP, group-by
+  - 16:14:02 UTC, the indexer only, with an `OPENALEX_API_KEY` in `.env` (round 4, below).
+- **Keyless until 16:14 UTC:** no `OPENALEX_API_KEY` and no `CROSSREF_MAILTO`. OpenAlex runs on the keyless $0.10/day per IP, group-by
   sees one page (200 groups), page paging stops at 10,000 results and the TEI route does not apply (ADR-0004). Crossref
   runs in the public pool.
 
@@ -158,6 +159,28 @@ migration.
 - `58fb3d9` an unknown host fails at once, without 10 s of retries.
 - **Check at 11:59 UTC, five minutes after the restart:** 1,044 tasks finished, all `DONE` (3.5/s); 0 `DEAD` and no
   task with a `last_error`; `ONBOARD_SOURCE` 226 done, 31 queued; `RESOLVE_CONTENT` 10,330 done, 20,798 queued.
+
+## Round 4 (OpenAlex key; restart 16:14:02 UTC)
+
+The indexer only (same jar copy, port and env), now with a free `OPENALEX_API_KEY` in `.env`: $1/day allowance
+(`x-ratelimit-limit-usd: 1`), full paging and route 4. No code change.
+
+- **The onboarding backlog was done by then.** All 18,991 queued tasks are content re-checks due on 2026-11-22, so
+  route 4 had nothing to run and was smoke-tested by hand.
+- **Stale remaining amount (one-off fix by hand).** Today's `api_usage` row still held the keyless `remaining_usd`
+  (0.0665). It is below the content reserve (0.30), so `OpenAlexBudget.check(CONTENT)` would have deferred every route-4
+  attempt to 00:05 UTC. I set it to `NULL`. The next OpenAlex response wrote the key's value (0.9699). A key added in
+  the middle of a day therefore needs this step, or route 4 waits until the next UTC day (carried into M3).
+- **Smoke test 16:15 UTC:** `RESOLVE_CONTENT` by hand (`dedupKey content:<id>:smoke-tei`) for three CORE works with
+  `openalex_has_tei` and only an abstract, all `DONE` on the first attempt and now `FULLTEXT`:
+  - 1677 and 1678 (Check List, CC-BY): `OPENALEX_TEI` rows `retained`, raw TEI and document blobs kept.
+  - 428 (Phytotaxa, no licence): `OPENALEX_TEI` row not retained, no blobs, only the hashes.
+  - Spend: 3 content calls, $0.03 by the response headers ($0.01 each, as priced). The stored URLs carry
+    `api_key=***`.
+  - Document 1677: 140 blocks (1 title, 1 abstract, 17 headings, 27 paragraphs, 7 captions, 47 footnotes, 40
+    references), no style spans (GROBID has no italics, ADR-0002). GROBID tokenisation shows in the text: affiliations
+    as footnotes, a space before commas (`Hohenheim , Institut`) and none after some full stops (`tray.In`). Worth a
+    `TeiConverter` clean-up before mode B is tuned again.
 
 ## Open points
 
