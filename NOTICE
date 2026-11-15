@@ -1,0 +1,18 @@
+Garrulus (internal id nametracker)
+Catalogue of Life
+
+This repository contains third-party data files under their own licences. They stay separable from the code.
+
+1. Common word lists (finder-core)
+   Files:   finder-core/src/main/resources/org/catalogueoflife/nametracker/finder/dict/common-words-{en,de,fr,es,pt}.txt
+   Source:  hermitdave/FrequencyWords, https://github.com/hermitdave/FrequencyWords (from OpenSubtitles)
+   Licence: Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0), https://creativecommons.org/licenses/by-sa/4.0/
+   Changes: counts dropped, filtered and truncated; see the NOTICE file next to the lists.
+
+2. Pensoft evaluation corpus (eval)
+   Files:   eval/corpus/pensoft/gold.jsonl.gz (with manifest.tsv)
+   Source:  articles of the Pensoft journals ZooKeys, PhytoKeys, MycoKeys and Biodiversity Data Journal
+   Licence: Creative Commons Attribution 4.0 (CC BY 4.0), https://creativecommons.org/licenses/by/4.0/
+   Credit:  each article by its DOI in eval/corpus/pensoft/manifest.tsv
+   Changes: markup stripped, text normalised, converted to the Garrulus document model;
+            see eval/corpus/pensoft/README.md.
