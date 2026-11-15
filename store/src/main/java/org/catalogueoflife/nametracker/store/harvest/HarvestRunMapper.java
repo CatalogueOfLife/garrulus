@@ -16,7 +16,10 @@ public interface HarvestRunMapper {
   int finish(@Param("id") long id, @Param("state") String state, @Param("calls") int calls,
       @Param("seen") int seen, @Param("created") int created, @Param("error") @Nullable String error);
 
-  /** Adds to the counters of a run that spans several tasks; a DEFERRED run is RUNNING again. */
+  /**
+   * Adds to the counters of a run that spans several tasks; a DEFERRED run is RUNNING again, and so is a FAILED one
+   * (the dispatcher's retry of the failed page got through).
+   */
   int addProgress(@Param("id") long id, @Param("calls") int calls, @Param("seen") int seen,
       @Param("created") int created);
 

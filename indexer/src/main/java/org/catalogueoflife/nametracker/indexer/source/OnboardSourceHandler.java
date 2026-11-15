@@ -7,6 +7,7 @@ import java.time.ZoneOffset;
 import java.util.Map;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException;
+import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.harvest.WorksPager;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.source.Source;
@@ -24,7 +25,8 @@ import tools.jackson.databind.JsonNode;
  * {@code ONBOARD_SOURCE}, payload {@code {"sourceId":n}} (plus {@code from}, {@code cursor} and {@code page} in
  * continuations): imports the last 120 days of one source with origin ONBOARDING, its RESOLVE_CONTENT tasks at BACKFILL
  * priority. Paging works as in {@link org.catalogueoflife.nametracker.indexer.harvest.OpenAlexHarvestHandler}. After the
- * last page the source is marked onboarded, from when LIVE and SWEEP harvest it.
+ * last page the source is marked onboarded, from when LIVE and SWEEP harvest it. An outage ({@link HarvestOutage})
+ * enqueues the same page again in 30 minutes.
  */
 @Component
 public class OnboardSourceHandler implements TaskHandler {
@@ -37,12 +39,15 @@ public class OnboardSourceHandler implements TaskHandler {
   private final SourceMapper sources;
   private final TaskQueue queue;
   private final Clock clock;
+  private final HarvestOutage outage;
 
-  public OnboardSourceHandler(WorksPager pager, SourceMapper sources, TaskQueue queue, Clock clock) {
+  public OnboardSourceHandler(WorksPager pager, SourceMapper sources, TaskQueue queue, Clock clock,
+      HarvestOutage outage) {
     this.pager = pager;
     this.sources = sources;
     this.queue = queue;
     this.clock = clock;
+    this.outage = outage;
   }
 
   @Override
@@ -78,7 +83,14 @@ public class OnboardSourceHandler implements TaskHandler {
       Instant retryAt = e.retryAt();
       LOG.info("OpenAlex budget spent; onboarding of source {} resumes at {}", sourceId, retryAt);
       queue.enqueue(TYPE, payload(sourceId, from, cursor, page), task.priority(),
-          "onboard:" + sourceId + ":" + WorksPager.pos(cursor, page) + ":d" + retryAt.getEpochSecond(), retryAt);
+          key(sourceId, WorksPager.pos(cursor, page)) + ":d" + retryAt.getEpochSecond(), retryAt);
+      return;
+    } catch (RuntimeException e) {
+      if (HarvestOutage.retryable(e) == null) throw e;
+      Instant retryAt = outage.retryAt();
+      LOG.warn("Onboarding of source {}: {}; the page is retried at {}", sourceId, e.getMessage(), retryAt);
+      queue.enqueue(TYPE, payload(sourceId, from, cursor, page), task.priority(),
+          HarvestOutage.key(key(sourceId, WorksPager.pos(cursor, page)), retryAt), retryAt);
       return;
     }
     if (out.capped()) {
@@ -87,12 +99,16 @@ public class OnboardSourceHandler implements TaskHandler {
     }
     if (!out.last()) {
       queue.enqueue(TYPE, payload(sourceId, from, out.nextCursor(), out.nextPage()), task.priority(),
-          "onboard:" + sourceId + ":" + WorksPager.pos(out.nextCursor(), out.nextPage()));
+          key(sourceId, WorksPager.pos(out.nextCursor(), out.nextPage())));
       return;
     }
     Instant now = clock.instant();
     sources.setLastHarvested(sourceId, now);
     sources.setOnboarded(sourceId, now);
+  }
+
+  private static String key(long sourceId, String pos) {
+    return "onboard:" + sourceId + ":" + pos;
   }
 
   private static String payload(long sourceId, LocalDate from, @Nullable String cursor, int page) {

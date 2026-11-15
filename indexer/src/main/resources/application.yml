@@ -45,6 +45,8 @@ nametracker:
     openalex-cron: ${NAMETRACKER_HARVEST_OPENALEX_CRON:0 0 2 * * *}
     sweep-cron: ${NAMETRACKER_HARVEST_SWEEP_CRON:0 0 4 * * SUN}
     crossref-cron: ${NAMETRACKER_HARVEST_CROSSREF_CRON:0 0 3 * * *}
+    # a harvest or onboarding page that meets an outage (a retryable HTTP failure) is enqueued again after this delay
+    outage-delay: ${NAMETRACKER_HARVEST_OUTAGE_DELAY:30m}
 
   openalex:
     base-url: ${NAMETRACKER_OPENALEX_BASE_URL:https://api.openalex.org}

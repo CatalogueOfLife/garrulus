@@ -32,8 +32,8 @@
   <update id="addProgress">
     UPDATE harvest_run SET calls = calls + #{calls}, works_seen = works_seen + #{seen},
       works_new = works_new + #{created},
-      state = CASE WHEN state = 'DEFERRED' THEN 'RUNNING' ELSE state END,
-      finished = CASE WHEN state = 'DEFERRED' THEN NULL ELSE finished END
+      state = CASE WHEN state IN ('DEFERRED','FAILED') THEN 'RUNNING' ELSE state END,
+      finished = CASE WHEN state IN ('DEFERRED','FAILED') THEN NULL ELSE finished END
     WHERE id = #{id}
   </update>
 

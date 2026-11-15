@@ -159,7 +159,7 @@ public class TaskDispatcher implements DisposableBean {
   }
 
   /** The exception itself or its first cause that is a BudgetExhaustedException, else null. */
-  static @Nullable BudgetExhaustedException budgetCause(Throwable e) {
+  public static @Nullable BudgetExhaustedException budgetCause(Throwable e) {
     for (Throwable t = e; t != null; t = t.getCause()) {
       if (t instanceof BudgetExhaustedException b) return b;
       if (t.getCause() == t) break;

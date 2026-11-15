@@ -1,6 +1,7 @@
 package org.catalogueoflife.nametracker.indexer.harvest;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -18,6 +19,7 @@ import org.catalogueoflife.nametracker.indexer.crossref.CrossrefWorks;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexWorks;
 import org.catalogueoflife.nametracker.indexer.openalex.WorkRecord;
+import org.catalogueoflife.nametracker.indexer.task.TaskDispatcher;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.harvest.HarvestRunMapper;
 import org.catalogueoflife.nametracker.store.source.Source;
@@ -37,7 +39,8 @@ import tools.jackson.databind.JsonNode;
  * {@code HARVEST_CROSSREF}, payload {@code {"date":"YYYY-MM-DD","batch":i,"cursor":…,"runId":n}} (all but the date are
  * optional on the first task; no date means yesterday, UTC). Lists the works Crossref created or updated on that day
  * for the ISSNs of all harvestable sources, 40 ISSNs per request, one page per task; each task enqueues its own
- * continuation and completes, so a crash re-runs at most one page.
+ * continuation and completes, so a crash re-runs at most one page. An outage ({@link HarvestOutage}) enqueues the same
+ * page again in 30 minutes and leaves the run DEFERRED; any other failure marks the run FAILED and is thrown.
  *
  * <p>Per DOI: a known work only gets its JATS abstract when it has none (Crossref JATS keeps italics). An unknown DOI
  * is looked up in OpenAlex (free); found, it is upserted from OpenAlex, otherwise from the Crossref metadata. Both
@@ -59,9 +62,11 @@ public class CrossrefHarvestHandler implements TaskHandler {
   private final TaskQueue queue;
   private final HarvestRunMapper runs;
   private final Clock clock;
+  private final HarvestOutage outage;
 
   public CrossrefHarvestHandler(CrossrefClient crossref, OpenAlexClient openAlex, WorksPager pager,
-      SourceMapper sources, WorkMapper works, TaskQueue queue, HarvestRunMapper runs, Clock clock) {
+      SourceMapper sources, WorkMapper works, TaskQueue queue, HarvestRunMapper runs, Clock clock,
+      HarvestOutage outage) {
     this.crossref = crossref;
     this.openAlex = openAlex;
     this.pager = pager;
@@ -70,6 +75,7 @@ public class CrossrefHarvestHandler implements TaskHandler {
     this.queue = queue;
     this.runs = runs;
     this.clock = clock;
+    this.outage = outage;
   }
 
   @Override
@@ -86,7 +92,25 @@ public class CrossrefHarvestHandler implements TaskHandler {
     int batch = p.path("batch").asInt(0);
     String cursor = WorksPager.text(p, "cursor");
     long runId = p.hasNonNull("runId") ? p.path("runId").asLong() : runs.start("CROSSREF", date, date);
+    try {
+      harvest(task, date, batch, cursor, runId);
+    } catch (RuntimeException e) {
+      if (TaskDispatcher.budgetCause(e) != null) throw e; // the dispatcher defers the task as it is
+      if (HarvestOutage.retryable(e) != null) {
+        Instant retryAt = outage.retryAt();
+        LOG.warn("Crossref harvest of {}, batch {}: {}; the page is retried at {}", date, batch, e.getMessage(),
+            retryAt);
+        runs.setState(runId, "DEFERRED", null);
+        queue.enqueue(TYPE, payload(date, batch, cursor, runId), task.priority(),
+            HarvestOutage.key(key(date, batch, WorksPager.pos(cursor, 1)), retryAt), retryAt);
+        return;
+      }
+      runs.setState(runId, "FAILED", WorksPager.error(e));
+      throw e;
+    }
+  }
 
+  private void harvest(Task task, LocalDate date, int batch, @Nullable String cursor, long runId) {
     List<Source> all = sources.listHarvestable();
     Set<String> issnSet = new LinkedHashSet<>();
     Map<String, Long> bySource = new HashMap<>();
@@ -194,11 +218,19 @@ public class CrossrefHarvestHandler implements TaskHandler {
   }
 
   private void continuation(Task task, LocalDate date, int batch, @Nullable String cursor, long runId, String pos) {
+    queue.enqueue(TYPE, payload(date, batch, cursor, runId), task.priority(), key(date, batch, pos));
+  }
+
+  private static String payload(LocalDate date, int batch, @Nullable String cursor, long runId) {
     Map<String, Object> m = WorksPager.map();
     m.put("date", date.toString());
     m.put("batch", batch);
     m.put("cursor", cursor);
     m.put("runId", runId);
-    queue.enqueue(TYPE, WorksPager.json(m), task.priority(), "harvest:crossref:" + date + ":" + batch + ":" + pos);
+    return WorksPager.json(m);
+  }
+
+  static String key(LocalDate date, int batch, String pos) {
+    return "harvest:crossref:" + date + ":" + batch + ":" + pos;
   }
 }

@@ -6,13 +6,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.catalogueoflife.nametracker.indexer.AbstractPostgresIT;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
+import org.catalogueoflife.nametracker.store.harvest.HarvestRun;
+import org.catalogueoflife.nametracker.store.harvest.HarvestRunMapper;
 import org.catalogueoflife.nametracker.store.task.Task;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
@@ -43,6 +47,7 @@ class CrossrefHarvestHandlerIT extends AbstractPostgresIT {
   @Autowired CrossrefHarvestHandler crossref;
   @Autowired OpenAlexRecheckHandler recheck;
   @Autowired WorkMapper works;
+  @Autowired HarvestRunMapper runs;
   @Autowired JdbcTemplate jdbc;
 
   @BeforeEach
@@ -102,6 +107,41 @@ class CrossrefHarvestHandlerIT extends AbstractPostgresIT {
 
   private long count(String sql) {
     return jdbc.queryForObject(sql, Long.class);
+  }
+
+  @Test
+  void outageDefersThePageForHalfAnHour() throws Exception {
+    source();
+    stubFor(get(urlPathEqualTo("/works")).willReturn(aResponse().withStatus(503).withHeader("Retry-After", "0")));
+    String d = LocalDate.now(ZoneOffset.UTC).minusDays(1).toString();
+    queue.enqueue("HARVEST_CROSSREF", "{\"date\":\"" + d + "\"}", TaskPriority.LIVE, null);
+    Instant before = Instant.now();
+    assertThat(drain(crossref)).isEqualTo(1); // deferred, nothing thrown
+
+    Map<String, Object> next = jdbc.queryForMap("SELECT payload::text AS payload, run_after, dedup_key FROM task "
+        + "WHERE state = 'QUEUED' AND type = 'HARVEST_CROSSREF'");
+    HarvestRun run = runs.recent(1).getFirst();
+    assertThat(((String) next.get("payload")).replace(" ", ""))
+        .contains("\"date\":\"" + d + "\"", "\"batch\":0", "\"runId\":" + run.id());
+    Instant runAfter = ((java.sql.Timestamp) next.get("run_after")).toInstant();
+    assertThat(runAfter).isBetween(before.plus(Duration.ofMinutes(30)).minusSeconds(1),
+        Instant.now().plus(Duration.ofMinutes(30)).plusSeconds(1));
+    assertThat((String) next.get("dedup_key")).matches("harvest:crossref:" + d + ":0:p1:r\\d+");
+    assertThat(run.state()).isEqualTo("DEFERRED");
+    assertThat(count("SELECT count(*) FROM task WHERE state = 'DEAD'")).isZero();
+  }
+
+  @Test
+  void nonRetryableProblemFailsTheRun() throws Exception {
+    source();
+    stubFor(get(urlPathEqualTo("/works")).willReturn(aResponse().withStatus(400)));
+    String d = LocalDate.now(ZoneOffset.UTC).minusDays(1).toString();
+    queue.enqueue("HARVEST_CROSSREF", "{\"date\":\"" + d + "\"}", TaskPriority.LIVE, null);
+    Task t = queue.claim(Set.of("HARVEST_CROSSREF"), "test", 1).getFirst();
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> crossref.handle(t)).hasMessageContaining("HTTP 400");
+    HarvestRun run = runs.recent(1).getFirst();
+    assertThat(run.state()).isEqualTo("FAILED");
+    assertThat(run.error()).contains("HTTP 400");
   }
 
   @Test

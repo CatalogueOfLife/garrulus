@@ -7,12 +7,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.catalogueoflife.nametracker.indexer.AbstractPostgresIT;
+import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
 import org.catalogueoflife.nametracker.indexer.source.OnboardSourceHandler;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.harvest.HarvestRun;
@@ -180,6 +183,84 @@ class OpenAlexHarvestHandlerIT extends AbstractPostgresIT {
     assertThat(run.state()).isEqualTo("DONE");
     assertThat(run.calls()).isEqualTo(2);
     assertThat(run.worksNew()).isEqualTo(3);
+  }
+
+  /** The queued task of the type: payload, run_after and dedup key. */
+  private Map<String, Object> queued(String type) {
+    return jdbc.queryForMap("SELECT payload::text AS payload, run_after, dedup_key FROM task "
+        + "WHERE state = 'QUEUED' AND type = ?", type);
+  }
+
+  private static void assertDueInHalfAnHour(Map<String, Object> task, Instant before) {
+    Instant runAfter = ((Timestamp) task.get("run_after")).toInstant();
+    assertThat(runAfter).isBetween(before.plus(Duration.ofMinutes(30)).minusSeconds(1),
+        Instant.now().plus(Duration.ofMinutes(30)).plusSeconds(1));
+  }
+
+  @Test
+  void outageDefersThePageForHalfAnHourAndKeepsItsPosition() throws Exception {
+    source("S805", true);
+    stubFor(get(urlPathEqualTo("/works")).withQueryParam("cursor", equalTo("*"))
+        .willReturn(okJson(works("c2", "S805", "W1S805"))));
+    stubFor(get(urlPathEqualTo("/works")).withQueryParam("cursor", equalTo("c2"))
+        .willReturn(aResponse().withStatus(503).withHeader("Retry-After", "0")));
+
+    queue.enqueue("HARVEST_OPENALEX", "{\"window\":\"LIVE\"}", TaskPriority.LIVE, null);
+    assertThat(step()).isTrue(); // page 1
+    Instant before = Instant.now();
+    assertThat(step()).isTrue(); // page 2: 503 after PoliteHttp's retries; deferred, nothing thrown
+    assertThat(step()).isFalse(); // nothing is due now
+
+    Map<String, Object> next = queued("HARVEST_OPENALEX");
+    long runId = runs.recent(1).getFirst().id();
+    assertThat(((String) next.get("payload")).replace(" ", ""))
+        .contains("\"cursor\":\"c2\"", "\"window\":\"LIVE\"", "\"batch\":0", "\"runId\":" + runId);
+    assertDueInHalfAnHour(next, before);
+    assertThat((String) next.get("dedup_key"))
+        .matches("harvest:openalex:LIVE:" + LocalDate.now(ZoneOffset.UTC).minusDays(120) + ":0:c[0-9a-f]{12}:r\\d+");
+    assertThat(runs.get(runId).state()).isEqualTo("DEFERRED");
+    assertThat(count("SELECT count(*) FROM task WHERE state = 'DEAD'")).isZero();
+
+    // the service is back: the continuation picks up page 2 of the same run
+    stubFor(get(urlPathEqualTo("/works")).withQueryParam("cursor", equalTo("c2"))
+        .willReturn(okJson(works(null, "S805", "W2S805"))));
+    jdbc.update("UPDATE task SET run_after = now() WHERE state = 'QUEUED'");
+    assertThat(drain()).isEqualTo(1);
+    assertThat(count("SELECT count(*) FROM work")).isEqualTo(2);
+    assertThat(count("SELECT count(*) FROM harvest_run")).isEqualTo(1);
+    assertThat(runs.get(runId).state()).isEqualTo("DONE");
+  }
+
+  @Test
+  void nonRetryableProblemFailsTheRun() throws Exception {
+    source("S806", true);
+    stubFor(get(urlPathEqualTo("/works")).willReturn(aResponse().withStatus(400)));
+
+    queue.enqueue("HARVEST_OPENALEX", "{\"window\":\"LIVE\"}", TaskPriority.LIVE, null);
+    Task t = queue.claim(Set.of("HARVEST_OPENALEX"), "test", 1).getFirst();
+    assertThatThrownBy(() -> harvest.handle(t)).isInstanceOf(HttpProblem.class);
+    HarvestRun run = runs.recent(1).getFirst();
+    assertThat(run.state()).isEqualTo("FAILED");
+    assertThat(run.error()).contains("HTTP 400");
+    assertThat(run.finished()).isNotNull();
+    assertThat(count("SELECT count(*) FROM task WHERE state = 'QUEUED'")).isZero(); // the dispatcher retries it
+  }
+
+  @Test
+  void onboardingOutageDefersThePage() throws Exception {
+    long id = source("S807", false);
+    stubFor(get(urlPathEqualTo("/works")).willReturn(aResponse().withStatus(503).withHeader("Retry-After", "0")));
+
+    queue.enqueue("ONBOARD_SOURCE", "{\"sourceId\":" + id + "}", TaskPriority.BACKFILL, "onboard:" + id);
+    Instant before = Instant.now();
+    assertThat(step()).isTrue();
+    assertThat(step()).isFalse();
+    Map<String, Object> next = queued("ONBOARD_SOURCE");
+    assertThat(((String) next.get("payload")).replace(" ", ""))
+        .contains("\"sourceId\":" + id, "\"page\":1", "\"from\":\"" + LocalDate.now(ZoneOffset.UTC).minusDays(120));
+    assertDueInHalfAnHour(next, before);
+    assertThat((String) next.get("dedup_key")).matches("onboard:" + id + ":p1:r\\d+");
+    assertThat(count("SELECT count(*) FROM source WHERE onboarded_at IS NOT NULL")).isZero();
   }
 
   @Test

@@ -101,6 +101,12 @@ public class WorksPager {
     return new LinkedHashMap<>();
   }
 
+  /** The error text of a failed harvest run, at most 2000 characters. */
+  public static String error(Throwable e) {
+    String s = e.toString();
+    return s.length() <= 2000 ? s : s.substring(0, 2000);
+  }
+
   public static @Nullable String text(JsonNode p, String field) {
     JsonNode v = p.path(field);
     return v.isMissingNode() || v.isNull() || v.asString().isBlank() ? null : v.asString();

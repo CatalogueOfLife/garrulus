@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException;
+import org.catalogueoflife.nametracker.indexer.task.TaskDispatcher;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.harvest.HarvestRunMapper;
 import org.catalogueoflife.nametracker.store.source.Source;
@@ -27,7 +28,8 @@ import tools.jackson.databind.JsonNode;
  * "runId":n}} (all but the window are optional on the first task). Works through the onboarded CORE/BROAD sources in
  * batches of 50, one page of works per task. After each page the task enqueues its own continuation with the next
  * position and completes, so a crash re-runs at most one page. A spent budget enqueues the continuation for later and
- * completes; nothing is thrown.
+ * completes; nothing is thrown. So does an outage ({@link HarvestOutage}): the same page again in 30 minutes, the run
+ * DEFERRED meanwhile. Any other failure marks the run FAILED and is thrown for the dispatcher to retry.
  */
 @Component
 public class OpenAlexHarvestHandler implements TaskHandler {
@@ -44,14 +46,16 @@ public class OpenAlexHarvestHandler implements TaskHandler {
   private final TaskQueue queue;
   private final HarvestRunMapper runs;
   private final Clock clock;
+  private final HarvestOutage outage;
 
   public OpenAlexHarvestHandler(WorksPager pager, SourceMapper sources, TaskQueue queue, HarvestRunMapper runs,
-      Clock clock) {
+      Clock clock, HarvestOutage outage) {
     this.pager = pager;
     this.sources = sources;
     this.queue = queue;
     this.runs = runs;
     this.clock = clock;
+    this.outage = outage;
   }
 
   @Override
@@ -74,7 +78,26 @@ public class OpenAlexHarvestHandler implements TaskHandler {
     String cursor = WorksPager.text(p, "cursor");
     int page = p.path("page").asInt(1);
     long runId = p.hasNonNull("runId") ? p.path("runId").asLong() : runs.start("OPENALEX_" + window, from, today);
+    try {
+      harvest(task, window, from, batch, cursor, page, runId);
+    } catch (RuntimeException e) {
+      if (TaskDispatcher.budgetCause(e) != null) throw e; // the dispatcher defers the task as it is
+      if (HarvestOutage.retryable(e) != null) {
+        Instant retryAt = outage.retryAt();
+        LOG.warn("{} harvest from {}, batch {}: {}; the page is retried at {}", window, from, batch, e.getMessage(),
+            retryAt);
+        runs.setState(runId, "DEFERRED", null);
+        queue.enqueue(TYPE, payload(window, from, batch, cursor, page, runId), task.priority(),
+            HarvestOutage.key(key(window, from, batch, WorksPager.pos(cursor, page)), retryAt), retryAt);
+        return;
+      }
+      runs.setState(runId, "FAILED", WorksPager.error(e));
+      throw e;
+    }
+  }
 
+  private void harvest(Task task, String window, LocalDate from, int batch, @Nullable String cursor, int page,
+      long runId) {
     List<Source> all = sources.listHarvestable();
     int batches = (all.size() + BATCH_SIZE - 1) / BATCH_SIZE;
     // a batch without a usable OpenAlex id has nothing to ask for
@@ -105,8 +128,7 @@ public class OpenAlexHarvestHandler implements TaskHandler {
       Instant retryAt = e.retryAt();
       LOG.info("OpenAlex budget spent; {} harvest from {} resumes at {}", window, from, retryAt);
       runs.setState(runId, "DEFERRED", null);
-      String key = "harvest:openalex:" + window + ":" + from + ":" + batch + ":" + WorksPager.pos(cursor, page)
-          + ":d" + retryAt.getEpochSecond();
+      String key = key(window, from, batch, WorksPager.pos(cursor, page)) + ":d" + retryAt.getEpochSecond();
       queue.enqueue(TYPE, payload(window, from, batch, cursor, page, runId), task.priority(), key, retryAt);
       return;
     }
@@ -140,7 +162,11 @@ public class OpenAlexHarvestHandler implements TaskHandler {
   private void continuation(Task task, String window, LocalDate from, int batch, @Nullable String cursor, int page,
       long runId, String pos) {
     queue.enqueue(TYPE, payload(window, from, batch, cursor, page, runId), task.priority(),
-        "harvest:openalex:" + window + ":" + from + ":" + batch + ":" + pos);
+        key(window, from, batch, pos));
+  }
+
+  private static String key(String window, LocalDate from, int batch, String pos) {
+    return "harvest:openalex:" + window + ":" + from + ":" + batch + ":" + pos;
   }
 
   private static String payload(String window, LocalDate from, int batch, @Nullable String cursor, int page,
