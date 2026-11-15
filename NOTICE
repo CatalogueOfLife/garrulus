@@ -1,5 +1,7 @@
 Garrulus (internal id nametracker)
-Catalogue of Life
+Copyright 2026 Catalogue of Life
+
+The code is licensed under the Apache License, Version 2.0 (see LICENSE).
 
 This repository contains third-party data files under their own licences. They stay separable from the code.
 

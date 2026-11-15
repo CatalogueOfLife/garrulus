@@ -13,3 +13,7 @@ name; `nametracker` is the internal id. See [docs/design.md](docs/design.md) for
 4. Optional: `cp .env.example .env` for local settings (read by both apps). Run the apps: `mvn -pl indexer spring-boot:run` and `mvn -pl web spring-boot:run`, plus `npm run dev` in `frontend/`.
 
 The full command list, configuration variables and module overview are in [CLAUDE.md](CLAUDE.md#commands).
+
+## Licence
+
+Apache License 2.0, see [LICENSE](LICENSE). Third-party data files keep their own licences, listed in [NOTICE](NOTICE).
