@@ -63,18 +63,23 @@ public class WorksPager {
       }
       seen++;
       Long sourceId = rec.sourceOpenalexId() == null ? null : sourceIds.get(rec.sourceOpenalexId());
-      // one transaction per work: a crash cannot leave a new work without its RESOLVE_CONTENT task
-      Work work = rec.toWork(sourceId, origin);
-      boolean isNew = Boolean.TRUE.equals(tx.execute(status -> {
-        WorkUpsert.UpsertResult r = upsert.upsert(work);
-        if (r.created()) {
-          queue.enqueue(RESOLVE_CONTENT, "{\"workId\":" + r.id() + "}", contentPriority, "content:" + r.id());
-        }
-        return r.created();
-      }));
-      if (isNew) created++;
+      if (store(rec.toWork(sourceId, origin), contentPriority)) created++;
     }
     return new Outcome(seen, created, p.last(), p.nextCursor(), p.nextPage(), p.capped());
+  }
+
+  /**
+   * Upserts the work and, when it is new, queues its RESOLVE_CONTENT task, in one transaction: a crash cannot leave a
+   * new work without its content task. Returns whether the work was created.
+   */
+  public boolean store(Work work, TaskPriority contentPriority) {
+    return Boolean.TRUE.equals(tx.execute(status -> {
+      WorkUpsert.UpsertResult r = upsert.upsert(work);
+      if (r.created()) {
+        queue.enqueue(RESOLVE_CONTENT, "{\"workId\":" + r.id() + "}", contentPriority, "content:" + r.id());
+      }
+      return r.created();
+    }));
   }
 
   /** The position token of a dedup key: a short hash of the cursor, or the page number. */

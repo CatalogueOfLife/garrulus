@@ -1,5 +1,6 @@
 package org.catalogueoflife.nametracker.store.work;
 
+import java.time.Instant;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.jspecify.annotations.Nullable;
@@ -24,6 +25,9 @@ public interface WorkMapper {
 
   /** Works that never came through OpenAlex and have not been checked there in the last 7 days. */
   List<Work> listCrossrefOnly(@Param("limit") int limit);
+
+  /** Stamps the time the work was last looked up in OpenAlex (found or not). */
+  int setOpenalexChecked(@Param("id") long id, @Param("at") Instant at);
 
   /**
    * Insert for the upsert: ON CONFLICT DO NOTHING on either unique key. Returns the new id, or null when a row with

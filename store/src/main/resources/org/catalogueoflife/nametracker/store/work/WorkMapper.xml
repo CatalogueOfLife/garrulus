@@ -99,6 +99,10 @@
     LIMIT #{limit}
   </select>
 
+  <update id="setOpenalexChecked">
+    UPDATE work SET openalex_checked_at = #{at}, modified = now() WHERE id = #{id}
+  </update>
+
   <select id="insertIfAbsent" resultType="long" flushCache="true">
     INSERT INTO work (openalex_id, doi, source_id, title, publication_date, year, volume, issue, pages, authors, type, language, oa_status, license, best_oa_url, abstract, abstract_source, origin, state, text_level, codes, taxgroups, has_acts, abstract_jats, pmcid, openalex_has_tei, openalex_checked_at)
     VALUES (#{o.openalexId}, #{o.doi}, #{o.sourceId}, #{o.title}, #{o.publicationDate}, #{o.year}, #{o.volume}, #{o.issue}, #{o.pages}, COALESCE(#{o.authors, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, '[]'::jsonb), #{o.type}, #{o.language}, #{o.oaStatus}, #{o.license}, #{o.bestOaUrl}, #{o.abstractText}, #{o.abstractSource}, #{o.origin}, COALESCE(#{o.state}, 'DISCOVERED'), #{o.textLevel}, COALESCE(#{o.codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[]), COALESCE(#{o.taxgroups, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[]), COALESCE(#{o.hasActs}, false), #{o.abstractJats}, #{o.pmcid}, COALESCE(#{o.openalexHasTei}, false), #{o.openalexCheckedAt})
