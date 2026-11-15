@@ -23,6 +23,12 @@ public interface WorkMapper {
 
   int setState(@Param("id") long id, @Param("state") String state, @Param("textLevel") @Nullable String textLevel);
 
+  /**
+   * Sets the text level, and the state to CONTENT_RESOLVED only when it is still DISCOVERED; a later state is never
+   * moved backwards.
+   */
+  int resolveContent(@Param("id") long id, @Param("textLevel") String textLevel);
+
   /** Works that never came through OpenAlex and have not been checked there in the last 7 days. */
   List<Work> listCrossrefOnly(@Param("limit") int limit);
 

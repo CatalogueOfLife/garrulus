@@ -95,6 +95,12 @@ public class ResolveContentHandler implements TaskHandler {
     if (AbstractRoute.present(work)) results.add(AbstractRoute.fetch(work));
 
     String level = full != null ? "FULLTEXT" : AbstractRoute.present(work) ? "ABSTRACT_ONLY" : "NO_TEXT";
+    // never downgrade: an earlier full text (a non-ABSTRACT row, or the stored level) outlives a flaky route
+    if (!"FULLTEXT".equals(level) && ("FULLTEXT".equals(work.textLevel())
+        || contents.listByWork(workId).stream().anyMatch(c -> !AbstractRoute.ROUTE.equals(c.route())))) {
+      level = "FULLTEXT";
+    }
+    String finalLevel = level;
 
     // Blobs are content-addressed and written only for open licences; they may precede the transaction.
     List<Content> rows = new ArrayList<>();
@@ -115,10 +121,10 @@ public class ResolveContentHandler implements TaskHandler {
     }
     tx.executeWithoutResult(status -> {
       rows.forEach(contents::upsert);
-      works.setState(workId, "CONTENT_RESOLVED", level);
+      works.resolveContent(workId, finalLevel);
     });
 
-    if ("ABSTRACT_ONLY".equals(level)) scheduleRecheck(task, work, source);
+    if ("ABSTRACT_ONLY".equals(finalLevel)) scheduleRecheck(task, work, source);
   }
 
   private FetchedContent fullText(Work work, Source source) {

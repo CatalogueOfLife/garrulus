@@ -92,6 +92,11 @@
     UPDATE work SET state = #{state}, text_level = #{textLevel}, modified = now() WHERE id = #{id}
   </update>
 
+  <update id="resolveContent">
+    UPDATE work SET state = CASE WHEN state = 'DISCOVERED' THEN 'CONTENT_RESOLVED' ELSE state END,
+      text_level = #{textLevel}, modified = now() WHERE id = #{id}
+  </update>
+
   <select id="listCrossrefOnly" resultMap="result">
     SELECT * FROM work
     WHERE openalex_id IS NULL AND (openalex_checked_at IS NULL OR openalex_checked_at &lt; now() - interval '7 days')

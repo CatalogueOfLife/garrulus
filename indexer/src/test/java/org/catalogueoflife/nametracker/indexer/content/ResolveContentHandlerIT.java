@@ -210,6 +210,34 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
     assertThat(count("SELECT count(*) FROM task")).isZero(); // fulltext: no re-check
   }
 
+  @Test
+  void fulltextIsNotDowngradedByAFailingRoute() throws Exception {
+    Document doc = new Document("work:x", null, List.of(), Map.of());
+    ContentRoute good = route("PMC", w -> Optional.of(new FetchedContent("PMC", "JATS",
+        "<article/>".getBytes(StandardCharsets.UTF_8), doc, "cc-by", "https://example.org/x", true)));
+    ContentRoute flaky = route("PMC", w -> { throw new IllegalStateException("flaky"); });
+    long id = work(source("CORE"), "T", "A", "cc-by", Instant.now());
+    new ResolveContentHandler(List.of(good), works, sources, contents, blobs, policy, queue, tx, Clock.systemUTC())
+        .handle(task(id));
+    assertThat(works.get(id).textLevel()).isEqualTo("FULLTEXT");
+
+    new ResolveContentHandler(List.of(flaky), works, sources, contents, blobs, policy, queue, tx, Clock.systemUTC())
+        .handle(task(id));
+    assertThat(works.get(id).textLevel()).isEqualTo("FULLTEXT");
+    assertThat(contents.listByWork(id)).hasSize(2);
+    assertThat(count("SELECT count(*) FROM task")).isZero();
+  }
+
+  @Test
+  void laterStateIsNotMovedBackwards() throws Exception {
+    long id = work(null, "T", "A", null, Instant.now());
+    jdbc.update("UPDATE work SET state = 'NAMES_FOUND' WHERE id = ?", id);
+    handler.handle(task(id));
+    Work w = works.get(id);
+    assertThat(w.state()).isEqualTo("NAMES_FOUND");
+    assertThat(w.textLevel()).isEqualTo("ABSTRACT_ONLY");
+  }
+
   private interface Fetch {
     Optional<FetchedContent> get(Work w);
   }
