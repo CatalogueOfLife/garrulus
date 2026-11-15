@@ -43,6 +43,8 @@ nametracker:
     api-key: ${OPENALEX_API_KEY:}
     max-daily-usd: ${NAMETRACKER_OPENALEX_MAX_DAILY_USD:1.00}
     content:
+      # content.openalex.org, GROBID TEI at $0.01 per download; needs the API key
+      base-url: ${NAMETRACKER_OPENALEX_CONTENT_BASE_URL:https://content.openalex.org}
       enabled: ${NAMETRACKER_OPENALEX_CONTENT_ENABLED:true}
       reserve-usd: ${NAMETRACKER_OPENALEX_CONTENT_RESERVE_USD:0.30}
   # per-host request spacing overrides: nametracker.http.min-interval.<host>=<duration>, e.g. api.crossref.org=500ms
@@ -52,6 +54,9 @@ nametracker:
     broad-min-works: ${NAMETRACKER_SEED_BROAD_MIN_WORKS:30}
     broad-min-share: ${NAMETRACKER_SEED_BROAD_MIN_SHARE:0.50}
     candidate-min-works: ${NAMETRACKER_SEED_CANDIDATE_MIN_WORKS:10}
+  finder:
+    # optional COL dictionary (eval build-dictionary output); only used to de-hyphenate TEI text
+    dictionary: ${FINDER_DICTIONARY:}
   blobs:
     dir: ${NAMETRACKER_BLOBS_DIR:./data/blobs}
   content:

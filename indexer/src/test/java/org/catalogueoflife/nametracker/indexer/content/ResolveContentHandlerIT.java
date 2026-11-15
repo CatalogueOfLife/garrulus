@@ -75,6 +75,7 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
     r.add("nametracker.pensoft.base-url", () -> NOTHING.baseUrl() + "/{slug}");
     r.add("nametracker.europepmc.base-url", NOTHING::baseUrl);
     r.add("nametracker.pmc.base-url", NOTHING::baseUrl);
+    r.add("nametracker.openalex.content.base-url", NOTHING::baseUrl);
     r.add("nametracker.http.min-interval.localhost", () -> "0s");
   }
 

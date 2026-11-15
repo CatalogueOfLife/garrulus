@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+  <teiHeader>
+    <fileDesc>
+      <titleStmt>
+        <title level="a" type="main">A note on Carabus auratus in Europe</title>
+      </titleStmt>
+    </fileDesc>
+    <profileDesc>
+      <abstract>
+        <div><p>Carabus auratus Linnaeus, 1761 is recorded from three new localities.</p></div>
+      </abstract>
+    </profileDesc>
+  </teiHeader>
+  <text xml:lang="en">
+    <body>
+      <div>
+        <head>Introduction</head>
+        <p>The ground beetle Carabus auratus is widespread in agricultural land.</p>
+        <p>We report three further records of Carabus auratus from the study area.</p>
+      </div>
+    </body>
+  </text>
+</TEI>

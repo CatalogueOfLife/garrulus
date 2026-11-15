@@ -165,8 +165,7 @@ public class OpenAlexClient {
       throw p;
     }
     int status = resp.statusCode();
-    budget.record(kind, usd(resp, "X-RateLimit-Cost-USD", "X-RateLimit-Credits-Used"),
-        usd(resp, "X-RateLimit-Remaining-USD", "X-RateLimit-Remaining"));
+    budget.record(kind, costUsd(resp), remainingUsd(resp));
     if (status == 404 && missingIsOk) return new Reply(404, null);
     if (status < 200 || status >= 300) {
       throw new HttpProblem(PoliteHttp.redact(uri), status, false, "HTTP " + status + " from OpenAlex: " + PoliteHttp.redact(uri), null);
@@ -176,6 +175,16 @@ public class OpenAlexClient {
     } catch (RuntimeException e) {
       throw new HttpProblem(PoliteHttp.redact(uri), status, false, "Unreadable OpenAlex response: " + PoliteHttp.redact(uri), e);
     }
+  }
+
+  /** The cost of a response in USD from its headers; null when it reports none (the price table then counts). */
+  public static @Nullable BigDecimal costUsd(HttpResponse<?> resp) {
+    return usd(resp, "X-RateLimit-Cost-USD", "X-RateLimit-Credits-Used");
+  }
+
+  /** The remaining amount in USD from the response headers, or null. */
+  public static @Nullable BigDecimal remainingUsd(HttpResponse<?> resp) {
+    return usd(resp, "X-RateLimit-Remaining-USD", "X-RateLimit-Remaining");
   }
 
   /** The USD header if present, else the credit header times $0.0001; null when neither is a number. */
