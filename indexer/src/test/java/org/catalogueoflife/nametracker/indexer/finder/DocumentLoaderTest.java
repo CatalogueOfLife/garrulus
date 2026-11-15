@@ -32,7 +32,7 @@ class DocumentLoaderTest {
   @BeforeEach
   void setUp() {
     blobs = new FileBlobStore(dir.resolve("blobs"));
-    spool = new Spool(dir.resolve("spool").toString());
+    spool = new Spool(dir.resolve("spool").toString(), java.time.Clock.systemUTC());
     loader = new DocumentLoader(contents, blobs, spool);
   }
 
@@ -77,7 +77,7 @@ class DocumentLoaderTest {
   void closedFullTextIsReadFromSpoolThenDeleted() throws Exception {
     byte[] doc = json(fullDoc());
     String sha = BlobStore.sha256(doc);
-    spool.put(sha, doc);
+    spool.put(8, sha, doc);
     rows(8, row(8, "PENSOFT", false, sha), row(8, "ABSTRACT", false, "x"));
 
     DocumentLoader.Loaded l = loader.load(work(8, "FULLTEXT", "T", "A"));
@@ -85,8 +85,8 @@ class DocumentLoaderTest {
     assertThat(l.docSha()).isEqualTo(sha);
     assertThat(l.doc()).isEqualTo(fullDoc());
     assertThat(blobs.exists(sha)).isFalse();
-    spool.delete(sha);
-    assertThat(spool.get(sha)).isEmpty();
+    spool.delete(8, sha);
+    assertThat(spool.get(8, sha)).isEmpty();
     // once deleted, a later load has only the abstract
     assertThat(loader.load(work(8, "FULLTEXT", "T", "A")).diagnostics()).containsEntry("fallback", "abstract");
   }
@@ -117,11 +117,23 @@ class DocumentLoaderTest {
   }
 
   @Test
-  void spoolPurgeRemovesOldFilesOnly() throws Exception {
-    spool.put("a".repeat(64), new byte[] {1});
+  void spoolPurgeRemovesOldFilesOnly() {
+    spool.put(1, "a".repeat(64), new byte[] {1});
     assertThat(spool.purgeOlderThan(java.time.Duration.ofDays(14))).isZero();
-    assertThat(spool.get("a".repeat(64))).contains(new byte[] {1});
-    assertThat(spool.purgeOlderThan(java.time.Duration.ZERO.minusSeconds(1))).isEqualTo(1);
-    assertThat(spool.get("a".repeat(64))).isEmpty();
+    assertThat(spool.get(1, "a".repeat(64))).contains(new byte[] {1});
+    Spool later = new Spool(dir.resolve("spool").toString(),
+        java.time.Clock.offset(java.time.Clock.systemUTC(), java.time.Duration.ofDays(15)));
+    assertThat(later.purgeOlderThan(java.time.Duration.ofDays(14))).isEqualTo(1);
+    assertThat(spool.get(1, "a".repeat(64))).isEmpty();
+  }
+
+  @Test
+  void spoolFilesAreKeyedByWorkAndSha() {
+    String sha = "b".repeat(64);
+    spool.put(1, sha, new byte[] {1});
+    spool.put(2, sha, new byte[] {2});
+    spool.delete(1, sha);
+    assertThat(spool.get(1, sha)).isEmpty();
+    assertThat(spool.get(2, sha)).contains(new byte[] {2});
   }
 }

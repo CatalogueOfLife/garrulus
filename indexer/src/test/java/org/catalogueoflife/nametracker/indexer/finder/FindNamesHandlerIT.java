@@ -120,7 +120,7 @@ class FindNamesHandlerIT extends AbstractPostgresIT {
     jdbc.update("DELETE FROM work");
   }
 
-  private static final String ABSTRACT = "Intro 😀 text. " + "word ".repeat(60)
+  private static final String ABSTRACT = "Intro text. " + "word ".repeat(60) + "\uD83D\uDE00 smile "
       + "Quercus robur L. grew here. " + "more ".repeat(60) + "Aus bus sp. nov. end";
 
   private long work(String title, String abs, String level) {
@@ -193,7 +193,7 @@ class FindNamesHandlerIT extends AbstractPostgresIT {
     }
     MentionRow quercus = rows.stream().filter(m -> m.verbatim().equals("Quercus robur")).findFirst().get();
     assertThat(quercus.blockType()).isEqualTo("ABSTRACT");
-    assertThat(quercus.startCp()).isGreaterThan(quercus.snippet().length()); // emoji and filler: code points, not chars
+    assertThat(quercus.snippet()).contains("\uD83D\uDE00"); // the surrogate pair sits within 80 code points
     // whole words only at the cut ends
     assertThat(quercus.snippet()).startsWith("word").endsWith("more");
     MentionRow aus = rows.stream().filter(m -> m.verbatim().equals("Aus bus")).findFirst().get();
@@ -249,6 +249,7 @@ class FindNamesHandlerIT extends AbstractPostgresIT {
     handler.handle(find(id));
     assertThat(index.mentions(id)).hasSize(3);
 
+    jdbc.update("UPDATE work SET abstract = 'Now about Homo sapiens only.' WHERE id = ?", id); // new text, new document
     stub.fn = doc -> new FinderResult(new FinderInfo("stub", "2", "cfg2", null),
         List.of(mention("m1", doc.blocks().get(0), "Homo sapiens", 0, NameKind.BINOMIAL, Rank.SPECIES, null, null)),
         List.of(), List.of(), List.of(), Map.of());
@@ -329,12 +330,45 @@ class FindNamesHandlerIT extends AbstractPostgresIT {
 
     String sha = contents.listByWork(id).stream().filter(c -> c.route().equals("PMC")).findFirst().get().docSha256();
     assertThat(blobs.exists(sha)).isFalse();
-    assertThat(spool.get(sha)).isPresent();
+    assertThat(spool.get(id, sha)).isPresent();
 
     handler.handle(find(id));
 
     assertThat(index.mentions(id)).hasSize(1).first().extracting(MentionRow::blockType).isEqualTo("PARAGRAPH");
     assertThat(jdbc.queryForObject("SELECT names_doc_sha FROM work WHERE id = ?", String.class, id)).isEqualTo(sha);
-    assertThat(spool.get(sha)).isEmpty();
+    assertThat(spool.get(id, sha)).isEmpty();
+  }
+
+  @Test
+  void repeatWithTheSpoolGoneKeepsTheFullTextIndex() throws Exception {
+    stub.fn = FindNamesHandlerIT::standard;
+    Document full = new Document("full", "en", List.of(
+        new Block("b1", org.catalogueoflife.nametracker.finder.api.BlockType.TITLE, 0, "T", List.of(), List.of()),
+        new Block("b2", org.catalogueoflife.nametracker.finder.api.BlockType.PARAGRAPH, 0, "We saw Homo sapiens here.",
+            List.of(), List.of())), Map.of());
+    long id = work("T", "A.", "FULLTEXT");
+    byte[] json = org.catalogueoflife.nametracker.finder.api.FinderJson.mapper().writeValueAsBytes(full);
+    String sha = BlobStore.sha256(json);
+    contents.upsert(new org.catalogueoflife.nametracker.store.content.Content(null, id, "PMC", "JATS", "CC BY-NC 4.0",
+        false, "raw", sha, null, null));
+    spool.put(id, sha, json);
+
+    handler.handle(find(id));
+    assertThat(index.mentions(id)).hasSize(1);
+    assertThat(spool.get(id, sha)).isEmpty();
+
+    handler.handle(find(id)); // redelivery: the spool file is gone
+    assertThat(index.mentions(id)).hasSize(1).first().extracting(MentionRow::blockType).isEqualTo("PARAGRAPH");
+    assertThat(jdbc.queryForObject("SELECT names_doc_sha FROM work WHERE id = ?", String.class, id)).isEqualTo(sha);
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'MATCH_NAMES'")).isEqualTo(1);
+  }
+
+  @Test
+  void snippetIsCappedAt200CodePoints() {
+    String name = "Abc ".repeat(100).strip();
+    String text = "x ".repeat(50) + name + " y".repeat(50);
+    int start = CodePoints.length("x ".repeat(50));
+    String snip = FindNamesHandler.snippet(text, start, start + CodePoints.length(name));
+    assertThat(CodePoints.length(snip)).isLessThanOrEqualTo(200);
   }
 }

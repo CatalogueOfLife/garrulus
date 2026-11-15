@@ -5,7 +5,6 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -79,12 +78,13 @@ public class RemoteNameFinder implements NameFinder {
       HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
       if (resp.statusCode() != 200) {
         String b = resp.body() == null ? "" : resp.body();
-        throw new IllegalStateException("Finder at " + req.uri() + " returned HTTP " + resp.statusCode() + ": "
-            + (b.length() > EXCERPT ? b.substring(0, EXCERPT) + "..." : b));
+        String msg = "Finder at " + req.uri() + " returned HTTP " + resp.statusCode() + ": "
+            + (b.length() > EXCERPT ? b.substring(0, EXCERPT) + "..." : b);
+        throw resp.statusCode() == 503 ? new FinderUnavailableException(msg) : new IllegalStateException(msg);
       }
       return MAPPER.readValue(resp.body(), type);
     } catch (IOException e) {
-      throw new UncheckedIOException("Cannot call finder at " + req.uri() + ": " + e.getMessage(), e);
+      throw new FinderUnavailableException("Cannot call finder at " + req.uri() + ": " + e.getMessage(), e);
     } catch (JacksonException e) {
       throw new IllegalStateException("Finder at " + req.uri() + " returned invalid JSON: " + e.getOriginalMessage(), e);
     } catch (InterruptedException e) {

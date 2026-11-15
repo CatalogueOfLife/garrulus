@@ -166,6 +166,10 @@
 
   <select id="namesDocSha" resultType="string">SELECT names_doc_sha FROM work WHERE id = #{workId}</select>
 
+  <select id="lockWork" resultType="long" flushCache="true">SELECT id FROM work WHERE id = #{workId} FOR UPDATE</select>
+
+  <select id="currentFinderRun" resultType="long">SELECT current_finder_run FROM work WHERE id = #{workId}</select>
+
   <update id="setDiagnostics">
     UPDATE work SET finder_diagnostics = #{json, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}
     WHERE id = #{workId}

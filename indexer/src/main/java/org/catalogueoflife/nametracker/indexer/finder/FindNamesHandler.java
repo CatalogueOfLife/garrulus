@@ -1,6 +1,5 @@
 package org.catalogueoflife.nametracker.indexer.finder;
 
-import java.io.UncheckedIOException;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -9,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Supplier;
 import org.catalogueoflife.nametracker.finder.api.Act;
 import org.catalogueoflife.nametracker.finder.api.Block;
 import org.catalogueoflife.nametracker.finder.api.ClassificationContext;
@@ -21,8 +21,10 @@ import org.catalogueoflife.nametracker.finder.api.FinderResult;
 import org.catalogueoflife.nametracker.finder.api.Mention;
 import org.catalogueoflife.nametracker.finder.api.NameFinder;
 import org.catalogueoflife.nametracker.finder.gnfinder.GnfinderUnavailableException;
+import org.catalogueoflife.nametracker.finder.remote.FinderUnavailableException;
 import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
+import org.catalogueoflife.nametracker.store.content.ContentMapper;
 import org.catalogueoflife.nametracker.store.index.ContextRow;
 import org.catalogueoflife.nametracker.store.index.FinderRun;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
@@ -61,17 +63,19 @@ public class FindNamesHandler implements TaskHandler {
   private final DocumentLoader loader;
   private final Spool spool;
   private final WorkMapper works;
+  private final ContentMapper contents;
   private final IndexMapper index;
   private final TaskQueue queue;
   private final TransactionTemplate tx;
   private final Clock clock;
 
   public FindNamesHandler(ObjectProvider<NameFinder> finder, DocumentLoader loader, Spool spool, WorkMapper works,
-      IndexMapper index, TaskQueue queue, TransactionTemplate tx, Clock clock) {
+      ContentMapper contents, IndexMapper index, TaskQueue queue, TransactionTemplate tx, Clock clock) {
     this.finder = finder.getIfAvailable();
     this.loader = loader;
     this.spool = spool;
     this.works = works;
+    this.contents = contents;
     this.index = index;
     this.queue = queue;
     this.tx = tx;
@@ -100,38 +104,62 @@ public class FindNamesHandler implements TaskHandler {
       LOG.warn("FIND_NAMES for unknown work {}", workId);
       return;
     }
+    // A repeat (redelivery, or a second task for the same text) is a no-op that only makes sure MATCH_NAMES is queued.
+    // Never fall back to the abstract when the full text that was already named is merely gone from the spool.
+    String chosen = DocumentLoader.chosenSha(work, work.textLevel(), contents.listByWork(workId));
+    if (chosen.equals(index.namesDocSha(workId)) && index.currentFinderRun(workId) != null) {
+      finish(task, workId, index.currentFinderRun(workId), chosen, chosen);
+      return;
+    }
+
     DocumentLoader.Loaded loaded = loader.load(work);
     Document doc = loaded.doc();
     Map<String, String> diagnostics = new LinkedHashMap<>(loaded.diagnostics());
 
     // a document without blocks has no text: no finder call, no mentions
-    FinderResult result = doc.blocks().isEmpty() ? null : find(doc);
-    FinderInfo info = result == null ? finder.info() : result.info();
+    FinderResult result = doc.blocks().isEmpty() ? null : guarded(() -> finder.find(doc, FinderOptions.defaults()));
+    FinderInfo info = result == null ? guarded(finder::info) : result.info();
     if (result != null) diagnostics.putAll(result.diagnostics());
 
     long[] runId = new long[1];
+    String[] namedSha = new String[1];
     tx.executeWithoutResult(status -> {
+      index.lockWork(workId); // finder runs on one work are serial; re-check what the winner did
+      String current = index.namesDocSha(workId);
+      Long currentRun = index.currentFinderRun(workId);
+      if (current != null && currentRun != null && (current.equals(chosen) || current.equals(loaded.docSha()))) {
+        runId[0] = currentRun;
+        namedSha[0] = current;
+        return;
+      }
       runId[0] = index.finderRunId(new FinderRun(null, info.name(), info.version(), info.configHash(),
           info.dictionaryKey()));
       index.deleteWorkIndex(workId);
       if (result != null) store(workId, doc, result, diagnostics);
       index.setNamesFound(workId, runId[0], loaded.docSha());
       index.setDiagnostics(workId, FinderJson.mapper().writeValueAsString(diagnostics));
+      namedSha[0] = loaded.docSha();
     });
-
-    spool.delete(loaded.docSha());
-    queue.enqueue(NEXT_TYPE, "{\"workId\":" + workId + "}", task.priority(),
-        "match:" + workId + ":" + runId[0] + ":" + loaded.docSha().substring(0, 12));
+    finish(task, workId, runId[0], namedSha[0], loaded.docSha());
   }
 
-  private FinderResult find(Document doc) {
+  /** Queues MATCH_NAMES first, so that a crash after the spool is gone cannot lose it, then drops the spool files. */
+  private void finish(Task task, long workId, long runId, String namedSha, String loadedSha) {
+    queue.enqueue(NEXT_TYPE, "{\"workId\":" + workId + "}", task.priority(),
+        "match:" + workId + ":" + runId + ":" + namedSha.substring(0, 12));
+    spool.delete(workId, namedSha);
+    spool.delete(workId, loadedSha);
+  }
+
+  /** Runs a finder call; an unavailable finder defers the task by 30 minutes without using an attempt. */
+  private <T> T guarded(Supplier<T> call) {
     try {
-      return finder.find(doc, FinderOptions.defaults());
+      return call.get();
     } catch (RuntimeException e) {
       for (Throwable t = e; t != null; t = t.getCause()) {
-        if (t instanceof GnfinderUnavailableException || t instanceof UncheckedIOException) {
-          throw new ServiceOutageException("gnfinder", clock.instant().plus(OUTAGE_DELAY), e);
-        }
+        String service = t instanceof GnfinderUnavailableException ? "gnfinder"
+            : t instanceof FinderUnavailableException ? "finder" : null;
+        if (service != null) throw new ServiceOutageException(service, clock.instant().plus(OUTAGE_DELAY), e);
         if (t.getCause() == t) break;
       }
       throw e;
@@ -205,6 +233,6 @@ public class FindNamesHandler implements TaskHandler {
       while (to > end && !Character.isWhitespace(cps[to - 1])) to--;
     }
     while (to > end && Character.isWhitespace(cps[to - 1])) to--;
-    return new String(cps, from, to - from);
+    return new String(cps, from, Math.min(to - from, SNIPPET_MAX));
   }
 }

@@ -6,6 +6,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.Optional;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
@@ -120,6 +122,7 @@ public class ResolveContentHandler implements TaskHandler {
 
     // Blobs are content-addressed and written only for open licences; they may precede the transaction.
     List<Content> rows = new ArrayList<>();
+    Map<String, byte[]> closed = new HashMap<>(); // closed full text documents by sha, for the spool
     for (FetchedContent f : results) {
       boolean retained = policy.isOpen(f.license());
       byte[] doc = FinderJson.mapper().writeValueAsBytes(f.document());
@@ -131,8 +134,7 @@ public class ResolveContentHandler implements TaskHandler {
       } else {
         rawSha = BlobStore.sha256(f.raw());
         docSha = BlobStore.sha256(doc);
-        // closed full text waits in the transient spool until FIND_NAMES has run
-        if (f.fulltext()) spool.put(docSha, doc);
+        if (f.fulltext()) closed.put(docSha, doc);
       }
       rows.add(new Content(null, workId, f.route(), f.kind(), f.license(), retained, rawSha, docSha, f.sourceUrl(),
           null));
@@ -145,6 +147,8 @@ public class ResolveContentHandler implements TaskHandler {
     List<Content> stored = contents.listByWork(workId);
     String chosen = DocumentLoader.chosenSha(work, finalLevel, stored);
     if (!chosen.equals(index.namesDocSha(workId))) {
+      // closed full text waits in the transient spool until FIND_NAMES has run; only when that task follows
+      if (closed.containsKey(chosen)) spool.put(workId, chosen, closed.get(chosen));
       queue.enqueue(FindNamesHandler.TYPE, "{\"workId\":" + workId + "}", task.priority(),
           "names:" + workId + ":" + chosen.substring(0, 12));
     }

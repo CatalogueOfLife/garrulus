@@ -51,7 +51,7 @@ public class DocumentLoader {
       Optional<Content> row = fullTextRow(contents.listByWork(work.id()));
       if (row.isPresent()) {
         Optional<byte[]> json = Boolean.TRUE.equals(row.get().retained())
-            ? blobs.get(row.get().docSha256()) : spool.get(row.get().docSha256());
+            ? blobs.get(row.get().docSha256()) : spool.get(work.id(), row.get().docSha256());
         if (json.isPresent()) {
           try {
             return new Loaded(FinderJson.mapper().readValue(json.get(), Document.class), row.get().docSha256(),

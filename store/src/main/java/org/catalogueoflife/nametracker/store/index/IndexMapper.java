@@ -57,6 +57,12 @@ public interface IndexMapper {
   /** The sha of the document the finder last saw for the work, null if it never ran. */
   @Nullable String namesDocSha(@Param("workId") long workId);
 
+  /** Takes the row lock of the work until the end of the transaction, so that finder runs on one work are serial. */
+  @Nullable Long lockWork(@Param("workId") long workId);
+
+  /** The finder run that last named the work, null if none. */
+  @Nullable Long currentFinderRun(@Param("workId") long workId);
+
   /** Replaces the finder diagnostics (a JSON object) of the work. */
   void setDiagnostics(@Param("workId") long workId,
       @Param("json") String json);
