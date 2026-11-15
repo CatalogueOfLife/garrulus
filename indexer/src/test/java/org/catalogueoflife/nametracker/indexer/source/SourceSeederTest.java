@@ -1,0 +1,188 @@
+package org.catalogueoflife.nametracker.indexer.source;
+
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
+import com.github.tomakehurst.wiremock.junit5.WireMockTest;
+import java.math.BigDecimal;
+import java.net.http.HttpClient;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
+import org.catalogueoflife.nametracker.indexer.cost.FakeApiUsage;
+import org.catalogueoflife.nametracker.indexer.cost.OpenAlexBudget;
+import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
+import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient;
+import org.catalogueoflife.nametracker.store.source.Source;
+import org.catalogueoflife.nametracker.store.source.SourceMapper;
+import org.catalogueoflife.nametracker.store.task.TaskPriority;
+import org.catalogueoflife.nametracker.store.task.TaskQueue;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+@WireMockTest
+class SourceSeederTest {
+
+  private static final Clock NOON = Clock.fixed(Instant.parse("2026-11-15T12:00:00Z"), ZoneOffset.UTC);
+
+  private final SourceMapper sources = mock(SourceMapper.class);
+  private final TaskQueue queue = mock(TaskQueue.class);
+  private final AtomicLong ids = new AtomicLong(100);
+
+  static String group(String meta, String... keyCount) {
+    StringBuilder sb = new StringBuilder("{\"meta\":{\"groups_count\":" + keyCount.length / 2 + "},\"group_by\":[");
+    for (int i = 0; i < keyCount.length; i += 2) {
+      if (i > 0) sb.append(',');
+      sb.append("{\"key\":\"https://openalex.org/").append(keyCount[i]).append("\",\"count\":").append(keyCount[i + 1])
+          .append('}');
+    }
+    return sb.append("]}").toString();
+  }
+
+  private SourceSeeder seeder(WireMockRuntimeInfo w) {
+    PoliteHttp http = new PoliteHttp(HttpClient.newHttpClient(), Map.of("localhost", Duration.ZERO),
+        PoliteHttp.userAgent(), NOON, d -> { });
+    OpenAlexBudget budget = new OpenAlexBudget(new FakeApiUsage(), new BigDecimal("1.00"), new BigDecimal("0.30"), NOON);
+    OpenAlexClient client = new OpenAlexClient(http, budget, null, w.getHttpBaseUrl());
+    when(sources.upsertSeed(any())).thenAnswer(i -> ids.incrementAndGet());
+    return new SourceSeeder(client, sources, queue, SeedProperties.DEFAULTS, NOON, false);
+  }
+
+  private static void stubGroups(String taxonomy, String broad, String totals) {
+    stubFor(get(urlPathEqualTo("/works")).withQueryParam("filter", containing("primary_topic.id:T14399"))
+        .willReturn(okJson(taxonomy)));
+    stubFor(get(urlPathEqualTo("/works")).withQueryParam("filter", containing("primary_topic.subfield.id:1105"))
+        .willReturn(okJson(broad)));
+    stubFor(get(urlPathEqualTo("/works")).withQueryParam("filter", containing("primary_location.source.id:S"))
+        .willReturn(okJson(totals)));
+  }
+
+  static String source(String id, String name, String extra) {
+    return "{\"id\":\"https://openalex.org/" + id + "\",\"display_name\":\"" + name
+        + "\",\"issn_l\":\"1111-222" + id.charAt(1) + "\",\"issn\":[\"1111-222" + id.charAt(1)
+        + "\"],\"host_organization_name\":\"Pub\",\"homepage_url\":\"https://journal.example.org/about\",\"is_oa\":true"
+        + extra + "}";
+  }
+
+  @Test
+  void tiersFromShares(WireMockRuntimeInfo w) {
+    stubGroups(group("t", "S1", "50"),
+        group("b", "S1", "60", "S2", "80", "S3", "12", "S4", "8"),
+        group("n", "S1", "100", "S2", "100", "S3", "100", "S4", "100"));
+    stubFor(get(urlPathEqualTo("/sources/S1")).willReturn(okJson(source("S1", "Taxon Journal", ""))));
+    stubFor(get(urlPathEqualTo("/sources/S2")).willReturn(okJson(source("S2", "Broad Journal", ""))));
+    stubFor(get(urlPathEqualTo("/sources/S3")).willReturn(okJson(source("S3", "Candidate Journal", ""))));
+
+    SourceSeeder.SeedReport report = seeder(w).seed();
+
+    assertThat(report).isEqualTo(new SourceSeeder.SeedReport(1, 1, 1, 1, false));
+    ArgumentCaptor<Source> cap = ArgumentCaptor.forClass(Source.class);
+    verify(sources, org.mockito.Mockito.times(3)).upsertSeed(cap.capture());
+    List<Source> out = cap.getAllValues();
+    assertThat(out).extracting(Source::openalexId).containsExactly("S1", "S2", "S3");
+    assertThat(out).extracting(Source::tier).containsExactly("CORE", "BROAD", "CANDIDATE");
+    assertThat(out).extracting(Source::journalType).containsExactly("TAXONOMIC", "GENERAL", "GENERAL");
+    assertThat(out).allSatisfy(s -> {
+      assertThat(s.origin()).isEqualTo("SEED_TOPIC");
+      assertThat(s.tierSetBy()).isEqualTo("SEED");
+      assertThat(s.worksPerYear()).isEqualTo(33);
+      assertThat(s.host()).isEqualTo("journal.example.org");
+    });
+    // the window starts three years before the injected clock; the totals filter uses bare ids
+    com.github.tomakehurst.wiremock.client.WireMock.verify(
+        getRequestedFor(urlPathEqualTo("/works")).withQueryParam("filter", containing("from_publication_date:2023-11-15"))
+            .withQueryParam("filter", containing("type:article"))
+            .withQueryParam("filter", containing("primary_location.source.type:journal"))
+            .withQueryParam("filter", containing("primary_location.source.id:S1|S2|S3|S4")));
+  }
+
+  @Test
+  void zeroTotalIsSkippedNotDividedBy(WireMockRuntimeInfo w) {
+    stubGroups(group("t", "S1", "50"), group("b", "S1", "50"), group("n"));
+
+    assertThat(seeder(w).seed()).isEqualTo(new SourceSeeder.SeedReport(0, 0, 0, 1, false));
+    verify(sources, never()).upsertSeed(any());
+  }
+
+  @Test
+  void oaModelAndSubfields(WireMockRuntimeInfo w) {
+    stubGroups(group("t"), group("b", "S2", "80"), group("n", "S2", "100"));
+    stubFor(get(urlPathEqualTo("/sources/S2")).willReturn(okJson(source("S2", "Diamond", ",\"is_in_doaj\":true,"
+        + "\"apc_usd\":0,\"country_code\":\"BG\",\"topics\":["
+        + "{\"count\":80,\"subfield\":{\"id\":\"https://openalex.org/subfields/1105\"}},"
+        + "{\"count\":15,\"subfield\":{\"id\":\"https://openalex.org/subfields/1109\"}},"
+        + "{\"count\":3,\"subfield\":{\"id\":\"https://openalex.org/subfields/1103\"}},"
+        + "{\"count\":2,\"subfield\":{\"id\":\"https://openalex.org/subfields/1702\"}}]"))));
+
+    seeder(w).seed();
+
+    ArgumentCaptor<Source> cap = ArgumentCaptor.forClass(Source.class);
+    verify(sources).upsertSeed(cap.capture());
+    Source s = cap.getValue();
+    assertThat(s.oaModel()).isEqualTo("DIAMOND");
+    // 1103 has 3% of the topics and 1702 is not in the harvested vocabulary
+    assertThat(s.subfields()).containsExactly("1105", "1109");
+    assertThat(s.primarySubfield()).isEqualTo("1105");
+    assertThat(s.country()).isEqualTo("BG");
+    assertThat(s.inDoaj()).isTrue();
+    assertThat(s.issnL()).isEqualTo("1111-2222");
+    assertThat(s.title()).isEqualTo("Diamond");
+    assertThat(s.publisher()).isEqualTo("Pub");
+  }
+
+  @Test
+  void goldWhenApcAndNullWhenNeither() {
+    assertThat(SourceSeeder.oaModel(true, true, 1500.0)).isEqualTo("GOLD");
+    assertThat(SourceSeeder.oaModel(true, false, 1500.0)).isEqualTo("GOLD");
+    assertThat(SourceSeeder.oaModel(true, true, null)).isEqualTo("DIAMOND");
+    assertThat(SourceSeeder.oaModel(true, true, 0.0)).isEqualTo("DIAMOND");
+    assertThat(SourceSeeder.oaModel(true, false, null)).isNull();
+    assertThat(SourceSeeder.oaModel(false, false, null)).isNull();
+    assertThat(SourceSeeder.oaModel(null, null, null)).isNull();
+  }
+
+  @Test
+  void existingAdminTierIsKeptAndSeedTierIsRefreshed(WireMockRuntimeInfo w) {
+    stubGroups(group("t", "S1", "50", "S2", "50"), group("b", "S1", "60", "S2", "60"),
+        group("n", "S1", "100", "S2", "100"));
+    stubFor(get(urlPathEqualTo("/sources/S1")).willReturn(okJson(source("S1", "A", ""))));
+    stubFor(get(urlPathEqualTo("/sources/S2")).willReturn(okJson(source("S2", "B", ""))));
+    SourceSeeder seeder = seeder(w);
+    when(sources.findByOpenalexId("S1")).thenReturn(existing(1L, "S1", "BROAD", "SEED"));
+    when(sources.findByOpenalexId("S2")).thenReturn(existing(2L, "S2", "EXCLUDED", "ADMIN"));
+    when(sources.upsertSeed(any())).thenReturn(1L, 2L);
+
+    seeder.seed();
+
+    verify(sources).setTier(1L, "CORE", true, "SEED");
+    verify(sources, never()).setTier(eq(2L), anyString(), org.mockito.ArgumentMatchers.anyBoolean(), anyString());
+  }
+
+  @Test
+  void onboardsEverySourceStillToOnboardOnce(WireMockRuntimeInfo w) {
+    stubGroups(group("t"), group("b"), group("n"));
+    SourceSeeder seeder = seeder(w);
+    when(sources.listToOnboard()).thenReturn(List.of(existing(7L, "S7", "CORE", "SEED")));
+
+    seeder.seed();
+
+    verify(queue).enqueue("ONBOARD_SOURCE", "{\"sourceId\":7}", TaskPriority.BACKFILL, "onboard:7");
+  }
+
+  private static Source existing(long id, String oaId, String tier, String by) {
+    return new Source(id, oaId, null, List.of(), "t", null, null, null, null, tier, "SEED_TOPIC", "{}", true,
+        List.of(), null, null, List.of(), "{}", List.of(), null, null, null, null, null, null, null, null, null, by);
+  }
+}
