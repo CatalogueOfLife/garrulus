@@ -62,7 +62,7 @@ import java.util.concurrent.Callable;
 
 /** The evaluation command line. More subcommands arrive with later tasks. */
 @Command(name = "eval", mixinStandardHelpOptions = true, subcommands = {EvalCli.FetchPensoft.class, EvalCli.RebuildPensoft.class, EvalCli.Run.class, EvalCli.CuratedSelect.class,
-    EvalCli.CuratedAddActs.class, EvalCli.LsExport.class, EvalCli.LsImport.class, EvalCli.BuildDictionary.class, EvalCli.FetchPdf.class, EvalCli.Tune.class},
+    EvalCli.CuratedAddActs.class, EvalCli.LsExport.class, EvalCli.LsImport.class, EvalCli.LsProvisional.class, EvalCli.BuildDictionary.class, EvalCli.FetchPdf.class, EvalCli.Tune.class},
     description = "Name finder evaluation")
 public class EvalCli implements Runnable {
   public static void main(String[] args) {
@@ -668,6 +668,39 @@ public class EvalCli implements Runnable {
 
     private static String tsv(String s) {
       return s == null ? "" : s.replaceAll("[\\t\\r\\n]+", " ");
+    }
+  }
+
+  @Command(name = "ls-provisional", mixinStandardHelpOptions = true,
+      description = "Makes a provisional gold for wiring tests from an export with unresolved acts: removes those Act regions and the Authorship regions that follow no Name, then imports with inference")
+  public static class LsProvisional implements Callable<Integer> {
+    @Option(names = "--export", required = true, description = "the Label Studio JSON export") Path export;
+    @Option(names = "--out-export", defaultValue = "eval/work/ls-export-provisional.json", description = "the cleaned copy of the export, default ${DEFAULT-VALUE}") Path outExport;
+    @Option(names = "--dictionary", description = "COL dictionary for context ranks, default $FINDER_DICTIONARY if set") Path dictionary;
+    @Option(names = "--out", defaultValue = "eval/work/curated-provisional/gold.jsonl.gz", description = "gold.jsonl.gz to write; the manifest is copied next to it, default ${DEFAULT-VALUE}") Path out;
+    @Option(names = "--manifest", defaultValue = "eval/corpus/curated/manifest.tsv", description = "curated manifest, default ${DEFAULT-VALUE}") Path manifest;
+
+    @Override
+    public Integer call() throws Exception {
+      Path dict = dictionary;
+      if (dict == null && System.getenv("FINDER_DICTIONARY") != null && !System.getenv("FINDER_DICTIONARY").isBlank()) {
+        dict = Path.of(System.getenv("FINDER_DICTIONARY"));
+      }
+      var res = org.catalogueoflife.nametracker.eval.curated.ProvisionalGold.run(export, outExport,
+          dict == null ? null : org.catalogueoflife.nametracker.finder.dict.ColDictionaryIO.read(dict), manifest, out);
+      var byLabel = res.removed().stream().collect(java.util.stream.Collectors.groupingBy(r -> r.label(), java.util.TreeMap::new, java.util.stream.Collectors.counting()));
+      System.out.println("Removed " + res.removed().size() + " regions " + byLabel);
+      for (var r : res.removed()) {
+        System.out.println("  " + r.docId() + " " + r.label() + " " + r.regionId() + " '" + r.regionText().replace('\n', ' ') + "': " + r.reason());
+      }
+      int names = 0, acts = 0;
+      for (GoldDocument d : res.documents()) {
+        names += d.names().size();
+        acts += d.acts().size();
+      }
+      System.out.println("PROVISIONAL gold (not for results): " + res.documents().size() + " documents, " + names + " names, " + acts + " acts");
+      System.out.println("Wrote " + outExport + " and " + out);
+      return 0;
     }
   }
 }

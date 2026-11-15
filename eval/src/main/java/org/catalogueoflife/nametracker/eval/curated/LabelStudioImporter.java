@@ -51,6 +51,9 @@ public final class LabelStudioImporter {
 
   private LabelStudioImporter() {}
 
+  /** A region a lenient read left out, with the reason. */
+  public record Removed(String docId, String regionId, String label, String regionText, String reason) {}
+
   /** One value the importer filled in because the annotation left it out. {@code gap} is only set for act_of. */
   public record Inferred(String docId, String regionId, String kind, String regionText, String value, String gap) {}
 
@@ -59,18 +62,34 @@ public final class LabelStudioImporter {
    * in where unambiguous, and each inferred value is added to {@link #inferred()}. The dictionary is optional.
    */
   public static final class Options {
-    public static final Options STRICT = new Options(false, null);
+    public static final Options STRICT = new Options(false, null, false);
     private final boolean infer;
     private final ColDictionary dictionary;
+    private final boolean lenient;
     private final List<Inferred> inferred = new ArrayList<>();
+    private final List<Removed> removed = new ArrayList<>();
 
-    private Options(boolean infer, ColDictionary dictionary) {
+    private Options(boolean infer, ColDictionary dictionary, boolean lenient) {
       this.infer = infer;
       this.dictionary = dictionary;
+      this.lenient = lenient;
     }
 
     public static Options inferring(ColDictionary dictionary) {
-      return new Options(true, dictionary);
+      return new Options(true, dictionary, false);
+    }
+
+    /**
+     * Like {@link #inferring}, but an Act that cannot be resolved (no type, no unambiguous Name) and an Authorship that follows
+     * no Name are left out of the result instead of failing; they are listed in {@link #removed()}. For wiring tests only.
+     */
+    public static Options lenient(ColDictionary dictionary) {
+      return new Options(true, dictionary, true);
+    }
+
+    /** The regions a lenient read left out. */
+    public List<Removed> removed() {
+      return removed;
     }
 
     public List<Inferred> inferred() {
@@ -114,7 +133,7 @@ public final class LabelStudioImporter {
     return out;
   }
 
-  private static JsonNode latest(JsonNode annotations) {
+  static JsonNode latest(JsonNode annotations) {
     JsonNode best = null;
     for (JsonNode a : annotations) {
       if (a.path("was_cancelled").asBoolean(false)) continue;
@@ -170,7 +189,7 @@ public final class LabelStudioImporter {
     Map<String, List<RankedName>> contexts = new LinkedHashMap<>();
     Set<String> subjects = new LinkedHashSet<>();
     Map<String, GoldName> nameById = new LinkedHashMap<>();
-    List<GoldName> authorships = new ArrayList<>();
+    Map<String, GoldName> authorships = new LinkedHashMap<>();
     for (var e : regions.entrySet()) {
       if (label(e.getValue()).equals("Name")) {
         GoldName n = span(docId, flat, utf16, e.getValue(), (b, s, en, t) -> new GoldName(b, s, en, t, null, null));
@@ -183,6 +202,7 @@ public final class LabelStudioImporter {
       String id = e.getKey();
       String label = label(e.getValue());
       if (label.equals("Act")) {
+        try {
         String choice = actTypes.get(id);
         ActType type;
         if (choice == null) {
@@ -216,6 +236,10 @@ public final class LabelStudioImporter {
         GoldName target = found;
         ActType fType = type;
         acts.add(new GoldAct(span.blockId(), span.start(), span.end(), fType, target.text()));
+        } catch (IllegalStateException ex) {
+          if (!opts.lenient) throw ex;
+          opts.removed.add(new Removed(docId, id, "Act", text(e.getValue()), ex.getMessage()));
+        }
       } else if (label.equals("Context")) {
         GoldContext c = span(docId, flat, utf16, e.getValue(), (b, s, en, t) -> new GoldContext(b, rankedNames(docId, id, t, ranks.get(id), opts)));
         contexts.merge(c.blockId(), c.ranks(), (a, b) -> {
@@ -224,12 +248,12 @@ public final class LabelStudioImporter {
           return all;
         });
       } else if (label.equals("Authorship")) {
-        authorships.add(span(docId, flat, utf16, e.getValue(), (b, s, en, t) -> new GoldName(b, s, en, t, null, null)));
+        authorships.put(id, span(docId, flat, utf16, e.getValue(), (b, s, en, t) -> new GoldName(b, s, en, t, null, null)));
       } else if (!label.equals("Name")) {
         throw fail(docId, "unknown label '" + label + "'");
       }
     }
-    attachAuthorships(docId, doc, names, authorships);
+    attachAuthorships(docId, doc, names, authorships, opts);
     List<GoldContext> ctx = contexts.entrySet().stream().map(e -> new GoldContext(e.getKey(), e.getValue())).toList();
     String license = data.path("license").asString("unknown");
     GoldDocument g = new GoldDocument(docId, "curated", data.path("split").asString("test"), license, true,
@@ -240,10 +264,12 @@ public final class LabelStudioImporter {
   private static final java.util.regex.Pattern AUTHORSHIP_GAP = java.util.regex.Pattern.compile("[\\s,]*");
 
   /** Sets each authorship (held as a span) on the name that ends closest before it in its block, across spaces and commas only. */
-  private static void attachAuthorships(String docId, Document doc, List<GoldName> names, List<GoldName> authorships) {
+  private static void attachAuthorships(String docId, Document doc, List<GoldName> names, Map<String, GoldName> authorships, Options opts) {
     Map<String, String> texts = new LinkedHashMap<>();
     for (Block b : doc.blocks()) texts.put(b.id(), b.text());
-    for (GoldName a : authorships) {
+    for (var ae : authorships.entrySet()) {
+      GoldName a = ae.getValue();
+      try {
       int best = -1;
       for (int i = 0; i < names.size(); i++) {
         GoldName n = names.get(i);
@@ -259,6 +285,10 @@ public final class LabelStudioImporter {
         throw fail(docId, "the Name '" + n.text() + "' has more than one Authorship region ('" + n.authorship() + "', '" + a.text() + "')");
       }
       names.set(best, n.withAuthorship(a.text()));
+      } catch (IllegalStateException ex) {
+        if (!opts.lenient) throw ex;
+        opts.removed.add(new Removed(docId, ae.getKey(), "Authorship", a.text(), ex.getMessage()));
+      }
     }
   }
 
@@ -446,7 +476,7 @@ public final class LabelStudioImporter {
       String n = name.strip();
       if (n.isEmpty()) continue;
       Rank rk = null;
-      if (dict != null) rk = dict.uninomialRank(n).orElse(null);
+      if (dict != null) rk = dict.isGenus(n) ? Rank.GENUS : dict.uninomialRank(n).orElse(null);
       if (rk == null) rk = SuffixRules.rankFor(n, null).orElse(Rank.UNRANKED);
       out.add(new RankedName(rk, n));
     }

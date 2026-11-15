@@ -34,7 +34,8 @@ class LabelStudioInferenceTest {
       "class: Insecta; order: Hemiptera; family: Aphididae", // b4
       "Nitrospinaceae: Opheliidae, Zzzzzzz",               // b5
       "Aphididae: Hemiptera",                              // b6
-      "Aus bus sp. nov. and cl. n. and nom. rest.");       // b7
+      "Aus bus sp. nov. and cl. n. and nom. rest.",        // b7
+      "Nitrospinaceae: Nitrospina");                       // b8
   private static final Document DOC;
   private static final FlatText FLAT;
 
@@ -180,6 +181,20 @@ class LabelStudioInferenceTest {
     Path p = export(region("c1", 5, "Nitrospinaceae: Opheliidae, Zzzzzzz", "Context"));
     assertThat(LabelStudioImporter.read(p, inferring()).get(0).contexts().get(0).ranks()).containsExactly(
         new RankedName(Rank.FAMILY, "Nitrospinaceae"), new RankedName(Rank.FAMILY, "Opheliidae"), new RankedName(Rank.UNRANKED, "Zzzzzzz"));
+  }
+
+  @Test
+  void genusFromDictionaryBeatsSuffix() throws Exception {
+    it.unimi.dsi.fastutil.longs.LongOpenHashSet genera = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+    genera.add(org.catalogueoflife.nametracker.finder.dict.ColDictionary.hash("Nitrospina"));
+    var dict = new org.catalogueoflife.nametracker.finder.dict.ColDictionary("t", genera, new it.unimi.dsi.fastutil.longs.LongOpenHashSet(),
+        new it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap(), new Rank[0], new it.unimi.dsi.fastutil.longs.LongOpenHashSet(),
+        new it.unimi.dsi.fastutil.longs.LongOpenHashSet());
+    Path p = export(region("c1", 8, "Nitrospinaceae: Nitrospina", "Context"));
+    assertThat(LabelStudioImporter.read(p, LabelStudioImporter.Options.inferring(dict)).get(0).contexts().get(0).ranks()).containsExactly(
+        new RankedName(Rank.FAMILY, "Nitrospinaceae"), new RankedName(Rank.GENUS, "Nitrospina"));
+    // without the dictionary the suffix rule wins
+    assertThat(LabelStudioImporter.read(p, inferring()).get(0).contexts().get(0).ranks().get(1).rank()).isNotEqualTo(Rank.GENUS);
   }
 
   @Test
