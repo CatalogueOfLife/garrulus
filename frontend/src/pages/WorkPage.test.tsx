@@ -44,7 +44,7 @@ describe('WorkPage', () => {
   });
 
   it('verbatimClassificationNextToColOne', async () => {
-    mount({ ...base, contexts: [{ localId: 'c1', verbatim: 'Coleoptera: Carabidae: Carabus', ranks: { order: 'Coleoptera' }, scope: 'DOCUMENT', blockId: 'b1' }] });
+    mount({ ...base, contexts: [{ localId: 'c1', verbatim: 'Coleoptera: Carabidae: Carabus', ranks: [{ rank: 'ORDER', name: 'Coleoptera' }], scope: 'DOCUMENT', blockId: 'b1' }] });
     const verbatim = await screen.findByRole('region', { name: 'Verbatim classification in the article' });
     expect(within(verbatim).getByText('Coleoptera: Carabidae: Carabus')).toBeInTheDocument();
     const col = screen.getByRole('region', { name: 'Placed in COL' });

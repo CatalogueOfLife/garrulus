@@ -85,10 +85,13 @@ export interface TextBlock {
   text: string;
   mentions: MentionSpan[];
 }
+/** One ranked name of a verbatim classification; rank is upper case (ORDER, FAMILY, ...). */
+export interface RankedName { rank: string; name: string }
 export interface Context {
   localId: string;
   verbatim: string;
-  ranks: Record<string, string>;
+  /** Highest first. */
+  ranks: RankedName[];
   scope: string;
   blockId: string;
   untilBlockId?: string | null;

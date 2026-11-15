@@ -2,10 +2,22 @@ import { Alert, Anchor, Badge, Group, Loader, Stack, Text, Title } from '@mantin
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { getClbClassification, getClbTaxon, getTaxonStats, getWork, getXr, searchWorks } from '../api';
+import type { Context } from '../api';
 import { WorkList } from '../components/WorkList';
 import { YearBars } from '../components/YearBars';
 import { Section } from '../components/Section';
 import { usePageTitle } from '../usePageTitle';
+
+/**
+ * The verbatim strings of the contexts that classify this taxon: one of their ranked names is the taxon's own name or
+ * the name of one of its ancestors (case-insensitive). De-duplicated, in order of first appearance.
+ */
+export function relevantVerbatim(contexts: Context[], lineageNames: (string | undefined)[]): string[] {
+  const lineage = new Set(lineageNames.filter((n): n is string => !!n).map((n) => n.trim().toLowerCase()));
+  const kept = contexts.filter((c) => (Array.isArray(c.ranks) ? c.ranks : [])
+    .some((r) => lineage.has(r.name.trim().toLowerCase())));
+  return [...new Set(kept.map((c) => c.verbatim))];
+}
 
 export function TaxonPage() {
   const { id = '' } = useParams();
@@ -23,14 +35,15 @@ export function TaxonPage() {
     queryKey: ['taxon-acts', id],
     queryFn: () => searchWorks({ taxon: id, mainSubjectOnly: 'true', hasActs: 'true', limit: '10' }),
   });
-  // verbatim classifications used: the contexts of up to five recent works
+  // verbatim classifications used: those contexts of up to five recent works that name this taxon or an ancestor
   const recentWorks = (recent.data?.results ?? []).slice(0, 5);
   const details = useQueries({
     queries: recentWorks.map((w) => ({ queryKey: ['work', String(w.id)], queryFn: () => getWork(w.id) })),
   });
-  const verbatim = [...new Set(details.flatMap((d) => (d.data?.contexts ?? []).map((c) => c.verbatim)))];
-
   const name = taxon.data?.name.scientificName;
+  const verbatim = relevantVerbatim(details.flatMap((d) => d.data?.contexts ?? []),
+    [name, ...(classification.data ?? []).map((c) => c.name)]);
+
   usePageTitle(name ?? `Taxon ${id}`);
   if (taxon.isError) return <Alert color="red">{(taxon.error as Error).message}</Alert>;
 
@@ -80,7 +93,8 @@ export function TaxonPage() {
       </Section>
 
       <Section title="Verbatim classifications used">
-        {details.some((d) => d.isLoading) || recent.isLoading ? <Loader size="sm" /> : verbatim.length ? (
+        {details.some((d) => d.isLoading) || recent.isLoading || taxon.isLoading || classification.isLoading
+          ? <Loader size="sm" /> : verbatim.length ? (
           <Stack component="ul" gap="xs" p={0} m={0} pl="md">
             {verbatim.map((v) => <li key={v}><Text size="sm">{v}</Text></li>)}
           </Stack>

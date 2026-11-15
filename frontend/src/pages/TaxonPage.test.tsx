@@ -1,7 +1,7 @@
 import { screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { Route, Routes } from 'react-router-dom';
-import { TaxonPage } from './TaxonPage';
+import { TaxonPage, relevantVerbatim } from './TaxonPage';
 import { server, work, emptyPage, xrHandler } from '../test/server';
 import { renderApp } from '../test/render';
 
@@ -26,10 +26,11 @@ describe('TaxonPage', () => {
         return HttpResponse.json({ ...emptyPage, total: 12, results: [work(1, 'Carabid revision'), work(3, 'Second paper')] });
       }),
       http.get('/api/works/1', () => HttpResponse.json({ id: 1, authors: [], retained: false, hasActs: false, codes: [], taxgroups: [], names: [],
-        contexts: [{ localId: 'c', verbatim: 'Coleoptera: Carabidae', ranks: {}, scope: 'DOCUMENT', blockId: 'b' }], text: null })),
+        contexts: [{ localId: 'c', verbatim: 'Coleoptera: Carabidae', ranks: [{ rank: 'ORDER', name: 'Coleoptera' }, { rank: 'FAMILY', name: 'Carabidae' }], scope: 'DOCUMENT', blockId: 'b' }], text: null })),
       http.get('/api/works/3', () => HttpResponse.json({ id: 3, authors: [], retained: false, hasActs: false, codes: [], taxgroups: [], names: [],
-        contexts: [{ localId: 'c', verbatim: 'Coleoptera: Carabidae', ranks: {}, scope: 'DOCUMENT', blockId: 'b' },
-                   { localId: 'd', verbatim: 'Insecta; Coleoptera', ranks: {}, scope: 'DOCUMENT', blockId: 'b' }], text: null })),
+        contexts: [{ localId: 'c', verbatim: 'Coleoptera: Carabidae', ranks: [{ rank: 'ORDER', name: 'Coleoptera' }, { rank: 'FAMILY', name: 'Carabidae' }], scope: 'DOCUMENT', blockId: 'b' },
+                   { localId: 'd', verbatim: 'Insecta; Coleoptera', ranks: [{ rank: 'CLASS', name: 'Insecta' }, { rank: 'ORDER', name: 'Coleoptera' }], scope: 'DOCUMENT', blockId: 'b' },
+                   { localId: 'e', verbatim: 'Genus Carabus', ranks: [{ rank: 'GENUS', name: 'Carabus' }], scope: 'SECTION', blockId: 'b' }], text: null })),
     );
     renderApp(<Routes><Route path="/taxon/:id" element={<TaxonPage />} /></Routes>, '/taxon/T1');
     expect(await screen.findByRole('heading', { name: 'Carabus' })).toBeInTheDocument();
@@ -42,8 +43,20 @@ describe('TaxonPage', () => {
     const names = screen.getByRole('region', { name: 'New names (main subject)' });
     expect(await within(names).findByText('A new species of Carabus')).toBeInTheDocument();
     const verb = screen.getByRole('region', { name: 'Verbatim classifications used' });
-    expect(await within(verb).findByText('Insecta; Coleoptera')).toBeInTheDocument();
+    // kept: a context naming the taxon itself or one of its ancestors (Animalia, Carabidae)
+    expect(await within(verb).findByText('Genus Carabus')).toBeInTheDocument();
     expect(within(verb).getAllByText('Coleoptera: Carabidae')).toHaveLength(1); // de-duplicated
+    // dropped: Insecta and Coleoptera are not in the CLB classification of this taxon
+    expect(within(verb).queryByText('Insecta; Coleoptera')).not.toBeInTheDocument();
     expect(document.title).toBe('Garrulus — Carabus');
+  });
+
+  it('relevantVerbatimKeepsContextsNamingTheTaxonOrAnAncestor', () => {
+    const ctx = (verbatim: string, ...names: string[]) => ({
+      localId: verbatim, verbatim, ranks: names.map((name) => ({ rank: 'FAMILY', name })), scope: 'DOCUMENT', blockId: 'b',
+    });
+    const contexts = [ctx('A: B', 'A', 'B'), ctx('C', 'C'), ctx('a: b', 'carabidae '), ctx('A: B', 'A', 'B'), ctx('none')];
+    expect(relevantVerbatim(contexts, ['Carabidae', 'B', undefined])).toEqual(['A: B', 'a: b']);
+    expect(relevantVerbatim(contexts, [undefined])).toEqual([]);
   });
 });
