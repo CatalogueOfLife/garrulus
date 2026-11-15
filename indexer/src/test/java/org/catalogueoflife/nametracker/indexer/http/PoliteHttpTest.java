@@ -52,6 +52,28 @@ class PoliteHttpTest {
   }
 
   @Test
+  void unknownHostIsNotRetried() {
+    FakeTime t = new FakeTime();
+    // .invalid never resolves (RFC 6761), so the lookup fails at once
+    HttpProblem p = assertThrows(HttpProblem.class,
+        () -> http(t).get(URI.create("http://nonexistent.invalid/x?api_key=secret"), Map.of()));
+    assertFalse(p.retryable());
+    assertEquals(0, p.status());
+    assertTrue(p.getMessage().contains("Unknown host"), p.getMessage());
+    assertFalse(p.getMessage().contains("secret"), p.getMessage());
+    assertEquals(List.of(), t.sleeps);
+  }
+
+  @Test
+  void unknownHostInBothShapesOfTheJdkClient() {
+    assertTrue(PoliteHttp.unknownHost(new java.net.UnknownHostException("x.invalid")));
+    java.net.ConnectException wrapped = new java.net.ConnectException();
+    wrapped.initCause(new java.nio.channels.UnresolvedAddressException());
+    assertTrue(PoliteHttp.unknownHost(wrapped));
+    assertFalse(PoliteHttp.unknownHost(new java.net.ConnectException("Connection refused")));
+  }
+
+  @Test
   void retriesAfter429HonouringRetryAfter(WireMockRuntimeInfo w) {
     stubFor(get("/r").inScenario("s").whenScenarioStateIs("Started")
         .willReturn(aResponse().withStatus(429).withHeader("Retry-After", "7"))

@@ -2,9 +2,11 @@ package org.catalogueoflife.nametracker.indexer.http;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.UnknownHostException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.channels.UnresolvedAddressException;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.HashMap;
@@ -110,6 +112,9 @@ public class PoliteHttp {
           return resp;
         }
       } catch (IOException e) {
+        if (unknownHost(e)) { // a name that does not resolve now will not resolve in a few seconds either
+          throw new HttpProblem(safe, 0, false, "Unknown host: " + safe, e);
+        }
         if (failed >= ERROR_BACKOFF.length) {
           throw new HttpProblem(safe, 0, true, "I/O failure after " + failed + " retries: " + safe, e);
         }
@@ -120,6 +125,18 @@ public class PoliteHttp {
       }
       sleep(safe, wait);
     }
+  }
+
+  /**
+   * True when the host name did not resolve. The JDK client reports that as an UnknownHostException or as a
+   * ConnectException caused by an UnresolvedAddressException.
+   */
+  static boolean unknownHost(Throwable e) {
+    for (Throwable t = e; t != null; t = t.getCause()) {
+      if (t instanceof UnknownHostException || t instanceof UnresolvedAddressException) return true;
+      if (t.getCause() == t) break;
+    }
+    return false;
   }
 
   private void sleep(URI uri, Duration d) {
