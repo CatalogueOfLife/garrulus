@@ -34,10 +34,21 @@ public final class ActPatterns {
         "nouveau genre", "neue Gattung"));
     MARKERS.put(ActType.SUBGEN_NOV, List.of("subgen. nov.", "subgen. n."));
     MARKERS.put(ActType.FAM_NOV, List.of("fam. nov.", "subfam. nov.", "trib. nov.", "new family", "new subfamily", "new tribe"));
-    MARKERS.put(ActType.COMB_NOV, List.of("comb. nov.", "comb. n.", "new combination", "combinatio nova", "nueva combinación"));
-    MARKERS.put(ActType.STAT_NOV, List.of("stat. nov.", "stat. n.", "new status"));
+    // ranks above the family group: order, class, phylum, kingdom and their sub-, infra- and super- ranks, botanical division
+    List<String> higher = new ArrayList<>();
+    for (String rank : List.of("ord.", "cl.", "phyl.", "regn.")) {
+      for (String prefix : List.of("", "sub", "infra", "super")) {
+        higher.add(prefix + rank + " nov.");
+        higher.add(prefix + rank + " n.");
+      }
+    }
+    higher.addAll(List.of("div. nov.", "div. n.", "new order", "new suborder", "new infraorder", "new superorder", "new class",
+        "new subclass", "new phylum", "new subphylum", "new kingdom", "ordo novus", "classis nova", "phylum novum"));
+    MARKERS.put(ActType.HIGHER_NOV, List.copyOf(higher));
+    MARKERS.put(ActType.COMB_NOV, List.of("comb. nov.", "comb. n.", "n. comb.", "new combination", "combinatio nova", "nueva combinación"));
+    MARKERS.put(ActType.STAT_NOV, List.of("stat. nov.", "stat. n.", "n. stat.", "new status"));
     MARKERS.put(ActType.STAT_REV, List.of("stat. rev.", "status revived", "revived status"));
-    MARKERS.put(ActType.SYN_NOV, List.of("syn. nov.", "syn. n.", "new synonym", "new synonymy", "nueva sinonimia"));
+    MARKERS.put(ActType.SYN_NOV, List.of("syn. nov.", "syn. n.", "n. syn.", "new synonym", "new synonymy", "nueva sinonimia"));
     MARKERS.put(ActType.NOM_NOV, List.of("nom. nov.", "nom. n.", "nomen novum", "replacement name"));
     MARKERS.put(ActType.TYPE_DESIGNATION, List.of("lectotype designated here", "lectotype here designated",
         "designated here as lectotype", "neotype designated here", "neotype here designated"));
@@ -134,7 +145,7 @@ public final class ActPatterns {
 
   /** Priority for compound statuses: the lowest, then most specific act wins. */
   private static final List<ActType> PRIORITY = List.of(ActType.SSP_NOV, ActType.VAR_NOV, ActType.SP_NOV, ActType.SUBGEN_NOV,
-      ActType.GEN_NOV, ActType.FAM_NOV, ActType.COMB_NOV, ActType.NOM_NOV, ActType.STAT_REV, ActType.STAT_NOV, ActType.SYN_NOV,
+      ActType.GEN_NOV, ActType.FAM_NOV, ActType.HIGHER_NOV, ActType.COMB_NOV, ActType.NOM_NOV, ActType.STAT_REV, ActType.STAT_NOV, ActType.SYN_NOV,
       ActType.TYPE_DESIGNATION);
 
   /**

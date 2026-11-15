@@ -115,4 +115,21 @@ class ActPatternsTest {
     assertThat(found).hasSize(1);
     assertThat(found.get(0).marker()).isEqualTo("sp. nov.");
   }
+
+  @Test
+  void higherRankActs() {
+    for (String s : new String[] {"ord. nov.", "ord. n.", "subord. nov.", "infraord. n.", "superord. nov.", "cl. nov.", "cl. n.",
+        "subcl. n.", "infracl. nov.", "phyl. nov.", "phyl. n.", "subphyl. n.", "infraphyl. nov.", "superphyl. n.", "regn. nov.",
+        "subregn. n.", "div. nov.", "new order", "new class", "new phylum"})
+      assertThat(types("Foo " + s + " is")).as(s).containsExactly(ActType.HIGHER_NOV);
+    // family-group markers stay FAM_NOV
+    assertThat(types("Fooidae fam. nov.")).containsExactly(ActType.FAM_NOV);
+  }
+
+  @Test
+  void leadingNForms() {
+    assertThat(types("Foo bar (Smith) n. comb.")).containsExactly(ActType.COMB_NOV);
+    assertThat(types("= Foo baz n. syn.")).containsExactly(ActType.SYN_NOV);
+    assertThat(types("Foo n. stat.")).containsExactly(ActType.STAT_NOV);
+  }
 }

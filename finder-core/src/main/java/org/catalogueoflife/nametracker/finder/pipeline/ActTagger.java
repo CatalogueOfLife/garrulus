@@ -99,6 +99,8 @@ public class ActTagger {
       case GEN_NOV, SUBGEN_NOV ->
           (k == NameKind.UNINOMIAL || k == NameKind.INFRAGENERIC) && r != null && (r == Rank.GENUS || r.isInfragenericStrictly());
       case FAM_NOV -> k == NameKind.UNINOMIAL && r != null && r.isFamilyGroup();
+      // above the family group; the parser often has no rank for such names ("Hemimastigophora")
+      case HIGHER_NOV -> k == NameKind.UNINOMIAL && (r == null || r == Rank.UNRANKED || (r.isSuprageneric() && !r.isFamilyGroup()));
       default -> true;
     };
   }

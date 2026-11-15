@@ -223,7 +223,7 @@ components:
       required: [id, type, marker, mentionId, confidence]
       properties:
         id: {type: string}
-        type: {type: string, enum: [SP_NOV, SSP_NOV, VAR_NOV, GEN_NOV, SUBGEN_NOV, FAM_NOV, COMB_NOV, STAT_NOV, STAT_REV, SYN_NOV, NOM_NOV, TYPE_DESIGNATION]}
+        type: {type: string, enum: [SP_NOV, SSP_NOV, VAR_NOV, GEN_NOV, SUBGEN_NOV, FAM_NOV, HIGHER_NOV, COMB_NOV, STAT_NOV, STAT_REV, SYN_NOV, NOM_NOV, TYPE_DESIGNATION]}
         marker: {type: string}
         mentionId: {type: string}
         confidence: {type: number}
