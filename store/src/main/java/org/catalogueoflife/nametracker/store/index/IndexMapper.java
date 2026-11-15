@@ -105,6 +105,13 @@ public interface IndexMapper {
   /** Ids of INDEXED or NOTIFIED works after {@code afterId}, ascending. */
   List<Long> indexedWorkIds(@Param("afterId") long afterId, @Param("limit") int limit);
 
+  /**
+   * As {@link #indexedWorkIds}, but only works with a work name whose ubiquity penalty changed (see
+   * {@code StatsMapper#changedUbiquityCount}).
+   */
+  List<Long> changedWorkIds(@Param("afterId") long afterId, @Param("limit") int limit, @Param("full") double full,
+      @Param("threshold") double threshold);
+
   /** Sets salience and main_subject of the work's rows, only where either differs; returns the rows changed. */
   int updateSalience(@Param("workId") long workId, @Param("list") List<WorkName> list);
 

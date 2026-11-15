@@ -13,7 +13,11 @@
       FROM work_name wn JOIN recent r ON r.id = wn.work_id, total
       WHERE NOT wn.only_reference
       GROUP BY wn.name_string_id, total.n),
-    del AS (DELETE FROM name_ubiquity u WHERE NOT EXISTS (SELECT 1 FROM fresh f WHERE f.name_string_id = u.name_string_id))
+    del AS (DELETE FROM name_ubiquity u WHERE NOT EXISTS (SELECT 1 FROM fresh f WHERE f.name_string_id = u.name_string_id)
+            AND coalesce(u.scored_share, 0) = 0),
+    zero AS (UPDATE name_ubiquity u SET works = 0, share = 0, computed_at = now()
+             WHERE NOT EXISTS (SELECT 1 FROM fresh f WHERE f.name_string_id = u.name_string_id)
+               AND coalesce(u.scored_share, 0) > 0)
     INSERT INTO name_ubiquity (name_string_id, works, share, computed_at)
     SELECT name_string_id, works, share, now() FROM fresh
     ON CONFLICT (name_string_id) DO UPDATE SET works = excluded.works, share = excluded.share,
@@ -36,15 +40,16 @@
     ON CONFLICT (taxon_id, year) DO UPDATE SET works = excluded.works, main_subject_works = excluded.main_subject_works
   </update>
 
-  <select id="ubiquityChecksum" resultType="string">
-    SELECT coalesce(md5(string_agg(name_string_id || ':' || works || ':' || share::text, ',' ORDER BY name_string_id)), '')
-    FROM name_ubiquity
+  <sql id="changed">abs(least(1.0, u.share / #{full}) - least(1.0, coalesce(u.scored_share, 0) / #{full})) > #{threshold}</sql>
+
+  <select id="changedUbiquityCount" resultType="int">
+    SELECT count(*) FROM name_ubiquity u WHERE <include refid="changed"/>
   </select>
 
-  <select id="jobState" resultType="string">SELECT value FROM job_state WHERE key = #{key}</select>
+  <update id="setScoredShare">
+    UPDATE name_ubiquity u SET scored_share = u.share
+    WHERE <if test="!all"><include refid="changed"/></if><if test="all">true</if>
+  </update>
 
-  <insert id="putJobState">
-    INSERT INTO job_state (key, value, updated) VALUES (#{key}, #{value}, now())
-    ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated = excluded.updated
-  </insert>
+  <delete id="deleteScoredZero">DELETE FROM name_ubiquity WHERE share = 0 AND scored_share = 0</delete>
 </mapper>

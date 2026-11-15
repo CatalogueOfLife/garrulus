@@ -1,6 +1,7 @@
 package org.catalogueoflife.nametracker.indexer.index;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 import java.sql.Array;
 import java.util.HashMap;
@@ -25,18 +26,19 @@ class RescoreHandlerIT extends AbstractPostgresIT {
   @Autowired WorkIndexer indexer;
   @Autowired RescoreHandler handler;
   @Autowired RebuildStatsHandler stats;
+  @Autowired org.catalogueoflife.nametracker.store.stats.StatsMapper statsMapper;
 
   @BeforeEach
   void clean() {
     jdbc.update("DELETE FROM task");
     jdbc.update("DELETE FROM work");
     jdbc.update("DELETE FROM name_ubiquity");
-    jdbc.update("DELETE FROM job_state");
   }
 
   private long work() {
-    return jdbc.queryForObject("INSERT INTO work (doi, title, license, origin, state, text_level, year) VALUES ('10.1/' || "
-        + "nextval('work_id_seq'), 't', 'cc-by', 'LIVE', 'MATCHED', 'FULLTEXT', 2026) RETURNING id", Long.class);
+    return jdbc.queryForObject("INSERT INTO work (doi, title, license, origin, state, text_level, year) "
+        + "VALUES ('10.1/' || nextval('work_id_seq'), 't', 'cc-by', 'LIVE', 'MATCHED', "
+        + "'FULLTEXT', 2026) RETURNING id", Long.class);
   }
 
   private long mention(long work, String name, String blockType, int start) {
@@ -130,6 +132,10 @@ class RescoreHandlerIT extends AbstractPostgresIT {
     long b = indexedWork(Map.of("Escherichia coli", new String[] {"BACTERIAL", "Bacteria"}));
     long c = indexedWork(Map.of("Escherichia coli", new String[] {"BACTERIAL", "Bacteria"}));
     long notIndexed = work();
+    jdbc.update("INSERT INTO work_name (work_id, name_string_id, mention_count, body_count, in_title, in_abstract, "
+        + "in_heading, only_reference, best_snippet, placement_method, salience, main_subject) "
+        + "VALUES (?, ?, 1, 1, false, false, false, false, 's', 'MATCH', 0.9, true)", notIndexed,
+        index.nameStringId("Escherichia coli", "BINOMIAL", "SPECIES"));
     long ec = index.nameStringId("Escherichia coli", "BINOMIAL", "SPECIES");
     jdbc.update("INSERT INTO name_ubiquity (name_string_id, works, share) VALUES (?, 100, 0.05)", ec);
     handler.handle(task("{\"afterId\":0,\"batch\":2}"));
@@ -143,20 +149,106 @@ class RescoreHandlerIT extends AbstractPostgresIT {
     assertThat(names(c).get(ec).mainSubject()).isFalse();
     assertThat(jdbc.queryForObject("SELECT count(*) FROM task WHERE type = 'RESCORE_SALIENCE'", Integer.class))
         .isEqualTo(1); // one work left in the last batch: no further continuation
-    assertThat(notIndexed).isPositive();
+    var untouched = jdbc.queryForMap("SELECT salience, main_subject FROM work_name WHERE work_id = ?", notIndexed);
+    assertThat(((Number) untouched.get("salience")).doubleValue()).isCloseTo(0.9, within(1e-6));
+    assertThat(untouched.get("main_subject")).isEqualTo(true);
+  }
+
+  private int rescoreTasks() {
+    return jdbc.queryForObject("SELECT count(*) FROM task WHERE type = 'RESCORE_SALIENCE'", Integer.class);
+  }
+
+  private void setUbiquity(long name, double share, Double scored) {
+    jdbc.update("INSERT INTO name_ubiquity (name_string_id, works, share, scored_share) VALUES (?, 10, ?, ?) "
+        + "ON CONFLICT (name_string_id) DO UPDATE SET share = excluded.share, scored_share = excluded.scored_share",
+        name, share, scored);
+  }
+
+  private boolean main(long w, long ns) {
+    return names(w).get(ns).mainSubject();
   }
 
   @Test
-  void rebuildStatsEnqueuesRescoreOnlyWhenUbiquityChanged() {
+  void targetedRescoreOnlyTouchesWorksWithChangedNames() throws Exception {
+    long ecoli = index.nameStringId("Escherichia coli", "BINOMIAL", "SPECIES");
+    long carabus = index.nameStringId("Carabus auratus", "BINOMIAL", "SPECIES");
+    long a = indexedWork(Map.of("Escherichia coli", new String[] {"BACTERIAL", "Bacteria"}));
+    long b = indexedWork(Map.of("Carabus auratus", new String[] {"ZOOLOGICAL", "Coleoptera"}));
+    // both were main; only E. coli's ubiquity appears now, Carabus has none
+    setUbiquity(ecoli, 0.05, null);
+    // salience of b is stale on purpose: a targeted rescore must leave it alone
+    jdbc.update("UPDATE work_name SET main_subject = false WHERE work_id = ?", b);
+    handler.handle(task("{}"));
+    assertThat(main(a, ecoli)).isFalse();
+    assertThat(main(b, carabus)).isFalse(); // not rescored
+    // a full rescore corrects it
+    handler.handle(task("{\"all\":true}"));
+    assertThat(main(b, carabus)).isTrue();
+  }
+
+  @Test
+  void smallShareDriftTriggersNothing() {
+    long ecoli = index.nameStringId("Escherichia coli", "BINOMIAL", "SPECIES");
+    setUbiquity(ecoli, 0.0101, 0.0100); // penalty factor 0.505 against 0.5
+    assertThat(handlerCount()).isZero();
+    assertThat(statsMapper.changedUbiquityCount(0.02, RescoreHandler.CHANGE_THRESHOLD)).isZero();
+    setUbiquity(ecoli, 0.5, 0.03); // both beyond the full share: the factor is 1 either way
+    assertThat(statsMapper.changedUbiquityCount(0.02, RescoreHandler.CHANGE_THRESHOLD)).isZero();
+  }
+
+  @Test
+  void nameCrossingTheFullShareTriggersItsWorks() throws Exception {
+    long ecoli = index.nameStringId("Escherichia coli", "BINOMIAL", "SPECIES");
+    long w = indexedWork(Map.of("Escherichia coli", new String[] {"BACTERIAL", "Bacteria"}));
+    setUbiquity(ecoli, 0.015, 0.015);
+    assertThat(handlerCount()).isZero();
+    handler.handle(task("{}"));
+    assertThat(main(w, ecoli)).isTrue(); // nothing changed: untouched
+    setUbiquity(ecoli, 0.03, 0.015); // factor 0.75 -> 1.0
+    assertThat(handlerCount()).isEqualTo(1);
+    handler.handle(task("{}"));
+    assertThat(main(w, ecoli)).isFalse();
+    assertThat(handlerCount()).isZero(); // marked scored
+    assertThat(jdbc.queryForObject("SELECT scored_share FROM name_ubiquity WHERE name_string_id = ?", Double.class,
+        ecoli)).isCloseTo(0.03, within(1e-6));
+  }
+
+  private int handlerCount() {
+    return jdbc.queryForObject("SELECT count(*) FROM name_ubiquity u WHERE abs(least(1.0, u.share / 0.02) "
+        + "- least(1.0, coalesce(u.scored_share, 0) / 0.02)) > 0.05", Integer.class);
+  }
+
+  @Test
+  void disappearedNameIsRescoredOnce() throws Exception {
+    long ecoli = index.nameStringId("Escherichia coli", "BINOMIAL", "SPECIES");
+    long w = indexedWork(Map.of("Escherichia coli", new String[] {"BACTERIAL", "Bacteria"}));
+    setUbiquity(ecoli, 0.05, 0.05);
+    handler.handle(task("{\"all\":true}")); // salience now reflects the penalty
+    assertThat(main(w, ecoli)).isFalse();
+    Task t = new Task(1, "REBUILD_STATS", "{}", TaskPriority.LIVE, null, 0, null, null, null, null, null, null);
+    jdbc.update("UPDATE work SET state = 'MATCHED' WHERE id = ?", w); // no indexed work mentions it any more
+    jdbc.update("DELETE FROM task");
+    stats.handle(t);
+    // the row stays with share 0 so that the next rescore sees the change
+    assertThat(jdbc.queryForObject("SELECT share FROM name_ubiquity WHERE name_string_id = ?", Double.class, ecoli))
+        .isZero();
+    assertThat(rescoreTasks()).isEqualTo(1);
+    jdbc.update("UPDATE work SET state = 'INDEXED' WHERE id = ?", w);
+    handler.handle(task("{}"));
+    assertThat(main(w, ecoli)).isTrue();
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM name_ubiquity", Integer.class)).isZero();
+  }
+
+  @Test
+  void rebuildStatsEnqueuesRescoreOnlyWhenAnameChanged() throws Exception {
     indexedWork(Map.of("Escherichia coli", new String[] {"BACTERIAL", "Bacteria"}));
     jdbc.update("UPDATE work SET year = extract(year from now())::int");
     Task t = new Task(1, "REBUILD_STATS", "{}", TaskPriority.LIVE, null, 0, null, null, null, null, null, null);
     stats.handle(t);
-    assertThat(jdbc.queryForObject("SELECT count(*) FROM task WHERE type = 'RESCORE_SALIENCE'", Integer.class))
-        .isEqualTo(1);
+    assertThat(rescoreTasks()).isEqualTo(1); // a new name with share 1.0
+    handler.handle(task("{}")); // the rescore marks it scored
     jdbc.update("DELETE FROM task");
-    stats.handle(t); // same ubiquity
-    assertThat(jdbc.queryForObject("SELECT count(*) FROM task WHERE type = 'RESCORE_SALIENCE'", Integer.class))
-        .isZero();
+    stats.handle(t);
+    assertThat(rescoreTasks()).isZero();
   }
 }

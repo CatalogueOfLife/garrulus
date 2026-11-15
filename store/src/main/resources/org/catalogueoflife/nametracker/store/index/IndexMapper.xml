@@ -229,6 +229,15 @@
     SELECT id FROM work WHERE state IN ('INDEXED','NOTIFIED') AND id > #{afterId} ORDER BY id LIMIT #{limit}
   </select>
 
+  <select id="changedWorkIds" resultType="long">
+    SELECT w.id FROM work w
+    WHERE w.state IN ('INDEXED','NOTIFIED') AND w.id > #{afterId}
+      AND EXISTS (SELECT 1 FROM work_name wn JOIN name_ubiquity u ON u.name_string_id = wn.name_string_id
+                  WHERE wn.work_id = w.id
+                    AND abs(least(1.0, u.share / #{full}) - least(1.0, coalesce(u.scored_share, 0) / #{full})) > #{threshold})
+    ORDER BY w.id LIMIT #{limit}
+  </select>
+
   <update id="updateSalience">
     UPDATE work_name wn SET salience = v.salience, main_subject = v.main_subject
     FROM (VALUES

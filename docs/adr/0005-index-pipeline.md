@@ -153,10 +153,14 @@ salience = clamp(s, 0, 1); main_subject = salience >= threshold
   and `has_acts` of INDEXED and NOTIFIED works from the stored mentions and the current ubiquity, reusing
   `WorkIndexer.aggregate`. Placements (method, usage, path, code, taxgroup), work state and `indexed_at` are never
   touched, and there is no CLB call. One transaction per work (work row locked first), one batch per task; a full batch
-  enqueues `rescore:<lastId>` at REPROCESS with the parent's `run_after`. `REBUILD_STATS` enqueues it
-  (`{"afterId":0}`, dedup `rescore:<date>`, REPROCESS) only when an md5 checksum of `name_ubiquity` differs from the one
-  stored under `rescore.ubiquity` in the `job_state` key/value table (migration V6) when it last did so. The task can
-  also be started by hand through the admin task endpoint, e.g. after changing the salience properties.
+  enqueues `rescore:<lastId>` at REPROCESS with the parent's `run_after`. It is **targeted**: only works with a
+  `work_name` of a name whose ubiquity penalty factor `min(1, share / ubiquity-full-share)` differs by more than 0.05
+  from the one of `name_ubiquity.scored_share` (the share last scored with, null as 0; migration V6). A name that left
+  the ubiquity stays as a row with share 0 until scored, so it counts as changed too. The last batch (fewer works than
+  the batch size) sets `scored_share = share` for those names and deletes scored rows with share 0; marking at the end
+  means a dead run is simply picked up again by the next night. `REBUILD_STATS` enqueues it (`{"afterId":0}`, dedup
+  `rescore:<date>`, REPROCESS) only when at least one name changed, so the nightly drift of shares does not rescore
+  everything. An admin task with `{"all":true}` rescores every work (after changing the salience properties, tuning).
 - `work.codes` and `work.taxgroups` aggregate the main-subject names only, `taxgroups` with every ancestor group, so a
   filter on Insects is an array contains.
 
