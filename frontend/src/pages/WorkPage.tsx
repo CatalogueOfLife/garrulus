@@ -94,7 +94,7 @@ export function WorkPage() {
           <Stack gap="sm">
             {w.text!.map((b) => (
               b.type.startsWith('heading') || b.type === 'title'
-                ? <Title key={b.id} order={5}><HighlightedText block={b} /></Title>
+                ? <Title key={b.id} order={5}><HighlightedText block={b} as="span" /></Title>
                 : <HighlightedText key={b.id} block={b} />
             ))}
           </Stack>

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import type { TextBlock } from '../api';
 
 /** A block of text with its name mentions as links. Offsets are Unicode code points, never UTF-16 indices. */
-export function HighlightedText({ block }: { block: TextBlock }) {
+export function HighlightedText({ block, as = 'p' }: { block: TextBlock; as?: 'p' | 'span' }) {
   const cps = Array.from(block.text);
   const mentions = [...block.mentions].sort((a, b) => a.startCp - b.startCp);
   const parts: (string | JSX.Element)[] = [];
@@ -20,5 +20,6 @@ export function HighlightedText({ block }: { block: TextBlock }) {
     pos = m.endCp;
   }
   if (pos < cps.length) parts.push(cps.slice(pos).join(''));
-  return <p style={{ margin: 0 }}>{parts}</p>;
+  const Tag = as;
+  return <Tag style={{ margin: 0 }}>{parts}</Tag>;
 }

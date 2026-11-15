@@ -25,4 +25,12 @@ describe('HighlightedText', () => {
     expect(screen.getByRole('link', { name: 'Carabus nemoralis' })).toHaveAttribute('href', '/name/12');
     expect(a.closest('p')?.textContent).toBe(text);
   });
+
+  it('rendersAsSpanInsideAHeadingWithoutNestingWarnings', () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const block: TextBlock = { id: 'h', type: 'title', level: 1, sectionPath: [], text: 'Carabus', mentions: [] };
+    renderApp(<h5><HighlightedText block={block} as="span" /></h5>);
+    expect(err).not.toHaveBeenCalled();
+    err.mockRestore();
+  });
 });

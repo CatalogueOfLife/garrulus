@@ -23,7 +23,7 @@ describe('TaxonPage', () => {
         seen.push(q.toString());
         expect(q.get('taxon')).toBe('T1');
         if (q.get('hasActs') === 'true') return HttpResponse.json({ ...emptyPage, total: 1, results: [{ ...work(2, 'A new species of Carabus'), hasActs: true }] });
-        return HttpResponse.json({ ...emptyPage, total: 2, results: [work(1, 'Carabid revision'), work(3, 'Second paper')] });
+        return HttpResponse.json({ ...emptyPage, total: 12, results: [work(1, 'Carabid revision'), work(3, 'Second paper')] });
       }),
       http.get('/api/works/1', () => HttpResponse.json({ id: 1, authors: [], retained: false, hasActs: false, codes: [], taxgroups: [], names: [],
         contexts: [{ localId: 'c', verbatim: 'Coleoptera: Carabidae', ranks: {}, scope: 'DOCUMENT', blockId: 'b' }], text: null })),
@@ -36,9 +36,10 @@ describe('TaxonPage', () => {
     expect(screen.getByText('genus')).toBeInTheDocument();
     expect(await screen.findByText('Carabidae')).toBeInTheDocument();
     expect(await screen.findAllByTestId('year-bar')).toHaveLength(2);
-    const recent = screen.getByRole('region', { name: 'Recent papers' });
+    const recent = screen.getByRole('region', { name: 'Recent papers (main subject)' });
     expect(await within(recent).findByText('Carabid revision')).toBeInTheDocument();
-    const names = screen.getByRole('region', { name: 'New names' });
+    expect(screen.getByRole('link', { name: /All 12 papers/ })).toHaveAttribute('href', '/?taxon=T1&mainSubjectOnly=true');
+    const names = screen.getByRole('region', { name: 'New names (main subject)' });
     expect(await within(names).findByText('A new species of Carabus')).toBeInTheDocument();
     const verb = screen.getByRole('region', { name: 'Verbatim classifications used' });
     expect(await within(verb).findByText('Insecta; Coleoptera')).toBeInTheDocument();

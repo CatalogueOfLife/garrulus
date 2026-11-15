@@ -5,7 +5,11 @@ export interface YearCount { year: number; works: number }
 /** One bar per year; the tallest bar fills the height. */
 export function YearBars({ years }: { years: YearCount[] }) {
   if (years.length === 0) return <Text c="dimmed" size="sm">No papers yet.</Text>;
-  const sorted = [...years].sort((a, b) => a.year - b.year);
+  const byYear = new Map(years.map((y) => [y.year, y.works]));
+  const first = Math.min(...byYear.keys());
+  const last = Math.max(...byYear.keys());
+  const sorted: YearCount[] = [];
+  for (let y = first; y <= last; y++) sorted.push({ year: y, works: byYear.get(y) ?? 0 });
   const max = Math.max(1, ...sorted.map((y) => y.works));
   const w = 12;
   const gap = 4;

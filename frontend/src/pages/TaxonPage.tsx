@@ -69,28 +69,28 @@ export function TaxonPage() {
         ) : null}
       </div>
 
-      <Section title="Papers per year">
+      <Section title="Papers per year (all papers)">
         {stats.isError ? <Alert color="red">{(stats.error as Error).message}</Alert>
           : stats.data ? <YearBars years={stats.data.years} /> : <Loader size="sm" />}
       </Section>
 
-      <Section title="Recent papers">
+      <Section title="Recent papers (main subject)">
         {recent.isError ? <Alert color="red">{(recent.error as Error).message}</Alert>
           : recent.data ? (recent.data.results.length ? <WorkList works={recent.data.results} /> : <Text c="dimmed">No papers yet.</Text>)
           : <Loader size="sm" />}
         {recent.data && recent.data.total > recent.data.results.length ? (
-          <Anchor component={Link} to={`/?taxon=${encodeURIComponent(id)}`} size="sm">All {recent.data.total} papers</Anchor>
+          <Anchor component={Link} to={`/?taxon=${encodeURIComponent(id)}&mainSubjectOnly=true`} size="sm">All {recent.data.total} papers</Anchor>
         ) : null}
       </Section>
 
-      <Section title="New names">
+      <Section title="New names (main subject)">
         {acts.isError ? <Alert color="red">{(acts.error as Error).message}</Alert>
           : acts.data ? (acts.data.results.length ? <WorkList works={acts.data.results} /> : <Text c="dimmed">No nomenclatural acts found.</Text>)
           : <Loader size="sm" />}
       </Section>
 
       <Section title="Verbatim classifications used">
-        {verbatim.length ? (
+        {details.some((d) => d.isLoading) || recent.isLoading ? <Loader size="sm" /> : verbatim.length ? (
           <Stack component="ul" gap="xs" p={0} m={0} pl="md">
             {verbatim.map((v) => <li key={v}><Text size="sm">{v}</Text></li>)}
           </Stack>
