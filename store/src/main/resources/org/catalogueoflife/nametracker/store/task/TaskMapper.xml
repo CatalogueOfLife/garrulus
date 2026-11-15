@@ -88,4 +88,14 @@
   <select id="countByState" resultType="map">
     SELECT state, count(*) AS n FROM task GROUP BY state
   </select>
+
+  <select id="countLive" resultType="long">
+    SELECT count(*) FROM task WHERE type = #{type} AND state IN ('QUEUED','RUNNING')
+    <if test="window != null">AND payload->>'window' = #{window}</if>
+  </select>
+
+  <select id="countByTypeAndState" resultType="map">
+    SELECT type, state, count(*) AS n FROM task GROUP BY type, state ORDER BY type, state
+  </select>
+
 </mapper>

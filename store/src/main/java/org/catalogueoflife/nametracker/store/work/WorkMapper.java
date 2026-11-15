@@ -2,6 +2,7 @@ package org.catalogueoflife.nametracker.store.work;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import org.apache.ibatis.annotations.Mapper;
 import org.jspecify.annotations.Nullable;
 import org.apache.ibatis.annotations.Param;
@@ -46,4 +47,7 @@ public interface WorkMapper {
 
   /** Merge rule update, see {@link WorkUpsert}. Never touches origin, first_seen_at, state or text_level. */
   int merge(@Param("id") long id, @Param("o") Work o);
+
+  /** Rows state, text_level (may be null), n. */
+  List<Map<String, Object>> countByStateAndTextLevel();
 }

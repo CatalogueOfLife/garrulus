@@ -244,4 +244,29 @@ class TaskQueueIT extends AbstractPostgresIT {
         "SELECT extract(epoch FROM run_after - now()) FROM task WHERE id=?", Double.class, id);
     assertThat(secs).isBetween(65000.0, 65600.0); // 2^16 = 65536
   }
+
+  @Test
+  void countLiveMatchesTypeAndWindowOfLiveTasksOnly() {
+    queue.enqueue("HARVEST_OPENALEX", "{\"window\":\"LIVE\",\"batch\":2}", TaskPriority.LIVE, "k1");
+    long done = queue.enqueue("HARVEST_OPENALEX", "{\"window\":\"SWEEP\"}", TaskPriority.LIVE, "k2");
+    queue.enqueue("HARVEST_CROSSREF", "{\"date\":\"2026-11-14\"}", TaskPriority.LIVE, "k3");
+    jdbc.update("UPDATE task SET state = 'DONE' WHERE id = ?", done);
+    assertThat(mapper.countLive("HARVEST_OPENALEX", "LIVE")).isEqualTo(1);
+    assertThat(mapper.countLive("HARVEST_OPENALEX", "SWEEP")).isZero();
+    assertThat(mapper.countLive("HARVEST_OPENALEX", null)).isEqualTo(1);
+    assertThat(mapper.countLive("HARVEST_CROSSREF", null)).isEqualTo(1);
+    assertThat(mapper.countLive("SEED_SOURCES", null)).isZero();
+  }
+
+  @Test
+  void countByTypeAndState() {
+    queue.enqueue("PING", "{}", TaskPriority.LIVE, null);
+    queue.enqueue("PING", "{}", TaskPriority.LIVE, null);
+    queue.enqueue("OTHER", "{}", TaskPriority.LIVE, null);
+    queue.claim(Set.of("OTHER"), "w", 1);
+    assertThat(mapper.countByTypeAndState()).anySatisfy(r -> {
+      assertThat(r).containsEntry("type", "PING").containsEntry("state", "QUEUED");
+      assertThat(((Number) r.get("n")).longValue()).isEqualTo(2);
+    }).anySatisfy(r -> assertThat(r).containsEntry("type", "OTHER").containsEntry("state", "RUNNING"));
+  }
 }

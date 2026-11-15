@@ -283,7 +283,7 @@ public interface NameFinder {
 **Known limits to state in the UI:**
 - gnfinder's Bayes stage covers only English and German; other languages rely on the dictionary, italics and the judge.
 - Scanned PDFs: GROBID does no OCR.
-- Whether GROBID TEI keeps italics is unverified (see open items).
+- GROBID TEI keeps no italics (verified in M1, ADR-0002).
 
 ### 5. Matching to COL XR
 
@@ -576,8 +576,8 @@ M1 and M2 can run in parallel after M0.
 - **Dictionary rebuilds:** a rebuilt dictionary for a new XR is recorded on each finder run (dictionary release key), but it does **not** count as a finder upgrade. Only a change to the finder's code or config triggers reprocessing, which avoids reprocessing millions of works every month.
 - **To verify while building:**
   - whether gnfinder's HTTP API returns offsets per block as expected, and its hyphenation handling
-  - whether GROBID TEI keeps italics
+  - whether GROBID TEI keeps italics: verified in M1, it does not (ADR-0002)
   - whether CLB's `classification[]` for synonyms holds the accepted lineage
-  - that Crossref ORs repeated `issn:` filters
+  - that Crossref ORs repeated `issn:` filters: verified 2026-11-15, they are ORed (ZooKeys 8,542 + Zootaxa 50,404 = 58,946; ADR-0004)
   - how many works the backfill really is (group-by count)
   - OpenAlex snapshot size and layout

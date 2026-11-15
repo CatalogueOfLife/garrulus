@@ -34,17 +34,50 @@ cd frontend && npm run dev | npm test | npm run build   # Vite on 5173, proxies 
 **Configuration** (environment variables; defaults in each `application.yml`):
 - Both apps: `NAMETRACKER_DB_URL` (default `jdbc:postgresql://localhost:5434/nametracker`), `NAMETRACKER_DB_USER` and
   `NAMETRACKER_DB_PASSWORD` (both default `nametracker`).
-- `web`: `ADMIN_TOKEN` enables `POST /api/admin/tasks` (send it in the `X-Admin-Token` header). If blank, the endpoint
-  returns 404.
+- `web`: `ADMIN_TOKEN` enables the admin endpoints (`/api/admin/tasks`, `/sources`, `/status`; send it in the
+  `X-Admin-Token` header). If blank, none of them is mapped (404).
 - `indexer`: `NAMETRACKER_INDEXER_PORT` (8081), `NAMETRACKER_INDEXER_WORKERS`, `NAMETRACKER_INDEXER_POLL_INTERVAL`,
   `NAMETRACKER_INDEXER_MAX_ATTEMPTS`, `NAMETRACKER_INDEXER_BACKOFF`, `NAMETRACKER_INDEXER_STALE_AFTER` (1h),
   `NAMETRACKER_INDEXER_REQUEUE_INTERVAL` (10m), `NAMETRACKER_INDEXER_HEARTBEAT_INTERVAL` (2m). Task delivery is
   at-least-once, so handlers must be idempotent.
+- `indexer` harvest (see ADR-0004):
+  - `NAMETRACKER_HARVEST_ENABLED` is the master switch of all scheduled harvests and **defaults to false**. Tasks
+    enqueued by hand run regardless.
+  - Crons (UTC, six fields): `NAMETRACKER_HARVEST_OPENALEX_CRON` (`0 0 2 * * *`), `NAMETRACKER_HARVEST_SWEEP_CRON`
+    (`0 0 4 * * SUN`), `NAMETRACKER_HARVEST_CROSSREF_CRON` (`0 0 3 * * *`). The OpenAlex re-check (`0 30 3 * * *`)
+    and the monthly source seeding (`0 0 1 1 * *`) are fixed.
+  - `OPENALEX_API_KEY` (recommended, free), `CROSSREF_MAILTO` (optional), `NAMETRACKER_OPENALEX_MAX_DAILY_USD` (1.00),
+    `NAMETRACKER_OPENALEX_CONTENT_ENABLED` (true), `NAMETRACKER_OPENALEX_CONTENT_RESERVE_USD` (0.30),
+    `NAMETRACKER_BLOBS_DIR` (`./data/blobs`), `NAMETRACKER_CONTENT_OPEN_LICENCES`, `NAMETRACKER_SEED_*`,
+    `NAMETRACKER_OPENALEX_BASE_URL`, `NAMETRACKER_CROSSREF_BASE_URL`.
 - `finder-service`: `FINDER_DICTIONARY` (required), `GNFINDER_URL`, `FINDER_CONFIG` (a JSON file of pipeline overrides),
   `FINDER_SERVICE_PORT` (8095) and `FINDER_SERVICE_ADDRESS` (default `127.0.0.1`, loopback only; `0.0.0.0` to serve
   other hosts). A text or block over 100,000 code points (`maxChunkCodePoints`) is a 413; invalid documents are a 400.
 - Both apps also read a local `.env` (git-ignored, see `.env.example`) from the working or the parent directory.
 - Port clash (for example a CLB `WsMatchingServer` on 8080 or 8081): `SERVER_PORT=9080 mvn -pl web spring-boot:run`.
+
+## Harvesting by hand and admin endpoints
+
+All of these need `ADMIN_TOKEN` on `web` and the header `X-Admin-Token: $ADMIN_TOKEN`. Use the local ports of a
+manual run (`SERVER_PORT=18080`, `NAMETRACKER_INDEXER_PORT=18081`), never 8080/8081.
+
+```
+# seed the journal registry, then harvest by hand (the indexer must be running; the master switch can stay off)
+curl -X POST localhost:18080/api/admin/tasks -H "X-Admin-Token: $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"type":"SEED_SOURCES","payload":{},"priority":"LIVE","dedupKey":"seed-sources:manual"}'
+curl ... -d '{"type":"HARVEST_OPENALEX","payload":{"window":"LIVE"},"priority":"LIVE","dedupKey":"harvest:openalex:LIVE:manual"}'
+curl ... -d '{"type":"HARVEST_CROSSREF","payload":{"date":"2026-11-14"},"priority":"LIVE","dedupKey":"harvest:crossref:manual"}'
+```
+
+- Task types: `SEED_SOURCES`, `ADD_SOURCE`, `ONBOARD_SOURCE`, `HARVEST_OPENALEX` (`window` LIVE or SWEEP),
+  `HARVEST_CROSSREF` (`date`), `OPENALEX_RECHECK`, `RESOLVE_CONTENT`. Only onboarded CORE/BROAD sources are harvested.
+- `GET /api/admin/sources?tier=&active=&q=&limit=&offset=` lists sources (limit at most 500, default 100).
+- `PATCH /api/admin/sources/{id}` with `{"tier":"CORE","active":true}` (either field) sets tier and active as ADMIN. A
+  promotion to CORE/BROAD of an active, not yet onboarded source enqueues its onboarding. 404 for an unknown id, 400
+  for a bad tier.
+- `POST /api/admin/sources` with `{"openalexId":"S123","tier":"CORE"}` enqueues `ADD_SOURCE` (202).
+- `GET /api/admin/status`: task counts by type and state, work counts by state and text level, today's (UTC) `api_usage`
+  rows, the last 20 harvest runs and source counts by tier. Only COUNT/GROUP BY queries, so it is cheap to poll.
 
 ## Evaluation (`eval`)
 
@@ -104,7 +137,7 @@ on any command lists its options.
 ## Read first
 
 - `docs/design.md`: the approved design. Goals, constraints, components, data model, workflows, roadmap.
-- `docs/adr/`: later decisions, one file each.
+- `docs/adr/`: later decisions, one file each (0004: onboarding gate, harvest windows, budget, keyless limits).
 
 ## Ground rules (from the design)
 

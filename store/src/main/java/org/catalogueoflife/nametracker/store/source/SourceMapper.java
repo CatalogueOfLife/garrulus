@@ -2,8 +2,10 @@ package org.catalogueoflife.nametracker.store.source;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.jspecify.annotations.Nullable;
 
 @Mapper
 public interface SourceMapper {
@@ -36,4 +38,11 @@ public interface SourceMapper {
    * tier_set_by or onboarded_at. Returns the id of the row.
    */
   long upsertSeed(@Param("o") Source o);
+
+  /** Filtered by tier, active and a case-insensitive title substring (each optional), ordered by id. */
+  List<Source> list(@Param("tier") @Nullable String tier, @Param("active") @Nullable Boolean active,
+      @Param("q") @Nullable String q, @Param("limit") int limit, @Param("offset") int offset);
+
+  /** Rows tier, n. */
+  List<Map<String, Object>> countByTier();
 }

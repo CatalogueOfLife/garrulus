@@ -42,4 +42,13 @@ class ApiUsageMapperIT extends AbstractPostgresIT {
     assertThat(r.finished()).isNotNull();
     assertThat(r.windowFrom()).isEqualTo(LocalDate.of(2026, 11, 1));
   }
+
+  @Test
+  void listDayReturnsAllServices() {
+    LocalDate d = LocalDate.of(2026, 12, 1);
+    usage.add("openalex", d, 2, new BigDecimal("0.0002"), null);
+    usage.add("crossref", d, 7, BigDecimal.ZERO, null);
+    usage.add("openalex", d.plusDays(1), 1, BigDecimal.ZERO, null);
+    assertThat(usage.listDay(d)).extracting(r -> r.get("service")).containsExactly("crossref", "openalex");
+  }
 }

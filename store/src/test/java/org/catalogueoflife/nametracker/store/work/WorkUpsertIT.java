@@ -128,4 +128,14 @@ class WorkUpsertIT extends AbstractPostgresIT {
     long id = upsert.upsert(work(null, "10.7/crossref-only", "T", "LIVE")).id();
     assertThat(works.listCrossrefOnly(1000)).extracting(Work::id).contains(id);
   }
+
+  @Test
+  void countByStateAndTextLevel() {
+    long id = new WorkUpsert(works).upsert(work(null, "10.1/count", "T", "LIVE")).id();
+    works.setState(id, "MATCHED", "FULLTEXT");
+    assertThat(works.countByStateAndTextLevel()).anySatisfy(r -> {
+      assertThat(r).containsEntry("state", "MATCHED").containsEntry("text_level", "FULLTEXT");
+      assertThat(((Number) r.get("n")).longValue()).isGreaterThanOrEqualTo(1);
+    });
+  }
 }

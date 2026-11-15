@@ -150,4 +150,9 @@
       modified = now()
     WHERE id = #{id}
   </update>
+
+  <select id="countByStateAndTextLevel" resultType="map">
+    SELECT state, text_level, count(*) AS n FROM work GROUP BY state, text_level ORDER BY state, text_level
+  </select>
+
 </mapper>

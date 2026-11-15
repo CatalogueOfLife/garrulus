@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.jspecify.annotations.Nullable;
 
 @Mapper
 public interface TaskMapper {
@@ -36,4 +37,13 @@ public interface TaskMapper {
                      @Param("maxAttempts") int maxAttempts);
 
   List<Map<String, Object>> countByState();
+
+  /**
+   * Number of QUEUED or RUNNING tasks of the type; a non-null window only counts those whose payload has that
+   * {@code window}.
+   */
+  long countLive(@Param("type") String type, @Param("window") @Nullable String window);
+
+  /** Rows type, state, n. */
+  List<Map<String, Object>> countByTypeAndState();
 }

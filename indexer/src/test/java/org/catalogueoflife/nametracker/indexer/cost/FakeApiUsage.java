@@ -28,4 +28,15 @@ public class FakeApiUsage implements ApiUsageMapper {
   public Map<String, Object> get(String service, LocalDate day) {
     return rows.get(service + "|" + day);
   }
+
+  @Override
+  public java.util.List<Map<String, Object>> listDay(LocalDate day) {
+    return rows.entrySet().stream().filter(e -> e.getKey().endsWith("|" + day))
+        .map(e -> {
+          Map<String, Object> m = new HashMap<>(e.getValue());
+          m.put("service", e.getKey().substring(0, e.getKey().indexOf('|')));
+          m.put("day", day);
+          return m;
+        }).toList();
+  }
 }

@@ -44,4 +44,20 @@ class SourceMapperIT extends AbstractPostgresIT {
     sources.setTier(a, "CANDIDATE", true, "ADMIN");
     assertThat(sources.listHarvestable()).extracting(Source::id).doesNotContain(a);
   }
+
+  @Test
+  void listFiltersAndPages() {
+    long a = sources.upsertSeed(source("S-l-a", "Zootaxa listing", "CORE"));
+    long b = sources.upsertSeed(source("S-l-b", "ZooKeys listing", "BROAD"));
+    sources.setTier(b, "BROAD", false, "ADMIN");
+    assertThat(sources.list("CORE", null, "zootaxa LISTING", 10, 0)).extracting(Source::id).containsExactly(a);
+    assertThat(sources.list(null, false, "listing", 10, 0)).extracting(Source::id).containsExactly(b);
+    assertThat(sources.list(null, null, "listing", 1, 0)).hasSize(1);
+    assertThat(sources.list(null, null, "listing", 1, 1)).hasSize(1);
+    assertThat(sources.list(null, null, "%", 10, 0)).isEmpty();
+    assertThat(sources.countByTier()).anySatisfy(r -> {
+      assertThat(r).containsEntry("tier", "CORE");
+      assertThat(((Number) r.get("n")).longValue()).isGreaterThanOrEqualTo(1);
+    });
+  }
 }

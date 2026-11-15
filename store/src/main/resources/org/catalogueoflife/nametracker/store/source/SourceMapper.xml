@@ -111,4 +111,19 @@
       works_per_year = EXCLUDED.works_per_year, modified = now()
     RETURNING id
   </select>
+
+  <select id="list" resultMap="result">
+    SELECT * FROM source
+    <where>
+      <if test="tier != null">AND tier = #{tier}</if>
+      <if test="active != null">AND active = #{active}</if>
+      <if test="q != null and q != ''">AND position(lower(#{q}) in lower(title)) > 0</if>
+    </where>
+    ORDER BY id LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countByTier" resultType="map">
+    SELECT tier, count(*) AS n FROM source GROUP BY tier ORDER BY tier
+  </select>
+
 </mapper>

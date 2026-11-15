@@ -2,6 +2,7 @@ package org.catalogueoflife.nametracker.store.usage;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -16,4 +17,7 @@ public interface ApiUsageMapper {
 
   /** Columns service, day, calls, usd, remaining_usd; null when there is no row. */
   Map<String, Object> get(@Param("service") String service, @Param("day") LocalDate day);
+
+  /** All rows of a day, ordered by service; columns as in {@link #get}. */
+  List<Map<String, Object>> listDay(@Param("day") LocalDate day);
 }

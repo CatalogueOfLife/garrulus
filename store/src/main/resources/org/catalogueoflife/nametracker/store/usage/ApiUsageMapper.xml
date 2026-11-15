@@ -14,4 +14,9 @@
   <select id="get" resultType="map">
     SELECT service, day, calls, usd, remaining_usd FROM api_usage WHERE service = #{service} AND day = #{day}
   </select>
+
+  <select id="listDay" resultType="map">
+    SELECT service, day, calls, usd, remaining_usd FROM api_usage WHERE day = #{day} ORDER BY service
+  </select>
+
 </mapper>
