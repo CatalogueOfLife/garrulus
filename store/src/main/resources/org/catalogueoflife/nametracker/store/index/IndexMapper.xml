@@ -54,6 +54,13 @@
     </constructor>
   </resultMap>
 
+  <resultMap id="ubiquityRow" type="org.catalogueoflife.nametracker.store.index.NameUbiquity">
+    <constructor>
+      <arg column="name_string_id" javaType="_long"/>
+      <arg column="share" javaType="_float"/>
+    </constructor>
+  </resultMap>
+
   <resultMap id="workName" type="org.catalogueoflife.nametracker.store.index.WorkName">
     <constructor>
       <arg column="work_id" javaType="_long"/>
@@ -155,6 +162,13 @@
       (#{w.workId}, #{w.nameStringId}, #{w.mentionCount}, #{w.bodyCount}, #{w.inTitle}, #{w.inAbstract}, #{w.inHeading}, #{w.onlyReference}, #{w.actTypes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, #{w.bestSnippet}, #{w.placementMethod}, #{w.usageId}, #{w.taxonPath, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, #{w.code}, #{w.taxgroup}, #{w.salience}, #{w.mainSubject})
     </foreach>
   </insert>
+
+  <select id="textLevel" resultType="string">SELECT text_level FROM work WHERE id = #{workId}</select>
+
+  <select id="ubiquity" resultMap="ubiquityRow">
+    SELECT name_string_id, share FROM name_ubiquity WHERE name_string_id IN
+    <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+  </select>
 
   <select id="workNames" resultMap="workName">
     SELECT * FROM work_name WHERE work_id = #{workId} ORDER BY name_string_id

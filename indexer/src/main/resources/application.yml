@@ -87,3 +87,15 @@ nametracker:
   clb:
     # ChecklistBank API: the pinned XR (dataset 3LXR) and name matching, at most 10 requests a second
     base-url: ${NAMETRACKER_CLB_BASE_URL:https://api.checklistbank.org}
+  salience:
+    # work_name salience (see Salience): weights of the title, abstract, act, heading, share-of-body-mentions and
+    # repeat terms, the penalty for ubiquitous names, and the score from which a name is a main subject
+    title: 0.40
+    abstract: 0.20
+    act: 0.35
+    heading: 0.15
+    share: 0.25
+    repeat: 0.15
+    ubiquity: 0.50
+    ubiquity-full-share: 0.02
+    threshold: 0.35

@@ -44,6 +44,12 @@ public interface IndexMapper {
 
   void insertWorkNames(@Param("list") List<WorkName> list);
 
+  /** The text level of the work (FULLTEXT, ABSTRACT_ONLY, NO_TEXT), null if unset. */
+  @Nullable String textLevel(@Param("workId") long workId);
+
+  /** The ubiquity of the given name strings; names without a row are left out. */
+  List<NameUbiquity> ubiquity(@Param("ids") java.util.Collection<Long> ids);
+
   List<WorkName> workNames(@Param("workId") long workId);
 
   @Nullable XrRelease currentRelease();
