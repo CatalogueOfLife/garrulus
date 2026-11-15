@@ -1,7 +1,15 @@
 package org.catalogueoflife.nametracker.indexer.content;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.catalogueoflife.nametracker.indexer.content.route.RouteTestSupport.fixture;
+import static org.catalogueoflife.nametracker.indexer.content.route.RouteTestSupport.http;
 
+import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
+import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -16,6 +24,10 @@ import java.util.Optional;
 import java.util.stream.Stream;
 import org.catalogueoflife.nametracker.finder.api.Document;
 import org.catalogueoflife.nametracker.indexer.AbstractPostgresIT;
+import org.catalogueoflife.nametracker.indexer.content.route.EuropePmcRoute;
+import org.catalogueoflife.nametracker.indexer.content.route.PensoftRoute;
+import org.catalogueoflife.nametracker.indexer.content.route.PmcBucketRoute;
+import org.catalogueoflife.nametracker.indexer.content.route.PmcidResolver;
 import org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException;
 import org.catalogueoflife.nametracker.store.content.ContentMapper;
 import org.catalogueoflife.nametracker.store.source.Source;
@@ -33,6 +45,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.support.TransactionTemplate;
 
+@WireMockTest
 class ResolveContentHandlerIT extends AbstractPostgresIT {
 
   static final Path BLOBS = tempDir();
@@ -47,9 +60,22 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
     }
   }
 
+  /** Stands in for Pensoft, Europe PMC and the PMC bucket in the Spring context: it answers 404 to everything. */
+  static final com.github.tomakehurst.wiremock.WireMockServer NOTHING =
+      new com.github.tomakehurst.wiremock.WireMockServer(
+          com.github.tomakehurst.wiremock.core.WireMockConfiguration.options().dynamicPort());
+
+  static {
+    NOTHING.start();
+  }
+
   @DynamicPropertySource
   static void props(DynamicPropertyRegistry r) {
     r.add("nametracker.blobs.dir", BLOBS::toString);
+    r.add("nametracker.pensoft.base-url", () -> NOTHING.baseUrl() + "/{slug}");
+    r.add("nametracker.europepmc.base-url", NOTHING::baseUrl);
+    r.add("nametracker.pmc.base-url", NOTHING::baseUrl);
+    r.add("nametracker.http.min-interval.localhost", () -> "0s");
   }
 
   @Autowired ResolveContentHandler handler;
@@ -81,6 +107,85 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
     return jdbc.queryForObject("INSERT INTO work (doi, source_id, title, abstract, license, origin, first_seen_at) "
         + "VALUES ('10.1/' || nextval('work_id_seq'), ?, ?, ?, ?, 'LIVE', ?) RETURNING id", Long.class, sourceId, title,
         abs, licence, Timestamp.from(firstSeen));
+  }
+
+  private long freeWork(String doi, String pmcid, String abs) {
+    return jdbc.queryForObject("INSERT INTO work (doi, pmcid, title, abstract, license, origin) "
+        + "VALUES (?, ?, 'T', ?, 'cc-by', 'LIVE') RETURNING id", Long.class, doi, pmcid, abs);
+  }
+
+  /** The three free routes against WireMock, in their real order. */
+  private ResolveContentHandler freeRoutes(WireMockRuntimeInfo w) {
+    String base = w.getHttpBaseUrl();
+    PmcidResolver resolver = new PmcidResolver(http(), works, base);
+    return new ResolveContentHandler(List.of(new PensoftRoute(http(), base + "/{slug}"),
+        new EuropePmcRoute(http(), resolver, base), new PmcBucketRoute(http(), resolver, base)),
+        works, sources, contents, blobs, policy, queue, tx, Clock.systemUTC());
+  }
+
+  private static void pmcBucket() {
+    stubFor(get(urlPathEqualTo("/")).willReturn(aResponse().withBody(fixture("pmc/listing-single-version.xml"))));
+    stubFor(get(urlPathEqualTo("/PMC9836452.1/PMC9836452.1.xml"))
+        .willReturn(aResponse().withBody(fixture("pmc/PMC9836452.1.xml"))));
+    stubFor(get(urlPathEqualTo("/PMC9836452.1/PMC9836452.1.json"))
+        .willReturn(aResponse().withBody(fixture("pmc/PMC9836452.1.json"))));
+  }
+
+  @Test
+  void brokenRouteFallsThrough(WireMockRuntimeInfo w) throws Exception {
+    // Pensoft answers 200 with an HTML page, Europe PMC has no full text (404), the PMC bucket has the article
+    stubFor(get(urlPathEqualTo("/zookeys/article/96414/download/xml/"))
+        .willReturn(aResponse().withBody(fixture("pensoft/error-page.html"))));
+    stubFor(get(urlPathEqualTo("/rest/PMC9836452/fullTextXML")).willReturn(aResponse().withStatus(404)));
+    pmcBucket();
+    long id = freeWork("10.3897/zookeys.1137.96414", "PMC9836452", "An abstract.");
+
+    freeRoutes(w).handle(task(id));
+
+    assertThat(works.get(id).textLevel()).isEqualTo("FULLTEXT");
+    var rows = contents.listByWork(id);
+    assertThat(rows).extracting("route").containsExactlyInAnyOrder("PMC", "ABSTRACT");
+    var pmc = rows.stream().filter(c -> c.route().equals("PMC")).findFirst().get();
+    assertThat(pmc.kind()).isEqualTo("JATS");
+    assertThat(pmc.license()).isEqualTo("cc-by");
+    assertThat(pmc.retained()).isTrue();
+  }
+
+  @Test
+  void pmcRouteUsesThePmcidEuropePmcFound(WireMockRuntimeInfo w) throws Exception {
+    stubFor(get(urlPathEqualTo("/zookeys/article/96414/download/xml/")).willReturn(aResponse().withStatus(404)));
+    stubFor(get(urlPathEqualTo("/rest/search"))
+        .willReturn(aResponse().withBody(fixture("europepmc/search-open-access.json"))));
+    stubFor(get(urlPathEqualTo("/rest/PMC9836452/fullTextXML")).willReturn(aResponse().withStatus(404)));
+    pmcBucket();
+    long id = freeWork("10.3897/zookeys.1137.96414", null, null);
+
+    freeRoutes(w).handle(task(id));
+
+    assertThat(works.get(id).pmcid()).isEqualTo("PMC9836452");
+    assertThat(contents.listByWork(id)).extracting("route").containsExactlyInAnyOrder("PMC", "ABSTRACT");
+    com.github.tomakehurst.wiremock.client.WireMock.verify(1,
+        com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor(urlPathEqualTo("/rest/search")));
+  }
+
+  @Test
+  void fullTextWinsOverAbstract(WireMockRuntimeInfo w) throws Exception {
+    stubFor(get(urlPathEqualTo("/zookeys/article/218447/download/xml/"))
+        .willReturn(aResponse().withBody(fixture("pensoft/zookeys-1297-218447.xml"))));
+    long id = freeWork("10.3897/zookeys.1297.218447", null, "Only the abstract.");
+
+    freeRoutes(w).handle(task(id));
+
+    Work work = works.get(id);
+    assertThat(work.textLevel()).isEqualTo("FULLTEXT");
+    assertThat(work.state()).isEqualTo("CONTENT_RESOLVED");
+    var rows = contents.listByWork(id);
+    assertThat(rows).extracting("route").containsExactlyInAnyOrder("PENSOFT", "ABSTRACT");
+    var pensoft = rows.stream().filter(c -> c.route().equals("PENSOFT")).findFirst().get();
+    assertThat(pensoft.kind()).isEqualTo("TAXPUB");
+    assertThat(pensoft.retained()).isTrue();
+    assertThat(new String(blobs.get(pensoft.docSha256()).get(), StandardCharsets.UTF_8)).contains("Ophelia");
+    assertThat(count("SELECT count(*) FROM task")).isZero(); // fulltext: no re-check
   }
 
   private Task task(long workId) {

@@ -35,6 +35,9 @@ public interface WorkMapper {
   /** Stamps the time the work was last looked up in OpenAlex (found or not). */
   int setOpenalexChecked(@Param("id") long id, @Param("at") Instant at);
 
+  /** Stores the PMCID only when the work has none yet. Returns 1 when written, 0 when one was already there. */
+  int setPmcid(@Param("id") long id, @Param("pmcid") String pmcid);
+
   /**
    * Insert for the upsert: ON CONFLICT DO NOTHING on either unique key. Returns the new id, or null when a row with
    * the same openalex_id or doi already exists.

@@ -24,6 +24,14 @@ class WorkUpsertIT extends AbstractPostgresIT {
   }
 
   @Test
+  void setPmcidWritesOnlyWhenEmpty() {
+    long id = new WorkUpsert(works).upsert(work(null, "10.1/pmcid", "T", "LIVE")).id();
+    assertThat(works.setPmcid(id, "PMC1")).isEqualTo(1);
+    assertThat(works.setPmcid(id, "PMC2")).isZero();
+    assertThat(works.get(id).pmcid()).isEqualTo("PMC1");
+  }
+
+  @Test
   void upsertMergesByDoiAndKeepsOriginAndFirstSeen() {
     WorkUpsert upsert = new WorkUpsert(works);
     WorkUpsert.UpsertResult first = upsert.upsert(work(null, "10.3897/ZooKeys.1.2", null, "LIVE"));
