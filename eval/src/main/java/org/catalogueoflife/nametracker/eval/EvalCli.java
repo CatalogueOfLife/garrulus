@@ -10,6 +10,7 @@ import org.catalogueoflife.nametracker.eval.curated.CuratedSelector;
 import org.catalogueoflife.nametracker.eval.curated.LabelStudioExporter;
 import org.catalogueoflife.nametracker.eval.curated.LabelStudioImporter;
 import org.catalogueoflife.nametracker.eval.curated.PreTagger;
+import org.catalogueoflife.nametracker.eval.curated.ProvisionalGold;
 import org.catalogueoflife.nametracker.finder.dict.ColDictionary;
 import org.catalogueoflife.nametracker.finder.dict.ColDictionaryBuilder;
 import org.catalogueoflife.nametracker.finder.dict.ColDictionaryIO;
@@ -59,6 +60,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 /** The evaluation command line. More subcommands arrive with later tasks. */
 @Command(name = "eval", mixinStandardHelpOptions = true, subcommands = {EvalCli.FetchPensoft.class, EvalCli.RebuildPensoft.class, EvalCli.Run.class, EvalCli.CuratedSelect.class,
@@ -629,7 +632,7 @@ public class EvalCli implements Runnable {
         if (dict == null && System.getenv("FINDER_DICTIONARY") != null && !System.getenv("FINDER_DICTIONARY").isBlank()) {
           dict = Path.of(System.getenv("FINDER_DICTIONARY"));
         }
-        opts = LabelStudioImporter.Options.inferring(dict == null ? null : org.catalogueoflife.nametracker.finder.dict.ColDictionaryIO.read(dict));
+        opts = LabelStudioImporter.Options.inferring(dict == null ? null : ColDictionaryIO.read(dict));
         if (dict == null) System.out.println("No dictionary: context ranks fall back to suffix rules only");
       }
       List<GoldDocument> docs = LabelStudioImporter.read(export, opts);
@@ -686,9 +689,9 @@ public class EvalCli implements Runnable {
       if (dict == null && System.getenv("FINDER_DICTIONARY") != null && !System.getenv("FINDER_DICTIONARY").isBlank()) {
         dict = Path.of(System.getenv("FINDER_DICTIONARY"));
       }
-      var res = org.catalogueoflife.nametracker.eval.curated.ProvisionalGold.run(export, outExport,
-          dict == null ? null : org.catalogueoflife.nametracker.finder.dict.ColDictionaryIO.read(dict), manifest, out);
-      var byLabel = res.removed().stream().collect(java.util.stream.Collectors.groupingBy(r -> r.label(), java.util.TreeMap::new, java.util.stream.Collectors.counting()));
+      var res = ProvisionalGold.run(export, outExport,
+          dict == null ? null : ColDictionaryIO.read(dict), manifest, out);
+      var byLabel = res.removed().stream().collect(Collectors.groupingBy(r -> r.label(), TreeMap::new, Collectors.counting()));
       System.out.println("Removed " + res.removed().size() + " regions " + byLabel);
       for (var r : res.removed()) {
         System.out.println("  " + r.docId() + " " + r.label() + " " + r.regionId() + " '" + r.regionText().replace('\n', ' ') + "': " + r.reason());

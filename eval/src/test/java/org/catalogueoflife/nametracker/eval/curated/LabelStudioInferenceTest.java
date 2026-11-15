@@ -9,6 +9,9 @@ import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.finder.api.RankedName;
 import org.catalogueoflife.nametracker.finder.doc.FlatText;
 import org.gbif.nameparser.api.Rank;
+import it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import org.catalogueoflife.nametracker.finder.dict.ColDictionary;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import tools.jackson.databind.node.ObjectNode;
@@ -183,18 +186,32 @@ class LabelStudioInferenceTest {
         new RankedName(Rank.FAMILY, "Nitrospinaceae"), new RankedName(Rank.FAMILY, "Opheliidae"), new RankedName(Rank.UNRANKED, "Zzzzzzz"));
   }
 
+  private static ColDictionary dictionary(Map<String, Rank> uninomials, String... genera) {
+    LongOpenHashSet g = new LongOpenHashSet();
+    for (String x : genera) g.add(ColDictionary.hash(x));
+    Long2ByteOpenHashMap u = new Long2ByteOpenHashMap();
+    Rank[] table = new Rank[] {Rank.FAMILY};
+    uninomials.forEach((k, v) -> u.put(ColDictionary.hash(k), (byte) 0));
+    return new ColDictionary("t", g, new LongOpenHashSet(), u, table, new LongOpenHashSet(), new LongOpenHashSet());
+  }
+
   @Test
   void genusFromDictionaryBeatsSuffix() throws Exception {
-    it.unimi.dsi.fastutil.longs.LongOpenHashSet genera = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
-    genera.add(org.catalogueoflife.nametracker.finder.dict.ColDictionary.hash("Nitrospina"));
-    var dict = new org.catalogueoflife.nametracker.finder.dict.ColDictionary("t", genera, new it.unimi.dsi.fastutil.longs.LongOpenHashSet(),
-        new it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap(), new Rank[0], new it.unimi.dsi.fastutil.longs.LongOpenHashSet(),
-        new it.unimi.dsi.fastutil.longs.LongOpenHashSet());
+    var dict = dictionary(Map.of(), "Nitrospina");
     Path p = export(region("c1", 8, "Nitrospinaceae: Nitrospina", "Context"));
     assertThat(LabelStudioImporter.read(p, LabelStudioImporter.Options.inferring(dict)).get(0).contexts().get(0).ranks()).containsExactly(
         new RankedName(Rank.FAMILY, "Nitrospinaceae"), new RankedName(Rank.GENUS, "Nitrospina"));
     // without the dictionary the suffix rule wins
     assertThat(LabelStudioImporter.read(p, inferring()).get(0).contexts().get(0).ranks().get(1).rank()).isNotEqualTo(Rank.GENUS);
+  }
+
+  @Test
+  void higherRankBeatsGenusAndTheConflictIsNoted() throws Exception {
+    var dict = dictionary(Map.of("Nitrospina", Rank.FAMILY), "Nitrospina");
+    Path p = export(region("c1", 8, "Nitrospinaceae: Nitrospina", "Context"));
+    LabelStudioImporter.Options o = LabelStudioImporter.Options.inferring(dict);
+    assertThat(LabelStudioImporter.read(p, o).get(0).contexts().get(0).ranks().get(1)).isEqualTo(new RankedName(Rank.FAMILY, "Nitrospina"));
+    assertThat(o.inferred().get(0).gap()).contains("Nitrospina is also a genus");
   }
 
   @Test

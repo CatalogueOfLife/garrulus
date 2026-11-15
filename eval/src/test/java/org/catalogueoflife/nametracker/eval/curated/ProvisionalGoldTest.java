@@ -43,18 +43,17 @@ class ProvisionalGoldTest {
     d.set("document", FinderJson.mapper().valueToTree(DOC));
     String items = String.join(",",
         region("n1", "Aus bus", "Name"),
-        region("a1", "sp. nov.", "Act"),     // gen. nov. lies between? no: a2 follows. a1 links to n1 fine
-        region("a2", "gen. nov.", "Act"),    // a1 lies between, so no link
+        region("a1", "sp. nov.", "Act"),     // resolved: type and link are inferred
+        region("a2", "gen. nov.", "Act"),    // unresolvable: a1 lies between it and n1
         "{\"id\":\"a2\",\"from_name\":\"act_type\",\"to_name\":\"text\",\"type\":\"choices\",\"value\":{\"choices\":[\"gen. nov.\"]}}",
         "{\"from_id\":\"a2\",\"to_id\":\"n1\",\"type\":\"relation\",\"labels\":[\"is_other\"]}",
         region("n2", "Cus dus", "Name"),
         region("au1", "Smith, 1900", "Authorship"),
         region("n3", "Eus fus", "Name"),
-        region("au2", "Brown", "Authorship"));   // "(Jones) " is between: not a Name end
+        region("au2", "Brown", "Authorship"));   // unresolvable: "(Jones) " lies between it and n3
     Path export = dir.resolve("export.json");
     Files.writeString(export, "[{\"data\":" + FinderJson.mapper().writeValueAsString(d)
         + ",\"annotations\":[{\"id\":1,\"was_cancelled\":false,\"result\":[" + items + "]}]}]");
-    // a2 has an explicit type and no link: it cannot be resolved because a1 lies between it and n1
     Path manifest = dir.resolve("manifest.tsv");
     Files.writeString(manifest, CuratedManifest.HEADER + "\n" + String.join("\t", "openalex:W9", "ABSTRACTS", "dev", "en", "CC-BY", "true", "", "", GoldDocument.textHash(DOC)) + "\n");
 

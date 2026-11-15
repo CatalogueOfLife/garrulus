@@ -449,11 +449,19 @@ public final class LabelStudioImporter {
       List<RankedName> inferred = inferRanks(t, opts.dictionary);
       if (!inferred.isEmpty()) {
         opts.inferred.add(new Inferred(docId, regionId, "ranks", t,
-            inferred.stream().map(n -> n.rank() + ": " + n.name()).collect(java.util.stream.Collectors.joining("; ")), ""));
+            inferred.stream().map(n -> n.rank() + ": " + n.name()).collect(java.util.stream.Collectors.joining("; ")),
+            genusConflicts(inferred, opts.dictionary)));
         return inferred;
       }
     }
     throw fail(docId, "the Context region '" + t + "' needs ranks: add a ranks text such as 'FAMILY: Opheliidae; ORDER: Phyllodocida'");
+  }
+
+  /** Names the dictionary ranks above genus although it also lists them as a genus (cross-code homonyms), for the inferred TSV. */
+  private static String genusConflicts(List<RankedName> names, ColDictionary dict) {
+    if (dict == null) return "";
+    return names.stream().filter(n -> n.rank() != Rank.GENUS && dict.isGenus(n.name()) && dict.uninomialRank(n.name()).isPresent())
+        .map(n -> "conflict: " + n.name() + " is also a genus").collect(java.util.stream.Collectors.joining("; "));
   }
 
   /** "rank: Name" pairs when every part is one, else the names split on ":" or "," with a dictionary or suffix rank each. */
@@ -476,7 +484,10 @@ public final class LabelStudioImporter {
       String n = name.strip();
       if (n.isEmpty()) continue;
       Rank rk = null;
-      if (dict != null) rk = dict.isGenus(n) ? Rank.GENUS : dict.uninomialRank(n).orElse(null);
+      if (dict != null) {
+        rk = dict.uninomialRank(n).orElse(null);
+        if (rk == null && dict.isGenus(n)) rk = Rank.GENUS;
+      }
       if (rk == null) rk = SuffixRules.rankFor(n, null).orElse(Rank.UNRANKED);
       out.add(new RankedName(rk, n));
     }
