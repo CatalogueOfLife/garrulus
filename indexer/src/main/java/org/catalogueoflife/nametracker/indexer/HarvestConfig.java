@@ -2,10 +2,17 @@ package org.catalogueoflife.nametracker.indexer;
 
 import java.math.BigDecimal;
 import java.net.http.HttpClient;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.Arrays;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.catalogueoflife.nametracker.indexer.content.BlobStore;
+import org.catalogueoflife.nametracker.indexer.content.FileBlobStore;
+import org.catalogueoflife.nametracker.indexer.content.LicencePolicy;
 import org.catalogueoflife.nametracker.indexer.cost.OpenAlexBudget;
 import org.catalogueoflife.nametracker.indexer.crossref.CrossrefClient;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
@@ -93,5 +100,17 @@ public class HarvestConfig {
   SourceSeeder sourceSeeder(OpenAlexClient client, SourceMapper sources, TaskQueue queue, SeedProperties props,
       Clock clock, @Value("${nametracker.openalex.api-key:}") String apiKey) {
     return new SourceSeeder(client, sources, queue, props, clock, !apiKey.isBlank());
+  }
+
+  @Bean
+  BlobStore blobStore(@Value("${nametracker.blobs.dir:./data/blobs}") String dir) {
+    return new FileBlobStore(Path.of(dir));
+  }
+
+  @Bean
+  LicencePolicy licencePolicy(
+      @Value("${nametracker.content.open-licences:cc-by,cc-by-sa,cc0,public-domain}") String open) {
+    return new LicencePolicy(Arrays.stream(open.split(",")).map(String::trim).filter(x -> !x.isEmpty())
+        .collect(Collectors.toSet()));
   }
 }

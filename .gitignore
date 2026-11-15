@@ -11,3 +11,4 @@ frontend/.npm/
 .classpath
 .settings/
 .factorypath
+data/

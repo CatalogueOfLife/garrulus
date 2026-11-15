@@ -52,6 +52,8 @@ nametracker:
     broad-min-works: ${NAMETRACKER_SEED_BROAD_MIN_WORKS:30}
     broad-min-share: ${NAMETRACKER_SEED_BROAD_MIN_SHARE:0.50}
     candidate-min-works: ${NAMETRACKER_SEED_CANDIDATE_MIN_WORKS:10}
+  blobs:
+    dir: ${NAMETRACKER_BLOBS_DIR:./data/blobs}
   content:
     open-licences: ${NAMETRACKER_CONTENT_OPEN_LICENCES:cc-by,cc-by-sa,cc0,public-domain}
   crossref:
