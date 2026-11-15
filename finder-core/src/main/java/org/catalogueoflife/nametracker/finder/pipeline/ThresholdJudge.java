@@ -34,7 +34,9 @@ public final class ThresholdJudge implements CandidateJudge {
   static final double MAX_DENSITY = 20;
   static final int MAX_PARTIAL = 3;
   /** The generators that propose names, all but OTU: fixed so that adding the OTU generator changes no score. */
-  static final int NAME_GENERATORS = Generator.values().length - 1;
+  static final java.util.Set<Generator> NAME_GENERATOR_SET = java.util.EnumSet.of(Generator.GNFINDER, Generator.DICTIONARY, Generator.SUFFIX,
+      Generator.ITALIC, Generator.TAXON_MARKUP);
+  static final int NAME_GENERATORS = NAME_GENERATOR_SET.size();
 
   /** Every feature name a weight may be given for, in vector order. */
   public static final Set<String> FEATURES;

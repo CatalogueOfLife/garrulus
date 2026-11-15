@@ -88,4 +88,15 @@ class OtuIdentifierGeneratorTest {
     assertThat(cs.get(0).end()).isEqualTo(14);
     assertThat(span(t, cs.get(1))).isEqualTo("SH1556109.08FU");
   }
+
+  @Test
+  void noBreakSpaceAndNewlineAreNormalised() {
+    for (String sep : new String[] {"\u00A0", "\n"}) {
+      String t = "see BOLD:" + sep + "AAB2345 here";
+      List<Candidate> cs = find(t);
+      assertThat(cs).as("separator %s", (int) sep.charAt(0)).hasSize(1);
+      assertThat(cs.get(0).name()).isEqualTo("BOLD:AAB2345");
+      assertThat(span(t, cs.get(0))).isEqualTo("BOLD:" + sep + "AAB2345");
+    }
+  }
 }

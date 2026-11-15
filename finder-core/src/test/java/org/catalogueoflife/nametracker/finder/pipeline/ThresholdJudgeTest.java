@@ -131,4 +131,9 @@ class ThresholdJudgeTest {
         BlockType.PARAGRAPH, false, false, 3, 0);
     assertThat(defaults().judge(MAJOR, supported).accepted()).isTrue();
   }
+
+  @Test
+  void generatorCountIsNormalisedByTheFiveNameGenerators() {
+    assertThat(ThresholdJudge.NAME_GENERATORS).isEqualTo(5);
+  }
 }
