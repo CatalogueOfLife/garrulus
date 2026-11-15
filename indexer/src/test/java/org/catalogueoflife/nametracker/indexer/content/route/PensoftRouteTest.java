@@ -40,6 +40,27 @@ class PensoftRouteTest {
   }
 
   @Test
+  void hostileDoisDoNotApplyAndMakeNoRequest(WireMockRuntimeInfo w) {
+    PensoftRoute r = route(w);
+    for (String doi : new String[] {"10.3897/localhost/.1", "10.3897/2130706433/.x", "10.3897/evil:443#.1",
+        "10.3897/zookeys.1.x2", "10.3897/zoo_keys.1.2"}) {
+      assertThat(r.applies(work(1L, doi, null), null)).as(doi).isFalse();
+      assertThat(r.fetch(work(1L, doi, null), null)).as(doi).isEmpty();
+      assertThatThrownBy(() -> PensoftRoute.xmlUrl(doi)).as(doi).isInstanceOf(IllegalArgumentException.class);
+    }
+    verify(0, anyRequestedFor(anyUrl()));
+  }
+
+  @Test
+  void validDoisStillApply() {
+    PensoftRoute r = new PensoftRoute(http(), "http://localhost/{slug}");
+    assertThat(r.applies(work(1L, "10.3897/BDJ.14.e202849", null), null)).isTrue();
+    assertThat(r.applies(work(1L, "10.3897/phytokeys-x.14.E2", null), null)).isTrue();
+    assertThat(PensoftRoute.xmlUrl("10.3897/phytokeys-x.14.E2"))
+        .isEqualTo("https://phytokeys-x.pensoft.net/article/2/download/xml/");
+  }
+
+  @Test
   void convertsTaxPub(WireMockRuntimeInfo w) {
     stubFor(get(urlPathEqualTo("/zookeys/article/218447/download/xml/"))
         .willReturn(aResponse().withHeader("Content-Type", "text/xml")
