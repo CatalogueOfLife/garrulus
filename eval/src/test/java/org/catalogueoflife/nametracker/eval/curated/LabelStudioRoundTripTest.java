@@ -342,4 +342,34 @@ class LabelStudioRoundTripTest {
     assertThatThrownBy(() -> LabelStudioImporter.read(write(task(data(AUTH_DOC, true), twice))))
         .hasMessageContaining("openalex:W1").hasMessageContaining("Ophelia limacina").hasMessageContaining("more than one Authorship");
   }
+
+  @Test
+  void preTaggedActsRoundTripWithTypeAndLink() throws Exception {
+    Mention yangi = m("a", "b1", 0, 13);
+    NameFinder withAct = new NameFinder() {
+      @Override public FinderInfo info() { return new FinderInfo("t", "1", "h", null); }
+      @Override public FinderResult find(Document doc, FinderOptions opts) {
+        return new FinderResult(info(), List.of(yangi),
+            List.of(new org.catalogueoflife.nametracker.finder.api.Act("x", ActType.SP_NOV, "sp. nov.", "a", 0.9)), List.of(), List.of(), Map.of());
+      }
+    };
+    PreTagger.PreTags pre = PreTagger.pretagAll(DOC, List.of(withAct));
+    assertThat(pre.acts()).hasSize(1);
+    assertThat(pre.acts().get(0).start()).isEqualTo(14);
+    assertThat(pre.acts().get(0).end()).isEqualTo(22);
+    Path tasks = dir.resolve("tasks.json");
+    LabelStudioExporter.write(List.of(pick(true)), Map.of("openalex:W1", pre.names()), Map.of("openalex:W1", pre.acts()), tasks);
+    GoldDocument g = LabelStudioImporter.read(accepted(tasks)).get(0);
+    assertThat(g.acts()).hasSize(1);
+    assertThat(g.acts().get(0).type()).isEqualTo(ActType.SP_NOV);
+    assertThat(g.acts().get(0).nameText()).isEqualTo("Ophelia yangi");
+    assertThat(g.acts().get(0).start()).isEqualTo(14);
+  }
+
+  @Test
+  void everyActTypeChoiceImportsAsItsType() {
+    for (ActType t : ActType.values()) {
+      assertThat(LabelStudioImporter.actType(LabelStudioExporter.actChoice(t))).as(t.name()).isEqualTo(t);
+    }
+  }
 }

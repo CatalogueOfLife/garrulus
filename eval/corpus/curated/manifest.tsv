@@ -99,3 +99,15 @@ pensoft:zookeys.1223.137184	PENSOFT	test	en	CC-BY	true	10.3897/zookeys.1223.1371
 pensoft:phytokeys.248.123248	PENSOFT	test	en	CC-BY	true	10.3897/phytokeys.248.123248	https://phytokeys.pensoft.net/article/123248/download/xml/	8f1611f37093b344c8cf2c4950067e63071875909e8a16b6175ec9ee159bdc95
 pensoft:mycokeys.124.171541	PENSOFT	test	en	CC-BY	true	10.3897/mycokeys.124.171541	https://mycokeys.pensoft.net/article/171541/download/xml/	429febbaad53e4cec964012674ff407d7c42260f747a2f06721516600c30eada
 pensoft:zookeys.1274.141366	PENSOFT	test	en	CC-BY	true	10.3897/zookeys.1274.141366	https://zookeys.pensoft.net/article/141366/download/xml/	19c8c4db3a16cf23692bd85b1898d596ac3b795fdb2277687f2e0f6260cbab4b
+doi:10.3897/zookeys.340.5470	ACTS	dev	en	CC-BY	true	10.3897/zookeys.340.5470	https://doi.org/10.3897/zookeys.340.5470	ccbeeb3fb6a9a8180a44ee0a109ff082348b13437b06308775c08de95219790a
+doi:10.1007/s00709-019-01442-7	ACTS	test	en	CC-BY	true	10.1007/s00709-019-01442-7	https://doi.org/10.1007/s00709-019-01442-7	2424c2264f4825fffe6023485ca95ec4005447f59a8ff2f696b4fb53987efbc9
+doi:10.1007/s13225-020-00459-1	ACTS	test	en	CC-BY	true	10.1007/s13225-020-00459-1	https://doi.org/10.1007/s13225-020-00459-1	fa4101aecdfea5299e4a25fbadd2144e0b51d3af8773a5614814b77716a6f4c0
+openalex:W4405013555	ACTS	dev	en	unknown	false	10.11646/zootaxa.5543.4.4	https://openalex.org/W4405013555	32d40762f864804e9303a4d0a281522a2733606f2c3b0c4493531f2f0af751de
+openalex:W4394689792	ACTS	test	en	unknown	false	10.11646/phytotaxa.644.2.3	https://openalex.org/W4394689792	d5cdfa1d25448944034356e09e477ea889491ea4c806480de1db5369a0ae916a
+openalex:W4403772617	ACTS	test	en	CC-BY	true	10.5852/ejt.2024.968.2703	https://openalex.org/W4403772617	b342adb3a7f97777d4475efb2695a2febf87547a3996c0ed6d5e5ae2cd25308e
+openalex:W4403399836	ACTS	test	en	CC-BY	true	10.24349/g2lf-9h7f	https://openalex.org/W4403399836	44a427aaede1c63ae468b193fa6a80254ca41d21d0e19613ac01e8b59882a978
+openalex:W4405773338	ACTS	test	en	unknown	false	10.31610/zsr/2024.33.2.363	https://openalex.org/W4405773338	59a44bda7844a737371aae42abf0c4fc62a68fa8e212e7eeb1a72bf2c6c9a3fa
+openalex:W4391116097	ACTS	test	en	unknown	false	10.1002/tax.13129	https://openalex.org/W4391116097	556b492616751b4605548196b74b9d32039b915de7b6d3d7fc1be16843316ee9
+openalex:W4403485334	ACTS	test	en	unknown	false	10.3417/2024914	https://openalex.org/W4403485334	648471cddfaef0e4757b4ccfdc7754c1eb2eeedb585702728cda0b11bf714c31
+openalex:W4392694265	ACTS	test	en	CC-BY	true	10.1590/s1984-4689.v41.e23028	https://openalex.org/W4392694265	1e60f7727dcfaa6995173f48e8bcb92d3c6e0236fdfec3abca33752f59b91f61
+openalex:W4415449747	ACTS	test	es	cc-by-nc	false	10.21829/abm132.2025.2488	https://openalex.org/W4415449747	0e810e137cd33294d3293069e2fefc1d6df3b41655428ac090c7b88e6c4e2d38

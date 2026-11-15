@@ -31,6 +31,7 @@
     <Choice value="gen. nov."/>
     <Choice value="subgen. nov."/>
     <Choice value="fam. nov."/>
+    <Choice value="higher nov."/>
     <Choice value="comb. nov."/>
     <Choice value="stat. nov."/>
     <Choice value="stat. rev."/>

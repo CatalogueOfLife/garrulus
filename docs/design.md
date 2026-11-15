@@ -456,7 +456,9 @@ The taxon picker uses the CLB suggest API on the pinned XR key.
 
 ## Evaluation (built in M0/M1, before tuning)
 
-- **Primary gold standard: a hand-checked set of about 100 documents** (decided by Markus).
+- **Primary gold standard: a hand-checked set of about 100 documents** (decided by Markus). On 2026-11-15 an ACTS stratum
+  of 12 act-rich documents (three CC-BY PDF excerpts, nine abstracts from nine taxonomy journals) was added, because the
+  first 100 had acts only in their Pensoft excerpts; act type `HIGHER_NOV` covers acts above the family group.
   - **Contents:**
     - about 50 abstracts from `BROAD` journals (ecology, microbiology, parasitology), which is where the noise lives
     - about 20 non-English papers (Spanish, Portuguese, French, German)

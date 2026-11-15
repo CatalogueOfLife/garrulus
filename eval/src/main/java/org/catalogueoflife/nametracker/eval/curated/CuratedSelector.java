@@ -21,7 +21,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
- * Selects the 100 documents of the hand-checked curated set, deterministically for a seed:
+ * Selects the first 100 documents of the hand-checked curated set, deterministically for a seed (the ACTS stratum,
+ * added later, comes from {@link ActsSelector}):
  * <ul>
  *   <li>BROAD_EN: 50 English abstracts of 2025 articles in the OpenAlex subfields 2303, 2404, 2405 and 1104 (random sample,
  *       not enriched for names, so precision on it is meaningful).</li>

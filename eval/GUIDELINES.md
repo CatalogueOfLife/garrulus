@@ -1,6 +1,6 @@
 # Annotation guidelines for the curated set
 
-The 100 curated documents are the gold standard we tune and measure the name finder on. Whatever you tag here is what the
+The 112 curated documents are the gold standard we tune and measure the name finder on. Whatever you tag here is what the
 finder is judged against, so **consistency matters more than cleverness**. When a case is not covered below, take the
 closest rule, and note the case in the comment field of the task so we can add it here.
 
@@ -140,11 +140,12 @@ leave half-finished acts in.
 | var. nov. | var. nov., var. n. |
 | gen. nov. | gen. nov., gen. n., n. gen. |
 | subgen. nov. | subgen. nov., subgen. n. |
-| fam. nov. | fam. nov., fam. n. |
-| comb. nov. | comb. nov., comb. n. |
-| stat. nov. | stat. nov., stat. n. (new rank) |
+| fam. nov. | fam. nov., fam. n., subfam. nov., trib. nov. (the family group) |
+| higher nov. | ord. n., subord. nov., cl. nov., subcl. n., phyl. n., regn. nov., div. nov., "new order", "new class" (ranks above the family group) |
+| comb. nov. | comb. nov., comb. n., n. comb. |
+| stat. nov. | stat. nov., stat. n., n. stat. (new rank) |
 | stat. rev. | stat. rev. (revived status) |
-| syn. nov. | syn. nov., syn. n. |
+| syn. nov. | syn. nov., syn. n., n. syn. |
 | nom. nov. | nom. nov., nom. n. (replacement name) |
 | type designation | "holotype", "lectotype designated here", "neotype", "syntype designated" |
 
@@ -214,6 +215,12 @@ The project uses `eval/labelstudio/config.xml`. What you see:
 - **Pre-tags** are shown as regions of the first prediction. Use "Add as annotation" to copy them into your annotation, then
   edit. Nothing counts that is not in your submitted annotation. The region list can be sorted by score, which brings the
   doubtful low-score regions together.
+
+**ACTS documents** (the last 12 tasks) were added for nomenclatural acts. Three are excerpts of PDFs converted by GROBID:
+the title, the abstract and the 2–3 pages with the most act markers. GROBID leaves traces in the text: a space before commas,
+a missing space after some full stops, treatment text that ended up in caption blocks. Tag what is printed, as everywhere.
+Their act pre-tags (an `Act` region with its `act_type` and `act_of` link) are suggestions like the name pre-tags: check the
+marker span, the type and the linked name.
 
 Keep the text untouched. The document is the blocks title, abstract, headings and so on joined by one blank line, and a
 region may not run across a blank line. If one name sits at the end of one block and one at the start of the next, they are two

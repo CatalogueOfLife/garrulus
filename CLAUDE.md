@@ -102,6 +102,12 @@ on any command lists its options.
   - `ls-export` writes the Label Studio tasks (`eval/work/curated-tasks.json`, not committed). Its pre-tags are the union
     of italics, gnfinder and pipeline, rejected pipeline candidates included, each region scored (judge score, else
     1.0). It needs gnfinder and the dictionary.
+  - `ls-export --min-score 0.1` (default) leaves out name pre-tags scoring below 0.1 (rejected common words such as
+    "The"). Pipeline acts are pre-tagged too: an `Act` region with its `act_type` and an `act_of` link.
+  - `curated-add-acts` added the ACTS stratum on 2026-11-15 (12 documents, 2 dev): act-rich excerpts of three CC-BY PDFs
+    (GROBID, `--pdf path|docId|doi|licence|language|source`) and one abstract with act markers per journal (`--journal
+    S…[:lang]`). It appends to `manifest.tsv` and `eval/work/curated-picks.jsonl.gz` and writes the new picks alone to
+    `eval/work/curated-picks-acts.jsonl.gz`, for `ls-export --picks … --out eval/work/curated-tasks-acts.json`.
   - The curated gold also has authorships: an `Authorship` region belongs to the `Name` right before it. Reports on the
     curated corpus add an `authorship` row (matched spans only, whitespace ignored); other corpora have none.
 - **Runs:** `run --finder italics|gnfinder|pipeline|remote:<url> --corpus eval/corpus/pensoft --split dev|test --mode A|B`

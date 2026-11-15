@@ -4,6 +4,7 @@ import org.catalogueoflife.nametracker.eval.corpus.CorpusManifest;
 import org.catalogueoflife.nametracker.eval.corpus.CorpusRebuilder;
 import org.catalogueoflife.nametracker.eval.corpus.CorpusStore;
 import org.catalogueoflife.nametracker.eval.corpus.GoldDocument;
+import org.catalogueoflife.nametracker.eval.curated.ActsSelector;
 import org.catalogueoflife.nametracker.eval.curated.CuratedManifest;
 import org.catalogueoflife.nametracker.eval.curated.CuratedSelector;
 import org.catalogueoflife.nametracker.eval.curated.LabelStudioExporter;
@@ -32,8 +33,10 @@ import org.catalogueoflife.nametracker.eval.modeb.PdfDownloader;
 import org.catalogueoflife.nametracker.eval.modeb.PmcPdfLocator;
 import org.catalogueoflife.nametracker.eval.tune.JudgeTuner;
 import org.catalogueoflife.nametracker.finder.api.BlockType;
+import org.catalogueoflife.nametracker.finder.api.CodePoints;
 import org.catalogueoflife.nametracker.finder.api.Document;
 import org.catalogueoflife.nametracker.finder.pipeline.PipelineConfig;
+import org.catalogueoflife.nametracker.finder.doc.TeiConverter;
 import org.catalogueoflife.nametracker.finder.pipeline.PipelineFactory;
 import org.catalogueoflife.nametracker.finder.pipeline.PipelineNameFinder;
 import org.catalogueoflife.nametracker.finder.pipeline.ThresholdJudge;
@@ -59,7 +62,7 @@ import java.util.concurrent.Callable;
 
 /** The evaluation command line. More subcommands arrive with later tasks. */
 @Command(name = "eval", mixinStandardHelpOptions = true, subcommands = {EvalCli.FetchPensoft.class, EvalCli.RebuildPensoft.class, EvalCli.Run.class, EvalCli.CuratedSelect.class,
-    EvalCli.LsExport.class, EvalCli.LsImport.class, EvalCli.BuildDictionary.class, EvalCli.FetchPdf.class, EvalCli.Tune.class},
+    EvalCli.CuratedAddActs.class, EvalCli.LsExport.class, EvalCli.LsImport.class, EvalCli.BuildDictionary.class, EvalCli.FetchPdf.class, EvalCli.Tune.class},
     description = "Name finder evaluation")
 public class EvalCli implements Runnable {
   public static void main(String[] args) {
@@ -466,14 +469,7 @@ public class EvalCli implements Runnable {
       List<CuratedSelector.Pick> selected = new CuratedSelector(oa, () -> pf.candidates(seed), pf::fetch, excluded).select(seed);
       Files.createDirectories(out);
       CuratedManifest.of(selected).write(out.resolve("manifest.tsv"));
-      Files.createDirectories(picks.toAbsolutePath().getParent());
-      try (java.io.BufferedWriter w = new java.io.BufferedWriter(new java.io.OutputStreamWriter(
-          new java.util.zip.GZIPOutputStream(Files.newOutputStream(picks)), java.nio.charset.StandardCharsets.UTF_8))) {
-        for (CuratedSelector.Pick p : selected) {
-          w.write(FinderJson.mapper().writeValueAsString(p));
-          w.write('\n');
-        }
-      }
+      writePicks(picks, selected);
       System.out.println(selected.size() + " documents, seed " + seed);
       Map<String, Long> counts = new java.util.TreeMap<>();
       for (CuratedSelector.Pick p : selected) {
@@ -483,6 +479,81 @@ public class EvalCli implements Runnable {
       }
       counts.forEach((k, v) -> System.out.println("  " + k + ": " + v));
       System.out.println("Wrote " + out.resolve("manifest.tsv") + " and " + picks);
+      return 0;
+    }
+  }
+
+  static void writePicks(Path picks, List<CuratedSelector.Pick> list) throws IOException {
+    if (picks.toAbsolutePath().getParent() != null) Files.createDirectories(picks.toAbsolutePath().getParent());
+    try (java.io.BufferedWriter w = new java.io.BufferedWriter(new java.io.OutputStreamWriter(
+        new java.util.zip.GZIPOutputStream(Files.newOutputStream(picks)), java.nio.charset.StandardCharsets.UTF_8))) {
+      for (CuratedSelector.Pick p : list) {
+        w.write(FinderJson.mapper().writeValueAsString(p));
+        w.write('\n');
+      }
+    }
+  }
+
+  @Command(name = "curated-add-acts", mixinStandardHelpOptions = true,
+      description = "Adds the ACTS stratum to the curated set: act-rich excerpts of open-licensed PDFs (via GROBID) and one abstract with acts per journal. Appends to manifest.tsv and the picks file and writes the new picks on their own for ls-export")
+  public static class CuratedAddActs implements Callable<Integer> {
+    @Option(names = "--pdf", description = "path|docId|doi|licence|language|source of an open-licensed PDF; repeat") List<String> pdfs = new ArrayList<>();
+    @Option(names = "--journal", description = "OpenAlex source id, optionally with a language (S189988577:es); repeat") List<String> journals = new ArrayList<>();
+    @Option(names = "--seed", defaultValue = "42", description = "seed, default ${DEFAULT-VALUE}") long seed;
+    @Option(names = "--dev-each", defaultValue = "2", description = "PDF excerpts and abstracts that go to dev, each, default ${DEFAULT-VALUE}") int devEach;
+    @Option(names = "--out", defaultValue = "eval/corpus/curated", description = "corpus directory with manifest.tsv, default ${DEFAULT-VALUE}") Path out;
+    @Option(names = "--picks", defaultValue = "eval/work/curated-picks.jsonl.gz", description = "picks file to append to, default ${DEFAULT-VALUE}") Path picks;
+    @Option(names = "--new-picks", defaultValue = "eval/work/curated-picks-acts.jsonl.gz", description = "the new picks alone, default ${DEFAULT-VALUE}") Path newPicks;
+    @Option(names = "--tei-cache", defaultValue = "eval/work/acts-tei", description = "GROBID TEI per document, reused on reruns, default ${DEFAULT-VALUE}") Path teiCache;
+    @Option(names = "--dictionary", description = "COL dictionary for TEI de-hyphenation, default $FINDER_DICTIONARY (optional)") Path dictionary;
+
+    @Override
+    public Integer call() throws Exception {
+      Path manifestFile = out.resolve("manifest.tsv");
+      CuratedManifest manifest = CuratedManifest.read(manifestFile);
+      java.util.Set<String> known = new java.util.HashSet<>();
+      manifest.rows().forEach(r -> known.add(r.docId()));
+
+      Path dictFile = dictionary != null ? dictionary : (System.getenv("FINDER_DICTIONARY") == null ? null : Path.of(System.getenv("FINDER_DICTIONARY")));
+      Predicate<String> isKnownWord = dictFile == null ? w -> false : PipelineFactory.readDictionary(dictFile)::isKnownWord;
+      List<CuratedSelector.Pick> pdfPicks = new ArrayList<>();
+      Files.createDirectories(teiCache);
+      for (String spec : pdfs) {
+        String[] c = spec.split("\\|", -1);
+        if (c.length != 6) throw new IllegalArgumentException("--pdf needs path|docId|doi|licence|language|source: " + spec);
+        Path tei = teiCache.resolve(c[1].replaceAll("[^A-Za-z0-9._-]+", "_") + ".tei.xml");
+        if (!Files.exists(tei)) {
+          System.err.println("GROBID: " + c[1]);
+          Files.writeString(tei, grobid().processFulltext(Files.readAllBytes(Path.of(c[0]))));
+        }
+        Document full = new TeiConverter().convert(Files.newInputStream(tei), c[1], isKnownWord);
+        pdfPicks.add(ActsSelector.pdfPick(full, c[1], c[2], c[3], c[4], c[5]));
+      }
+      HttpClient http = PensoftFetcher.defaultClient();
+      OpenAlexClient oa = new OpenAlexClient(http, System.getenv("OPENALEX_API_KEY"));
+      List<CuratedSelector.Pick> abstractPicks = new ArrayList<>();
+      for (String j : journals) {
+        String[] c = j.split(":", 2);
+        CuratedSelector.Pick p = ActsSelector.abstractPick(oa, c[0], c.length > 1 ? c[1] : null, seed);
+        if (p == null) System.err.println("No abstract with an act marker in " + j);
+        else abstractPicks.add(p);
+      }
+      List<CuratedSelector.Pick> added = ActsSelector.split(pdfPicks, abstractPicks, devEach);
+      for (CuratedSelector.Pick p : added) {
+        if (!known.add(p.docId())) throw new IllegalStateException(p.docId() + " is already in " + manifestFile);
+      }
+      List<CuratedManifest.Row> rows = new ArrayList<>(manifest.rows());
+      rows.addAll(CuratedManifest.of(added).rows());
+      new CuratedManifest(rows).write(manifestFile);
+      List<CuratedSelector.Pick> all = new ArrayList<>(readPicks(picks));
+      all.addAll(added);
+      writePicks(picks, all);
+      writePicks(newPicks, added);
+      for (CuratedSelector.Pick p : added) {
+        System.out.printf(Locale.ROOT, "  %-45s %-4s %-3s %-14s %6d cp, %3d act markers%n", p.docId(), p.split(), p.language(),
+            p.license(), p.document().blocks().stream().mapToInt(b -> CodePoints.length(b.text())).sum(), ActsSelector.markers(p.document()));
+      }
+      System.out.println(added.size() + " ACTS documents added to " + manifestFile + ", " + picks + " and " + newPicks);
       return 0;
     }
   }
@@ -506,24 +577,31 @@ public class EvalCli implements Runnable {
     @Option(names = "--finders", split = ",", defaultValue = "italics,gnfinder,pipeline", description = "pre-tagging finders, default ${DEFAULT-VALUE}") List<String> finders;
     @Option(names = "--dictionary", description = "COL dictionary file for the pipeline finder, default $FINDER_DICTIONARY") Path dictionary;
     @Option(names = "--out", defaultValue = "eval/work/curated-tasks.json", description = "default ${DEFAULT-VALUE}") Path out;
+    @Option(names = "--min-score", defaultValue = "0.1", description = "name pre-tags scoring below this are left out (rejected common words such as \"The\"), default ${DEFAULT-VALUE}") double minScore;
 
     @Override
     public Integer call() throws Exception {
       List<CuratedSelector.Pick> selected = readPicks(picks);
       List<NameFinder> fs = finders.stream().map(f -> FinderFactory.create(f, dictionary)).toList();
       Map<String, List<PreTagger.PreTag>> pretags = new LinkedHashMap<>();
+      Map<String, List<PreTagger.ActTag>> acts = new LinkedHashMap<>();
       int total = 0;
       int low = 0;
+      int actCount = 0;
       for (CuratedSelector.Pick p : selected) {
-        List<PreTagger.PreTag> ms = PreTagger.pretag(p.document(), fs);
+        PreTagger.PreTags all = PreTagger.pretagAll(p.document(), fs);
+        List<PreTagger.PreTag> ms = all.names().stream().filter(t -> t.score() >= minScore).toList();
         pretags.put(p.docId(), ms);
+        acts.put(p.docId(), all.acts());
+        actCount += all.acts().size();
         total += ms.size();
         low += (int) ms.stream().filter(t -> t.score() < 0.5).count();
         if (pretags.size() % 25 == 0) System.err.println(pretags.size() + "/" + selected.size() + " pre-tagged");
       }
-      LabelStudioExporter.write(selected, pretags, out);
+      LabelStudioExporter.write(selected, pretags, acts, out);
       System.out.println(selected.size() + " tasks, " + total + " pre-tag regions (" + String.join(" + ", finders)
-          + ", rejected pipeline candidates included); " + low + " with a score below 0.5");
+          + ", rejected pipeline candidates scoring at least " + minScore + " included); " + low + " with a score below 0.5; "
+          + actCount + " acts");
       Map<String, Integer> byStratum = new java.util.TreeMap<>();
       for (CuratedSelector.Pick p : selected) byStratum.merge(p.stratum(), pretags.get(p.docId()).size(), Integer::sum);
       byStratum.forEach((k, v) -> System.out.println("  " + k + ": " + v + " regions"));
