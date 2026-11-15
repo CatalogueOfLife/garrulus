@@ -70,6 +70,8 @@ class PipelineNameFinderTest {
       112\taccepted\tScutellaria L.\tgenus\tScutellaria\t\t\t\t\tbotanical\t\tLamiaceae\t\t\tPlantae\t
       113\taccepted\tScutellaria havanensis Jacq.\tspecies\t\tScutellaria\t\thavanensis\t\tbotanical\tScutellaria\tLamiaceae\t\t\tPlantae\t
       114\taccepted\tLoma es Smith, 1900\tspecies\t\tLoma\t\tes\t\tzoological\tLoma\t\t\t\tAnimalia\t
+      115\taccepted\tThemus Motschulsky, 1858\tgenus\tThemus\t\t\t\t\tzoological\t\tCantharidae\t\t\tAnimalia\t
+      116\taccepted\tThemus coelestis (Gorham, 1889)\tspecies\t\tThemus\t\tcoelestis\t\tzoological\tThemus\tCantharidae\t\t\tAnimalia\t
       """;
   private static final ColDictionary DICT;
   private static final NameParserRust PARSER = new NameParserRust();
@@ -783,5 +785,65 @@ class PipelineNameFinderTest {
     assertThat(names).extracting(m -> m.verbatim() + "|" + m.name() + "|" + m.kind() + "|" + m.confidence())
         .containsExactlyElementsOf(r1.mentions().stream().map(m -> m.verbatim() + "|" + m.name() + "|" + m.kind() + "|" + m.confidence()).toList());
     assertThat(r2.mentions().stream().filter(m -> m.kind() == NameKind.OTU)).hasSize(1);
+  }
+
+  // ---- ZooKeys label transcriptions: " \ " separates the lines of a label (doi:10.3897/zookeys.340.5470)
+
+  /** The label excerpt as the TEI converter gives it; gnfinder's recorded answer is for the text with spaces instead. */
+  private static final String LABEL = "Telephorus coelestis: Lectotype ♂ (NHMB): without locality information, [h]\"coelestis ♂\", "
+      + "[h]\"♂\", [h]\"Themus \\ (Telephorops) \\ coelestis \\";
+
+  @Test
+  void labelBackslashesAreSpacesForTheGeneratorsOnly() {
+    String masked = LABEL.replace('\\', ' ');
+    // gnfinder v1.4.0 on the masked text: the quote before "Themus" hides the name from it, the dictionary finds it
+    RecordedGnfinder gn = new RecordedGnfinder().answer(masked, new GnfinderResponse(Map.of(), List.of(
+        new GnName(2, "Telephorus coelestis:", "Telephorus coelestis", null, 12.219, 0, 21, null, "NO_ANNOT"),
+        new GnName(1, "(Telephorops)", "Telephorops", null, 4.957, 111, 124, null, "NO_ANNOT"))));
+    FinderResult r = finder(gn).find(doc(block("b1", BlockType.CAPTION, LABEL)), new FinderOptions(true, null));
+    assertThat(gn.calls.get()).as("gnfinder got the masked text of the same length").isEqualTo(1);
+    List<Mention> all = new ArrayList<>(r.mentions());
+    all.addAll(r.rejected());
+    Mention m = all.stream().filter(x -> x.verbatim().startsWith("Themus")).findFirst().orElseThrow();
+    assertThat(m.verbatim()).isEqualTo("Themus \\ (Telephorops) \\ coelestis");
+    assertThat(CodePoints.slice(LABEL, m.start(), m.end())).isEqualTo(m.verbatim());
+    assertThat(m.name()).isEqualTo("Themus (Telephorops) coelestis");
+    assertThat(m.kind()).isEqualTo(NameKind.BINOMIAL);
+    assertThat(r.mentions()).as("accepted").contains(m);
+    assertThat(all).allSatisfy(x -> {
+      assertThat(CodePoints.slice(LABEL, x.start(), x.end())).isEqualTo(x.verbatim());
+      assertThat(x.name()).doesNotContain("\\");
+    });
+  }
+
+  @Test
+  void labelNameSeenByGnfinderIsCertain() {
+    String text = "Lectotype of Themus \\ (Telephorops) \\ coelestis \\ Gorh. \\ det. W. Wittmer";
+    String masked = text.replace('\\', ' ');
+    // gnfinder v1.4.0 on the masked text
+    RecordedGnfinder gn = new RecordedGnfinder().answer(masked, new GnfinderResponse(Map.of(), List.of(
+        new GnName(2, "Themus   (Telephorops)   coelestis", "Themus coelestis", null, 11.337, 13, 47, null, "NO_ANNOT"),
+        new GnName(1, "(Telephorops)", "Telephorops", null, 4.957, 22, 35, null, "NO_ANNOT"))));
+    FinderResult r = finder(gn).find(doc(block("b1", BlockType.CAPTION, text)), FinderOptions.defaults());
+    Mention m = r.mentions().stream().filter(x -> x.verbatim().startsWith("Themus")).findFirst().orElseThrow();
+    assertThat(m.verbatim()).isEqualTo("Themus \\ (Telephorops) \\ coelestis");
+    assertThat(m.start()).isEqualTo(13);
+    assertThat(m.end()).isEqualTo(47);
+    assertThat(m.name()).doesNotContain("\\").startsWith("Themus").endsWith("coelestis");
+    assertThat(m.evidence().judge()).as("certain").isNull();
+    assertThat(m.evidence().generators()).contains(Generator.GNFINDER, Generator.DICTIONARY);
+    assertThat(m.authorship()).isEqualTo("Gorh.");
+  }
+
+  @Test
+  void preparedCandidatesKeepTheSourceVerbatim() {
+    String masked = LABEL.replace('\\', ' ');
+    RecordedGnfinder gn = new RecordedGnfinder().answer(masked, new GnfinderResponse(Map.of(), List.of()));
+    PipelineNameFinder.Prepared p = finder(gn).prepare(doc(block("b1", BlockType.CAPTION, LABEL)), FinderOptions.defaults());
+    assertThat(p.document().blocks().get(0).text()).isEqualTo(LABEL);
+    assertThat(p.candidates()).filteredOn(c -> c.verbatim().startsWith("Themus")).singleElement().satisfies(c -> {
+      assertThat(c.verbatim()).isEqualTo("Themus \\ (Telephorops) \\ coelestis");
+      assertThat(c.name()).isEqualTo("Themus (Telephorops) coelestis");
+    });
   }
 }

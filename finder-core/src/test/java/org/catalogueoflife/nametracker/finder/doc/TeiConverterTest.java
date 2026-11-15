@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -76,6 +77,55 @@ class TeiConverterTest {
     } catch (IllegalArgumentException expected) {
       // rejecting is fine too
     }
+  }
+
+  // ---- GROBID token joining (excerpts of cached TEIs in tei/tokenisation.tei.xml)
+
+  private static List<String> tokenisation() {
+    try (InputStream in = TeiConverterTest.class.getResourceAsStream("/tei/tokenisation.tei.xml")) {
+      return new TeiConverter().convert(in, "tok").blocks().stream().map(Block::text).toList();
+    } catch (java.io.IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Test void removesASpaceBeforePunctuationAtANodeBoundary() {
+    List<String> t = tokenisation();
+    assertThat(t.get(0)).contains("PartitionFinder 2.1.1 (Lanfear et al. 2012) using the Bayesian");
+    assertThat(t.get(1)).contains("were cited (Table 7). When these");
+    assertThat(t.get(2)).isEqualTo("Ereunetis zebrina: Walsingham 1907: 715, pl. 25, fig. 16. Erechthias zebrina: Meyrick 1915b: 253.");
+    assertThat(t.get(3)).isEqualTo("Vitosha Mt. (Sander 1985); Belasitsa Mts. (Bajrjamova 1988) ; Rila Mts.");
+    // after a line break and after a reference
+    assertThat(t.get(8)).isEqualTo("Aus bus L., 1758 and Aus bus L., 1758");
+    // a note split into two paragraphs
+    assertThat(t.get(11)).contains("MrModeltest v.2.3 (Nylander 2004) with the Akaike");
+  }
+
+  @Test void keepsASpaceBeforePunctuationInsideOneNode() {
+    List<String> t = tokenisation();
+    assertThat(t.get(3)).endsWith("(Bajrjamova 1988) ; Rila Mts.");
+    assertThat(t.get(4)).contains("(Porembski andBarthlott 2000 , Twidale andVidal Romaní 2005)");
+  }
+
+  @Test void insertsASpaceAfterAFullStopAtANodeBoundary() {
+    List<String> t = tokenisation();
+    assertThat(t.get(5)).isEqualTo("The taxonomic basis for recent records of C. radiata (e.g. Wu et al. 2025) is unreliable.");
+    assertThat(t.get(6)).startsWith("Lizard Island, Great Barrier Reef, Australia. Magalhães et al. (2019) and");
+    assertThat(t.get(10)).startsWith("The description of Tuber pseudoexcavatum Y. Wang et al. (1998) was originally");
+  }
+
+  @Test void keepsAbbreviationsAndInitials() {
+    List<String> t = tokenisation();
+    // inside one node nothing changes, not even a missing space after a sentence
+    assertThat(t.get(7)).isEqualTo(
+        "Arecophila clypeata Q.R. Li, J.C. Kang & K.D. Hyde, from the U.S. collection, e.g. this one. Rhodobacteria.New class Nitrospinia");
+    // initials split over two nodes stay together
+    assertThat(t.get(9)).isEqualTo("collected by E.P. Turpaeva and U.S. staff");
+  }
+
+  @Test void keepsLabelLineBackslashes() {
+    // ZooKeys marks the lines of a transcribed label by " \ "; that is source text, the finder handles it
+    assertThat(tokenisation().get(12)).endsWith("[h]\"Themus \\ (Telephorops) \\ coelestis \\");
   }
 
   @Test void rejectsMalformedAndUtf16() {

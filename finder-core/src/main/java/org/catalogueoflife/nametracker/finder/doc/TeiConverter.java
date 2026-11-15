@@ -19,6 +19,19 @@ import java.util.function.Predicate;
  * {@link #convert(InputStream, String, Predicate)} (see {@link Dehyphenator#join}); callers do not de-hyphenate. A footnote inside a
  * paragraph becomes its own block placed after the paragraph start, and its text is not part of the paragraph.
  * Uses the same hardened parser set up as {@link JatsConverter}.
+ *
+ * <p><b>Token joining.</b> GROBID splits text into many nodes (references, line breaks, paragraphs of a note), and where
+ * two nodes meet its token joining leaves artefacts. Only there, between the text so far and the next text node with
+ * content after any element boundary, the converter repairs two of them (see {@link #join}):
+ * <ul>
+ *   <li>a space before {@code , ; : )} or {@code .} is removed ("(Lanfear et al. 2012 ) using" becomes "(Lanfear et al.
+ *       2012) using"), but not before a dot that starts a leader or ellipsis ("..") or a decimal (".5");</li>
+ *   <li>a space is inserted after a full stop directly followed by a capitalised word ("(e.g.Wu et al." becomes "(e.g. Wu
+ *       et al."), unless that word is an initial ("E." + "P. Turpaeva" stays "E.P. Turpaeva").</li>
+ * </ul>
+ * Text inside one node is never changed, even where GROBID wrote the same artefacts into it ("Barthlott 2000 , Twidale"),
+ * so abbreviations such as "U.S." or "e.g." are safe. A backslash between spaces is source text too (ZooKeys separates
+ * the lines of a transcribed label by " \ ") and is kept; the finder reads it as a space.
  */
 public final class TeiConverter {
 
@@ -44,6 +57,55 @@ public final class TeiConverter {
     }
   }
 
+  /**
+   * Joins the next text node {@code next}, which has content, to the text {@code sb} of its block across an element
+   * boundary, see the class documentation: may drop whitespace at the end of {@code sb} and returns the text to append.
+   */
+  static String join(StringBuilder sb, String next) {
+    int tail = sb.length();
+    while (tail > 0 && isSpace(sb.charAt(tail - 1))) tail--;
+    if (tail == 0) return next;
+    int lead = 0;
+    while (lead < next.length() && isSpace(next.charAt(lead))) lead++;
+    if (lead == next.length()) return next;
+    char last = sb.charAt(tail - 1);
+    char first = next.charAt(lead);
+    boolean spaced = tail < sb.length() || lead > 0;
+    if (spaced && closes(first, next, lead, last)) {
+      sb.setLength(tail);
+      return next.substring(lead);
+    }
+    if (!spaced && last == '.' && startsWord(next) && !initial(next)) return " " + next;
+    return next;
+  }
+
+  private static boolean isSpace(char c) {
+    return Character.isWhitespace(c) || Character.isSpaceChar(c);
+  }
+
+  /** {@code first}, at {@code at} of {@code next}, is punctuation that never follows a space. */
+  private static boolean closes(char first, String next, int at, char last) {
+    return switch (first) {
+      case ',', ';', ':', ')' -> true;
+      case '.' -> {
+        char after = at + 1 < next.length() ? next.charAt(at + 1) : ' ';
+        yield last != '.' && after != '.' && !Character.isDigit(after);
+      }
+      default -> false;
+    };
+  }
+
+  /** {@code s} starts with an upper case letter, which starts a word: the text before it is a node of its own. */
+  private static boolean startsWord(String s) {
+    return Character.isUpperCase(s.codePointAt(0));
+  }
+
+  /** {@code s} starts with an initial, a single upper case letter and a dot ("P. Turpaeva", "S."). */
+  private static boolean initial(String s) {
+    int n = Character.charCount(s.codePointAt(0));
+    return n < s.length() && s.charAt(n) == '.';
+  }
+
   private static final class Open {
     final BlockType type;
     final int level;
@@ -51,6 +113,7 @@ public final class TeiConverter {
     final int slot;
     final StringBuilder text = new StringBuilder();
     final boolean spaced; // reference: separate every element by a space
+    boolean boundary;     // an element started or ended since the last text with content
 
     Open(BlockType type, int level, int depth, int slot, boolean spaced) {
       this.type = type;
@@ -112,6 +175,7 @@ public final class TeiConverter {
       int depth = path.size();
       Open cur = open.peek();
       if (cur != null) {
+        cur.boundary = true;
         if ("note".equals(n)) {
           addSpace(cur);
           openBlock(BlockType.FOOTNOTE, depth, false);
@@ -158,6 +222,10 @@ public final class TeiConverter {
     private void chars(String raw) {
       Open o = open.peek();
       if (o == null) return;
+      if (o.boundary && !raw.isBlank()) {
+        raw = join(o.text, raw);
+        o.boundary = false;
+      }
       o.text.append(raw); // raw: line breaks must survive until Dehyphenator has run
     }
 
@@ -172,9 +240,13 @@ public final class TeiConverter {
             if (o.type == BlockType.TITLE) titleDone = true;
           }
           Open outer = open.peek();
-          if (outer != null) addSpace(outer);
-        } else if (o.spaced || isBreaking(path.peek())) {
-          addSpace(o);
+          if (outer != null) {
+            addSpace(outer);
+            outer.boundary = true;
+          }
+        } else {
+          o.boundary = true;
+          if (o.spaced || isBreaking(path.peek())) addSpace(o);
         }
       }
       path.pop();

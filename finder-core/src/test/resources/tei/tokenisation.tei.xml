@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Excerpts of GROBID TEI from the mode B cache (eval/work/pdf, eval/work/acts-tei), one per paragraph, to test how
+     the converter joins text nodes. The source document is named before each excerpt. The last paragraphs are made up
+     to cover forms the cache does not show at a node boundary. -->
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+  <text xml:lang="en">
+    <body>
+      <div>
+        <!-- 1 pensoft_bdj.12.e113427: space before ")" after a reference -->
+        <p>nucleotide substitution models for the sequence super-matrices were selected in PartitionFinder 2.1.1 <ref type="bibr" target="#b49">(Lanfear et al. 2012</ref> ) using the Bayesian Information Criterion (BIC).</p>
+        <!-- 2 pensoft_bdj.14.e191990: figure (table) reference -->
+        <p>In this dataset, 1,236 genera and 4,818 species names were cited (Table <ref type="table">7</ref> ). When these are normalised to accepted names</p>
+        <!-- 3 pensoft_zookeys.1250.154226: binomial with its authorship in a reference, and a figure reference -->
+        <p>Ereunetis zebrina: Walsingham 1907: 715, pl. 25, fig. <ref type="figure">16</ref>. Erechthias zebrina <ref type="bibr">: Meyrick 1915b: 253</ref>.</p>
+        <!-- 4 pensoft_bdj.12.e124720: ";" after a reference; the " ;" inside one text node stays -->
+        <p>Vitosha Mt. <ref type="bibr" target="#b15">(Sander 1985)</ref> ; Belasitsa Mts. <ref type="bibr">(Bajrjamova 1988</ref>) ; Rila Mts.</p>
+        <!-- 5 pensoft_bdj.12.e137043: a space before "," inside one text node stays -->
+        <p>a wide range of temperatures and biomes <ref type="bibr" target="#b8">(Porembski and</ref><ref type="bibr">Barthlott 2000 , Twidale and</ref><ref type="bibr">Vidal Romaní 2005)</ref>. The erosive processes</p>
+        <!-- 6 pensoft_zookeys.1268.173464: no space after "e.g." before a reference -->
+        <p>The taxonomic basis for recent records of C. radiata (e.g.<ref type="bibr" target="#b48">Wu et al. 2025</ref>) is unreliable.</p>
+        <!-- 7 pensoft_zookeys.1247.137606: no space after a sentence before a reference -->
+        <p>Lizard Island, Great Barrier Reef, Australia.<ref type="bibr">Magalhães et al. (2019)</ref> and Parapar et al. (2023) provide keys.</p>
+        <!-- 8 doi_10.1007_s00709-019-01442-7 and pensoft_mycokeys.128.178090: abbreviations and sentence ends inside one text node stay -->
+        <p>Arecophila clypeata Q.R. Li, J.C. Kang &amp; K.D. Hyde, from the U.S. collection, e.g. this one. Rhodobacteria.New class Nitrospinia</p>
+        <!-- 9 made up: "Aus bus L., 1758" with the comma after a line break and after a reference -->
+        <p>Aus bus L.<lb/>, 1758 and Aus bus <ref type="bibr">L.</ref> , 1758</p>
+        <!-- 10 made up: initials split over two nodes stay together -->
+        <p>collected by E.<ref type="bibr">P. Turpaeva</ref> and U.<ref type="bibr">S.</ref> staff</p>
+      </div>
+      <figure xml:id="fig_4">
+        <!-- 11 pensoft_mycokeys.119.143714: binomial, author initial, then a reference -->
+        <figDesc>The description of Tuber pseudoexcavatum Y.<ref type="bibr" target="#b51">Wang et al. (1998)</ref> was originally based on two specimens</figDesc>
+        <!-- 12 pensoft_mycokeys.128.178090: a note split into two paragraphs inside the parentheses -->
+        <note place="foot"><p>The best-fit substitution models were evaluated using MrModeltest v.2.3 (Nylander 2004</p><p>) with the Akaike Information Criterion (AIC)</p></note>
+      </figure>
+      <figure xml:id="fig_1">
+        <!-- 13 doi_10.3897_zookeys.340.5470: ZooKeys separates the lines of a label by a backslash; it is source text -->
+        <figDesc>Telephorus coelestis: Lectotype ♂ (NHMB): without locality information, [h]"coelestis ♂", [h]"♂", [h]"Themus \ (Telephorops) \ coelestis \</figDesc>
+      </figure>
+    </body>
+  </text>
+</TEI>
