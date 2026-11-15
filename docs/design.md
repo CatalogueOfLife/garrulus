@@ -579,7 +579,30 @@ M1 and M2 can run in parallel after M0.
 - **To verify while building:**
   - whether gnfinder's HTTP API returns offsets per block as expected, and its hyphenation handling
   - whether GROBID TEI keeps italics: verified in M1, it does not (ADR-0002)
-  - whether CLB's `classification[]` for synonyms holds the accepted lineage
+  - whether CLB's `classification[]` for synonyms holds the accepted lineage: verified 2026-11-15, it does (*Felis leo*
+    gives `classification[0]` = accepted *Panthera leo* `4CGXP`, then its ancestors up to Felidae `623RM`; ADR-0005)
   - that Crossref ORs repeated `issn:` filters: verified 2026-11-15, they are ORed (ZooKeys 8,542 + Zootaxa 50,404 = 58,946; ADR-0004)
   - how many works the backfill really is (group-by count)
   - OpenAlex snapshot size and layout
+- **M3 calls** (plan `docs/superpowers/plans/2026-11-15-m3-match-and-index.md`, details in ADR-0005):
+  - Tuning moved out of M3: the salience weights and threshold ship as untuned defaults in `nametracker.salience.*` and
+    are tuned on the curated main-subject labels in the final finder-tuning stage, with the finder itself and the
+    `TeiConverter` tokenisation clean-up (Markus, 2026-11-15).
+  - Closed full text waits in a transient spool (`data/spool`) until `FIND_NAMES` has run, for at most 14 days; it never
+    enters the blob store.
+  - `mention` is not partitioned yet (revisit with the M5 backfill).
+  - The XR is pinned at the first key `XR_CHECK` sees (316691, "COL26.10 XR"); later keys are only recorded, switching is
+    M5. `ClbBulkMatcher` is not built (M5). The matcher does not send `code` yet.
+  - Placement: `higherrank` counts as `GENUS` only when it lands on a genus for a binomial, trinomial or infrageneric
+    name; `higherrank` to any other rank, `none` and `ambiguous` fall back to the lowest matched context taxon, else
+    `NONE`. OTUs are never matched. Every context element is matched on its own, without hints.
+  - CLB's match response carries no `group` today; `TaxGroupAnalyzer` computes it from the usage's classification.
+  - A repeat `FIND_NAMES` for an already named document is a no-op, also under a new finder version; M5's reprocessing
+    needs a force flag.
+  - Journal categorisation recomputes a source only from 20 indexed works in the current and the two previous years;
+    there is no topic-based group seeding.
+  - The taxon filter and taxon pages ignore reference-only names; the name filter keeps them (the name–literature index
+    lists every occurrence).
+  - The OpenAPI file is written by hand and checked against the mappings by `OpenApiCoverageTest`.
+  - The browser calls CLB directly for the taxon picker and the taxon page header; `web` calls no external service.
+  - Task priorities: `REBUILD_STATS` runs at `REPROCESS`; follow-up tasks inherit their task's priority.

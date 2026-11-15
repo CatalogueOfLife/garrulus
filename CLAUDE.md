@@ -12,7 +12,9 @@ notifies users who follow taxa, journals or names. It also builds a public name�
 - **Brand:** logo, jay colour palette and the Mantine theme are in `docs/brand/`. Take colours from there; never invent
   new ones.
 
-**Status:** design approved 2026-11-14; implementation starts with milestones M0 (foundations) and M1 (finder v1).
+**Status:** design approved 2026-11-14. M0 (foundations), M1 (finder v1), M2 (harvest and content) and M3 (match and
+index: ADR-0005) are built; M2's week-long dev run continues (`docs/m2-dev-run.md`, M3 check in `docs/m3-dev-check.md`).
+Next: M4 (accounts and alerts). Finder and salience tuning is a final stage after the milestones.
 
 ## Commands
 
@@ -25,11 +27,17 @@ mvn -B -pl <module> -am verify -Dit.test=<Class>    # one IT
 mvn -B -pl eval -am verify -Pgrobid -Dit.test=GrobidIT   # GrobidIT only runs with -Pgrobid (1.2 GB image)
 FINDER_DICTIONARY=$PWD/eval/work/dictionary-<key>.bin mvn -pl finder-service spring-boot:run   # finder service on 8095 (absolute path: it runs in finder-service/)
 mvn -B -DskipTests install                          # once on a fresh clone and after changing store: -pl resolves siblings from ~/.m2
+                                                    # (needs clb-bom/nomenclature 1.7.1-SNAPSHOT: GBIF snapshot repo, else see below)
 mvn -pl indexer spring-boot:run                     # indexer on 8081 (127.0.0.1)
 mvn -pl web spring-boot:run                         # web on 8080
 cd frontend && npm install                          # once
 cd frontend && npm run dev | npm test | npm run build   # Vite on 5173, proxies /api to 8080
 ```
+
+**CLB snapshot modules.** `clb.version` is `1.7.1-SNAPSHOT`; `vocab` (`TaxGroup`) and `nomenclature`
+(`TaxGroupAnalyzer`) come from the GBIF snapshot repository. When that repository is unreachable (it refused connections
+on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -pl nomenclature -am install` in
+`~/code/col/backend` (reads the checkout only). A fresh clone needs one of the two before the first build.
 
 **Configuration** (environment variables; defaults in each `application.yml`):
 - Both apps: `NAMETRACKER_DB_URL` (default `jdbc:postgresql://localhost:5434/nametracker`), `NAMETRACKER_DB_USER` and
@@ -58,6 +66,12 @@ cd frontend && npm run dev | npm test | npm run build   # Vite on 5173, proxies 
     outage defers the task 30 minutes without using an attempt.
   - `NAMETRACKER_HARVEST_OUTAGE_DELAY` (30m): a harvest or onboarding page that meets an outage is enqueued again after
     this delay instead of failing.
+- `indexer` matching and index (ADR-0005):
+  - `NAMETRACKER_CLB_BASE_URL` (`https://api.checklistbank.org`): the XR (`GET /dataset/3LXR`) and name matching, at
+    most 10 requests a second. A CLB outage defers `MATCH_NAMES`/`XR_CHECK` 30 minutes without using an attempt.
+  - `NAMETRACKER_SPOOL_MAX_AGE` (14d) bounds the spool; it is purged daily at 05:30 UTC and by `REBUILD_STATS`.
+  - `NAMETRACKER_STATS_CRON` (`0 30 4 * * *`): nightly `REBUILD_STATS` (ubiquity, taxon stats, spool purge), which then
+    enqueues `CATEGORISE_SOURCES`. `XR_CHECK` runs daily at `0 0 6 * * *`. Neither is behind the harvest switch.
 - `indexer` salience (properties only, no env variables; set them in `application.yml`, `.env` or as `-D`/args):
   `nametracker.salience.{title=0.40, abstract=0.20, act=0.35, heading=0.15, share=0.25, repeat=0.15, ubiquity=0.50,
   ubiquity-full-share=0.02, threshold=0.35}`. A name with salience >= threshold is a main subject of the work.
@@ -88,6 +102,17 @@ curl ... -d '{"type":"HARVEST_CROSSREF","payload":{"date":"2026-11-14"},"priorit
 
 - Task types: `SEED_SOURCES`, `ADD_SOURCE`, `ONBOARD_SOURCE`, `HARVEST_OPENALEX` (`window` LIVE or SWEEP),
   `HARVEST_CROSSREF` (`date`), `OPENALEX_RECHECK`, `RESOLVE_CONTENT`. Only onboarded CORE/BROAD sources are harvested.
+- Index task types (M3): `FIND_NAMES` (`workId`) → `MATCH_NAMES` (`workId`) → the work is `INDEXED`; `XR_CHECK` (`{}`),
+  `REBUILD_STATS`, `CATEGORISE_SOURCES` and the admin-only `FIND_PENDING` (`{"limit":n}`, default 100), which enqueues
+  `FIND_NAMES` for up to n `CONTENT_RESOLVED` works the finder never saw, highest work id first. Follow-ups inherit the
+  priority (`LIVE`, `REPROCESS`, `BACKFILL`); the queue runs by priority, then `run_after`, so with equal priority all
+  queued `FIND_NAMES` run before the `MATCH_NAMES` they enqueue.
+
+```
+# pin the XR (the first key seen stays current until M5), then name and index every resolved work
+curl ... -d '{"type":"XR_CHECK","payload":{},"priority":"LIVE","dedupKey":"xr-check:manual"}'
+curl ... -d '{"type":"FIND_PENDING","payload":{"limit":100000},"priority":"REPROCESS","dedupKey":"find-pending:manual"}'
+```
 - `GET /api/admin/sources?tier=&active=&q=&limit=&offset=` lists sources (limit at most 500, default 100).
 - `PATCH /api/admin/sources/{id}` with `{"tier":"CORE","active":true}` (either field) sets tier and active as ADMIN. A
   promotion to CORE/BROAD of an active, not yet onboarded source enqueues its onboarding. 404 for an unknown id, 400
@@ -96,6 +121,16 @@ curl ... -d '{"type":"HARVEST_CROSSREF","payload":{"date":"2026-11-14"},"priorit
 - `GET /api/admin/status`: task counts by type and state, work counts by state and text level, today's (UTC) `api_usage`
   rows, the last 20 harvest runs and source counts by tier. Only COUNT/GROUP BY queries, but they scan the whole task
   and work tables, which grow with the backlog: poll it every few minutes, not in a tight loop.
+
+## Public API (`web`, no token)
+
+`/api/works` (filters `taxon`, `name`, `code`, `taxgroup`, `subfield`, `journalType`, `tier`, `oa`, `country`, `source`,
+`yearFrom`, `yearTo`, `hasActs`, `actType`, `mainSubjectOnly`, `q`; `limit` ≤ 100, `offset` ≤ 10000; repeatable
+`facet`), `/api/works/{id}`, `/api/names?q=`, `/api/names/{id}`, `/api/taxa/{colId}/works` (`mainSubjectOnly` defaults
+to true), `/api/taxa/{colId}/stats`, `/api/sources`, `/api/sources/{id}`, `/api/xr`, `/api/vocab/taxgroup`. Only
+`INDEXED` works are listed; taxon filters ignore names that occur only in references. The full text of a work is served
+only when its content is retained (open licence). Against a manual run on 18080, start Vite with a scratch config whose
+proxy targets `http://localhost:18080` on another port (never edit `vite.config.ts` for it).
 
 ## Evaluation (`eval`)
 
@@ -163,7 +198,8 @@ on any command lists its options.
 ## Read first
 
 - `docs/design.md`: the approved design. Goals, constraints, components, data model, workflows, roadmap.
-- `docs/adr/`: later decisions, one file each (0004: onboarding gate, harvest windows, budget, keyless limits).
+- `docs/adr/`: later decisions, one file each (0004: onboarding gate, harvest windows, budget, keyless limits; 0005:
+  index pipeline, spool, XR pin, placement, salience, categorisation, OpenAPI).
 
 ## Ground rules (from the design)
 
