@@ -18,6 +18,8 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -283,20 +285,25 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
     assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT'")).isZero();
   }
 
+  /** Today in UTC, as the handler sees it; Postgres current_date follows the session time zone. */
+  private static LocalDate utcToday() {
+    return LocalDate.now(ZoneOffset.UTC);
+  }
+
   @Test
   void noRecheckForBackfillOrOldPublications() throws Exception {
     long src = source("CORE");
     long backfill = work(src, "T", "A", null, Instant.now());
     jdbc.update("UPDATE work SET origin = 'BACKFILL' WHERE id = ?", backfill);
     long old = work(src, "T", "A", null, Instant.now());
-    jdbc.update("UPDATE work SET publication_date = current_date - 91 WHERE id = ?", old);
+    jdbc.update("UPDATE work SET publication_date = ? WHERE id = ?", utcToday().minusDays(91), old);
     handler.handle(task(backfill));
     handler.handle(task(old));
     assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT'")).isZero();
 
     // recent and undated LIVE or ONBOARDING works are still re-checked
     long recent = work(src, "T", "A", null, Instant.now());
-    jdbc.update("UPDATE work SET publication_date = current_date - 89, origin = 'ONBOARDING' WHERE id = ?", recent);
+    jdbc.update("UPDATE work SET publication_date = ?, origin = 'ONBOARDING' WHERE id = ?", utcToday().minusDays(89), recent);
     long undated = work(src, "T", "A", null, Instant.now());
     handler.handle(task(recent));
     handler.handle(task(undated));
@@ -308,7 +315,7 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
   void aRecheckOfAWorkThatNoLongerQualifiesResolvesOnceAndSchedulesNothing() throws Exception {
     // queued while the work qualified; by the time it runs, the publication is older than 90 days
     long id = work(source("CORE"), "T", "A", null, Instant.now().minus(Duration.ofDays(10)));
-    jdbc.update("UPDATE work SET publication_date = current_date - 100 WHERE id = ?", id);
+    jdbc.update("UPDATE work SET publication_date = ? WHERE id = ?", utcToday().minusDays(100), id);
     handler.handle(new Task(1, "RESOLVE_CONTENT", "{\"workId\":" + id + ",\"recheck\":1}", TaskPriority.LIVE, null,
         1, Instant.now(), null, null, null, "content:" + id + ":recheck:1", null));
     assertThat(works.get(id).state()).isEqualTo("CONTENT_RESOLVED");
