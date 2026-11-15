@@ -70,11 +70,13 @@ This was carried from M2: GROBID puts a space before commas (`Hohenheim , Instit
   - Tests use real snippets from cached TEIs in `eval/work/pdf/` (copy small excerpts into test resources).
   - Cover a binomial with an authorship, "Aus bus L., 1758", and a figure reference.
 - [ ] **Stray backslashes (Markus, 2026-11-16).** Some names carry stray backslashes from GROBID, for example "Themus \ (Telephorops) \ coelestis" in doi:10.3897/zookeys.340.5470 (the TEI is cached under `eval/work/acts-tei/` or `eval/work/pdf/`).
-  - Find where they come from in the TEI: a literal `\`, an escaped character, or a font-mapping artefact.
-  - Remove a lone backslash token surrounded by whitespace. Remove a backslash next to a name part when it is a GROBID artefact.
-  - The example must come out as "Themus (Telephorops) coelestis".
-  - Count how often this happens across the cached TEIs, before and after, and put the counts in the report.
-  - Add a test with that snippet.
+  - **Finding (controller, 2026-11-16).** These backslashes are not a GROBID artefact. ZooKeys uses `\` in transcribed specimen labels to mark the line breaks of a label. The article says so: 'a backslash "\" to separate data from different lines of the same label'. So the converter keeps them. They are source text, and changing them would also change the text hash of the curated document Markus has annotated.
+  - **Fix in the finder instead.**
+    - Candidate generation (gnfinder input, tokenizer, dictionary and markup generators) sees a lone backslash between whitespace as a space. Do this with a length-preserving replacement, so all offsets stay valid.
+    - A mention's span and `verbatim` still cover the exact source text, including the backslashes.
+    - Its normalised `name` has no backslashes: "Themus \ (Telephorops) \ coelestis" gives the name "Themus (Telephorops) coelestis".
+  - Add tests with that snippet (the pipeline finds the full name, `verbatim` is the source span).
+  - Count the label backslashes across the cached TEIs and put the count in the report.
 - [ ] **Measure mode B.** Run `run --finder pipeline --corpus eval/corpus/pensoft --split dev --mode B --cache-only`, plus the gnfinder baseline, before and after the change.
   - Commit the after-reports.
   - Put the before/after F1 in the commit message body.
