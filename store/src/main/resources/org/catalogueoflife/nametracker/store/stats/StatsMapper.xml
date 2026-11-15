@@ -35,4 +35,16 @@
     SELECT taxon_id, year, works, main_subject_works FROM fresh
     ON CONFLICT (taxon_id, year) DO UPDATE SET works = excluded.works, main_subject_works = excluded.main_subject_works
   </update>
+
+  <select id="ubiquityChecksum" resultType="string">
+    SELECT coalesce(md5(string_agg(name_string_id || ':' || works || ':' || share::text, ',' ORDER BY name_string_id)), '')
+    FROM name_ubiquity
+  </select>
+
+  <select id="jobState" resultType="string">SELECT value FROM job_state WHERE key = #{key}</select>
+
+  <insert id="putJobState">
+    INSERT INTO job_state (key, value, updated) VALUES (#{key}, #{value}, now())
+    ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated = excluded.updated
+  </insert>
 </mapper>

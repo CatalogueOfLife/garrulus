@@ -19,4 +19,12 @@ public interface StatsMapper {
    * those among them with a main-subject name there. Works without a year are skipped. Returns the rows written.
    */
   int rebuildTaxonStats();
+
+  /** A checksum of {@code name_ubiquity} (names, works and shares); the same content gives the same value. */
+  String ubiquityChecksum();
+
+  /** The value of the {@code job_state} key, null if unset. */
+  @org.jspecify.annotations.Nullable String jobState(@Param("key") String key);
+
+  void putJobState(@Param("key") String key, @Param("value") String value);
 }

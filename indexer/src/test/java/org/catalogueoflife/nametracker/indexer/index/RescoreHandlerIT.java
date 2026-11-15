@@ -1,0 +1,162 @@
+package org.catalogueoflife.nametracker.indexer.index;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.sql.Array;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.catalogueoflife.nametracker.indexer.AbstractPostgresIT;
+import org.catalogueoflife.nametracker.indexer.match.Placement;
+import org.catalogueoflife.nametracker.indexer.stats.RebuildStatsHandler;
+import org.catalogueoflife.nametracker.store.index.IndexMapper;
+import org.catalogueoflife.nametracker.store.index.WorkName;
+import org.catalogueoflife.nametracker.store.task.Task;
+import org.catalogueoflife.nametracker.store.task.TaskPriority;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+class RescoreHandlerIT extends AbstractPostgresIT {
+
+  @Autowired IndexMapper index;
+  @Autowired JdbcTemplate jdbc;
+  @Autowired WorkIndexer indexer;
+  @Autowired RescoreHandler handler;
+  @Autowired RebuildStatsHandler stats;
+
+  @BeforeEach
+  void clean() {
+    jdbc.update("DELETE FROM task");
+    jdbc.update("DELETE FROM work");
+    jdbc.update("DELETE FROM name_ubiquity");
+    jdbc.update("DELETE FROM job_state");
+  }
+
+  private long work() {
+    return jdbc.queryForObject("INSERT INTO work (doi, title, license, origin, state, text_level, year) VALUES ('10.1/' || "
+        + "nextval('work_id_seq'), 't', 'cc-by', 'LIVE', 'MATCHED', 'FULLTEXT', 2026) RETURNING id", Long.class);
+  }
+
+  private long mention(long work, String name, String blockType, int start) {
+    long ns = index.nameStringId(name, "BINOMIAL", "SPECIES");
+    jdbc.update("INSERT INTO mention (work_id, name_string_id, block_id, block_type, start_cp, end_cp, verbatim, "
+        + "confidence, snippet, evidence) VALUES (?, ?, ?, ?, ?, ?, ?, 0.9, 's', '{}'::jsonb)",
+        work, ns, blockType + start, blockType, start, start + 10, name);
+    return ns;
+  }
+
+  private Task task(String payload) {
+    return new Task(1, "RESCORE_SALIENCE", payload, TaskPriority.BACKFILL, null, 0, null, null, null, null, null, null);
+  }
+
+  private Map<Long, WorkName> names(long w) {
+    Map<Long, WorkName> by = new HashMap<>();
+    for (WorkName n : index.workNames(w)) by.put(n.nameStringId(), n);
+    return by;
+  }
+
+  private long indexedWork(Map<String, String[]> placed) {
+    long w = work();
+    Map<Long, Placement> p = new HashMap<>();
+    for (var e : placed.entrySet()) {
+      long ns = mention(w, e.getKey(), "ABSTRACT", p.size() * 20);
+      p.put(ns, new Placement("MATCH", "u-" + e.getKey(), List.of("a", "b"), e.getValue()[0], e.getValue()[1]));
+    }
+    indexer.index(w, p);
+    return w;
+  }
+
+  @Test
+  void rescoreAppliesNewUbiquity() throws Exception {
+    long w = indexedWork(Map.of("Escherichia coli", new String[] {"BACTERIAL", "Bacteria"}));
+    long ec = index.nameStringId("Escherichia coli", "BINOMIAL", "SPECIES");
+    assertThat(names(w).get(ec).mainSubject()).isTrue();
+    assertThat((String[]) ((Array) jdbc.queryForMap("SELECT codes FROM work WHERE id = ?", w).get("codes")).getArray())
+        .containsExactly("BACTERIAL");
+
+    jdbc.update("INSERT INTO name_ubiquity (name_string_id, works, share) VALUES (?, 100, 0.05)", ec);
+    handler.handle(task("{\"afterId\":0}"));
+
+    assertThat(names(w).get(ec).mainSubject()).isFalse();
+    Map<String, Object> row = jdbc.queryForMap("SELECT codes, taxgroups, state FROM work WHERE id = ?", w);
+    assertThat((String[]) ((Array) row.get("codes")).getArray()).isEmpty();
+    assertThat((String[]) ((Array) row.get("taxgroups")).getArray()).isEmpty();
+    assertThat(row.get("state")).isEqualTo("INDEXED");
+  }
+
+  @Test
+  void rescoreIsIdempotent() throws Exception {
+    long w = indexedWork(Map.of("Escherichia coli", new String[] {"BACTERIAL", "Bacteria"},
+        "Carabus auratus", new String[] {"ZOOLOGICAL", "Coleoptera"}));
+    long ec = index.nameStringId("Escherichia coli", "BINOMIAL", "SPECIES");
+    jdbc.update("INSERT INTO name_ubiquity (name_string_id, works, share) VALUES (?, 100, 0.05)", ec);
+    handler.handle(task("{}"));
+    List<WorkName> first = index.workNames(w);
+    Object modified = jdbc.queryForObject("SELECT modified FROM work WHERE id = ?", Object.class, w);
+    handler.handle(task("{}"));
+    assertThat(index.workNames(w)).isEqualTo(first);
+    assertThat(jdbc.queryForObject("SELECT modified FROM work WHERE id = ?", Object.class, w)).isEqualTo(modified);
+    // a rescore on fresh indexing gives what indexing with the same ubiquity gives
+    Map<Long, Placement> p = new HashMap<>();
+    for (WorkName n : first) p.put(n.nameStringId(), new Placement(n.placementMethod(), n.usageId(), n.taxonPath(),
+        n.code(), n.taxgroup()));
+    indexer.index(w, p);
+    assertThat(index.workNames(w)).isEqualTo(first);
+  }
+
+  @Test
+  void rescoreDoesNotTouchPlacements() throws Exception {
+    long w = indexedWork(Map.of("Escherichia coli", new String[] {"BACTERIAL", "Bacteria"}));
+    long ec = index.nameStringId("Escherichia coli", "BINOMIAL", "SPECIES");
+    jdbc.update("UPDATE work SET state = 'NOTIFIED' WHERE id = ?", w);
+    WorkName before = names(w).get(ec);
+    jdbc.update("INSERT INTO name_ubiquity (name_string_id, works, share) VALUES (?, 100, 0.05)", ec);
+    handler.handle(task("{}"));
+    WorkName after = names(w).get(ec);
+    assertThat(after.placementMethod()).isEqualTo(before.placementMethod());
+    assertThat(after.usageId()).isEqualTo(before.usageId());
+    assertThat(after.taxonPath()).isEqualTo(before.taxonPath());
+    assertThat(after.code()).isEqualTo("BACTERIAL");
+    assertThat(after.taxgroup()).isEqualTo("Bacteria");
+    assertThat(after.mainSubject()).isFalse();
+    assertThat(jdbc.queryForObject("SELECT state FROM work WHERE id = ?", String.class, w)).isEqualTo("NOTIFIED");
+  }
+
+  @Test
+  void rescoreContinuesInBatches() throws Exception {
+    long a = indexedWork(Map.of("Escherichia coli", new String[] {"BACTERIAL", "Bacteria"}));
+    long b = indexedWork(Map.of("Escherichia coli", new String[] {"BACTERIAL", "Bacteria"}));
+    long c = indexedWork(Map.of("Escherichia coli", new String[] {"BACTERIAL", "Bacteria"}));
+    long notIndexed = work();
+    long ec = index.nameStringId("Escherichia coli", "BINOMIAL", "SPECIES");
+    jdbc.update("INSERT INTO name_ubiquity (name_string_id, works, share) VALUES (?, 100, 0.05)", ec);
+    handler.handle(task("{\"afterId\":0,\"batch\":2}"));
+    assertThat(names(a).get(ec).mainSubject()).isFalse();
+    assertThat(names(b).get(ec).mainSubject()).isFalse();
+    assertThat(names(c).get(ec).mainSubject()).isTrue();
+    var t = jdbc.queryForMap("SELECT payload::text AS payload, priority FROM task WHERE dedup_key = ?", "rescore:" + b);
+    assertThat((String) t.get("payload")).contains("\"afterId\": " + b).contains("\"batch\": 2");
+    assertThat(((Number) t.get("priority")).intValue()).isEqualTo(TaskPriority.REPROCESS.code());
+    handler.handle(task("{\"afterId\":" + b + ",\"batch\":2}"));
+    assertThat(names(c).get(ec).mainSubject()).isFalse();
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM task WHERE type = 'RESCORE_SALIENCE'", Integer.class))
+        .isEqualTo(1); // one work left in the last batch: no further continuation
+    assertThat(notIndexed).isPositive();
+  }
+
+  @Test
+  void rebuildStatsEnqueuesRescoreOnlyWhenUbiquityChanged() {
+    indexedWork(Map.of("Escherichia coli", new String[] {"BACTERIAL", "Bacteria"}));
+    jdbc.update("UPDATE work SET year = extract(year from now())::int");
+    Task t = new Task(1, "REBUILD_STATS", "{}", TaskPriority.LIVE, null, 0, null, null, null, null, null, null);
+    stats.handle(t);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM task WHERE type = 'RESCORE_SALIENCE'", Integer.class))
+        .isEqualTo(1);
+    jdbc.update("DELETE FROM task");
+    stats.handle(t); // same ubiquity
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM task WHERE type = 'RESCORE_SALIENCE'", Integer.class))
+        .isZero();
+  }
+}

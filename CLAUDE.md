@@ -115,7 +115,7 @@ curl ... -d '{"type":"HARVEST_CROSSREF","payload":{"date":"2026-11-14"},"priorit
 - Task types: `SEED_SOURCES`, `ADD_SOURCE`, `ONBOARD_SOURCE`, `HARVEST_OPENALEX` (`window` LIVE or SWEEP),
   `HARVEST_CROSSREF` (`date`), `OPENALEX_RECHECK`, `RESOLVE_CONTENT`. Only onboarded CORE/BROAD sources are harvested.
 - Index task types (M3): `FIND_NAMES` (`workId`) → `MATCH_NAMES` (`workId`) → the work is `INDEXED`; `XR_CHECK` (`{}`),
-  `REBUILD_STATS`, `CATEGORISE_SOURCES` and the admin-only `FIND_PENDING` (`{"limit":n}`, default 100), which enqueues
+  `REBUILD_STATS`, `CATEGORISE_SOURCES`, `RESCORE_SALIENCE` (`{"afterId":0,"batch":500}`: recomputes salience, main subject and the work's codes/taxgroups/has_acts of INDEXED/NOTIFIED works from stored mentions and the current ubiquity, placements untouched, continues per batch at REPROCESS; `REBUILD_STATS` enqueues it when the ubiquity changed, admin can start it after changing salience properties) and the admin-only `FIND_PENDING` (`{"limit":n}`, default 100), which enqueues
   `FIND_NAMES` for up to n `CONTENT_RESOLVED` works the finder never saw, highest work id first. The queue runs by
   priority (`LIVE`, `REPROCESS`, `BACKFILL`), then `run_after`, then id. A follow-up (`RESOLVE_CONTENT` → `FIND_NAMES` →
   `MATCH_NAMES`, `REBUILD_STATS` → `CATEGORISE_SOURCES`) inherits the priority and the `run_after` of its task, so it

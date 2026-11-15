@@ -224,4 +224,27 @@
       has_acts = #{hasActs}, state = 'INDEXED', indexed_at = now(), modified = now()
     WHERE id = #{workId}
   </update>
+
+  <select id="indexedWorkIds" resultType="long">
+    SELECT id FROM work WHERE state IN ('INDEXED','NOTIFIED') AND id > #{afterId} ORDER BY id LIMIT #{limit}
+  </select>
+
+  <update id="updateSalience">
+    UPDATE work_name wn SET salience = v.salience, main_subject = v.main_subject
+    FROM (VALUES
+      <foreach collection="list" item="o" separator=",">(#{o.nameStringId}::bigint, #{o.salience}::real, #{o.mainSubject}::boolean)</foreach>
+    ) AS v(name_string_id, salience, main_subject)
+    WHERE wn.work_id = #{workId} AND wn.name_string_id = v.name_string_id
+      AND (wn.salience IS DISTINCT FROM v.salience OR wn.main_subject IS DISTINCT FROM v.main_subject)
+  </update>
+
+  <update id="updateWorkColumns">
+    UPDATE work SET codes = #{codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler},
+      taxgroups = #{taxgroups, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler},
+      has_acts = #{hasActs}, modified = now()
+    WHERE id = #{workId}
+      AND (codes IS DISTINCT FROM #{codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}
+        OR taxgroups IS DISTINCT FROM #{taxgroups, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}
+        OR has_acts IS DISTINCT FROM #{hasActs})
+  </update>
 </mapper>

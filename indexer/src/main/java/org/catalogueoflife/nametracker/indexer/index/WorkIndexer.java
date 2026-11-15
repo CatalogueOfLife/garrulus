@@ -49,6 +49,23 @@ public class WorkIndexer implements WorkIndexing {
 
   private void doIndex(long workId, Map<Long, Placement> placements) {
     index.lockWork(workId);
+    Aggregate a = aggregate(workId, placements);
+    index.deleteWorkNames(workId);
+    for (int i = 0; i < a.rows().size(); i += CHUNK) {
+      index.insertWorkNames(a.rows().subList(i, Math.min(a.rows().size(), i + CHUNK)));
+    }
+    index.setIndexed(workId, a.codes(), a.taxgroups(), a.hasActs());
+  }
+
+  /** The work_name rows of a work and its derived work columns; codes and taxgroups are sorted. */
+  public record Aggregate(List<WorkName> rows, String[] codes, String[] taxgroups, boolean hasActs) {}
+
+  /**
+   * Computes the work_name rows (salience, main subject) and the work's codes, taxgroups and has_acts from the stored
+   * mentions, the current name_ubiquity and the given placements. Reads only; the caller holds the work lock and
+   * writes. Shared by indexing and {@code RESCORE_SALIENCE}.
+   */
+  public Aggregate aggregate(long workId, Map<Long, Placement> placements) {
     boolean abstractOnly = "ABSTRACT_ONLY".equals(index.textLevel(workId));
     Map<Long, List<MentionRow>> byName = new LinkedHashMap<>();
     boolean hasActs = false;
@@ -100,11 +117,7 @@ public class WorkIndexer implements WorkIndexing {
           new ArrayList<>(acts), best.snippet(), p.method(), p.usageId(), p.taxonPath(), p.code(), p.taxgroup(),
           (float) s, main));
     }
-    index.deleteWorkNames(workId);
-    for (int i = 0; i < rows.size(); i += CHUNK) {
-      index.insertWorkNames(rows.subList(i, Math.min(rows.size(), i + CHUNK)));
-    }
-    index.setIndexed(workId, codes.stream().sorted().toArray(String[]::new),
+    return new Aggregate(rows, codes.stream().sorted().toArray(String[]::new),
         groups.stream().sorted().toArray(String[]::new), hasActs);
   }
 

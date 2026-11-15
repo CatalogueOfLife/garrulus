@@ -147,10 +147,16 @@ salience = clamp(s, 0, 1); main_subject = salience >= threshold
   weight and does not set `work.has_acts` (it still shows in the name's `act_types`).
 - `ubiquityShare` is the name's share of indexed works of the last 5 calendar years (`name_ubiquity`, nightly), 0 for a
   name without a row. A lab organism mentioned in 2% or more of all works loses the full 0.50.
-- **Cold start:** salience is computed once, when the work is indexed. Works indexed before `name_ubiquity` is
-  meaningful (the first nights of the dev run, any fresh install) carry no ubiquity penalty, and the nightly rebuild
-  does not rescore them. A future `RESCORE` task, planned for the finder-tuning stage, recomputes salience and the
-  main-subject flags of indexed works from their stored `work_name` counts.
+- **Cold start:** salience is computed when the work is indexed, so works indexed before `name_ubiquity` is meaningful
+  (the first nights of the dev run, any fresh install) carry no ubiquity penalty. `RESCORE_SALIENCE`
+  (`{"afterId":n,"batch":500}`) handles it: it recomputes salience, `main_subject` and the work's `codes`, `taxgroups`
+  and `has_acts` of INDEXED and NOTIFIED works from the stored mentions and the current ubiquity, reusing
+  `WorkIndexer.aggregate`. Placements (method, usage, path, code, taxgroup), work state and `indexed_at` are never
+  touched, and there is no CLB call. One transaction per work (work row locked first), one batch per task; a full batch
+  enqueues `rescore:<lastId>` at REPROCESS with the parent's `run_after`. `REBUILD_STATS` enqueues it
+  (`{"afterId":0}`, dedup `rescore:<date>`, REPROCESS) only when an md5 checksum of `name_ubiquity` differs from the one
+  stored under `rescore.ubiquity` in the `job_state` key/value table (migration V6) when it last did so. The task can
+  also be started by hand through the admin task endpoint, e.g. after changing the salience properties.
 - `work.codes` and `work.taxgroups` aggregate the main-subject names only, `taxgroups` with every ancestor group, so a
   filter on Insects is an array contains.
 

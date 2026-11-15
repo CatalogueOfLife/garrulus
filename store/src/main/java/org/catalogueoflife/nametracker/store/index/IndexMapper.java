@@ -101,4 +101,17 @@ public interface IndexMapper {
 
   void updateIndexed(@Param("workId") long workId, @Param("codes") List<String> codes,
       @Param("taxgroups") List<String> taxgroups, @Param("hasActs") boolean hasActs);
+
+  /** Ids of INDEXED or NOTIFIED works after {@code afterId}, ascending. */
+  List<Long> indexedWorkIds(@Param("afterId") long afterId, @Param("limit") int limit);
+
+  /** Sets salience and main_subject of the work's rows, only where either differs; returns the rows changed. */
+  int updateSalience(@Param("workId") long workId, @Param("list") List<WorkName> list);
+
+  /**
+   * Sets codes, taxgroups and has_acts of the work, only if one differs, and leaves state and indexed_at alone.
+   * Returns 1 if changed.
+   */
+  int updateWorkColumns(@Param("workId") long workId, @Param("codes") List<String> codes,
+      @Param("taxgroups") List<String> taxgroups, @Param("hasActs") boolean hasActs);
 }
