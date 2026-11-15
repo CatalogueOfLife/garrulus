@@ -43,7 +43,9 @@ public class OpenAlexClient {
   static final int MAX_PAGED_RESULTS = 10_000;
   private static final BigDecimal USD_PER_CREDIT = new BigDecimal("0.0001");
 
-  public record Page(List<JsonNode> results, @Nullable String nextCursor, int nextPage, boolean last) {
+  /** {@code capped}: keyless page paging hit the 10,000 result limit, so the listing is cut short. */
+  public record Page(List<JsonNode> results, @Nullable String nextCursor, int nextPage, boolean last,
+      boolean capped) {
   }
 
   public record GroupCount(String key, long count) {
@@ -89,8 +91,8 @@ public class OpenAlexClient {
 
   /**
    * One page of works. With an API key it pages by cursor ({@code cursor} null means the first page); without one it
-   * pages by number ({@code page}, 1-based) sorted by {@code publication_date,id}, as keyless cursor paging answers 401,
-   * and stops at 10,000 results.
+   * pages by number ({@code page}, 1-based) sorted by {@code publication_date:desc} (newest first, so the cap drops the oldest works; {@code id} is not a sortable
+   * field), as keyless cursor paging answers 401, and stops at 10,000 results ({@link Page#capped()}).
    */
   public Page listWorks(String filter, String select, @Nullable String cursor, int page) {
     Map<String, String> q = new LinkedHashMap<>();
@@ -101,7 +103,7 @@ public class OpenAlexClient {
       q.put("cursor", cursor == null ? "*" : cursor);
     } else {
       q.put("page", String.valueOf(page));
-      q.put("sort", "publication_date,id");
+      q.put("sort", "publication_date:desc");
     }
     Reply r = fetch(Call.LIST, uri("/works", q), false);
     List<JsonNode> results = new ArrayList<>();
@@ -110,7 +112,7 @@ public class OpenAlexClient {
     if (apiKey != null) {
       JsonNode nc = r.body().path("meta").path("next_cursor");
       String next = nc.isNull() || nc.isMissingNode() || nc.asString().isBlank() ? null : nc.asString();
-      return new Page(results, next, page + 1, next == null || results.isEmpty());
+      return new Page(results, next, page + 1, next == null || results.isEmpty(), false);
     }
     boolean capped = (long) page * PER_PAGE >= MAX_PAGED_RESULTS;
     boolean last = results.size() < PER_PAGE || capped;
@@ -118,7 +120,7 @@ public class OpenAlexClient {
       LOG.info("Keyless page paging stops at {} results for filter {}; narrow the filter or use an API key",
           MAX_PAGED_RESULTS, filter);
     }
-    return new Page(results, null, page + 1, last);
+    return new Page(results, null, page + 1, last, capped && results.size() >= PER_PAGE);
   }
 
   /** Counts per group; all pages with a key, only the first (and a WARN when truncated) without one. */

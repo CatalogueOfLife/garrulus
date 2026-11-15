@@ -38,9 +38,13 @@
   </update>
 
   <update id="setState">
-    UPDATE harvest_run SET state = #{state}, error = #{error},
+    UPDATE harvest_run SET state = #{state}, error = COALESCE(#{error}, error),
       finished = CASE WHEN #{state}::text IN ('DONE','FAILED') THEN now() ELSE NULL END
     WHERE id = #{id}
+  </update>
+
+  <update id="noteError">
+    UPDATE harvest_run SET error = COALESCE(error, #{error}) WHERE id = #{id}
   </update>
 
   <select id="get" resultMap="result">

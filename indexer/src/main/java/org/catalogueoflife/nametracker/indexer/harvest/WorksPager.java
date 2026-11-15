@@ -12,11 +12,13 @@ import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexWorks;
 import org.catalogueoflife.nametracker.indexer.openalex.WorkRecord;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
+import org.catalogueoflife.nametracker.store.work.Work;
 import org.catalogueoflife.nametracker.store.work.WorkUpsert;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
 
 /** One page of an OpenAlex works listing: fetched, upserted, and a RESOLVE_CONTENT task queued for each new work. */
@@ -26,17 +28,20 @@ public class WorksPager {
   private static final Logger LOG = LoggerFactory.getLogger(WorksPager.class);
   public static final String RESOLVE_CONTENT = "RESOLVE_CONTENT";
 
-  public record Outcome(int seen, int created, boolean last, @Nullable String nextCursor, int nextPage) {
+  public record Outcome(int seen, int created, boolean last, @Nullable String nextCursor, int nextPage,
+      boolean capped) {
   }
 
   private final OpenAlexClient client;
   private final WorkUpsert upsert;
   private final TaskQueue queue;
+  private final TransactionTemplate tx;
 
-  public WorksPager(OpenAlexClient client, WorkUpsert upsert, TaskQueue queue) {
+  public WorksPager(OpenAlexClient client, WorkUpsert upsert, TaskQueue queue, TransactionTemplate tx) {
     this.client = client;
     this.upsert = upsert;
     this.queue = queue;
+    this.tx = tx;
   }
 
   /**
@@ -58,13 +63,18 @@ public class WorksPager {
       }
       seen++;
       Long sourceId = rec.sourceOpenalexId() == null ? null : sourceIds.get(rec.sourceOpenalexId());
-      WorkUpsert.UpsertResult r = upsert.upsert(rec.toWork(sourceId, origin));
-      if (r.created()) {
-        created++;
-        queue.enqueue(RESOLVE_CONTENT, "{\"workId\":" + r.id() + "}", contentPriority, "content:" + r.id());
-      }
+      // one transaction per work: a crash cannot leave a new work without its RESOLVE_CONTENT task
+      Work work = rec.toWork(sourceId, origin);
+      boolean isNew = Boolean.TRUE.equals(tx.execute(status -> {
+        WorkUpsert.UpsertResult r = upsert.upsert(work);
+        if (r.created()) {
+          queue.enqueue(RESOLVE_CONTENT, "{\"workId\":" + r.id() + "}", contentPriority, "content:" + r.id());
+        }
+        return r.created();
+      }));
+      if (isNew) created++;
     }
-    return new Outcome(seen, created, p.last(), p.nextCursor(), p.nextPage());
+    return new Outcome(seen, created, p.last(), p.nextCursor(), p.nextPage(), p.capped());
   }
 
   /** The position token of a dedup key: a short hash of the cursor, or the page number. */

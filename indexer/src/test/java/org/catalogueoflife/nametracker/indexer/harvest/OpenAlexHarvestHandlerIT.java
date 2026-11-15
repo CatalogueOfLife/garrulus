@@ -2,6 +2,7 @@ package org.catalogueoflife.nametracker.indexer.harvest;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import java.math.BigDecimal;
@@ -22,6 +23,8 @@ import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.catalogueoflife.nametracker.store.usage.ApiUsageMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -38,15 +41,16 @@ class OpenAlexHarvestHandlerIT extends AbstractPostgresIT {
     r.add("nametracker.http.min-interval.localhost", () -> "0s");
   }
 
+  @MockitoSpyBean TaskQueue queue;
   @Autowired OpenAlexHarvestHandler harvest;
   @Autowired OnboardSourceHandler onboard;
-  @Autowired TaskQueue queue;
   @Autowired HarvestRunMapper runs;
   @Autowired ApiUsageMapper usage;
   @Autowired JdbcTemplate jdbc;
 
   @BeforeEach
   void clean() {
+    Mockito.reset(queue);
     jdbc.update("DELETE FROM task");
     jdbc.update("DELETE FROM api_usage");
     jdbc.update("DELETE FROM harvest_run");
@@ -114,7 +118,8 @@ class OpenAlexHarvestHandlerIT extends AbstractPostgresIT {
     assertThat(count("SELECT count(*) FROM work")).isEqualTo(3);
     assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT'")).isEqualTo(3);
     assertThat(count("SELECT count(*) FROM work WHERE origin = 'LIVE'")).isEqualTo(3);
-    assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT' AND priority = 0")).isEqualTo(3);
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT' AND priority = "
+        + TaskPriority.LIVE.code())).isEqualTo(3);
     assertThat(count("SELECT count(*) FROM source WHERE last_harvested IS NOT NULL")).isEqualTo(1);
     LocalDate from = LocalDate.now(ZoneOffset.UTC).minusDays(120);
     verify(2, getRequestedFor(urlPathEqualTo("/works"))
@@ -155,7 +160,10 @@ class OpenAlexHarvestHandlerIT extends AbstractPostgresIT {
     assertThat(deferredPayload.replace(" ", "")).contains("\"cursor\":\"c2\"", "\"window\":\"SWEEP\"");
     Instant runAfter = jdbc.queryForObject("SELECT run_after FROM task WHERE state = 'QUEUED' AND type = 'HARVEST_OPENALEX'",
         Timestamp.class).toInstant();
-    assertThat(runAfter).isAfter(Instant.now());
+    Instant now = Instant.now();
+    Instant expected = LocalDate.now(ZoneOffset.UTC).atTime(0, 5).toInstant(ZoneOffset.UTC);
+    if (!expected.isAfter(now)) expected = expected.plus(java.time.Duration.ofDays(1));
+    assertThat(runAfter).isEqualTo(expected); // the next 00:05 UTC (a midnight rollover mid-test is not handled)
     assertThat(runs.recent(1).getFirst().state()).isEqualTo("DEFERRED");
     LocalDate from = LocalDate.now(ZoneOffset.UTC).minusDays(400);
     verify(1, getRequestedFor(urlPathEqualTo("/works"))
@@ -172,6 +180,23 @@ class OpenAlexHarvestHandlerIT extends AbstractPostgresIT {
     assertThat(run.state()).isEqualTo("DONE");
     assertThat(run.calls()).isEqualTo(2);
     assertThat(run.worksNew()).isEqualTo(3);
+  }
+
+  @Test
+  void crashBetweenUpsertAndEnqueueLosesNoResolveContent() throws Exception {
+    source("S804", true);
+    stubFor(get(urlPathEqualTo("/works")).willReturn(okJson(works(null, "S804", "W1S804"))));
+    Mockito.doThrow(new IllegalStateException("crash")).doCallRealMethod().when(queue)
+        .enqueue(Mockito.eq("RESOLVE_CONTENT"), Mockito.anyString(), Mockito.any(), Mockito.anyString());
+
+    queue.enqueue("HARVEST_OPENALEX", "{\"window\":\"LIVE\"}", TaskPriority.LIVE, null);
+    Task t = queue.claim(Set.of("HARVEST_OPENALEX"), "test", 1).getFirst();
+    assertThatThrownBy(() -> harvest.handle(t)).hasMessageContaining("crash");
+    assertThat(count("SELECT count(*) FROM work")).isZero(); // rolled back with the failed enqueue
+
+    harvest.handle(t); // the retry
+    assertThat(count("SELECT count(*) FROM work")).isEqualTo(1);
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT'")).isEqualTo(1);
   }
 
   @Test

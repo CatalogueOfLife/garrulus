@@ -81,6 +81,10 @@ public class OnboardSourceHandler implements TaskHandler {
           "onboard:" + sourceId + ":" + WorksPager.pos(cursor, page) + ":d" + retryAt.getEpochSecond(), retryAt);
       return;
     }
+    if (out.capped()) {
+      LOG.warn("Onboarding of source {}: keyless paging stopped at 10000 results, the oldest works are missing; "
+          + "filter {}", sourceId, filter);
+    }
     if (!out.last()) {
       queue.enqueue(TYPE, payload(sourceId, from, out.nextCursor(), out.nextPage()), task.priority(),
           "onboard:" + sourceId + ":" + WorksPager.pos(out.nextCursor(), out.nextPage()));

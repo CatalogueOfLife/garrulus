@@ -14,6 +14,7 @@ import org.catalogueoflife.nametracker.store.harvest.HarvestRunMapper;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.Task;
+import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -35,6 +36,7 @@ public class OpenAlexHarvestHandler implements TaskHandler {
   static final int BATCH_SIZE = 50;
   static final int LIVE_DAYS = 120;
   static final int SWEEP_DAYS = 400;
+  static final String TRUNCATED = "truncated at 10000 results (no API key)";
   private static final Logger LOG = LoggerFactory.getLogger(OpenAlexHarvestHandler.class);
 
   private final WorksPager pager;
@@ -98,7 +100,7 @@ public class OpenAlexHarvestHandler implements TaskHandler {
         + ",from_publication_date:" + from + ",type:article|review";
     WorksPager.Outcome out;
     try {
-      out = pager.page(filter, cursor, page, ids, window, task.priority());
+      out = pager.page(filter, cursor, page, ids, window, TaskPriority.LIVE);
     } catch (BudgetExhaustedException e) {
       Instant retryAt = e.retryAt();
       LOG.info("OpenAlex budget spent; {} harvest from {} resumes at {}", window, from, retryAt);
@@ -109,6 +111,11 @@ public class OpenAlexHarvestHandler implements TaskHandler {
       return;
     }
     runs.addProgress(runId, 1, out.seen(), out.created());
+    if (out.capped()) {
+      LOG.warn("{} harvest from {}, batch {}: keyless paging stopped at 10000 results, the oldest works of the batch "
+          + "are missing; filter {}", window, from, batch, filter);
+      runs.noteError(runId, TRUNCATED);
+    }
 
     if (!out.last()) {
       continuation(task, window, from, batch, out.nextCursor(), out.nextPage(), runId);

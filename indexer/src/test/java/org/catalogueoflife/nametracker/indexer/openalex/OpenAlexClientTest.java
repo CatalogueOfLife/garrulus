@@ -90,11 +90,12 @@ class OpenAlexClientTest {
     verify(getRequestedFor(urlPathEqualTo("/works"))
         .withQueryParam("page", equalTo("3"))
         .withQueryParam("per_page", equalTo("200"))
-        .withQueryParam("sort", equalTo("publication_date,id"))
+        .withQueryParam("sort", equalTo("publication_date:desc"))
         .withoutQueryParam("cursor").withoutQueryParam("api_key"));
     assertEquals(4, p.nextPage());
     assertNull(p.nextCursor());
     assertTrue(p.last(), "fewer than 200 results is the last page");
+    assertFalse(p.capped());
   }
 
   @Test
@@ -104,7 +105,10 @@ class OpenAlexClientTest {
     stubFor(get(urlPathEqualTo("/works")).willReturn(json(body.append("]}").toString())));
     OpenAlexClient c = client(w, null);
     assertFalse(c.listWorks("f:1", "id", null, 49).last());
-    assertTrue(c.listWorks("f:1", "id", null, 50).last());
+    assertFalse(c.listWorks("f:1", "id", null, 49).capped());
+    OpenAlexClient.Page capped = c.listWorks("f:1", "id", null, 50);
+    assertTrue(capped.last());
+    assertTrue(capped.capped());
   }
 
   @Test

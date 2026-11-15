@@ -20,8 +20,11 @@ public interface HarvestRunMapper {
   int addProgress(@Param("id") long id, @Param("calls") int calls, @Param("seen") int seen,
       @Param("created") int created);
 
-  /** Sets the state: finished is now for DONE and FAILED, null otherwise. */
+  /** Sets the state (an error of null keeps the stored one): finished is now for DONE and FAILED, null otherwise. */
   int setState(@Param("id") long id, @Param("state") String state, @Param("error") @Nullable String error);
+
+  /** Records an error text unless the run already has one; the state is left alone. */
+  int noteError(@Param("id") long id, @Param("error") String error);
 
   HarvestRun get(@Param("id") long id);
 
