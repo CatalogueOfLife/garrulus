@@ -67,6 +67,9 @@ class PipelineNameFinderTest {
       109\taccepted\tParamphibambusa bambusicola Dai, 2024\tspecies\t\tParamphibambusa\t\tbambusicola\t\tbotanical\tParamphibambusa\t\t\t\tFungi\t
       110\taccepted\tViola L.\tgenus\tViola\t\t\t\t\tbotanical\t\tViolaceae\t\t\tPlantae\t
       111\taccepted\tViolaceae\tfamily\tViolaceae\t\t\t\t\tbotanical\t\t\t\t\tPlantae\t
+      112\taccepted\tScutellaria L.\tgenus\tScutellaria\t\t\t\t\tbotanical\t\tLamiaceae\t\t\tPlantae\t
+      113\taccepted\tScutellaria havanensis Jacq.\tspecies\t\tScutellaria\t\thavanensis\t\tbotanical\tScutellaria\tLamiaceae\t\t\tPlantae\t
+      114\taccepted\tLoma es Smith, 1900\tspecies\t\tLoma\t\tes\t\tzoological\tLoma\t\t\t\tAnimalia\t
       """;
   private static final ColDictionary DICT;
   private static final NameParserRust PARSER = new NameParserRust();
@@ -356,7 +359,7 @@ class PipelineNameFinderTest {
   @Test
   void newNameHintNeedsFullSupportAndSeveralWords() {
     Set<Generator> gd = Set.of(Generator.GNFINDER, Generator.DICTIONARY);
-    PipelineNameFinder.Hints newName = new PipelineNameFinder.Hints(true);
+    PipelineNameFinder.Hints newName = new PipelineNameFinder.Hints(true, false);
     ParsedCandidate viola = pc(NameKind.BINOMIAL, "Viola yuelingensis", gd, Set.of(Generator.GNFINDER));
     CandidateFeatures f = feats(false, false, -0.3, DictHit.AMBIGUOUS_WORD, true, viola);
     assertThat(PipelineNameFinder.isCertain(viola, f, 8.0)).isFalse();
@@ -465,6 +468,38 @@ class PipelineNameFinderTest {
     Document d = violaDoc(BlockType.PARAGRAPH, text, false);
     FinderResult plain = finder(new RecordedGnfinder().nothingIn(d)).find(d, new FinderOptions(true, null));
     assertThat(plain.mentions()).extracting(Mention::verbatim).doesNotContain("Viola yuelingensis");
+  }
+
+  // ---- "L. es": the authority "L." plus a Spanish verb read as an abbreviated binomial
+
+  private static FinderResult spanish(String language) {
+    String text = "Scutellaria L. es un género de Lamiaceae. S. havanensis crece en Cuba.";
+    List<GnName> names = new ArrayList<>();
+    for (String v : List.of("Scutellaria", "L. es", "S. havanensis")) {
+      int at = text.indexOf(v);
+      names.add(new GnName(v.contains(" ") ? 2 : 1, v, v, null, 1.0, at, at + v.length(), null, "NO_ANNOT"));
+    }
+    RecordedGnfinder gn = new RecordedGnfinder().answer(text, new GnfinderResponse(Map.of(), names));
+    Document d = new Document("d", language, List.of(block("b1", BlockType.PARAGRAPH, text)), Map.of());
+    return finder(gn).find(d, new FinderOptions(true, null));
+  }
+
+  private static Mention candidate(FinderResult r, String verbatim) {
+    List<Mention> all = new ArrayList<>(r.mentions());
+    all.addAll(r.rejected());
+    return all.stream().filter(m -> m.verbatim().equals(verbatim)).findFirst().orElseThrow();
+  }
+
+  @Test
+  void abbreviationWithACommonWordEpithetIsNotDictionaryCertain() {
+    for (String language : java.util.Arrays.asList("es", "spa", null)) { // null: English, where "es" is listed too
+      FinderResult r = spanish(language);
+      assertThat(candidate(r, "L. es").evidence().judge()).as("judged, language %s", language).isNotNull();
+      // an epithet that is no common word stays certain
+      Mention s = candidate(r, "S. havanensis");
+      assertThat(s.evidence().judge()).isNull();
+      assertThat(s.name()).isEqualTo("Scutellaria havanensis");
+    }
   }
 
   @Test

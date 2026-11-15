@@ -67,7 +67,9 @@ import java.util.Set;
  *   <li>certain if strong gnfinder, or if the dictionary vouches: dictionary hit BINOMIAL (a known genus-epithet pair),
  *       or EPITHET for an abbreviated verbatim ("O. limacina", whose genus cannot be checked), given full support or
  *       the dictionary on exactly this span. EPITHET on a full genus only means some COL epithet follows, which "The
- *       baculum" also satisfies, so it does not vouch.</li>
+ *       baculum" also satisfies, so it does not vouch. Nor does it for an abbreviation outside italics and markup whose
+ *       epithet is a common word of the document's language ({@link CommonWords} of en, de, fr, es or pt; English when
+ *       the language is unknown or another one): "L. es un género" is an authority and a verb.</li>
  * </ol>
  *
  * <p><b>Confidence.</b> Certain names take the maximum of the signals that may certify them, as defined above: markup on
@@ -101,6 +103,27 @@ public class PipelineNameFinder implements NameFinder {
 
   private static final class DefaultCommonWords {
     static final CommonWords WORDS = CommonWords.load(CommonWords.DEFAULT_LANGS);
+  }
+
+  /** The common words of each language with a list, loaded once. */
+  private static final class WordsByLanguage {
+    static final Map<String, CommonWords> WORDS;
+
+    static {
+      Map<String, CommonWords> m = new HashMap<>();
+      for (String lang : CommonWords.DEFAULT_LANGS) m.put(lang, CommonWords.load(Set.of(lang)));
+      WORDS = Map.copyOf(m);
+    }
+  }
+
+  private static final Map<String, String> ISO639_2 = Map.of("eng", "en", "deu", "de", "ger", "de", "fra", "fr", "fre", "fr",
+      "spa", "es", "por", "pt");
+
+  /** The common words of a document language ("es", "es-CU", "spa"); English when unknown or without a list. */
+  static CommonWords commonWords(@Nullable String language) {
+    String lang = language == null ? "" : language.strip().toLowerCase(java.util.Locale.ROOT).split("[-_]", 2)[0];
+    lang = ISO639_2.getOrDefault(lang, lang);
+    return WordsByLanguage.WORDS.getOrDefault(lang, WordsByLanguage.WORDS.get("en"));
   }
 
   /** A generator other than gnfinder, with the generator values it emits. */
@@ -286,10 +309,11 @@ public class PipelineNameFinder implements NameFinder {
     List<CandidateFeatures> features = new ArrayList<>(parsed.size());
     for (ParsedCandidate p : parsed) features.add(fx.features(p));
     Set<ParsedCandidate> newNames = newNames(parsed, features, doc);
+    CommonWords words = commonWords(doc.language());
     boolean[] certain = new boolean[parsed.size()];
     double[] confidence = new double[parsed.size()];
     for (int i = 0; i < parsed.size(); i++) {
-      Hints h = new Hints(newNames.contains(parsed.get(i)));
+      Hints h = new Hints(newNames.contains(parsed.get(i)), commonWordEpithet(parsed.get(i), features.get(i), words));
       certain[i] = isCertain(parsed.get(i), features.get(i), cfg.certainOdds(), h);
       if (certain[i]) confidence[i] = certainConfidence(parsed.get(i), features.get(i), h);
     }
@@ -320,6 +344,13 @@ public class PipelineNameFinder implements NameFinder {
       if (NEW_NAME_ACTS.contains(m.type())) out.add(p);
     });
     return out;
+  }
+
+  /** An abbreviation outside italics and markup whose epithet, the word after the genus, is a common word ("L. es"). */
+  private static boolean commonWordEpithet(ParsedCandidate p, CandidateFeatures f, CommonWords words) {
+    if (f.italic() || f.taxonMarkup() || !ParserStage.isAbbreviated(p.c().verbatim())) return false;
+    String[] t = p.c().verbatim().strip().split("\\s+");
+    return t.length >= 2 && NameShape.isLowerWord(t[1]) && words.contains(t[1]);
   }
 
   /** gnfinder saw exactly this span and annotated it as a new name ("sp. nov.", "ssp. nov.", "comb. nov."). */
@@ -450,9 +481,11 @@ public class PipelineNameFinder implements NameFinder {
    * What the certainty rule needs besides the features, computed per document in {@link #prepare}.
    *
    * @param newName gnfinder annotated it as new, or a new-name act marker follows it (see "Who is judged")
+   * @param commonWordEpithet an abbreviation outside italics and markup whose epithet is a common word of the document's
+   *                          language, so the dictionary does not vouch for it
    */
-  record Hints(boolean newName) {
-    static final Hints NONE = new Hints(false);
+  record Hints(boolean newName, boolean commonWordEpithet) {
+    static final Hints NONE = new Hints(false, false);
   }
 
   static boolean isCertain(ParsedCandidate p, CandidateFeatures f, double certainOdds) {
@@ -470,7 +503,7 @@ public class PipelineNameFinder implements NameFinder {
     if (support <= 1 && !f.italic()) return false;
     boolean strongGn = exact.contains(Generator.GNFINDER) && f.gnfinderOdds() != null && f.gnfinderOdds() >= certainOdds;
     if (f.ambiguousWord() && !strongGn) return false;
-    return strongGn || dictionaryVouches(p, f, full);
+    return strongGn || dictionaryVouches(p, f, full, h);
   }
 
   static double certainConfidence(ParsedCandidate p, CandidateFeatures f) {
@@ -482,7 +515,7 @@ public class PipelineNameFinder implements NameFinder {
     double c = 0;
     if (f.taxonMarkup()) c = Math.max(c, MARKUP_CONFIDENCE);
     if (h.newName() && fullSupport(p, f)) c = Math.max(c, NEW_NAME_CONFIDENCE);
-    if (dictionaryVouches(p, f, fullSupport(p, f))) c = Math.max(c, DICTIONARY_CONFIDENCE);
+    if (dictionaryVouches(p, f, fullSupport(p, f), h)) c = Math.max(c, DICTIONARY_CONFIDENCE);
     if (p.c().exactGenerators().contains(Generator.GNFINDER) && f.gnfinderOdds() != null) {
       c = Math.max(c, Math.max(0, Math.min(1, f.gnfinderOdds() / 10)));
     }
@@ -495,8 +528,9 @@ public class PipelineNameFinder implements NameFinder {
     return p.c().exactGenerators().contains(Generator.GNFINDER) || f.italic();
   }
 
-  private static boolean dictionaryVouches(ParsedCandidate p, CandidateFeatures f, boolean full) {
+  private static boolean dictionaryVouches(ParsedCandidate p, CandidateFeatures f, boolean full, Hints h) {
     if (!full && !p.c().exactGenerators().contains(Generator.DICTIONARY)) return false;
+    if (h.commonWordEpithet()) return false;
     return f.dictHit() == DictHit.BINOMIAL || f.dictHit() == DictHit.EPITHET && ParserStage.isAbbreviated(p.c().verbatim());
   }
 }
