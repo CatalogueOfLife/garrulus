@@ -15,6 +15,7 @@ class ApiUsageMapperIT extends AbstractPostgresIT {
 
   @Autowired ApiUsageMapper usage;
   @Autowired HarvestRunMapper runs;
+  @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
 
   @Test
   void addAccumulatesPerDay() {
@@ -28,6 +29,42 @@ class ApiUsageMapperIT extends AbstractPostgresIT {
     assertThat((BigDecimal) row.get("remaining_usd")).isEqualByComparingTo("0.9");
     assertThat(((Number) usage.get("openalex", d.plusDays(1)).get("calls")).intValue()).isEqualTo(1);
     assertThat(usage.get("crossref", d)).isNull();
+  }
+
+  private void assertRow(LocalDate d, String remaining, String fingerprint) {
+    Map<String, Object> row = usage.get("openalex", d);
+    if (remaining == null) assertThat(row.get("remaining_usd")).isNull();
+    else assertThat((BigDecimal) row.get("remaining_usd")).isEqualByComparingTo(remaining);
+    assertThat(row.get("key_fingerprint")).isEqualTo(fingerprint);
+  }
+
+  @Test
+  void sameFingerprintKeepsRemainingOnNullAndTakesNewValue() {
+    LocalDate d = LocalDate.of(2026, 11, 20);
+    usage.add("openalex", d, 1, BigDecimal.ZERO, new BigDecimal("0.9"), "aaaaaaaaaaaa");
+    usage.add("openalex", d, 1, BigDecimal.ZERO, null, "aaaaaaaaaaaa");
+    assertRow(d, "0.9", "aaaaaaaaaaaa");
+    usage.add("openalex", d, 1, BigDecimal.ZERO, new BigDecimal("0.8"), "aaaaaaaaaaaa");
+    assertRow(d, "0.8", "aaaaaaaaaaaa");
+  }
+
+  @Test
+  void differentFingerprintReplacesRemaining() {
+    LocalDate d = LocalDate.of(2026, 11, 21);
+    usage.add("openalex", d, 1, BigDecimal.ZERO, new BigDecimal("0.0665"), "none");
+    usage.add("openalex", d, 1, BigDecimal.ZERO, null, "aaaaaaaaaaaa");
+    assertRow(d, null, "aaaaaaaaaaaa");
+    usage.add("openalex", d, 1, BigDecimal.ZERO, new BigDecimal("0.7"), "none");
+    assertRow(d, "0.7", "none");
+  }
+
+  @Test
+  void preMigrationNullFingerprintIsReplaced() {
+    LocalDate d = LocalDate.of(2026, 11, 22);
+    jdbc.update("INSERT INTO api_usage (service, day, calls, usd, remaining_usd) VALUES ('openalex', ?, 1, 0, 0.5)", d);
+    assertRow(d, "0.5", null);
+    usage.add("openalex", d, 1, BigDecimal.ZERO, null, "aaaaaaaaaaaa");
+    assertRow(d, null, "aaaaaaaaaaaa");
   }
 
   @Test

@@ -7,15 +7,16 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
-import java.util.List;
-import java.util.concurrent.Flow;
 import java.nio.channels.UnresolvedAddressException;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -162,7 +163,7 @@ public class PoliteHttp {
     }
 
     @Override
-    public java.util.concurrent.CompletionStage<byte[]> getBody() {
+    public CompletionStage<byte[]> getBody() {
       return delegate.getBody();
     }
 
@@ -180,7 +181,7 @@ public class PoliteHttp {
         failed = true;
         exceeded.set(true);
         subscription.cancel();
-        delegate.onError(new java.io.IOException("response too large"));
+        delegate.onError(new IOException("response too large"));
       } else {
         delegate.onNext(item);
       }
