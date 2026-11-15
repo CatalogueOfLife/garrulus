@@ -17,7 +17,10 @@ public interface NameMapper {
 
   @Nullable NameHit get(@Param("id") long id);
 
-  /** The name_match with hint_key '' of the current release, or null. */
+  /**
+   * The match of the name on the current release, or null: of its name_match rows (one per hint set) the one of the
+   * usage most of its MATCH/GENUS work_name rows point at, else the hintless one, else one with a usage.
+   */
   @Nullable NameMatchRow currentMatch(@Param("id") long id);
 
   /** Indexed works per year that mention the name, ascending; works without a year are left out. */

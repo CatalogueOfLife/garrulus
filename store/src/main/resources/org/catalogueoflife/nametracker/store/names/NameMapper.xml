@@ -73,10 +73,20 @@
     SELECT n.id, n.name, n.kind, n.rank, <include refid="worksOf"/> AS works FROM name_string n WHERE n.id = #{id}
   </select>
 
+  <!-- A name is matched once per hint set (context hints, authorship), so it may have several rows and none with
+       hint_key ''. The row of the usage the name is placed on most often (MATCH or GENUS) wins; then the hintless row,
+       then any row with a usage, then the first hint key. -->
   <select id="currentMatch" resultMap="match">
+    WITH placed AS (
+      SELECT wn.usage_id, count(*) AS n FROM work_name wn
+      WHERE wn.name_string_id = #{id} AND wn.placement_method IN ('MATCH', 'GENUS') AND wn.usage_id IS NOT NULL
+      GROUP BY wn.usage_id)
     SELECT m.usage_id, m.usage_name, m.usage_rank, m.usage_status, m.accepted_id, m.classification::text AS classification
     FROM name_match m JOIN xr_release r ON r.key = m.release_key AND r.current
-    WHERE m.name_string_id = #{id} AND m.hint_key = ''
+    LEFT JOIN placed p ON p.usage_id = m.usage_id
+    WHERE m.name_string_id = #{id}
+    ORDER BY p.n DESC NULLS LAST, (m.hint_key = '') DESC, (m.usage_id IS NOT NULL) DESC, m.hint_key
+    LIMIT 1
   </select>
 
   <select id="timeline" resultMap="year">

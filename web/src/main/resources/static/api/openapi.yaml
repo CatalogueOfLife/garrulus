@@ -344,12 +344,21 @@ components:
         mentions: {type: array, items: {$ref: "#/components/schemas/MentionSpan"}}
     Context:
       type: object
-      description: A verbatim classification of the article; ranks maps rank to name.
+      description: >-
+        A verbatim classification of the article (verbatim at most 200 code points); ranks lists its ranked names,
+        highest first.
       required: [localId, verbatim, ranks, scope, blockId]
       properties:
         localId: {type: string}
         verbatim: {type: string}
-        ranks: {type: object, additionalProperties: {type: string}}
+        ranks:
+          type: array
+          items:
+            type: object
+            required: [rank, name]
+            properties:
+              rank: {type: string, description: "Upper case, e.g. ORDER, FAMILY."}
+              name: {type: string}
         scope: {type: string}
         blockId: {type: string}
         untilBlockId: {type: [string, "null"]}
@@ -402,7 +411,10 @@ components:
         kind: {type: string}
         rank: {type: [string, "null"]}
         match:
-          description: The match in the current XR, null if there is none.
+          description: >-
+            The match in the current XR, null if there is none. A name is matched once per set of context hints and
+            authorship; this is the match of the usage the name is placed on most often (for a placement on its genus,
+            the genus), else its match without hints, else any match with a usage.
           oneOf:
             - type: object
               required: [classification]

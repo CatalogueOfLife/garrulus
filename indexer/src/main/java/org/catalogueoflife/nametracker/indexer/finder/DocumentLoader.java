@@ -6,7 +6,6 @@ import java.util.Optional;
 import org.catalogueoflife.nametracker.finder.api.Document;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.finder.doc.AbstractConverter;
-import org.catalogueoflife.nametracker.indexer.content.route.AbstractRoute;
 import org.catalogueoflife.nametracker.store.blob.BlobStore;
 import org.catalogueoflife.nametracker.store.content.Content;
 import org.catalogueoflife.nametracker.store.content.ContentMapper;
@@ -16,7 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * Finds the document the name finder should read for a work. At text level FULLTEXT that is the document of the
+ * Finds the document the name finder should read for a work. At text level FULLTEXT that is the document of the newest
  * non-ABSTRACT content row: from the blob store when it was retained, else from the {@link Spool}. When it is gone, or
  * at any other text level, it is the abstract document rebuilt from the work (diagnostics {@code fallback=abstract}
  * only for the lost full text). A NO_TEXT work has an empty document.
@@ -67,8 +66,9 @@ public class DocumentLoader {
     return new Loaded(abstractDoc(work), abstractSha(work), Map.of());
   }
 
+  /** The newest non-ABSTRACT row, see {@link Content#newestFullText}. */
   static Optional<Content> fullTextRow(List<Content> rows) {
-    return rows.stream().filter(c -> !AbstractRoute.ROUTE.equals(c.route())).findFirst();
+    return Content.newestFullText(rows);
   }
 
   /** The title and abstract of the work as a document. */

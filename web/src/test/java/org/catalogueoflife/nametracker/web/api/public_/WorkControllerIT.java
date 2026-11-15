@@ -117,6 +117,25 @@ class WorkControllerIT extends AbstractPostgresIT {
   }
 
   @Test
+  void theNewestFullTextRowIsServed() throws Exception {
+    long w = work("10.1/routes", "Two routes");
+    String sha = blobs.put(FinderJson.mapper().writeValueAsBytes(
+        new Document("d", null, List.of(new Block("b1", BlockType.PARAGRAPH, 0, "Open text", List.of(), List.of())), Map.of())));
+    jdbc.update("UPDATE work SET names_doc_sha = ? WHERE id = ?", sha, w);
+    // an older closed route (lower id), then a later open one: the later one is the work's full text
+    jdbc.update("INSERT INTO content (work_id, route, kind, license, retained, doc_sha256, fetched_at) "
+        + "VALUES (?, 'PMC', 'JATS', 'other', false, 'closed', now() - interval '1 day')", w);
+    jdbc.update("INSERT INTO content (work_id, route, kind, license, retained, doc_sha256, fetched_at) "
+        + "VALUES (?, 'PENSOFT', 'TAXPUB', 'CC-BY-4.0', true, ?, now())", w, sha);
+    jdbc.update("INSERT INTO content (work_id, route, kind, license, retained, doc_sha256, fetched_at) "
+        + "VALUES (?, 'ABSTRACT', 'ABSTRACT', null, true, 'abs', now() + interval '1 minute')", w);
+    JsonNode d = JSON.readTree(get("/api/works/" + w).body());
+    assertThat(d.path("retained").asBoolean()).isTrue();
+    assertThat(d.path("licence").asString()).isEqualTo("CC-BY-4.0");
+    assertThat(d.path("text").get(0).path("text").asString()).isEqualTo("Open text");
+  }
+
+  @Test
   void closedWorkHasNoText() throws Exception {
     long w = work("10.1/closed", "Closed");
     // retained = false: the blob may exist (it must not be served) or not

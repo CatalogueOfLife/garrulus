@@ -61,6 +61,28 @@ class DocumentLoaderTest {
   }
 
   @Test
+  void theNewestFullTextRowWins() throws Exception {
+    java.time.Instant t = java.time.Instant.parse("2026-11-15T10:00:00Z");
+    Document newer = new Document("full:2", "en", List.of(
+        new Block("b1", BlockType.PARAGRAPH, 0, "Newer text on Quercus robur.", List.of(), List.of())), Map.of());
+    String oldSha = blobs.put(json(fullDoc()));
+    String newSha = blobs.put(json(newer));
+    // the older route has the lower id, the newer route was fetched later (an abstract row is fetched last of all)
+    Content old = new Content(1L, 9L, "PMC", "JATS", "cc-by", true, "raw", oldSha, null, t);
+    Content fresh = new Content(2L, 9L, "PENSOFT", "TAXPUB", "cc-by", true, "raw", newSha, null, t.plusSeconds(60));
+    Content abs = new Content(3L, 9L, "ABSTRACT", "ABSTRACT", null, true, null, "abs", null, t.plusSeconds(120));
+    rows(9, old, fresh, abs);
+    DocumentLoader.Loaded l = loader.load(work(9, "FULLTEXT", "T", "A"));
+    assertThat(l.docSha()).isEqualTo(newSha);
+    assertThat(DocumentLoader.chosenSha(work(9, "FULLTEXT", "T", "A"), "FULLTEXT", List.of(fresh, old, abs)))
+        .isEqualTo(newSha);
+    // equal fetch times: the higher id
+    Content tie = new Content(4L, 9L, "EUROPEPMC", "JATS", "cc-by", true, "raw", "tie", null, t.plusSeconds(60));
+    assertThat(Content.newestFullText(List.of(tie, fresh, old, abs))).contains(tie);
+    assertThat(Content.newestFullText(List.of(abs))).isEmpty();
+  }
+
+  @Test
   void openFullTextIsReadFromBlob() throws Exception {
     byte[] doc = json(fullDoc());
     String sha = blobs.put(doc);

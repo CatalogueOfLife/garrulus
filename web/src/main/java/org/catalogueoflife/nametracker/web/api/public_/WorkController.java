@@ -67,7 +67,6 @@ public class WorkController {
   private static final Set<String> TIERS = Set.of("CORE", "BROAD", "CANDIDATE", "EXCLUDED");
   private static final Set<String> OA = Set.of("DIAMOND", "GOLD", "HYBRID", "CLOSED");
   private static final Set<String> JOURNAL_TYPES = Set.of("TAXONOMIC", "GENERAL");
-  private static final String ABSTRACT_ROUTE = "ABSTRACT";
 
   private final SearchMapper search;
   private final WorkMapper works;
@@ -158,7 +157,7 @@ public class WorkController {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "no work " + id);
     }
     Source src = w.sourceId() == null ? null : sources.get(w.sourceId());
-    Optional<Content> full = contents.listByWork(id).stream().filter(c -> !ABSTRACT_ROUTE.equals(c.route())).findFirst();
+    Optional<Content> full = Content.newestFullText(contents.listByWork(id));
     boolean retained = full.isPresent() && Boolean.TRUE.equals(full.get().retained());
     String licence = full.isPresent() && full.get().license() != null ? full.get().license() : w.license();
 

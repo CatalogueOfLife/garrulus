@@ -161,6 +161,52 @@ class NameControllerIT extends AbstractPostgresIT {
     assertThat(r.path("match").path("classification").get(0).path("name").asString()).isEqualTo("Plantae");
   }
 
+  void match(long name, String hintKey, String type, String usageId, String usageName) {
+    jdbc.update("INSERT INTO name_match (name_string_id, hint_key, release_key, match_type, usage_id, usage_name, "
+        + "usage_rank, classification) VALUES (?, ?, 1, ?, ?, ?, 'species', '[]'::jsonb)", name, hintKey, type, usageId,
+        usageName);
+  }
+
+  void placed(long work, long name, String method, String usageId) {
+    jdbc.update("INSERT INTO work_name (work_id, name_string_id, mention_count, body_count, in_title, in_abstract, "
+        + "in_heading, only_reference, best_snippet, placement_method, usage_id, salience, main_subject) "
+        + "VALUES (?, ?, 1, 1, false, true, false, false, 's', ?, ?, 0.5, false)", work, name, method, usageId);
+  }
+
+  @Test
+  void nameMatchedOnlyWithHintsShowsItsMatch() throws Exception {
+    jdbc.update("INSERT INTO xr_release (key, alias, current) VALUES (1, 'COL26.10 XR', true)");
+    long n = name("Uenoites gregoryi");
+    // matched with context hints and authorship only: no row with hint_key ''
+    match(n, "family=Carabidae|order=Coleoptera|authorship=(Jeannel, 1937)", "exact", "7DD8W", "Uenoites gregoryi");
+    placed(work("10.1/u", 2025, "2025-01-01", "INDEXED"), n, "MATCH", "7DD8W");
+    JsonNode r = JSON.readTree(get("/api/names/" + n).body());
+    assertThat(r.path("match").path("usageId").asString()).isEqualTo("7DD8W");
+
+    // the usage the name is placed on most often wins over the hintless match
+    long m = name("Aus bus");
+    match(m, "", "none", null, null);
+    match(m, "family=Ai", "exact", "A1", "Aus bus");
+    match(m, "family=Bi", "exact", "B1", "Aus bus");
+    long w1 = work("10.1/a1", 2025, "2025-01-01", "INDEXED");
+    long w2 = work("10.1/a2", 2025, "2025-01-02", "INDEXED");
+    long w3 = work("10.1/a3", 2025, "2025-01-03", "INDEXED");
+    placed(w1, m, "MATCH", "B1");
+    placed(w2, m, "MATCH", "B1");
+    placed(w3, m, "MATCH", "A1");
+    assertThat(JSON.readTree(get("/api/names/" + m).body()).path("match").path("usageId").asString()).isEqualTo("B1");
+
+    // without placements: the hintless match first, then a hinted one with a usage before one without
+    long k = name("Cus dus");
+    match(k, "family=Ci", "exact", "C1", "Cus dus");
+    match(k, "", "exact", "C0", "Cus dus");
+    assertThat(JSON.readTree(get("/api/names/" + k).body()).path("match").path("usageId").asString()).isEqualTo("C0");
+    long j = name("Eus fus");
+    match(j, "family=Ai", "none", null, null);
+    match(j, "family=Ei", "exact", "E1", "Eus fus");
+    assertThat(JSON.readTree(get("/api/names/" + j).body()).path("match").path("usageId").asString()).isEqualTo("E1");
+  }
+
   @Test
   void nameWithoutMatchOrWorksAndUnknownName() throws Exception {
     long n = name("Zzz zzz");
