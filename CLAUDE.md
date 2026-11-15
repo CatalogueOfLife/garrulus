@@ -63,15 +63,20 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
     `FINDER_CONFIG`) builds the finder in process; with neither set the handler is off (one WARN) and the tasks wait.
     `NAMETRACKER_SPOOL_DIR` (`./data/spool`) holds closed full text until the finder has run (purged after 14 days).
     Admin task `FIND_PENDING` (`{"limit":n}`) enqueues `FIND_NAMES` for works never seen by the finder. A gnfinder
-    outage defers the task 30 minutes without using an attempt.
+    outage (connection refused, unknown host, connect timeout, HTTP 502/503/504; a finder service's 503) defers the
+    task 30 minutes without using an attempt. Any other gnfinder or finder error (4xx, 500, a read timeout) fails the
+    task like any error: it uses attempts and ends `DEAD`.
   - `NAMETRACKER_HARVEST_OUTAGE_DELAY` (30m): a harvest or onboarding page that meets an outage is enqueued again after
     this delay instead of failing.
 - `indexer` matching and index (ADR-0005):
   - `NAMETRACKER_CLB_BASE_URL` (`https://api.checklistbank.org`): the XR (`GET /dataset/3LXR`) and name matching, at
-    most 10 requests a second. A CLB outage defers `MATCH_NAMES`/`XR_CHECK` 30 minutes without using an attempt.
-  - `NAMETRACKER_SPOOL_MAX_AGE` (14d) bounds the spool; it is purged daily at 05:30 UTC and by `REBUILD_STATS`.
-  - `NAMETRACKER_STATS_CRON` (`0 30 4 * * *`): nightly `REBUILD_STATS` (ubiquity, taxon stats, spool purge), which then
-    enqueues `CATEGORISE_SOURCES`. `XR_CHECK` runs daily at `0 0 6 * * *`. Neither is behind the harvest switch.
+    most 10 requests a second. A CLB outage defers `MATCH_NAMES`/`XR_CHECK` 30 minutes without using an attempt. When
+    a single match call fails (after the HTTP retries, or with a 4xx) while `GET /dataset/3LXR` still answers, the name
+    is at fault: it is placed `NONE` (not cached), logged as a WARN and the work goes on.
+  - A task deferred by an outage that was first enqueued more than 24 hours ago is logged as a WARN on every deferral.
+  - `NAMETRACKER_SPOOL_MAX_AGE` (14d) bounds the spool; it is purged daily at 05:30 UTC.
+  - `NAMETRACKER_STATS_CRON` (`0 30 4 * * *`): nightly `REBUILD_STATS` (ubiquity, taxon stats) at `LIVE` priority, which
+    then enqueues `CATEGORISE_SOURCES`. `XR_CHECK` runs daily at `0 0 6 * * *`. Neither is behind the harvest switch.
 - `indexer` salience (properties only, no env variables; set them in `application.yml`, `.env` or as `-D`/args):
   `nametracker.salience.{title=0.40, abstract=0.20, act=0.35, heading=0.15, share=0.25, repeat=0.15, ubiquity=0.50,
   ubiquity-full-share=0.02, threshold=0.35}`. A name with salience >= threshold is a main subject of the work.
@@ -104,9 +109,11 @@ curl ... -d '{"type":"HARVEST_CROSSREF","payload":{"date":"2026-11-14"},"priorit
   `HARVEST_CROSSREF` (`date`), `OPENALEX_RECHECK`, `RESOLVE_CONTENT`. Only onboarded CORE/BROAD sources are harvested.
 - Index task types (M3): `FIND_NAMES` (`workId`) → `MATCH_NAMES` (`workId`) → the work is `INDEXED`; `XR_CHECK` (`{}`),
   `REBUILD_STATS`, `CATEGORISE_SOURCES` and the admin-only `FIND_PENDING` (`{"limit":n}`, default 100), which enqueues
-  `FIND_NAMES` for up to n `CONTENT_RESOLVED` works the finder never saw, highest work id first. Follow-ups inherit the
-  priority (`LIVE`, `REPROCESS`, `BACKFILL`); the queue runs by priority, then `run_after`, so with equal priority all
-  queued `FIND_NAMES` run before the `MATCH_NAMES` they enqueue.
+  `FIND_NAMES` for up to n `CONTENT_RESOLVED` works the finder never saw, highest work id first. The queue runs by
+  priority (`LIVE`, `REPROCESS`, `BACKFILL`), then `run_after`, then id. A follow-up (`RESOLVE_CONTENT` → `FIND_NAMES` →
+  `MATCH_NAMES`, `REBUILD_STATS` → `CATEGORISE_SOURCES`) inherits the priority and the `run_after` of its task, so it
+  takes its parent's place in the queue: depth first, a work goes all the way to `INDEXED` before the peers queued
+  after it start.
 
 ```
 # pin the XR (the first key seen stays current until M5), then name and index every resolved work
