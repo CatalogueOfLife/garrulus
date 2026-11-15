@@ -76,6 +76,15 @@
     </constructor>
   </resultMap>
 
+  <resultMap id="nameStringRow" type="org.catalogueoflife.nametracker.store.index.NameString">
+    <constructor>
+      <idArg column="id" javaType="long"/>
+      <arg column="name" javaType="string"/>
+      <arg column="kind" javaType="string"/>
+      <arg column="rank" javaType="string"/>
+    </constructor>
+  </resultMap>
+
   <resultMap id="release" type="org.catalogueoflife.nametracker.store.index.XrRelease">
     <constructor>
       <idArg column="key" javaType="_int"/>
@@ -180,6 +189,14 @@
   <select id="pendingNames" resultType="long">
     SELECT id FROM work WHERE state = 'CONTENT_RESOLVED' AND names_doc_sha IS NULL ORDER BY id DESC LIMIT #{limit}
   </select>
+
+  <select id="nameString" resultMap="nameStringRow">
+    SELECT id, name, kind, rank FROM name_string WHERE id = #{id}
+  </select>
+
+  <update id="setMatched">
+    UPDATE work SET state = 'MATCHED', modified = now() WHERE id = #{workId}
+  </update>
 
   <update id="updateIndexed">
     UPDATE work SET codes = #{codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler},

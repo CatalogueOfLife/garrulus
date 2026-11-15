@@ -72,6 +72,11 @@ public interface IndexMapper {
   /** Ids of works in CONTENT_RESOLVED that the finder never saw, newest first. */
   List<Long> pendingNames(@Param("limit") int limit);
 
+  @Nullable NameString nameString(@Param("id") long id);
+
+  /** Sets state MATCHED. */
+  void setMatched(@Param("workId") long workId);
+
   /** Sets codes, taxgroups and has_acts, and also state INDEXED and indexed_at = now(). */
   default void setIndexed(long workId, String[] codes, String[] taxgroups, boolean hasActs) {
     updateIndexed(workId, List.of(codes), List.of(taxgroups), hasActs);

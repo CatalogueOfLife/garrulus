@@ -22,6 +22,20 @@
       <artifactId>nametracker-finder-core</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.catalogueoflife</groupId>
+      <artifactId>vocab</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.catalogueoflife</groupId>
+      <artifactId>nomenclature</artifactId>
+      <exclusions>
+        <exclusion>
+          <groupId>org.gbif.nameparser</groupId>
+          <artifactId>name-parser-rust</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-webmvc</artifactId>
     </dependency>
