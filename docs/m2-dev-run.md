@@ -7,8 +7,10 @@ the run was started, how to stop it, the first-check numbers and the success cri
 
 - **Started:** 2026-11-15 10:17 UTC (indexer up 10:17:16, `SEED_SOURCES` enqueued 10:17:29, first manual LIVE and
   Crossref harvests 10:22:59).
-- **Restarted:** the indexer and web at 10:25:36 UTC, after the HTTP/1.1 fix (commit `9e133bf`, see below). Both now
-  run from copies of their jars in `data/run/`, so a later `mvn install` cannot pull a class from under a running JVM.
+- **Restarted:**
+  - 10:25:36 UTC, after the HTTP/1.1 fix (commit `9e133bf`, see below). From then on both apps run from copies of
+    their jars in `data/run/`, so a later `mvn install` cannot pull a class out from under a running JVM.
+  - 11:08:26 UTC, after the round 2 fixes (`acd2c63`, `74c176f`, `07d54cb`). Both apps now listen on 127.0.0.1 only.
 - **Keyless:** no `OPENALEX_API_KEY` and no `CROSSREF_MAILTO`. OpenAlex runs on the keyless $0.10/day per IP, group-by
   sees one page (200 groups), page paging stops at 10,000 results and the TEI route does not apply (ADR-0004). Crossref
   runs in the public pool.
@@ -116,15 +118,33 @@ calls, most of them free singleton gets).
   minutes). Test: `HarvestConfigTest.httpClientSpeaksHttp11`. The works resolved before the fix ended at
   ABSTRACT_ONLY and get their full text at their scheduled re-checks.
 
+## Round 2 (rulings M2-K, M2-L, M2-M; restart 11:08:26 UTC)
+
+- `acd2c63` fix(indexer): a work that Crossref creates (directly or through OpenAlex) and that was published more than
+  120 days ago comes in as `BACKFILL`, with a BACKFILL content task. Recent and undated works stay `LIVE`. Test:
+  `CrossrefHarvestHandlerIT.oldNewWorksAreBackfillRecentAndUndatedStayLive`.
+- `74c176f` fix(indexer): Europe PMC fetches `fullTextXML` only when its (cached) search says `isOpenAccess = Y`,
+  also for a PMCID that OpenAlex supplied. A work with only a PMCID is searched as `PMCID:<id>`. Test:
+  `EuropePmcRouteTest.knownPmcidThatIsNotOpenAccessFetchesNothing`.
+- `07d54cb` fix(web): binds to `127.0.0.1` by default (`NAMETRACKER_WEB_ADDRESS`). Test: `WebBindAddressTest`.
+- **Old LIVE works from the first run (one-off note):** before the fix, the first Crossref run (2026-11-14) created
+  3,187 works as `LIVE`. 3,144 of them were published more than 120 days ago, 33 have no date and 10 are recent. They
+  stay as they are: `origin` never changes, and the design's hit rule ("published within 60 days") keeps them from
+  notifying.
+- **Check at 11:18 UTC, ten minutes after the restart:**
+  - Since the restart, the rest of the Crossref run created 808 old works as `BACKFILL`, and 10 works as `LIVE` (3
+    recent, 7 undated). No new `LIVE` work is older than 120 days. The `CROSSREF` run for 2026-11-14 ended `DONE`: 20
+    calls, 4,421 works seen, 4,005 new.
+  - Europe PMC rows keep coming: 248 `EUROPEPMC` and 74 `PMC` content rows since the restart. No HTTP 500.
+  - The content rate went from 521 tasks in the 10 minutes before the restart (0.9/s) to 1,031 in the 10 minutes after
+    (1.7/s).
+  - DEAD tasks: 0. OpenAlex: $0.0265 spent in 4,584 calls. Onboarded: CORE 119 of 120, BROAD 55 of 89; the rest are
+    running now that the LIVE queue is empty. Blobs: 52 MB.
+
 ## Open points
 
-- **Crossref brings in the back catalogue as LIVE.** The index-date filter lists every DOI whose metadata changed that
-  day. Of the first 2,060 Crossref-created works, 2,028 were published more than 120 days ago (back to 1998). They get
-  origin `LIVE`, so they would notify as news in M3, and each takes a content task. Needs a decision (for example:
-  create only works published inside the LIVE window, or give the others a non-notifying origin).
-- **Throughput.** Content resolution runs at roughly 1.5 works/s, bounded by the 1 s Pensoft spacing and by 10 s of
-  retries per Europe PMC 500. The first day's backlog takes several hours, and BACKFILL work (the last 36 onboardings)
-  waits until the LIVE queue is empty.
+- **Throughput.** Even at 1.7/s, the onboarding backlog (about 19,000 content tasks) takes a few hours. Pensoft's 1 s
+  spacing is the main bound, and BACKFILL work waits whenever the LIVE queue has work.
 
 ## Success criterion
 
