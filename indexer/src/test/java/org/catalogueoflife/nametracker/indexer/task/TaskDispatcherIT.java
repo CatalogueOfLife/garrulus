@@ -16,6 +16,9 @@ import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.catalogueoflife.nametracker.store.task.TaskState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -27,7 +30,8 @@ import org.springframework.test.context.TestPropertySource;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @TestPropertySource(properties = "nametracker.indexer.workers=8")
 @Import({ClearTasksAtStartup.class, TaskDispatcherIT.BoomConfig.class, TaskDispatcherIT.ErrorConfig.class,
-    TaskDispatcherIT.BudgetConfig.class})
+    TaskDispatcherIT.BudgetConfig.class, TaskDispatcherIT.OutageConfig.class})
+@ExtendWith(OutputCaptureExtension.class)
 class TaskDispatcherIT extends AbstractPostgresIT {
 
   /** Test-only handler that always fails. */
@@ -91,6 +95,23 @@ class TaskDispatcherIT extends AbstractPostgresIT {
 
         @Override public void handle(Task task) {
           throw new IllegalStateException("wrapped", new BudgetExhaustedException(RETRY_AT));
+        }
+      };
+    }
+  }
+
+  /** Test-only handler whose service is always down. */
+  @TestConfiguration
+  static class OutageConfig {
+    @Bean
+    TaskHandler outageHandler() {
+      return new TaskHandler() {
+        @Override public String type() {
+          return "OUTAGE";
+        }
+
+        @Override public void handle(Task task) {
+          throw new ServiceOutageException("CLB", RETRY_AT);
         }
       };
     }
@@ -171,5 +192,29 @@ class TaskDispatcherIT extends AbstractPostgresIT {
     Task t = mapper.get(id);
     assertThat(t.state()).isEqualTo(TaskState.QUEUED);
     assertThat(t.lastError()).contains("StackOverflowError");
+  }
+
+  @Test
+  void outageOfATaskOlderThanADayIsAWarning(CapturedOutput out) {
+    jdbc.update("INSERT INTO task (id, type, priority, created) VALUES (881, 'OUTAGE', 0, now() - interval '25 hours')");
+    jdbc.update("INSERT INTO task (id, type, priority) VALUES (882, 'OUTAGE', 0)");
+    for (long id : new long[] {881, 882}) {
+      await().atMost(10, SECONDS).until(() -> RETRY_AT.equals(mapper.get(id).runAfter()));
+      assertThat(mapper.get(id).attempts()).isZero();
+    }
+    assertThat(mapper.get(881).created()).isBefore(Instant.now().minus(Duration.ofHours(24)));
+    await().atMost(5, SECONDS).until(() -> out.getAll().contains("Task 881 (OUTAGE) was enqueued at"));
+    assertThat(out.getAll()).contains("still waits for CLB").doesNotContain("Task 882 (OUTAGE) was enqueued at");
+  }
+
+  @Test
+  void waitingLongIsMeasuredFromCreation() {
+    Instant now = Instant.parse("2026-11-15T12:00:00Z");
+    Task fresh = new Task(1, "X", "{}", TaskPriority.LIVE, TaskState.RUNNING, 1, now, null, null, null, null,
+        now.minus(Duration.ofHours(23)));
+    Task old = new Task(2, "X", "{}", TaskPriority.LIVE, TaskState.RUNNING, 1, now, null, null, null, null,
+        now.minus(Duration.ofHours(25)));
+    assertThat(TaskDispatcher.waitingLong(fresh, now)).isFalse();
+    assertThat(TaskDispatcher.waitingLong(old, now)).isTrue();
   }
 }

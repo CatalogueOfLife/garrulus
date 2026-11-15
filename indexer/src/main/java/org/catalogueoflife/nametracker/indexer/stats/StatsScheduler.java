@@ -9,7 +9,10 @@ import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-/** Nightly {@code REBUILD_STATS}. Not behind the harvest switch: the stats are derived from what is already indexed. */
+/**
+ * Nightly {@code REBUILD_STATS} at LIVE priority, so a REPROCESS or BACKFILL backlog cannot hold it up. Not behind the
+ * harvest switch: the stats are derived from what is already indexed.
+ */
 @Component
 public class StatsScheduler {
 
@@ -28,7 +31,7 @@ public class StatsScheduler {
   }
 
   void enqueue() {
-    queue.enqueue(RebuildStatsHandler.TYPE, "{}", TaskPriority.REPROCESS,
+    queue.enqueue(RebuildStatsHandler.TYPE, "{}", TaskPriority.LIVE,
         "stats:" + LocalDate.now(clock.withZone(ZoneOffset.UTC)));
   }
 }

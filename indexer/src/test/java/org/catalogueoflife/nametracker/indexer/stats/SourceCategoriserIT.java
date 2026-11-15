@@ -56,7 +56,7 @@ class SourceCategoriserIT extends AbstractPostgresIT {
 
   private void run() throws Exception {
     handler.handle(new Task(1, "CATEGORISE_SOURCES", "{}", TaskPriority.REPROCESS, null, 0, null, null, null, null,
-        null));
+        null, null));
   }
 
   private Map<String, Object> row(long id) {

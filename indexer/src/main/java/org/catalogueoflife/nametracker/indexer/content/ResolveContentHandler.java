@@ -40,7 +40,7 @@ import tools.jackson.databind.JsonNode;
  * routes in order, the first fulltext result wins; the abstract is always stored when there is a title or abstract.
  * Raw and Document blobs are written only for open licences; a closed full text document goes to the transient
  * {@link Spool} instead. When the document the finder should read differs from the one it last saw, FIND_NAMES is
- * enqueued. The work ends in CONTENT_RESOLVED with its text level.
+ * enqueued at this task's priority and run_after. The work ends in CONTENT_RESOLVED with its text level.
  * A work that is only an abstract, from a CORE or BROAD source, not of origin BACKFILL and published within the last 90
  * days (or undated), is looked at again 7, 30 and 90 days after it was first seen (dedup key
  * {@code content:<workId>:recheck:<k>}). The rules are checked again after each re-check, so a work that no longer
@@ -149,8 +149,9 @@ public class ResolveContentHandler implements TaskHandler {
     if (!chosen.equals(index.namesDocSha(workId))) {
       // closed full text waits in the transient spool until FIND_NAMES has run; only when that task follows
       if (closed.containsKey(chosen)) spool.put(workId, chosen, closed.get(chosen));
+      // the follow-up takes this task's place in the queue (priority and run_after): depth first
       queue.enqueue(FindNamesHandler.TYPE, "{\"workId\":" + workId + "}", task.priority(),
-          "names:" + workId + ":" + chosen.substring(0, 12));
+          "names:" + workId + ":" + chosen.substring(0, 12), task.runAfter());
     }
 
     if ("ABSTRACT_ONLY".equals(finalLevel)) scheduleRecheck(task, work, source);

@@ -87,6 +87,18 @@ class RebuildStatsIT extends AbstractPostgresIT {
   }
 
   @Test
+  void staleUbiquityRowsGoAndFreshOnesStay() {
+    long stale = name("Gone name");
+    long kept = name("Kept name");
+    jdbc.update("INSERT INTO name_ubiquity (name_string_id, works, share) VALUES (?, 3, 0.3), (?, 9, 0.9)", stale, kept);
+    wn(work(year, "INDEXED"), kept, false, false, "X");
+    stats.rebuildUbiquity(year - 4);
+    assertThat(jdbc.queryForList("SELECT name_string_id FROM name_ubiquity", Long.class)).containsExactly(kept);
+    assertThat(jdbc.queryForObject("SELECT works FROM name_ubiquity WHERE name_string_id = ?", Integer.class, kept))
+        .isEqualTo(1);
+  }
+
+  @Test
   void referenceOnlyNamesDoNotCount() {
     long n = name("Apis mellifera");
     long a = work(year, "INDEXED");
@@ -154,7 +166,7 @@ class RebuildStatsIT extends AbstractPostgresIT {
   }
 
   @Test
-  void spoolOlderThan14DaysIsPurged(@TempDir Path dir) throws Exception {
+  void spoolOlderThanTheMaxAgeIsPurged(@TempDir Path dir) throws Exception {
     Spool spool = new Spool(dir.toString(), clock);
     spool.put(1, "abcdef12", "{}".getBytes());
     spool.put(2, "abcdef34", "{}".getBytes());
@@ -169,19 +181,27 @@ class RebuildStatsIT extends AbstractPostgresIT {
   void handlerRebuildsAndEnqueuesCategorise() {
     long n = name("Apis mellifera");
     wn(work(year, "INDEXED"), n, false, true, "T1");
-    handler.handle(new Task(1, "REBUILD_STATS", "{}", TaskPriority.REPROCESS, null, 0, null, null, null, null, null));
+    Instant runAfter = Instant.now().minusSeconds(60).truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+    handler.handle(new Task(1, "REBUILD_STATS", "{}", TaskPriority.LIVE, null, 0, runAfter, null, null, null, null,
+        null));
     assertThat(jdbc.queryForObject("SELECT count(*) FROM taxon_stats", Integer.class)).isEqualTo(1);
     assertThat(jdbc.queryForObject("SELECT count(*) FROM name_ubiquity", Integer.class)).isEqualTo(1);
     String date = LocalDate.now(clock.withZone(ZoneOffset.UTC)).toString();
-    assertThat(jdbc.queryForObject("SELECT priority FROM task WHERE type = 'CATEGORISE_SOURCES' AND dedup_key = ?",
-        Object.class, "categorise:" + date)).isNotNull();
+    var t = jdbc.queryForMap("SELECT priority, run_after FROM task WHERE type = 'CATEGORISE_SOURCES' AND dedup_key = ?",
+        "categorise:" + date);
+    // the follow-up inherits the priority and the queue position of its task
+    assertThat(((Number) t.get("priority")).intValue()).isEqualTo(TaskPriority.LIVE.code());
+    assertThat(((java.sql.Timestamp) t.get("run_after")).toInstant()).isEqualTo(runAfter);
   }
 
   @Test
-  void schedulerEnqueuesOncePerDay() {
+  void schedulerEnqueuesOncePerDayAtLivePriority() {
     scheduler.enqueue();
     scheduler.enqueue();
     assertThat(jdbc.queryForObject("SELECT count(*) FROM task WHERE type = 'REBUILD_STATS' AND dedup_key = ?",
         Integer.class, "stats:" + LocalDate.now(clock.withZone(ZoneOffset.UTC)))).isEqualTo(1);
+    // LIVE, so the nightly rebuild is not stuck behind a REPROCESS backlog
+    assertThat(jdbc.queryForObject("SELECT priority FROM task WHERE type = 'REBUILD_STATS'", Integer.class))
+        .isEqualTo(TaskPriority.LIVE.code());
   }
 }

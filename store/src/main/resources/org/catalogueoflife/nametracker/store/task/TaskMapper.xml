@@ -16,6 +16,7 @@
       <arg column="locked_at" javaType="java.time.Instant"/>
       <arg column="last_error" javaType="string"/>
       <arg column="dedup_key" javaType="string"/>
+      <arg column="created" javaType="java.time.Instant"/>
     </constructor>
   </resultMap>
 

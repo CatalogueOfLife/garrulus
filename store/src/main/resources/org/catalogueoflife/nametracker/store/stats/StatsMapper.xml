@@ -13,7 +13,7 @@
       FROM work_name wn JOIN recent r ON r.id = wn.work_id, total
       WHERE NOT wn.only_reference
       GROUP BY wn.name_string_id, total.n),
-    del AS (DELETE FROM name_ubiquity WHERE name_string_id NOT IN (SELECT name_string_id FROM fresh))
+    del AS (DELETE FROM name_ubiquity u WHERE NOT EXISTS (SELECT 1 FROM fresh f WHERE f.name_string_id = u.name_string_id))
     INSERT INTO name_ubiquity (name_string_id, works, share, computed_at)
     SELECT name_string_id, works, share, now() FROM fresh
     ON CONFLICT (name_string_id) DO UPDATE SET works = excluded.works, share = excluded.share,

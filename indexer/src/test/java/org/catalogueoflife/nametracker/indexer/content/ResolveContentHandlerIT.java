@@ -194,7 +194,7 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
 
   private Task task(long workId) {
     return new Task(1, "RESOLVE_CONTENT", "{\"workId\":" + workId + "}", TaskPriority.LIVE, null, 1, Instant.now(), null,
-        null, null, "content:" + workId);
+        null, null, "content:" + workId, null);
   }
 
   private long blobCount() throws IOException {
@@ -310,7 +310,7 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
     long id = work(source("CORE"), "T", "A", null, Instant.now().minus(Duration.ofDays(10)));
     jdbc.update("UPDATE work SET publication_date = current_date - 100 WHERE id = ?", id);
     handler.handle(new Task(1, "RESOLVE_CONTENT", "{\"workId\":" + id + ",\"recheck\":1}", TaskPriority.LIVE, null,
-        1, Instant.now(), null, null, null, "content:" + id + ":recheck:1"));
+        1, Instant.now(), null, null, null, "content:" + id + ":recheck:1", null));
     assertThat(works.get(id).state()).isEqualTo("CONTENT_RESOLVED");
     assertThat(works.get(id).textLevel()).isEqualTo("ABSTRACT_ONLY");
     assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT'")).isZero();

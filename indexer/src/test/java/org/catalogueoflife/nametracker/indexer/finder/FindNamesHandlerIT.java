@@ -130,7 +130,8 @@ class FindNamesHandlerIT extends AbstractPostgresIT {
   }
 
   private static Task task(String type, String payload, TaskPriority p) {
-    return new Task(1, type, payload, p, null, 1, Instant.now(), null, null, null, "k");
+    return new Task(1, type, payload, p, null, 1, Instant.now().minusSeconds(60).truncatedTo(java.time.temporal.ChronoUnit.MICROS),
+        null, null, null, "k", null);
   }
 
   private static Task find(long workId) {
@@ -291,9 +292,11 @@ class FindNamesHandlerIT extends AbstractPostgresIT {
     Task rc = task("RESOLVE_CONTENT", "{\"workId\":" + id + "}", TaskPriority.REPROCESS);
 
     resolve.handle(rc);
-    var t = jdbc.queryForMap("SELECT type, payload::text AS p, priority, dedup_key FROM task WHERE type = 'FIND_NAMES'");
+    var t = jdbc.queryForMap("SELECT type, payload::text AS p, priority, dedup_key, run_after FROM task WHERE type = 'FIND_NAMES'");
     assertThat(t.get("p")).isEqualTo("{\"workId\": " + id + "}");
     assertThat(t.get("priority")).isEqualTo(TaskPriority.REPROCESS.code());
+    // the follow-up takes the place of its parent in the queue
+    assertThat(((java.sql.Timestamp) t.get("run_after")).toInstant()).isEqualTo(rc.runAfter());
     assertThat((String) t.get("dedup_key")).startsWith("names:" + id + ":").hasSize(("names:" + id + ":").length() + 12);
 
     handler.handle(find(id));
@@ -361,6 +364,44 @@ class FindNamesHandlerIT extends AbstractPostgresIT {
     assertThat(index.mentions(id)).hasSize(1).first().extracting(MentionRow::blockType).isEqualTo("PARAGRAPH");
     assertThat(jdbc.queryForObject("SELECT names_doc_sha FROM work WHERE id = ?", String.class, id)).isEqualTo(sha);
     assertThat(count("SELECT count(*) FROM task WHERE type = 'MATCH_NAMES'")).isEqualTo(1);
+  }
+
+  @Test
+  void followUpRunsBeforeTheQueuedPeersOfItsParent() throws Exception {
+    stub.fn = FindNamesHandlerIT::standard;
+    Instant t0 = Instant.now().minusSeconds(600).truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+    long[] ids = new long[3];
+    for (int i = 0; i < 3; i++) {
+      ids[i] = work("On Homo sapiens " + i, "About Homo sapiens.", "ABSTRACT_ONLY");
+      queue.enqueue("FIND_NAMES", "{\"workId\":" + ids[i] + "}", TaskPriority.REPROCESS, "names:test:" + i,
+          t0.plusSeconds(i));
+    }
+    Set<String> types = Set.of("FIND_NAMES", "MATCH_NAMES");
+    Task first = queue.claim(types, "w", 1).getFirst();
+    assertThat(first.payload()).contains(Long.toString(ids[0]));
+    assertThat(first.runAfter()).isEqualTo(t0);
+    handler.handle(first);
+    assertThat(queue.complete(first.id(), first.attempts())).isTrue();
+
+    // the MATCH_NAMES of the first work comes before the two FIND_NAMES queued after its parent
+    Task next = queue.claim(types, "w", 1).getFirst();
+    assertThat(next.type()).isEqualTo("MATCH_NAMES");
+    assertThat(next.payload()).contains(Long.toString(ids[0]));
+    assertThat(next.runAfter()).isEqualTo(t0);
+    assertThat(next.priority()).isEqualTo(TaskPriority.REPROCESS);
+  }
+
+  @Test
+  void contextVerbatimIsCappedAt200CodePoints() throws Exception {
+    String heading = "\uD83D\uDE00".repeat(150) + " Fooidae " + "z".repeat(300);
+    stub.fn = doc -> new FinderResult(new FinderInfo("stub", "1", "cfg1", null), List.of(), List.of(),
+        List.of(new ClassificationContext("c1", heading, List.of(new RankedName(Rank.FAMILY, "Fooidae")),
+            ContextScope.SECTION, doc.blocks().get(0).id(), null)), List.of(), Map.of());
+    long id = work("On Homo sapiens", "About Homo sapiens.", "ABSTRACT_ONLY");
+    handler.handle(find(id));
+    String stored = index.contexts(id).getFirst().verbatim();
+    assertThat(CodePoints.length(stored)).isEqualTo(200);
+    assertThat(stored).isEqualTo(CodePoints.slice(heading, 0, 200));
   }
 
   @Test

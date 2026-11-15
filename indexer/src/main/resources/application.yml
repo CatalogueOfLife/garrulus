@@ -39,7 +39,7 @@ nametracker:
     heartbeat-interval: ${NAMETRACKER_INDEXER_HEARTBEAT_INTERVAL:2m}
 
   stats:
-    # nightly REBUILD_STATS (name ubiquity, taxon stats, spool purge); UTC, six fields; not behind the harvest switch
+    # nightly REBUILD_STATS (name ubiquity, taxon stats; LIVE priority); UTC, six fields; not behind the harvest switch
     cron: ${NAMETRACKER_STATS_CRON:0 30 4 * * *}
 
   harvest:

@@ -53,7 +53,7 @@ class SeedSourcesHandlerIT extends AbstractPostgresIT {
   }
 
   private static Task task(String type, String payload) {
-    return new Task(1, type, payload, TaskPriority.LIVE, null, 1, null, null, null, null, null);
+    return new Task(1, type, payload, TaskPriority.LIVE, null, 1, null, null, null, null, null, null);
   }
 
   private long onboardTasks() {

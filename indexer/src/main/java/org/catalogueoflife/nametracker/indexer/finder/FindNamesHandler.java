@@ -44,7 +44,8 @@ import tools.jackson.databind.JsonNode;
  * {@code FIND_NAMES}, payload {@code {"workId":n}}. Loads the document of the work, runs the {@link NameFinder} and, in
  * one transaction, replaces the work's mentions, contexts and (through the cascade of
  * {@link IndexMapper#deleteWorkIndex}) its work names, then marks the work NAMES_FOUND. After the commit it deletes the
- * spool file and enqueues {@code MATCH_NAMES}. A work without text skips the finder. An outage of the finder defers the
+ * spool file and enqueues {@code MATCH_NAMES} at this task's priority and run_after. A work without text skips the
+ * finder. A context's verbatim is stored capped at 200 code points. An outage of the finder defers the
  * task by 30 minutes without using an attempt. Without a configured finder this handler is not enabled and its tasks
  * wait in the queue.
  */
@@ -143,10 +144,14 @@ public class FindNamesHandler implements TaskHandler {
     finish(task, workId, runId[0], namedSha[0], loaded.docSha());
   }
 
-  /** Queues MATCH_NAMES first, so that a crash after the spool is gone cannot lose it, then drops the spool files. */
+  /**
+   * Queues MATCH_NAMES first, so that a crash after the spool is gone cannot lose it, then drops the spool files. The
+   * follow-up takes the place of this task in the queue (its priority and run_after), so it runs before the peers
+   * queued after this one instead of behind the whole backlog.
+   */
   private void finish(Task task, long workId, long runId, String namedSha, String loadedSha) {
     queue.enqueue(NEXT_TYPE, "{\"workId\":" + workId + "}", task.priority(),
-        "match:" + workId + ":" + runId + ":" + namedSha.substring(0, 12));
+        "match:" + workId + ":" + runId + ":" + namedSha.substring(0, 12), task.runAfter());
     spool.delete(workId, namedSha);
     spool.delete(workId, loadedSha);
   }
@@ -172,7 +177,7 @@ public class FindNamesHandler implements TaskHandler {
 
     Map<String, Long> contextIds = new HashMap<>();
     for (ClassificationContext c : result.contexts()) {
-      long id = index.insertContext(new ContextRow(null, workId, c.id(), c.verbatim(),
+      long id = index.insertContext(new ContextRow(null, workId, c.id(), cap(c.verbatim(), SNIPPET_MAX),
           FinderJson.mapper().writeValueAsString(c.ranks()), c.scope().name(), c.blockId(), c.untilBlockId()));
       contextIds.put(c.id(), id);
     }
@@ -214,6 +219,14 @@ public class FindNamesHandler implements TaskHandler {
     for (int i = 0; i < rows.size(); i += INSERT_CHUNK) {
       index.insertMentions(rows.subList(i, Math.min(rows.size(), i + INSERT_CHUNK)));
     }
+  }
+
+  /**
+   * At most {@code max} code points of the text: a context's verbatim may be a whole heading block, and of a closed
+   * full text only snippets may be kept.
+   */
+  static String cap(String text, int max) {
+    return CodePoints.length(text) <= max ? text : CodePoints.slice(text, 0, max);
   }
 
   /**

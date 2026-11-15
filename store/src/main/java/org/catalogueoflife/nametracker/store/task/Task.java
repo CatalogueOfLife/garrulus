@@ -2,7 +2,7 @@ package org.catalogueoflife.nametracker.store.task;
 
 import java.time.Instant;
 
-/** A row of the postgres-backed task queue. {@code payload} is a JSON document. */
+/** A row of the postgres-backed task queue. {@code payload} is a JSON document; {@code created} is when it was first enqueued. */
 public record Task(
     long id,
     String type,
@@ -14,5 +14,6 @@ public record Task(
     String lockedBy,
     Instant lockedAt,
     String lastError,
-    String dedupKey) {
+    String dedupKey,
+    Instant created) {
 }

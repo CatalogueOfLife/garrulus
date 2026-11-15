@@ -1,5 +1,6 @@
 package org.catalogueoflife.nametracker.indexer.task;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
@@ -31,14 +32,17 @@ import org.springframework.stereotype.Component;
  * task found at startup belongs to a dead process and is requeued (or set DEAD when it already used all its
  * attempts). While a handler runs, a heartbeat refreshes the task's lock time, so the periodic stale requeue only
  * catches tasks whose process stopped heartbeating. A {@link BudgetExhaustedException} or {@link ServiceOutageException} (also as a cause) is not a
- * failure: the task is QUEUED again at its {@code retryAt} without using an attempt. Completion, failure and that
- * deferral are fenced by the attempt number.
+ * failure: the task is QUEUED again at its {@code retryAt} without using an attempt. An outage deferral of a task first
+ * enqueued more than 24 hours ago is logged as a WARN, so a task that only ever meets "outages" does not wait unseen.
+ * Completion, failure and that deferral are fenced by the attempt number.
  */
 @Component
 public class TaskDispatcher implements DisposableBean {
 
   private static final Logger LOG = LoggerFactory.getLogger(TaskDispatcher.class);
   private static final int MAX_ERROR_LENGTH = 2000;
+  /** An outage deferral of a task older than this is logged as a WARN. */
+  static final Duration LONG_WAIT = Duration.ofHours(24);
 
   private final TaskQueue queue;
   private final Map<String, TaskHandler> handlers = new HashMap<>();
@@ -52,6 +56,7 @@ public class TaskDispatcher implements DisposableBean {
   private final int maxAttempts;
   private final Duration backoff;
   private final Duration staleAfter;
+  private final Clock clock;
   private volatile boolean ready;
   private boolean stopped; // guarded by this
 
@@ -59,12 +64,14 @@ public class TaskDispatcher implements DisposableBean {
                         @Value("${nametracker.indexer.workers:8}") int workers,
                         @Value("${nametracker.indexer.max-attempts:5}") int maxAttempts,
                         @Value("${nametracker.indexer.backoff:1m}") Duration backoff,
-                        @Value("${nametracker.indexer.stale-after:1h}") Duration staleAfter) {
+                        @Value("${nametracker.indexer.stale-after:1h}") Duration staleAfter,
+                        Clock clock) {
     this.queue = queue;
     this.workers = workers;
     this.maxAttempts = maxAttempts;
     this.backoff = backoff;
     this.staleAfter = staleAfter;
+    this.clock = clock;
     for (TaskHandler h : handlerBeans) {
       if (!h.enabled()) {
         LOG.info("Task type {} is not handled by this process", h.type());
@@ -137,6 +144,10 @@ public class TaskDispatcher implements DisposableBean {
       }
       ServiceOutageException outage = outageCause(e);
       if (outage != null) {
+        if (waitingLong(task, clock.instant())) {
+          LOG.warn("Task {} ({}) was enqueued at {} and still waits for {}; deferred again until {}",
+              task.id(), task.type(), task.created(), outage.service(), outage.retryAt());
+        }
         defer(task, outage.service(), outage.retryAt());
         return;
       }
@@ -166,6 +177,11 @@ public class TaskDispatcher implements DisposableBean {
     } catch (Throwable e2) {
       LOG.error("Could not defer task {}", task.id(), e2);
     }
+  }
+
+  /** True if the task was first enqueued more than {@link #LONG_WAIT} before {@code now}. */
+  static boolean waitingLong(Task task, Instant now) {
+    return task.created() != null && task.created().isBefore(now.minus(LONG_WAIT));
   }
 
   /** The exception itself or its first cause that is a BudgetExhaustedException, else null. */
