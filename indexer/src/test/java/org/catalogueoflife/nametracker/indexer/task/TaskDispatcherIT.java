@@ -22,7 +22,7 @@ import org.springframework.test.context.TestPropertySource;
 
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @TestPropertySource(properties = "nametracker.indexer.workers=8")
-@Import({TaskDispatcherIT.BoomConfig.class, TaskDispatcherIT.ErrorConfig.class})
+@Import({ClearTasksAtStartup.class, TaskDispatcherIT.BoomConfig.class, TaskDispatcherIT.ErrorConfig.class})
 class TaskDispatcherIT extends AbstractPostgresIT {
 
   /** Test-only handler that always fails. */

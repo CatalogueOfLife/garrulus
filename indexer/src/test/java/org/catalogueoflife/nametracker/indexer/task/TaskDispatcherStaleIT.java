@@ -20,7 +20,7 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.TestPropertySource;
 
 /** Stale threshold far below the handler runtime: the heartbeat must keep the live task from being requeued. */
-@Import(TaskDispatcherStaleIT.SlowConfig.class)
+@Import({ClearTasksAtStartup.class, TaskDispatcherStaleIT.SlowConfig.class})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @TestPropertySource(properties = {
     "nametracker.indexer.workers=8",

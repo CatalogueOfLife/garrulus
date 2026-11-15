@@ -6,8 +6,9 @@ spring:
     username: ${NAMETRACKER_DB_USER:nametracker}
     password: ${NAMETRACKER_DB_PASSWORD:nametracker}
   config:
-    # local .env (see .env.example); the second entry covers running from a module directory (spring-boot:run)
-    import: optional:file:.env[.properties],optional:file:../.env[.properties]
+    # local .env (see .env.example); the second entry covers running from a module directory (spring-boot:run).
+    # nametracker.dotenv replaces the list; the ITs set it to a file that never exists, so they never read a .env
+    import: ${nametracker.dotenv:optional:file:.env[.properties],optional:file:../.env[.properties]}
   flyway:
     enabled: true
     locations: classpath:db/migration
