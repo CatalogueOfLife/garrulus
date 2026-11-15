@@ -10,7 +10,10 @@ import org.catalogueoflife.nametracker.finder.api.CodePoints;
 import org.catalogueoflife.nametracker.finder.api.Document;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.finder.api.RankedName;
+import org.catalogueoflife.nametracker.finder.dict.ColDictionary;
 import org.catalogueoflife.nametracker.finder.doc.FlatText;
+import org.catalogueoflife.nametracker.finder.pipeline.ActPatterns;
+import org.catalogueoflife.nametracker.finder.pipeline.SuffixRules;
 import org.gbif.nameparser.api.Rank;
 import tools.jackson.databind.JsonNode;
 
@@ -25,6 +28,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Reads a Label Studio JSON export into gold documents. Per task the latest annotation with was_cancelled=false counts; a task
@@ -46,7 +51,39 @@ public final class LabelStudioImporter {
 
   private LabelStudioImporter() {}
 
+  /** One value the importer filled in because the annotation left it out. {@code gap} is only set for act_of. */
+  public record Inferred(String docId, String regionId, String kind, String regionText, String value, String gap) {}
+
+  /**
+   * Inference settings. {@link #STRICT} infers nothing. Otherwise a missing act_type, act_of link or Context ranks are filled
+   * in where unambiguous, and each inferred value is added to {@link #inferred()}. The dictionary is optional.
+   */
+  public static final class Options {
+    public static final Options STRICT = new Options(false, null);
+    private final boolean infer;
+    private final ColDictionary dictionary;
+    private final List<Inferred> inferred = new ArrayList<>();
+
+    private Options(boolean infer, ColDictionary dictionary) {
+      this.infer = infer;
+      this.dictionary = dictionary;
+    }
+
+    public static Options inferring(ColDictionary dictionary) {
+      return new Options(true, dictionary);
+    }
+
+    public List<Inferred> inferred() {
+      return inferred;
+    }
+  }
+
+  /** Strict: nothing is inferred, a missing act_type, act_of link or Context ranks fails. */
   public static List<GoldDocument> read(Path exportJson) {
+    return read(exportJson, Options.STRICT);
+  }
+
+  public static List<GoldDocument> read(Path exportJson, Options opts) {
     JsonNode tasks;
     try {
       tasks = FinderJson.mapper().readTree(Files.readString(exportJson));
@@ -56,11 +93,20 @@ public final class LabelStudioImporter {
     if (!tasks.isArray()) throw new IllegalArgumentException(exportJson + " is not a Label Studio export: expected a JSON array of tasks");
     List<GoldDocument> out = new ArrayList<>();
     boolean[] utf16 = new boolean[1];
+    List<String> errors = new ArrayList<>();
     for (JsonNode task : tasks) {
       JsonNode ann = latest(task.path("annotations"));
       if (ann == null) continue;
-      GoldDocument g = convert(task.path("data"), ann.path("result"), utf16);
-      if (g != null) out.add(g);
+      try {
+        GoldDocument g = convert(task.path("data"), ann.path("result"), utf16, opts);
+        if (g != null) out.add(g);
+      } catch (IllegalStateException e) {
+        errors.add(e.getMessage());
+      }
+    }
+    if (errors.size() == 1) throw new IllegalStateException(errors.get(0));
+    if (!errors.isEmpty()) {
+      throw new IllegalStateException(errors.size() + " tasks failed:\n" + String.join("\n", errors));
     }
     if (utf16[0]) {
       LOG.log(System.Logger.Level.INFO, "Label Studio offsets in {0} matched only as UTF-16 units and were converted to code points", exportJson);
@@ -82,7 +128,7 @@ public final class LabelStudioImporter {
     return a.path("updated_at").asString(a.path("created_at").asString("")) + "|" + String.format("%012d", a.path("id").asLong(0));
   }
 
-  private static GoldDocument convert(JsonNode data, JsonNode results, boolean[] utf16) {
+  private static GoldDocument convert(JsonNode data, JsonNode results, boolean[] utf16, Options opts) {
     String docId = data.path("docId").asString("");
     Document doc = FinderJson.mapper().convertValue(data.path("document"), Document.class);
     FlatText flat = FlatText.of(doc);
@@ -138,9 +184,15 @@ public final class LabelStudioImporter {
       String label = label(e.getValue());
       if (label.equals("Act")) {
         String choice = actTypes.get(id);
-        if (choice == null) throw fail(docId, "the Act region '" + text(e.getValue()) + "' has no act_type choice");
-        ActType type = actType(choice);
-        if (type == null) throw fail(docId, "unknown act_type '" + choice + "'");
+        ActType type;
+        if (choice == null) {
+          type = opts.infer ? inferActType(text(e.getValue())) : null;
+          if (type == null) throw fail(docId, "the Act region '" + text(e.getValue()) + "' has no act_type choice");
+          opts.inferred.add(new Inferred(docId, id, "act_type", text(e.getValue()), type.name(), ""));
+        } else {
+          type = actType(choice);
+          if (type == null) throw fail(docId, "unknown act_type '" + choice + "'");
+        }
         GoldName found = null;
         for (String[] rel : relations) {
           if (!rel[2].equals(ACT_OF)) continue;
@@ -152,11 +204,20 @@ public final class LabelStudioImporter {
             found = nameById.get(other);
           }
         }
+        GoldName span = span(docId, flat, utf16, e.getValue(), (b, s, en, t) -> new GoldName(b, s, en, t, null, null));
+        if (found == null && opts.infer) {
+          found = nearestName(doc, span, names, regions, flat, utf16, docId);
+          if (found != null) {
+            opts.inferred.add(new Inferred(docId, id, "act_of", text(e.getValue()), found.text(),
+                CodePoints.slice(blockText(doc, span.blockId()), found.end(), span.start())));
+          }
+        }
         if (found == null) throw fail(docId, "the Act region '" + text(e.getValue()) + "' is not linked to a Name by act_of");
         GoldName target = found;
-        acts.add(span(docId, flat, utf16, e.getValue(), (b, s, en, t) -> new GoldAct(b, s, en, type, target.text())));
+        ActType fType = type;
+        acts.add(new GoldAct(span.blockId(), span.start(), span.end(), fType, target.text()));
       } else if (label.equals("Context")) {
-        GoldContext c = span(docId, flat, utf16, e.getValue(), (b, s, en, t) -> new GoldContext(b, rankedNames(docId, t, ranks.get(id))));
+        GoldContext c = span(docId, flat, utf16, e.getValue(), (b, s, en, t) -> new GoldContext(b, rankedNames(docId, id, t, ranks.get(id), opts)));
         contexts.merge(c.blockId(), c.ranks(), (a, b) -> {
           List<RankedName> all = new ArrayList<>(a);
           all.addAll(b);
@@ -282,7 +343,60 @@ public final class LabelStudioImporter {
     return null;
   }
 
-  private static List<RankedName> rankedNames(String docId, String regionText, String explicit) {
+  /** Maximum number of code points between the end of a Name and the start of its Act for an inferred link. */
+  static final int MAX_LINK_GAP = 80;
+
+  private static String blockText(Document doc, String blockId) {
+    for (Block b : doc.blocks()) if (b.id().equals(blockId)) return b.text();
+    return "";
+  }
+
+  /**
+   * The Name region that ends closest before the act in the same block, if no other Name or Act region starts in between and
+   * at most {@link #MAX_LINK_GAP} code points lie between its end and the act's start.
+   */
+  private static GoldName nearestName(Document doc, GoldName act, List<GoldName> names, Map<String, JsonNode> regions, FlatText flat,
+                                      boolean[] utf16, String docId) {
+    GoldName best = null;
+    for (GoldName n : names) {
+      if (!n.blockId().equals(act.blockId()) || n.end() > act.start()) continue;
+      if (best == null || n.end() > best.end()) best = n;
+    }
+    if (best == null || act.start() - best.end() > MAX_LINK_GAP) return null;
+    // another Name or Act region between them (a name that starts after best's end, or another act) blocks the link
+    for (var r : regions.values()) {
+      String l = label(r);
+      if (!l.equals("Name") && !l.equals("Act")) continue;
+      GoldName o = span(docId, flat, utf16, r, (b, s, en, t) -> new GoldName(b, s, en, t, null, null));
+      if (o.start() == act.start() && o.end() == act.end() && o.blockId().equals(act.blockId())) continue;
+      if (o.blockId().equals(act.blockId()) && o.start() >= best.end() && o.start() < act.start() && !(o.start() == best.start() && o.end() == best.end())) {
+        return null;
+      }
+    }
+    return best;
+  }
+
+  private static final Pattern HIGHER_ABBREV = Pattern.compile(
+      "(?:cl|subcl|infracl|supercl|ord|subord|infraord|superord|phyl|subphyl|infraphyl|superphyl|k|regn|subk|infrak|parvk|superk|div)"
+          + "\\.?\\s*(?:n|nov)\\.?");
+
+  /** From the marker text: ActPatterns when it yields exactly one type, else a small table; null when still unknown. */
+  static ActType inferActType(String regionText) {
+    String t = regionText.strip();
+    Set<ActType> types = new LinkedHashSet<>();
+    for (ActPatterns.ActMatch m : ActPatterns.find(t)) types.add(m.type());
+    if (types.size() == 1) return types.iterator().next();
+    if (!types.isEmpty()) return null;
+    String lower = t.toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
+    if (lower.matches("nom\\.? ?rest\\.?")) return ActType.STAT_REV;
+    if (lower.equals("replacement name")) return ActType.NOM_NOV;
+    if (HIGHER_ABBREV.matcher(lower).matches()) return ActType.HIGHER_NOV;
+    return null;
+  }
+
+  private static final Pattern RANK_PAIR = Pattern.compile("([\\p{L}]+)\\s*:\\s*(.+)");
+
+  private static List<RankedName> rankedNames(String docId, String regionId, String regionText, String explicit, Options opts) {
     List<RankedName> out = new ArrayList<>();
     if (explicit != null && !explicit.isBlank()) {
       for (String part : explicit.split("[;\n]")) {
@@ -297,10 +411,45 @@ public final class LabelStudioImporter {
     String t = regionText.strip();
     int sp = t.indexOf(' ');
     Rank r = sp > 0 ? tryRank(t.substring(0, sp)) : null;
-    if (r == null) {
-      throw fail(docId, "the Context region '" + t + "' needs ranks: add a ranks text such as 'FAMILY: Opheliidae; ORDER: Phyllodocida'");
+    if (r != null) {
+      out.add(new RankedName(r, t.substring(sp + 1).strip()));
+      return out;
     }
-    out.add(new RankedName(r, t.substring(sp + 1).strip()));
+    if (opts.infer) {
+      List<RankedName> inferred = inferRanks(t, opts.dictionary);
+      if (!inferred.isEmpty()) {
+        opts.inferred.add(new Inferred(docId, regionId, "ranks", t,
+            inferred.stream().map(n -> n.rank() + ": " + n.name()).collect(java.util.stream.Collectors.joining("; ")), ""));
+        return inferred;
+      }
+    }
+    throw fail(docId, "the Context region '" + t + "' needs ranks: add a ranks text such as 'FAMILY: Opheliidae; ORDER: Phyllodocida'");
+  }
+
+  /** "rank: Name" pairs when every part is one, else the names split on ":" or "," with a dictionary or suffix rank each. */
+  static List<RankedName> inferRanks(String text, ColDictionary dict) {
+    List<RankedName> pairs = new ArrayList<>();
+    boolean all = true;
+    for (String part : text.split("[;,]")) {
+      if (part.isBlank()) continue;
+      Matcher m = RANK_PAIR.matcher(part.strip());
+      Rank r = m.matches() ? tryRank(m.group(1)) : null;
+      if (r == null) {
+        all = false;
+        break;
+      }
+      pairs.add(new RankedName(r, m.group(2).strip()));
+    }
+    if (all && !pairs.isEmpty()) return pairs;
+    List<RankedName> out = new ArrayList<>();
+    for (String name : text.split("[:,]")) {
+      String n = name.strip();
+      if (n.isEmpty()) continue;
+      Rank rk = null;
+      if (dict != null) rk = dict.uninomialRank(n).orElse(null);
+      if (rk == null) rk = SuffixRules.rankFor(n, null).orElse(Rank.UNRANKED);
+      out.add(new RankedName(rk, n));
+    }
     return out;
   }
 

@@ -617,9 +617,35 @@ public class EvalCli implements Runnable {
     @Option(names = "--out", description = "gold.jsonl.gz to write, e.g. eval/corpus/curated/gold.jsonl.gz") Path out;
     @Option(names = "--manifest", defaultValue = "eval/corpus/curated/manifest.tsv", description = "curated manifest whose text hashes the documents must match, default ${DEFAULT-VALUE}") Path manifest;
 
+    @Option(names = "--strict", description = "infer nothing: a missing act_type, act_of link or context ranks fails") boolean strict;
+    @Option(names = "--dictionary", description = "COL dictionary for context ranks, default $FINDER_DICTIONARY if set") Path dictionary;
+    @Option(names = "--inferred", defaultValue = "eval/work/ls-import-inferred.tsv", description = "where the inferred values are listed, default ${DEFAULT-VALUE}") Path inferredOut;
+
     @Override
     public Integer call() throws Exception {
-      List<GoldDocument> docs = LabelStudioImporter.read(export);
+      LabelStudioImporter.Options opts = LabelStudioImporter.Options.STRICT;
+      if (!strict) {
+        Path dict = dictionary;
+        if (dict == null && System.getenv("FINDER_DICTIONARY") != null && !System.getenv("FINDER_DICTIONARY").isBlank()) {
+          dict = Path.of(System.getenv("FINDER_DICTIONARY"));
+        }
+        opts = LabelStudioImporter.Options.inferring(dict == null ? null : org.catalogueoflife.nametracker.finder.dict.ColDictionaryIO.read(dict));
+        if (dict == null) System.out.println("No dictionary: context ranks fall back to suffix rules only");
+      }
+      List<GoldDocument> docs = LabelStudioImporter.read(export, opts);
+      if (!strict) {
+        List<LabelStudioImporter.Inferred> inf = opts.inferred();
+        StringBuilder sb = new StringBuilder("docId\tregionId\tkind\tregionText\tinferred\tgap\n");
+        for (var i : inf) {
+          sb.append(String.join("\t", i.docId(), i.regionId(), i.kind(), tsv(i.regionText()), tsv(i.value()), tsv(i.gap()))).append('\n');
+        }
+        if (inferredOut.getParent() != null) java.nio.file.Files.createDirectories(inferredOut.getParent());
+        java.nio.file.Files.writeString(inferredOut, sb.toString());
+        for (String kind : List.of("act_type", "act_of", "ranks")) {
+          System.out.println("Inferred " + kind + ": " + inf.stream().filter(i -> i.kind().equals(kind)).count());
+        }
+        System.out.println("Inferred values listed in " + inferredOut);
+      }
       CuratedManifest.read(manifest).check(docs);
       int names = 0, acts = 0, contexts = 0, subjects = 0;
       for (GoldDocument d : docs) {
@@ -638,6 +664,10 @@ public class EvalCli implements Runnable {
         System.out.println("Wrote " + out);
       }
       return 0;
+    }
+
+    private static String tsv(String s) {
+      return s == null ? "" : s.replaceAll("[\\t\\r\\n]+", " ");
     }
   }
 }

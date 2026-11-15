@@ -165,6 +165,13 @@ on any command lists its options.
     (GROBID, `--pdf path|docId|doi|licence|language|source`) and one abstract with act markers per journal (`--journal
     S…[:lang]`). It appends to `manifest.tsv` and `eval/work/curated-picks.jsonl.gz` and writes the new picks alone to
     `eval/work/curated-picks-acts.jsonl.gz`, for `ls-export --picks … --out eval/work/curated-tasks-acts.json`.
+  - `ls-import` infers what the annotation leaves out, unless `--strict` is given (explicit values always win):
+    an Act without act_type gets its type from `ActPatterns` (plus "nom. rest." as STAT_REV, "<higher rank abbrev> n." as
+    HIGHER_NOV); an Act without an `act_of` relation links to the nearest Name ending before it in the same block, with no
+    other Name or Act in between and at most 80 code points of gap; a Context without ranks text and rank word gets
+    "rank: Name" pairs, else names split on ":" or "," ranked by the COL dictionary (`--dictionary` or `FINDER_DICTIONARY`),
+    then suffix rules, else UNRANKED. Every inferred value is listed in `eval/work/ls-import-inferred.tsv` (docId, region id,
+    kind, region text, value, gap); check it after each import. Failures of all tasks are reported together.
   - The curated gold also has authorships: an `Authorship` region belongs to the `Name` right before it. Reports on the
     curated corpus add an `authorship` row (matched spans only, whitespace ignored); other corpora have none.
 - **Runs:** `run --finder italics|gnfinder|pipeline|remote:<url> --corpus eval/corpus/pensoft --split dev|test --mode A|B`
