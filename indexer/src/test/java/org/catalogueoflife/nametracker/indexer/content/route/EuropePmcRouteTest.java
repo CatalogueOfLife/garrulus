@@ -86,9 +86,16 @@ class EuropePmcRouteTest {
     assertThat(route(w).fetch(work(6L, "10.1/none", null), null)).isEmpty();
   }
 
+  /** An open access search answer for one PMCID: the open access fixture with its PMCID swapped. */
+  private static void openAccessSearchFor(String pmcid) {
+    stubFor(get(urlPathEqualTo("/rest/search")).withQueryParam("query", equalTo("PMCID:" + pmcid))
+        .willReturn(aResponse().withHeader("Content-Type", "application/json")
+            .withBody(fixture("europepmc/search-open-access.json").replace("PMC9836452", pmcid))));
+  }
+
   @Test
   void missingAndUnusableFulltextIsEmpty(WireMockRuntimeInfo w) {
-    searchStub(fixture("europepmc/search-open-access.json"));
+    for (String id : java.util.List.of("PMC1", "PMC2", "PMC3")) openAccessSearchFor(id);
     stubFor(get(urlPathEqualTo("/rest/PMC1/fullTextXML")).willReturn(aResponse().withStatus(404)));
     assertThat(route(w).fetch(work(1L, null, "PMC1"), null)).isEmpty();
     stubFor(get(urlPathEqualTo("/rest/PMC2/fullTextXML")).willReturn(aResponse().withBody("")));
@@ -96,6 +103,10 @@ class EuropePmcRouteTest {
     stubFor(get(urlPathEqualTo("/rest/PMC3/fullTextXML"))
         .willReturn(aResponse().withBody(fixture("europepmc/error-page.html"))));
     assertThat(route(w).fetch(work(3L, null, "PMC3"), null)).isEmpty();
+    // each work passed the open access check, so each full text was really requested
+    for (String id : java.util.List.of("PMC1", "PMC2", "PMC3")) {
+      verify(1, getRequestedFor(urlPathEqualTo("/rest/" + id + "/fullTextXML")));
+    }
   }
 
   @Test
