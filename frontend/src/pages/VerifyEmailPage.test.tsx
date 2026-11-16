@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { VerifyEmailPage } from './VerifyEmailPage';
@@ -24,7 +24,9 @@ describe('VerifyEmailPage', () => {
     );
     renderApp(<VerifyEmailPage />, '/verify-email?token=t');
     expect(calls).toBe(0);
-    await userEvent.click(await screen.findByRole('button', { name: 'Confirm this address', hidden: false }));
+    const button = await screen.findByRole('button', { name: 'Confirm this address', hidden: false });
+    await waitFor(() => expect(button).toBeEnabled());
+    await userEvent.click(button);
     expect(await screen.findByText(text)).toBeInTheDocument();
     expect(calls).toBe(1);
     expect(xsrf).toBe('vx1');

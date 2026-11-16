@@ -9,6 +9,9 @@ import { SignInVerifyPage } from './pages/SignInVerifyPage';
 import { UnsubscribePage } from './pages/UnsubscribePage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { WorkPage } from './pages/WorkPage';
+import { FollowingPage } from './pages/FollowingPage';
+import { HitsPage } from './pages/HitsPage';
+import { Text } from '@mantine/core';
 
 export function AppRoutes() {
   return (
@@ -23,6 +26,9 @@ export function AppRoutes() {
       <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/account" element={<AccountPage />} />
       <Route path="/unsubscribe" element={<UnsubscribePage />} />
+      <Route path="/following" element={<FollowingPage />} />
+      <Route path="/hits" element={<HitsPage />} />
+      <Route path="*" element={<Text>Page not found</Text>} />
     </Routes>
   );
 }

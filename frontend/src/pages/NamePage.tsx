@@ -2,6 +2,8 @@ import { Alert, Anchor, Badge, Group, Loader, Stack, Text, Title } from '@mantin
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { ApiError, getName, searchWorks } from '../api';
+import { FeedLink } from '../components/FeedLink';
+import { FollowButton } from '../components/FollowButton';
 import { Section } from '../components/Section';
 import { WorkList } from '../components/WorkList';
 import { YearBars } from '../components/YearBars';
@@ -29,6 +31,8 @@ export function NamePage() {
         <Title order={2} fs="italic">{n.name}</Title>
         {n.rank ? <Badge variant="light">{n.rank}</Badge> : null}
         <Text size="sm" c="dimmed">{n.kind}</Text>
+        <FollowButton type="NAME" target={String(n.id)} label={n.name} />
+        <FeedLink href={`/feeds/name/${n.id}.atom`} />
       </Group>
 
       <Section title="Match in COL">

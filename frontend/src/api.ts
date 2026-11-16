@@ -12,10 +12,13 @@ export interface Error400 {
 
 export class ApiError extends Error {
   readonly status: number;
-  constructor(status: number, message: string) {
+  /** The parsed JSON body of the error response, when there was one. */
+  readonly body?: unknown;
+  constructor(status: number, message: string, body?: unknown) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.body = body;
   }
 }
 
@@ -351,8 +354,12 @@ export async function send<T = unknown>(method: string, url: string, body?: unkn
     payload = JSON.stringify(body);
   }
   const res = await fetch(url, { method, headers, body: payload, credentials: 'same-origin' });
-  if (!res.ok) throw new ApiError(res.status, `Request failed (${res.status})`);
   const text = await res.text();
+  if (!res.ok) {
+    let parsed: unknown;
+    try { parsed = text ? JSON.parse(text) : undefined; } catch { /* not JSON */ }
+    throw new ApiError(res.status, `Request failed (${res.status})`, parsed);
+  }
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
@@ -376,6 +383,32 @@ export const patchMe = (p: MePatch) => send<Me>('PATCH', '/api/me', p);
 export const requestEmailChange = (email: string) => send('POST', '/api/me/email', { email });
 export const verifyEmail = (token: string) => send<{ outcome: EmailOutcome }>('POST', '/api/auth/verify-email', { token });
 export const deleteMe = () => send('DELETE', '/api/me');
+export type SubscriptionType = Subscription['type'];
+export interface SubscriptionInput {
+  mainSubjectOnly: boolean;
+  newNamesOnly: boolean;
+  includeAbstractOnly: boolean;
+  includeReferences: boolean;
+  filters: SubscriptionFilters;
+  sinceYear?: number | null;
+}
+export async function getSubscriptions(): Promise<Subscription[]> {
+  const res = await fetch('/api/me/subscriptions', { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+  if (!res.ok) throw new ApiError(res.status, `Request failed (${res.status})`);
+  return (await res.json()) as Subscription[];
+}
+export const createSubscription = (type: SubscriptionType, target: string, label: string, o: SubscriptionInput) =>
+  send<Subscription>('POST', '/api/me/subscriptions', { type, target, label, ...o, sinceYear: o.sinceYear ?? undefined });
+export const patchSubscription = (id: number, p: Partial<SubscriptionInput> & { paused?: boolean }) =>
+  send<Subscription>('PATCH', `/api/me/subscriptions/${id}`, p);
+export const deleteSubscription = (id: number) => send('DELETE', `/api/me/subscriptions/${id}`);
+export async function getHits(params: { subscription?: string; limit: number; offset: number }): Promise<{ limit: number; offset: number; results: Hit[] }> {
+  const p = new URLSearchParams({ limit: String(params.limit), offset: String(params.offset) });
+  if (params.subscription) p.set('subscription', params.subscription);
+  const res = await fetch(`/api/me/hits?${p}`, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+  if (!res.ok) throw new ApiError(res.status, `Request failed (${res.status})`);
+  return (await res.json()) as { limit: number; offset: number; results: Hit[] };
+}
 export const unsubscribe = (t: string) => send('POST', `/api/unsubscribe?${new URLSearchParams({ t })}`);
 
 /** Downloads the export as a file. */

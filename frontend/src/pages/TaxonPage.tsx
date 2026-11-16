@@ -5,6 +5,8 @@ import { getClbClassification, getClbTaxon, getTaxonStats, getWork, getXr, searc
 import type { Context } from '../api';
 import { WorkList } from '../components/WorkList';
 import { YearBars } from '../components/YearBars';
+import { FeedLink } from '../components/FeedLink';
+import { FollowButton } from '../components/FollowButton';
 import { Section } from '../components/Section';
 import { usePageTitle } from '../usePageTitle';
 
@@ -55,6 +57,8 @@ export function TaxonPage() {
             <Title order={2} fs="italic">{name}</Title>
             {taxon.data?.name.rank ? <Badge variant="light">{taxon.data.name.rank}</Badge> : null}
             {taxon.data?.status ? <Text size="sm" c="dimmed">{taxon.data.status}</Text> : null}
+            <FollowButton type="TAXON" target={id} label={name} />
+            <FeedLink href={`/feeds/taxon/${encodeURIComponent(id)}.atom`} />
           </Group>
         ) : <Loader size="sm" />}
         {classification.data?.length ? (

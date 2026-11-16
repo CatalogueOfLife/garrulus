@@ -2,6 +2,8 @@ import { Alert, Box, Group, Pagination, Skeleton, Stack, Text, TextInput } from 
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { ApiError, filterFromParams, filterToParams, getTaxGroups, searchWorks, type FacetName, type WorkFilter } from '../api';
+import { FeedLink } from '../components/FeedLink';
+import { FollowButton } from '../components/FollowButton';
 import { FilterSidebar } from '../components/FilterSidebar';
 import { WorkList } from '../components/WorkList';
 import { usePageTitle } from '../usePageTitle';
@@ -31,6 +33,8 @@ export function SearchPage() {
     setParams(next);
   };
 
+  // a Follow is offered when the taxgroup is the only filter
+  const onlyGroup = Object.entries(filter).every(([k, v]) => !v || k === 'taxgroup' || k === 'offset') ? filter.taxgroup : undefined;
   const offset = Number(filter.offset ?? 0);
   const page = Math.floor(offset / PAGE_SIZE) + 1;
   const data = works.data;
@@ -47,6 +51,12 @@ export function SearchPage() {
         />
       </Box>
       <Stack style={{ flex: 1, minWidth: 0 }}>
+        {onlyGroup ? (
+          <Group gap="xs">
+            <FollowButton type="TAXGROUP" target={onlyGroup} label={onlyGroup} />
+            <FeedLink href={`/feeds/taxgroup/${encodeURIComponent(onlyGroup)}.atom`} />
+          </Group>
+        ) : null}
         <TextInput
           aria-label="Search text"
           placeholder="Search titles and abstracts…"

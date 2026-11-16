@@ -1,7 +1,5 @@
 import { setupServer } from 'msw/node';
 
-export const server = setupServer();
-
 import { http, HttpResponse } from 'msw';
 import type { TaxGroup, WorkPage, WorkSummary } from '../api';
 
@@ -27,3 +25,6 @@ export const meBody = {
   id: 1, email: 'a@example.org', emailVerified: true, orcid: null, displayName: 'A',
   timeZone: null, digestFrequency: 'DAILY', digestWeekday: 1, digestHour: 7,
 };
+
+// defaults: signed out and the taxgroup list, which pages with a Follow button ask for
+export const server = setupServer(signedOut, taxGroupHandler);

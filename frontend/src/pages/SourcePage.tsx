@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ApiError, getSource, getTaxGroups } from '../api';
+import { FeedLink } from '../components/FeedLink';
+import { FollowButton } from '../components/FollowButton';
 import { Section } from '../components/Section';
 import { TaxGroupIcon } from '../components/TaxGroupIcon';
 import { WorkList } from '../components/WorkList';
@@ -44,6 +46,8 @@ export function SourcePage() {
         <Group align="baseline" gap="sm">
           <Title order={2}>{s.title}</Title>
           <Badge variant="light">{s.tier}</Badge>
+          <FollowButton type="SOURCE" target={String(s.id)} label={s.title} />
+          <FeedLink href={`/feeds/source/${s.id}.atom`} />
         </Group>
         {s.publisher || s.issnL ? <Text size="sm" c="dimmed">{[s.publisher, s.issnL && `ISSN-L ${s.issnL}`].filter(Boolean).join(' · ')}</Text> : null}
       </div>
