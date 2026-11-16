@@ -380,10 +380,17 @@ public class EvalCli implements Runnable {
     @Option(names = "--weights", split = ",", description = "values tried for each weight, default 0,0.1,0.2,0.3,0.4,0.5") double[] weights;
     @Option(names = "--thresholds", split = ",", description = "values tried for the threshold, default 0.20 to 0.60 step 0.05") double[] thresholds;
     @Option(names = "--dictionary", description = "COL dictionary file, default $FINDER_DICTIONARY") Path dictionary;
+    @Option(names = "--config", defaultValue = "indexer/src/main/resources/application.yml",
+        description = "application.yml whose nametracker.salience values are the baseline, default ${DEFAULT-VALUE}; the built-in defaults if missing") Path config;
+    @Option(names = "--eval-only", description = "evaluate exactly the --set values (on top of the baseline) without searching, and print P/R/F1") boolean evalOnly;
+    @Option(names = "--set", description = "with --eval-only: key=value,... of nametracker.salience.* without the prefix (title, abstract, act, heading, share, repeat, ubiquity, ubiquity-full-share, threshold)") String set;
 
     @Override
     public Integer call() throws Exception {
       checkSplit(split);
+      var base = SalienceTuner.readYaml(config, SalienceProperties.DEFAULTS);
+      String baseSource = base.equals(SalienceProperties.DEFAULTS) ? "built-in defaults (" + config + " not read or equal)" : config.toString();
+      System.out.println("Baseline weights from " + baseSource);
       var dflt = SalienceTuner.Grids.defaults();
       var grids = new SalienceTuner.Grids(weights != null ? weights : dflt.weights(), thresholds != null ? thresholds : dflt.thresholds());
       NameFinder f = FinderFactory.create("pipeline", dictionary);
@@ -395,13 +402,19 @@ public class EvalCli implements Runnable {
       System.out.printf(Locale.ROOT, "%s/%s: %d documents, %d with main-subject labels (%d labels); finder run in %.0f s%n",
           corpusName, split, docs.size(), labelled.size(), labels, (System.nanoTime() - t0) / 1e9);
       if (labelled.isEmpty()) throw new IllegalStateException("No document with main-subject labels in " + corpusName + "/" + split);
-      var base = SalienceProperties.DEFAULTS;
+      if (evalOnly) {
+        var props = SalienceTuner.apply(base, set == null ? "" : set);
+        Metrics m = SalienceTuner.evaluate(labelled, props);
+        System.out.println("evaluated: " + line(m));
+        System.out.println(SalienceTuner.yaml(props));
+        return 0;
+      }
       // two starts: the defaults, and flat weights that escape the empty plateau a coordinate search cannot leave
       var flat = new SalienceProperties(0.2, 0.2, 0.2, 0.2, 0.2, 0.2, base.ubiquityWeight(), base.ubiquityFullShare(), base.threshold());
       Metrics before = SalienceTuner.evaluate(labelled, base);
       var best = SalienceTuner.search(labelled, List.of(base, flat), grids);
       String yaml = SalienceTuner.yaml(best.props());
-      System.out.println("defaults: " + line(before));
+      System.out.println("baseline: " + line(before));
       System.out.println("best:     " + line(best.metrics()) + " (" + best.evaluations() + " evaluations, " + best.passes() + " passes)");
       System.out.println("Best application.yml overrides:");
       System.out.println(yaml);
@@ -411,7 +424,7 @@ public class EvalCli implements Runnable {
           base.ubiquityWeight(), base.ubiquityFullShare()));
       md.append("Search: coordinate descent over title, abstract, act, heading, share, repeat, threshold from the defaults and from flat weights 0.2; best of the two.\n\n");
       md.append("| | P | R | F1 | tp | fp | fn |\n|---|---|---|---|---|---|---|\n");
-      md.append(row("defaults", before)).append(row("best", best.metrics()));
+      md.append(row("baseline", before)).append(row("best", best.metrics()));
       md.append("\n```yaml\n").append(yaml).append("```\n");
       Files.createDirectories(report.toAbsolutePath().getParent());
       Files.writeString(report, md.toString());

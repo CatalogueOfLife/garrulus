@@ -123,4 +123,40 @@ class SalienceTunerTest {
     assertThat(SalienceTuner.Grids.defaults().weights()).containsExactly(0, 0.1, 0.2, 0.3, 0.4, 0.5);
     assertThat(SalienceTuner.Grids.defaults().thresholds()).hasSize(9).startsWith(0.2).endsWith(0.6);
   }
+
+  @Test
+  void applySetsNamedValuesAndRejectsUnknownKeys() {
+    var p = SalienceTuner.apply(SalienceProperties.DEFAULTS, "title=0.123456789,threshold=0.5,ubiquity-full-share=0.04");
+    assertThat(p.titleWeight()).isEqualTo(0.123456789);
+    assertThat(p.threshold()).isEqualTo(0.5);
+    assertThat(p.ubiquityFullShare()).isEqualTo(0.04);
+    assertThat(p.actWeight()).isEqualTo(SalienceProperties.DEFAULTS.actWeight());
+    org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> SalienceTuner.apply(p, "bogus=1"));
+    // the printed yaml carries the evaluated value, not a rounded one
+    assertThat(SalienceTuner.yaml(p)).contains("title: 0.123456789");
+  }
+
+  @Test
+  void evalOnlyEvaluatesExactlyTheGivenValues() {
+    var docs = corpus();
+    var perfect = SalienceTuner.apply(new SalienceProperties(0, 0, 0, 0, 0, 0, 0.5, 0.02, 0.3), "title=0.4,act=0.4,threshold=0.35");
+    assertThat(SalienceTuner.evaluate(docs, perfect)).isEqualTo(new Metrics(6, 0, 0));
+    var none = SalienceTuner.apply(perfect, "threshold=0.99");
+    assertThat(SalienceTuner.evaluate(docs, none)).isEqualTo(new Metrics(0, 0, 6));
+  }
+
+  @Test
+  void readYamlTakesTheConfiguredSalienceBlockElseTheFallback(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
+    var f = dir.resolve("application.yml");
+    java.nio.file.Files.writeString(f, "server:\n  port: 1\nnametracker:\n  other:\n    title: 9\n  salience:\n    title: 0.41  # tuned\n"
+        + "    threshold: 0.33\n    ubiquity: ${X:0.5}\nlogging:\n  title: 7\n");
+    var p = SalienceTuner.readYaml(f, SalienceProperties.DEFAULTS);
+    assertThat(p.titleWeight()).isEqualTo(0.41);
+    assertThat(p.threshold()).isEqualTo(0.33);
+    assertThat(p.ubiquityWeight()).isEqualTo(SalienceProperties.DEFAULTS.ubiquityWeight());
+    assertThat(SalienceTuner.readYaml(dir.resolve("missing.yml"), SalienceProperties.DEFAULTS)).isEqualTo(SalienceProperties.DEFAULTS);
+    // the shipped application.yml matches the built-in defaults
+    var shipped = java.nio.file.Path.of("../indexer/src/main/resources/application.yml");
+    if (java.nio.file.Files.exists(shipped)) assertThat(SalienceTuner.readYaml(shipped, SalienceProperties.DEFAULTS)).isEqualTo(SalienceProperties.DEFAULTS);
+  }
 }

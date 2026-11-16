@@ -170,12 +170,78 @@ public final class SalienceTuner {
     };
   }
 
-  /** The values as {@code application.yml} lines under {@code nametracker.salience}. */
+  /** The values as {@code application.yml} lines under {@code nametracker.salience}, at full precision. */
   public static String yaml(SalienceProperties p) {
     return String.format(java.util.Locale.ROOT,
-        "nametracker:%n  salience:%n    title: %.2f%n    abstract: %.2f%n    act: %.2f%n    heading: %.2f%n    share: %.2f%n"
-            + "    repeat: %.2f%n    threshold: %.2f%n", p.titleWeight(), p.abstractWeight(), p.actWeight(),
+        "nametracker:%n  salience:%n    title: %s%n    abstract: %s%n    act: %s%n    heading: %s%n    share: %s%n"
+            + "    repeat: %s%n    threshold: %s%n", p.titleWeight(), p.abstractWeight(), p.actWeight(),
         p.headingWeight(), p.shareWeight(), p.repeatWeight(), p.threshold());
+  }
+
+  /** The keys of {@code nametracker.salience.*}, without the prefix. */
+  public static final List<String> KEYS = List.of("title", "abstract", "act", "heading", "share", "repeat", "ubiquity",
+      "ubiquity-full-share", "threshold");
+
+  /** {@code base} with the {@code key=value,...} pairs applied; unknown keys and bad numbers are an error. */
+  public static SalienceProperties apply(SalienceProperties base, String pairs) {
+    SalienceProperties cur = base;
+    for (String pair : pairs.split(",")) {
+      if (pair.isBlank()) continue;
+      int eq = pair.indexOf('=');
+      if (eq < 0) throw new IllegalArgumentException("Expected key=value: " + pair);
+      String k = pair.substring(0, eq).trim();
+      double v;
+      try {
+        v = Double.parseDouble(pair.substring(eq + 1).trim());
+      } catch (NumberFormatException e) {
+        throw new IllegalArgumentException("Not a number: " + pair);
+      }
+      if (!KEYS.contains(k)) throw new IllegalArgumentException("Unknown salience key " + k + ", one of " + KEYS);
+      cur = switch (k) {
+        case "ubiquity" -> new SalienceProperties(cur.titleWeight(), cur.abstractWeight(), cur.actWeight(), cur.headingWeight(),
+            cur.shareWeight(), cur.repeatWeight(), v, cur.ubiquityFullShare(), cur.threshold());
+        case "ubiquity-full-share" -> new SalienceProperties(cur.titleWeight(), cur.abstractWeight(), cur.actWeight(),
+            cur.headingWeight(), cur.shareWeight(), cur.repeatWeight(), cur.ubiquityWeight(), v, cur.threshold());
+        default -> with(cur, k, v);
+      };
+    }
+    return cur;
+  }
+
+  /**
+   * The {@code nametracker.salience} values of an {@code application.yml} on top of {@code fallback}, or the fallback
+   * itself when the file or the block is missing. Reads the block by indentation; values that are not plain numbers
+   * (placeholders) are ignored.
+   */
+  public static SalienceProperties readYaml(java.nio.file.Path file, SalienceProperties fallback) {
+    if (file == null || !java.nio.file.Files.isRegularFile(file)) return fallback;
+    List<String> lines;
+    try {
+      lines = java.nio.file.Files.readAllLines(file);
+    } catch (java.io.IOException e) {
+      return fallback;
+    }
+    boolean inNametracker = false, inSalience = false, found = false;
+    StringBuilder pairs = new StringBuilder();
+    for (String line : lines) {
+      if (line.isBlank() || line.stripLeading().startsWith("#")) continue;
+      int indent = line.length() - line.stripLeading().length();
+      String t = line.strip();
+      if (indent == 0) {
+        inNametracker = t.equals("nametracker:");
+        inSalience = false;
+      } else if (inNametracker && indent == 2) {
+        inSalience = t.equals("salience:");
+        found |= inSalience;
+      } else if (inSalience && indent == 4) {
+        int c = t.indexOf(':');
+        if (c < 0) continue;
+        String k = t.substring(0, c).trim();
+        String v = t.substring(c + 1).replaceAll("\\s+#.*$", "").trim();
+        if (KEYS.contains(k) && v.matches("-?\\d+(\\.\\d+)?")) pairs.append(k).append('=').append(v).append(',');
+      }
+    }
+    return found ? apply(fallback, pairs.toString()) : fallback;
   }
 
   /** Convenience for the CLI: prepares all labelled documents. */
