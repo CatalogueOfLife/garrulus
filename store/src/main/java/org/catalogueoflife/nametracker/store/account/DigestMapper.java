@@ -16,6 +16,9 @@ public interface DigestMapper {
   /** The latest sent_at among the user's SENT digests, or null. */
   @Nullable Instant lastSent(@Param("userId") long userId);
 
+  /** The user's digests, newest first. */
+  java.util.List<Digest> listByUser(@Param("userId") long userId);
+
   /** Moves every digest of one account to another (account merge); returns the number moved. */
   int reassign(@Param("fromUserId") long fromUserId, @Param("toUserId") long toUserId);
 }

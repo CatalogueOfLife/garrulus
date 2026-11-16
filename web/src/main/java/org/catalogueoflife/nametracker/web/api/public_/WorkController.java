@@ -62,11 +62,11 @@ public class WorkController {
 
   static final int MAX_LIMIT = 100;
   static final int MAX_OFFSET = 10_000;
-  private static final Set<String> CODES = enumNames(NomCode.values());
-  private static final Set<String> TAXGROUPS = enumNames(TaxGroup.values());
-  private static final Set<String> TIERS = Set.of("CORE", "BROAD", "CANDIDATE", "EXCLUDED");
-  private static final Set<String> OA = Set.of("DIAMOND", "GOLD", "HYBRID", "CLOSED");
-  private static final Set<String> JOURNAL_TYPES = Set.of("TAXONOMIC", "GENERAL");
+  public static final Set<String> CODES = enumNames(NomCode.values());
+  public static final Set<String> TAXGROUPS = enumNames(TaxGroup.values());
+  public static final Set<String> TIERS = Set.of("CORE", "BROAD", "CANDIDATE", "EXCLUDED");
+  public static final Set<String> OA = Set.of("DIAMOND", "GOLD", "HYBRID", "CLOSED");
+  public static final Set<String> JOURNAL_TYPES = Set.of("TAXONOMIC", "GENERAL");
 
   private final SearchMapper search;
   private final WorkMapper works;
@@ -125,7 +125,7 @@ public class WorkController {
     return page(f, limit, offset, facets);
   }
 
-  static void checkPaging(int limit, int offset) {
+  public static void checkPaging(int limit, int offset) {
     if (limit < 1 || limit > MAX_LIMIT) {
       throw bad("limit must be 1.." + MAX_LIMIT);
     }
@@ -136,18 +136,29 @@ public class WorkController {
 
   /** The search, count and facets of one filter: the code path of /api/works, shared by the taxon and source endpoints. */
   WorkPage page(WorkFilter f, int limit, int offset, List<String> facets) {
-    List<WorkHit> hits = search.search(f, limit, offset);
-    Map<Long, List<NameRef>> mainNames = hits.isEmpty() ? Map.of()
-        : search.mainNames(hits.stream().map(WorkHit::id).toList()).stream().collect(
-            Collectors.groupingBy(MainNameRow::workId, LinkedHashMap::new,
-                Collectors.mapping(r -> new NameRef(r.nameStringId(), r.name(), r.placementMethod(), r.usageId()),
-                    Collectors.toList())));
-    List<WorkSummary> results = hits.stream().map(h -> summary(h, mainNames.getOrDefault(h.id(), List.of()))).toList();
+    List<WorkSummary> results = summarise(search.search(f, limit, offset));
     Map<String, List<FacetCount>> facetMap = new LinkedHashMap<>();
     for (String name1 : facets) {
       facetMap.put(name1, search.facet(f, name1));
     }
     return new WorkPage(search.count(f), limit, offset, results, facetMap);
+  }
+
+  /** The summaries of the listed works among the ids, by work id; works that are not listed are absent. */
+  public Map<Long, WorkSummary> summaries(java.util.Collection<Long> ids) {
+    if (ids.isEmpty()) {
+      return Map.of();
+    }
+    return summarise(search.byIds(ids)).stream().collect(Collectors.toMap(WorkSummary::id, w -> w));
+  }
+
+  private List<WorkSummary> summarise(List<WorkHit> hits) {
+    Map<Long, List<NameRef>> mainNames = hits.isEmpty() ? Map.of()
+        : search.mainNames(hits.stream().map(WorkHit::id).toList()).stream().collect(
+            Collectors.groupingBy(MainNameRow::workId, LinkedHashMap::new,
+                Collectors.mapping(r -> new NameRef(r.nameStringId(), r.name(), r.placementMethod(), r.usageId()),
+                    Collectors.toList())));
+    return hits.stream().map(h -> summary(h, mainNames.getOrDefault(h.id(), List.of()))).toList();
   }
 
   @GetMapping("/api/works/{id}")
@@ -245,13 +256,13 @@ public class WorkController {
     return s == null || s.isBlank() ? null : s.strip();
   }
 
-  private static void requireOneOf(String param, @Nullable String value, Set<String> allowed) {
+  public static void requireOneOf(String param, @Nullable String value, Set<String> allowed) {
     if (value != null && !allowed.contains(value)) {
       throw bad("unknown " + param + " " + value);
     }
   }
 
-  static ResponseStatusException bad(String reason) {
+  public static ResponseStatusException bad(String reason) {
     return new ResponseStatusException(HttpStatus.BAD_REQUEST, reason);
   }
 }

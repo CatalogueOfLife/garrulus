@@ -212,4 +212,11 @@ class SearchMapperIT extends AbstractPostgresIT {
     assertThat(ids(filter(x -> x))).containsExactly(sameDayLow, newer, old, undated);
     assertThat(search.search(filter(x -> x), 2, 1).stream().map(WorkHit::id)).containsExactly(newer, old);
   }
+
+  @Test
+  void byIdsReturnsListedWorksOnly() {
+    long a = indexed("2026-01-01", "A", new String[] {"Insecta"});
+    long b = work("DISCOVERED", "2026-01-02", "B", null, new String[0], new String[0], null);
+    assertThat(search.byIds(List.of(a, b))).extracting(WorkHit::id).containsExactly(a);
+  }
 }

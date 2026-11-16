@@ -24,7 +24,7 @@ import org.springframework.mail.javamail.JavaMailSender;
  * Keeps every sent message in memory instead of talking to an SMTP host. Implements the interface rather than
  * extending JavaMailSenderImpl, so that no mail health indicator probes a real host.
  */
-class CapturingMailSender implements JavaMailSender {
+public class CapturingMailSender implements JavaMailSender {
 
   private static final Pattern TOKEN = Pattern.compile("token=([0-9A-Za-z_-]+)");
 

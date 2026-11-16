@@ -98,6 +98,14 @@
     LIMIT #{limit} OFFSET #{offset}
   </select>
 
+  <select id="byIds" resultMap="hit">
+    SELECT w.id, w.doi, w.title, w.year, w.publication_date, w.source_id, s.title AS source_title,
+           w.authors::text AS authors, w.text_level, COALESCE(w.has_acts, false) AS has_acts
+    <include refid="from"/>
+    WHERE w.state IN ('INDEXED', 'NOTIFIED') AND w.id IN
+    <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+  </select>
+
   <select id="count" resultType="long">
     SELECT count(*) <include refid="from"/> <include refid="where"/>
   </select>

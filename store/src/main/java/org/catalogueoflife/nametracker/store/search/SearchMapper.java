@@ -15,6 +15,9 @@ public interface SearchMapper {
   /** Newest first: publication_date DESC NULLS LAST, id DESC. */
   List<WorkHit> search(@Param("f") WorkFilter f, @Param("limit") int limit, @Param("offset") int offset);
 
+  /** The listed (INDEXED or NOTIFIED) works among the ids, as search rows, in no particular order. */
+  List<WorkHit> byIds(@Param("ids") Collection<Long> workIds);
+
   long count(@Param("f") WorkFilter f);
 
   /** The 100 most frequent values of the facet within the filtered set, most frequent first. */

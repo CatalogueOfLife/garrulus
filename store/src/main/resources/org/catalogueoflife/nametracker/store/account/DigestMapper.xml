@@ -13,5 +13,20 @@
     SELECT max(sent_at) FROM digest WHERE user_id = #{userId} AND status = 'SENT'
   </select>
 
+  <resultMap id="digest" type="org.catalogueoflife.nametracker.store.account.Digest">
+    <constructor>
+      <idArg column="id" javaType="long"/>
+      <arg column="user_id" javaType="_long"/>
+      <arg column="sent_at" javaType="java.time.Instant"/>
+      <arg column="hits" javaType="_int"/>
+      <arg column="status" javaType="string"/>
+      <arg column="error" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <select id="listByUser" resultMap="digest">
+    SELECT id, user_id, sent_at, hits, status, error FROM digest WHERE user_id = #{userId} ORDER BY sent_at DESC, id DESC
+  </select>
+
   <update id="reassign">UPDATE digest SET user_id = #{toUserId} WHERE user_id = #{fromUserId}</update>
 </mapper>

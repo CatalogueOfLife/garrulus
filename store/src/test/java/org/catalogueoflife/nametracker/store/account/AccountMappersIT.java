@@ -367,4 +367,13 @@ class AccountMappersIT extends AbstractPostgresIT {
     assertThat(search.workMatches(w, bot)).isFalse();
     assertThat(search.workMatches(w + 1000, all)).isFalse();
   }
+
+  @Test
+  void digestsListedPerUser() {
+    long u = accounts.insert(new AppUser(null, "dl@example.org", null, null, null, null, null, null, null, null, null, null));
+    long other = accounts.insert(new AppUser(null, "dl2@example.org", null, null, null, null, null, null, null, null, null, null));
+    long d = digests.insert(new Digest(null, u, null, 3, "SENT", null));
+    digests.insert(new Digest(null, other, null, 1, "SENT", null));
+    assertThat(digests.listByUser(u)).extracting(Digest::id).containsExactly(d);
+  }
 }
