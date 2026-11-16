@@ -26,7 +26,7 @@ import org.springframework.mail.javamail.JavaMailSender;
  */
 class CapturingMailSender implements JavaMailSender {
 
-  private static final Pattern TOKEN = Pattern.compile("token=([0-9A-Za-z-]+)");
+  private static final Pattern TOKEN = Pattern.compile("token=([0-9A-Za-z_-]+)");
 
   private final List<MimeMessage> sent = new ArrayList<>();
 
@@ -126,7 +126,7 @@ class CapturingMailSender implements JavaMailSender {
     }
   }
 
-  /** The sign-in token in the link of the newest message to this address. */
+  /** The token in the link (sign-in or verify-email) of the newest message to this address. */
   String lastTokenFor(String address) {
     List<MimeMessage> mails = to(address);
     if (mails.isEmpty()) {

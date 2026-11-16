@@ -20,4 +20,8 @@
     DELETE FROM email_token WHERE token_hash = #{tokenHash} AND expires &gt; now()
     RETURNING id, user_id, email, token_hash, expires
   </select>
+
+  <select id="findValid" resultMap="token">
+    SELECT id, user_id, email, token_hash, expires FROM email_token WHERE token_hash = #{tokenHash} AND expires &gt; now()
+  </select>
 </mapper>

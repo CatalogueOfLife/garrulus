@@ -13,4 +13,7 @@ public interface EmailTokenMapper {
 
   /** Deletes the row of the hash and returns it; null when unknown or expired. */
   @Nullable EmailToken consume(@Param("tokenHash") String tokenHash);
+
+  /** The row of the hash, left in place; null when unknown or expired. */
+  @Nullable EmailToken findValid(@Param("tokenHash") String tokenHash);
 }

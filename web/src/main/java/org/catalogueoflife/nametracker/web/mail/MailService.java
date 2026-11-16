@@ -82,4 +82,31 @@ public class MailService {
         """.formatted(href);
     return send(to, userId, "Your Garrulus sign-in link", text, html);
   }
+
+  /** The link that confirms a new address of an account: goes to the new address, expires in 24 hours. */
+  public boolean sendVerifyEmail(String to, long userId, String link) {
+    String text = """
+        Hello,
+
+        use this link to confirm this address for your Garrulus account. It expires in 24 hours:
+
+        %s
+
+        Open it in the browser you are signed in with. If you did not ask for this, you can ignore this email.
+
+        Garrulus, the name-literature index of the Catalogue of Life
+        """.formatted(link);
+    String href = HtmlUtils.htmlEscape(link);
+    String html = """
+        <!doctype html>
+        <html><body style="font-family: sans-serif; line-height: 1.5">
+        <p>Hello,</p>
+        <p>use this link to confirm this address for your Garrulus account. It expires in 24 hours:</p>
+        <p><a href="%s">Confirm my address</a></p>
+        <p>Open it in the browser you are signed in with. If you did not ask for this, you can ignore this email.</p>
+        <p>Garrulus, the name-literature index of the Catalogue of Life</p>
+        </body></html>
+        """.formatted(href);
+    return send(to, userId, "Confirm your address for Garrulus", text, html);
+  }
 }

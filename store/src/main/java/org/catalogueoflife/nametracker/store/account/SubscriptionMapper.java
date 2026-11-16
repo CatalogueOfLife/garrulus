@@ -26,6 +26,27 @@ public interface SubscriptionMapper {
   int setFeedToken(@Param("id") long id, @Param("token") String token);
 
   /**
+   * Account merge: moves every subscription of {@code fromUserId} to {@code toUserId}. Of two with the same (type,
+   * target) the older one (created, then id) stays with its options, whichever account it was on; the hits of the
+   * other move to it unless it already has that (work, kind), and the other is deleted with its remaining hits. Not
+   * limited by the per-user cap. Call it inside a transaction.
+   */
+  default void merge(long fromUserId, long toUserId) {
+    moveHitsOfDuplicates(fromUserId, toUserId);
+    deleteNewerDuplicates(fromUserId, toUserId);
+    reassign(fromUserId, toUserId);
+  }
+
+  /** Step 1 of {@link #merge}: the newer duplicate's hits move to the older one where the unique key allows. */
+  int moveHitsOfDuplicates(@Param("fromUserId") long fromUserId, @Param("toUserId") long toUserId);
+
+  /** Step 2 of {@link #merge}: deletes the newer of each duplicate pair (cascading its remaining hits). */
+  int deleteNewerDuplicates(@Param("fromUserId") long fromUserId, @Param("toUserId") long toUserId);
+
+  /** Step 3 of {@link #merge}: the remaining subscriptions change owner. */
+  int reassign(@Param("fromUserId") long fromUserId, @Param("toUserId") long toUserId);
+
+  /**
    * Unpaused subscriptions of any user whose (type, target) is one of the keys: SOURCE by {@code sourceId}, TAXON by
    * {@code taxonIds}, NAME by {@code nameIds}, TAXGROUP by {@code taxgroups}. Null or empty key lists match nothing.
    */

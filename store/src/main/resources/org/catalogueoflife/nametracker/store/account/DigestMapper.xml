@@ -12,4 +12,6 @@
   <select id="lastSent" resultType="java.time.Instant">
     SELECT max(sent_at) FROM digest WHERE user_id = #{userId} AND status = 'SENT'
   </select>
+
+  <update id="reassign">UPDATE digest SET user_id = #{toUserId} WHERE user_id = #{fromUserId}</update>
 </mapper>

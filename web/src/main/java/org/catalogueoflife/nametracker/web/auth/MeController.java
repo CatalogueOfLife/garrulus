@@ -1,8 +1,11 @@
 package org.catalogueoflife.nametracker.web.auth;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.Map;
 import java.util.Set;
 import org.catalogueoflife.nametracker.store.account.AccountMapper;
 import org.catalogueoflife.nametracker.store.account.AppUser;
@@ -10,14 +13,14 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-/** The signed-in account and its settings. */
+/** The signed-in account, its settings and its address. */
 @RestController
-@RequestMapping("/api/me")
 public class MeController {
 
   static final Set<String> FREQUENCIES = Set.of("DAILY", "WEEKLY", "OFF");
@@ -36,17 +39,24 @@ public class MeController {
   public record MeUpdate(@Nullable String displayName, @Nullable String timeZone, @Nullable String digestFrequency,
       @Nullable Integer digestWeekday, @Nullable Integer digestHour) {}
 
+  public record EmailRequest(@Nullable String email) {}
+
+  public record VerifyRequest(@Nullable String token) {}
+
   private final AccountMapper accounts;
   private final CurrentUser currentUser;
+  private final EmailVerificationService verification;
   private final Clock clock;
 
-  public MeController(AccountMapper accounts, CurrentUser currentUser, Clock clock) {
+  public MeController(AccountMapper accounts, CurrentUser currentUser, EmailVerificationService verification,
+      Clock clock) {
     this.accounts = accounts;
     this.currentUser = currentUser;
+    this.verification = verification;
     this.clock = clock;
   }
 
-  @GetMapping
+  @GetMapping("/api/me")
   public Me me() {
     return Me.of(load());
   }
@@ -55,7 +65,7 @@ public class MeController {
    * Sets display name, time zone (IANA id), digest frequency (DAILY, WEEKLY, OFF), weekday (1 = Monday to 7) and
    * local hour (0 to 23). Turning digests on from OFF restarts them now: older hits are never mailed.
    */
-  @PatchMapping
+  @PatchMapping("/api/me")
   public Me update(@RequestBody MeUpdate u) {
     AppUser user = load();
     String displayName = user.displayName();
@@ -97,6 +107,27 @@ public class MeController {
     Instant digestSince = "OFF".equals(user.digestFrequency()) && !"OFF".equals(frequency) ? clock.instant() : null;
     accounts.updateSettings(user.id(), displayName, timeZone, frequency, weekday, hour, digestSince);
     return Me.of(load());
+  }
+
+  /**
+   * Starts a change of address: mails a verification link to the new address. Always {@code 202 {}}, whether or not
+   * the address is in use; nothing is stored on the account until the link is used. An invalid address is a 400.
+   */
+  @PostMapping("/api/me/email")
+  @ResponseStatus(HttpStatus.ACCEPTED)
+  public Map<String, Object> requestEmail(@RequestBody EmailRequest body, HttpServletRequest request) {
+    verification.request(load().id(), body.email(), request.getRemoteAddr());
+    return Map.of();
+  }
+
+  /**
+   * Uses a verification link: {@code {"outcome": "SET" | "MERGED" | "REFUSED_OTHER_ORCID"}}. Needs the session of the
+   * account that asked for it (else 401, and the token stays valid); an unknown, used or expired token is a 400.
+   */
+  @PostMapping("/api/auth/verify-email")
+  public Map<String, String> verifyEmail(@RequestBody VerifyRequest body, HttpServletRequest request,
+      HttpServletResponse response) {
+    return Map.of("outcome", verification.verify(load().id(), body.token(), request, response).name());
   }
 
   /** The signed-in account; a 401 if it no longer exists. */

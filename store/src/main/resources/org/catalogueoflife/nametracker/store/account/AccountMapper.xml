@@ -58,5 +58,10 @@
 
   <update id="touchLogin">UPDATE app_user SET last_login = now() WHERE id = #{id}</update>
 
+  <delete id="deleteSessions">
+    DELETE FROM spring_session WHERE principal_name = #{userId}::text
+    <if test="keepSessionId != null"> AND session_id &lt;&gt; #{keepSessionId}</if>
+  </delete>
+
   <delete id="delete">DELETE FROM app_user WHERE id = #{id}</delete>
 </mapper>

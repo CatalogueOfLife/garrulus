@@ -72,4 +72,26 @@
     )
     ORDER BY id
   </select>
+
+  <!-- account merge (see SubscriptionMapper#merge): pairs of the two accounts with the same (type, target) -->
+  <sql id="duplicatePairs">
+    SELECT CASE WHEN (a.created, a.id) &lt; (b.created, b.id) THEN a.id ELSE b.id END AS keep_id,
+           CASE WHEN (a.created, a.id) &lt; (b.created, b.id) THEN b.id ELSE a.id END AS drop_id
+    FROM subscription a JOIN subscription b ON b.type = a.type AND b.target = a.target
+    WHERE a.user_id = #{fromUserId} AND b.user_id = #{toUserId}
+  </sql>
+
+  <update id="moveHitsOfDuplicates">
+    WITH pairs AS (<include refid="duplicatePairs"/>)
+    UPDATE hit h SET subscription_id = p.keep_id FROM pairs p
+    WHERE h.subscription_id = p.drop_id
+      AND NOT EXISTS (SELECT 1 FROM hit o WHERE o.subscription_id = p.keep_id AND o.work_id = h.work_id AND o.kind = h.kind)
+  </update>
+
+  <delete id="deleteNewerDuplicates">
+    WITH pairs AS (<include refid="duplicatePairs"/>)
+    DELETE FROM subscription s USING pairs p WHERE s.id = p.drop_id
+  </delete>
+
+  <update id="reassign">UPDATE subscription SET user_id = #{toUserId} WHERE user_id = #{fromUserId}</update>
 </mapper>

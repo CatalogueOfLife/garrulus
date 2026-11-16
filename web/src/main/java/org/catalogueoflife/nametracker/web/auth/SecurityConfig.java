@@ -3,6 +3,7 @@ package org.catalogueoflife.nametracker.web.auth;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Clock;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,6 +13,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.ott.JdbcOneTimeTokenService;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
@@ -28,7 +30,8 @@ import org.springframework.security.web.savedrequest.NullRequestCache;
  * endpoints keep their header token ({@code AdminAuth}). Sessions live in Postgres (Spring Session JDBC). Sign-in is
  * by email link through Spring's one-time-token login: {@code POST /api/auth/link} (SignInLinkController) generates
  * and mails the token, {@code POST /login/ott} with the form parameter {@code token} signs in. Spring's own token
- * generation endpoint and its default pages are switched off.
+ * generation endpoint and its default pages are switched off. ORCID sign-in ({@code /oauth2/authorization/orcid},
+ * back at {@code /login/oauth2/code/orcid}) exists only when {@link OrcidConfig} registers the client.
  */
 @Configuration(proxyBeanMethods = false)
 public class SecurityConfig {
@@ -55,6 +58,7 @@ public class SecurityConfig {
   @Bean
   SecurityFilterChain filterChain(HttpSecurity http, JdbcOneTimeTokenService tokens,
       SecurityContextRepository contexts, EmailLinkLoginHandler emailLink, AccountService accounts,
+      ObjectProvider<ClientRegistrationRepository> orcidClients, OrcidLoginSuccessHandler orcidLogin,
       @Value("${server.servlet.session.cookie.secure:false}") boolean secureCookies) throws Exception {
     CookieCsrfTokenRepository csrfTokens = CookieCsrfTokenRepository.withHttpOnlyFalse();
     csrfTokens.setCookieCustomizer(c -> c.secure(secureCookies).sameSite("Lax"));
@@ -65,7 +69,7 @@ public class SecurityConfig {
         .requestCache(c -> c.requestCache(new NullRequestCache()))
         .authorizeHttpRequests(auth -> auth
             .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
-            .requestMatchers("/api/me", "/api/me/**").authenticated()
+            .requestMatchers("/api/me", "/api/me/**", "/api/auth/verify-email").authenticated()
             // AdminAuth checks the X-Admin-Token header in the controllers
             .requestMatchers("/api/admin/**").permitAll()
             .requestMatchers("/api/auth/**", "/api/unsubscribe", "/login/**", "/oauth2/**", "/feeds/**",
@@ -99,6 +103,17 @@ public class SecurityConfig {
         .formLogin(AbstractHttpConfigurer::disable)
         .httpBasic(AbstractHttpConfigurer::disable)
         .exceptionHandling(ex -> ex.authenticationEntryPoint(JSON_401));
+    ClientRegistrationRepository clients = orcidClients.getIfAvailable();
+    if (clients != null) {
+      http.oauth2Login(o -> o
+          .clientRegistrationRepository(clients)
+          // the SPA's page; also keeps Spring from generating a login page at /login
+          .loginPage(orcidLogin.signInPage())
+          .authorizationEndpoint(a -> a.authorizationRequestResolver(
+              new PromptLoginAuthorizationRequestResolver(clients)))
+          .successHandler(orcidLogin)
+          .failureHandler(orcidLogin));
+    }
     return http.build();
   }
 }

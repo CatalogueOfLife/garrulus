@@ -34,6 +34,12 @@ public interface AccountMapper {
 
   int touchLogin(@Param("id") long id);
 
-  /** Hard delete; subscriptions, hits, digests and email tokens go with it (cascade). */
+  /**
+   * Deletes the Spring sessions of the account (principal name = the account id), except the session with the id
+   * {@code keepSessionId} (none if null). Returns the number deleted.
+   */
+  int deleteSessions(@Param("userId") long userId, @Param("keepSessionId") @Nullable String keepSessionId);
+
+  /** Hard delete; subscriptions, hits, digests and email tokens go with it (cascade), sessions do not. */
   int delete(@Param("id") long id);
 }
