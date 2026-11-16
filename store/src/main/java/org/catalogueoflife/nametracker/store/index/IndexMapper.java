@@ -94,7 +94,7 @@ public interface IndexMapper {
   @Nullable NameString nameString(@Param("id") long id);
 
 
-  /** Sets codes, taxgroups and has_acts, and also state INDEXED and indexed_at = now(). */
+  /** Sets codes, taxgroups and has_acts, and also state INDEXED, indexed_at = now() and, once, first_indexed_at. */
   default void setIndexed(long workId, String[] codes, String[] taxgroups, boolean hasActs) {
     updateIndexed(workId, List.of(codes), List.of(taxgroups), hasActs);
   }

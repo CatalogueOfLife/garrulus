@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.nametracker.store.account.DigestMapper">
+
+  <select id="insert" resultType="long" flushCache="true">
+    INSERT INTO digest (user_id, hits, status, error) VALUES (#{o.userId}, #{o.hits}, #{o.status}, #{o.error})
+    RETURNING id
+  </select>
+
+  <update id="setStatus">UPDATE digest SET status = #{status}, error = #{error} WHERE id = #{id}</update>
+
+  <select id="lastSent" resultType="java.time.Instant">
+    SELECT max(sent_at) FROM digest WHERE user_id = #{userId} AND status = 'SENT'
+  </select>
+</mapper>

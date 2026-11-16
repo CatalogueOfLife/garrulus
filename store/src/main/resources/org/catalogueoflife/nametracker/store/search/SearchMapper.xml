@@ -136,6 +136,10 @@
     ORDER BY work_id, rn
   </select>
 
+  <select id="workMatches" resultType="boolean">
+    SELECT EXISTS (SELECT 1 <include refid="from"/> <include refid="where"/> AND w.id = #{workId})
+  </select>
+
   <select id="isIndexed" resultType="boolean">
     SELECT EXISTS (SELECT 1 FROM work WHERE id = #{workId} AND state IN ('INDEXED', 'NOTIFIED'))
   </select>

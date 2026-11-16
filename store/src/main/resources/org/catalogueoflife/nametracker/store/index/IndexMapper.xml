@@ -221,7 +221,8 @@
   <update id="updateIndexed">
     UPDATE work SET codes = #{codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler},
       taxgroups = #{taxgroups, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler},
-      has_acts = #{hasActs}, state = 'INDEXED', indexed_at = now(), modified = now()
+      has_acts = #{hasActs}, state = 'INDEXED', indexed_at = now(),
+      first_indexed_at = COALESCE(first_indexed_at, now()), modified = now()
     WHERE id = #{workId}
   </update>
 

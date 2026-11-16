@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.nametracker.store.account.EmailTokenMapper">
+
+  <resultMap id="token" type="org.catalogueoflife.nametracker.store.account.EmailToken">
+    <constructor>
+      <idArg column="id" javaType="_long"/>
+      <arg column="user_id" javaType="_long"/>
+      <arg column="email" javaType="string"/>
+      <arg column="token_hash" javaType="string"/>
+      <arg column="expires" javaType="java.time.Instant"/>
+    </constructor>
+  </resultMap>
+
+  <insert id="insert">
+    INSERT INTO email_token (user_id, email, token_hash, expires) VALUES (#{userId}, #{email}, #{tokenHash}, #{expires})
+  </insert>
+
+  <select id="consume" resultMap="token" flushCache="true">
+    DELETE FROM email_token WHERE token_hash = #{tokenHash} AND expires &gt; now()
+    RETURNING id, user_id, email, token_hash, expires
+  </select>
+</mapper>

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.nametracker.store.account.HitMapper">
+
+  <resultMap id="hit" type="org.catalogueoflife.nametracker.store.account.Hit">
+    <constructor>
+      <idArg column="id" javaType="long"/>
+      <arg column="subscription_id" javaType="_long"/>
+      <arg column="work_id" javaType="_long"/>
+      <arg column="kind" javaType="string"/>
+      <arg column="created" javaType="java.time.Instant"/>
+      <arg column="names" javaType="string"/>
+      <arg column="digest_id" javaType="long"/>
+    </constructor>
+  </resultMap>
+
+  <sql id="cols">h.id, h.subscription_id, h.work_id, h.kind, h.created, h.names::text AS names, h.digest_id</sql>
+
+  <insert id="insertIfAbsent">
+    INSERT INTO hit (subscription_id, work_id, kind, names)
+    VALUES (#{o.subscriptionId}, #{o.workId}, #{o.kind}, COALESCE(#{o.names, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, '[]'::jsonb))
+    ON CONFLICT (subscription_id, work_id, kind) DO NOTHING
+  </insert>
+
+  <select id="find" resultMap="hit">
+    SELECT <include refid="cols"/> FROM hit h
+    WHERE h.subscription_id = #{subscriptionId} AND h.work_id = #{workId} AND h.kind = #{kind}
+  </select>
+
+  <select id="listByUser" resultMap="hit">
+    SELECT <include refid="cols"/> FROM hit h JOIN subscription s ON s.id = h.subscription_id
+    WHERE s.user_id = #{userId}
+    <if test="subscriptionId != null"> AND h.subscription_id = #{subscriptionId}</if>
+    ORDER BY h.created DESC, h.id DESC
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="undeliveredForDigest" resultMap="hit">
+    SELECT <include refid="cols"/> FROM hit h JOIN subscription s ON s.id = h.subscription_id
+    WHERE s.user_id = #{userId} AND NOT s.paused AND h.digest_id IS NULL
+      AND h.created &gt; #{since} AND h.created &gt;= #{minCreated}
+    ORDER BY h.created DESC, h.id DESC
+  </select>
+
+  <update id="markDelivered">
+    UPDATE hit SET digest_id = #{digestId} WHERE id IN
+    <foreach collection="hitIds" item="i" open="(" separator="," close=")">#{i}</foreach>
+  </update>
+
+  <update id="unmark">UPDATE hit SET digest_id = NULL WHERE digest_id = #{digestId}</update>
+
+  <select id="byFeed" resultMap="hit">
+    SELECT <include refid="cols"/> FROM hit h WHERE h.subscription_id = #{subscriptionId}
+    ORDER BY h.created DESC, h.id DESC LIMIT #{limit}
+  </select>
+</mapper>
