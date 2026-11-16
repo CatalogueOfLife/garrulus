@@ -90,10 +90,10 @@ A second admin run answered `{"sent":false,"hits":0}`, and no mail was sent.
   public client per person). Vite's string proxy shorthand rewrote the `Host` header to `localhost:18080`, so the
   redirect URI pointed at web; the proxy now uses `changeOrigin: false` and Vite listens on 127.0.0.1. Web restarted at
   13:00 UTC with `NAMETRACKER_PUBLIC_URL=http://127.0.0.1:5173`; `/oauth2/authorization/orcid` now redirects to
-  orcid.org with `redirect_uri=http://127.0.0.1:5173/login/oauth2/code/orcid`. Markus signs in at
-  `http://127.0.0.1:5173/signin`.
+  orcid.org with `redirect_uri=http://127.0.0.1:5173/login/oauth2/code/orcid`. **Checked 2026-11-17:** Markus signed in
+  with ORCID at `http://127.0.0.1:5173/signin`; it works.
 - **The scheduled digest**: the test account now has a daily digest at 07:00 Europe/Berlin. The first scheduled mail,
   with the nightly harvest's Carabidae and Zootaxa papers if there are any, goes to Mailpit on 2026-11-17.
 
-**Verdict:** met for the email path. The digest is correct, there is no hit outside a window, and no paper reached a
-follow twice. ORCID sign-in is still to be checked.
+**Verdict:** met. Sign-in by email link and by ORCID works, the digest is correct, there is no hit outside a window, and
+no paper reached a follow twice.
