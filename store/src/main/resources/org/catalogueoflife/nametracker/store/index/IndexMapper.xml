@@ -66,6 +66,7 @@
       <idArg column="id" javaType="_long"/>
       <arg column="source_id" javaType="java.lang.Long"/>
       <arg column="text_level" javaType="string"/>
+      <arg column="state" javaType="string"/>
       <arg column="publication_date" javaType="java.time.LocalDate"/>
       <arg column="year" javaType="java.lang.Integer"/>
       <arg column="first_seen_at" javaType="java.time.Instant"/>
@@ -197,12 +198,11 @@
   </select>
 
   <select id="nameStrings" resultMap="nameStringRow">
-    SELECT id, name, kind, rank FROM name_string WHERE id IN
-    <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+    SELECT id, name, kind, rank FROM name_string WHERE id = ANY(#{ids, typeHandler=org.catalogueoflife.nametracker.store.type.LongListTypeHandler})
   </select>
 
   <select id="workFacts" resultMap="workFacts">
-    SELECT id, source_id, text_level, publication_date, year, first_seen_at, indexed_at FROM work WHERE id = #{workId}
+    SELECT id, source_id, text_level, state, publication_date, year, first_seen_at, indexed_at FROM work WHERE id = #{workId}
   </select>
 
   <select id="currentRelease" resultMap="release">

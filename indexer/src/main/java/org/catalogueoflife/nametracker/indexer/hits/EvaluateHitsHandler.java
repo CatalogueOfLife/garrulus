@@ -75,7 +75,7 @@ public class EvaluateHitsHandler implements TaskHandler {
   private void evaluate(long workId) {
     index.lockWork(workId);
     WorkFacts work = index.workFacts(workId);
-    if (work == null || work.indexedAt() == null) return;
+    if (work == null || work.indexedAt() == null || !"INDEXED".equals(work.state())) return; // a stale task
     List<WorkNameView> names = names(workId);
     Set<String> taxa = new LinkedHashSet<>();
     Set<String> nameIds = new LinkedHashSet<>();

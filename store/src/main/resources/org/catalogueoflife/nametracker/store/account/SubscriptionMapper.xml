@@ -61,13 +61,13 @@
       false
       <if test="sourceId != null"> OR (type = 'SOURCE' AND target = #{sourceId})</if>
       <if test="taxonIds != null and !taxonIds.isEmpty()">
-        OR (type = 'TAXON' AND target IN <foreach collection="taxonIds" item="k" open="(" separator="," close=")">#{k}</foreach>)
+        OR (type = 'TAXON' AND target = ANY(#{taxonIds, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}))
       </if>
       <if test="nameIds != null and !nameIds.isEmpty()">
-        OR (type = 'NAME' AND target IN <foreach collection="nameIds" item="k" open="(" separator="," close=")">#{k}</foreach>)
+        OR (type = 'NAME' AND target = ANY(#{nameIds, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}))
       </if>
       <if test="taxgroups != null and !taxgroups.isEmpty()">
-        OR (type = 'TAXGROUP' AND target IN <foreach collection="taxgroups" item="k" open="(" separator="," close=")">#{k}</foreach>)
+        OR (type = 'TAXGROUP' AND target = ANY(#{taxgroups, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}))
       </if>
     )
     ORDER BY id

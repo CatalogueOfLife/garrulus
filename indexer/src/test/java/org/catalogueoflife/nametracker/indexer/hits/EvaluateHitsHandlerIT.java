@@ -162,19 +162,55 @@ class EvaluateHitsHandlerIT extends AbstractPostgresIT {
   @Test
   void newNamesWhenFullTextAddsSpNov() throws Exception {
     long w = work();
+    long other = index.nameStringId("Carabus yus", "BINOMIAL", "SPECIES");
     name(w, carabus, "Coleoptera", true);
+    name(w, other, "Coleoptera", true, "COMB_NOV"); // already in the ARTICLE snapshot
     long s = follow("TAXON", "Carabidae");
     handler.handle(task(w));
-    jdbc.update("UPDATE work_name SET act_types = ARRAY['SP_NOV'] WHERE work_id = ?", w);
+    jdbc.update("UPDATE work_name SET act_types = ARRAY['SP_NOV'] WHERE work_id = ? AND name_string_id = ?", w,
+        carabus);
     handler.handle(task(w));
     assertThat(count(s, "ARTICLE")).isEqualTo(1);
     assertThat(count(s, "NEW_NAMES")).isEqualTo(1);
     Hit n = hits.find(s, w, "NEW_NAMES");
-    assertThat(n.names()).contains("SP_NOV").contains("Carabus xus");
+    assertThat(n.names()).contains("SP_NOV").contains("Carabus xus").doesNotContain("Carabus yus")
+        .doesNotContain("COMB_NOV");
     assertThat(jdbc.queryForObject("SELECT jsonb_array_length(names) FROM hit WHERE id = ?", Integer.class, n.id()))
         .isEqualTo(1);
     handler.handle(task(w));
     assertThat(count(s, "NEW_NAMES")).isEqualTo(1);
+  }
+
+  @Test
+  void taxgroupFollowOnAncestorGroup() throws Exception {
+    long w = work();
+    name(w, carabus, "Coleoptera", true);
+    long s = follow("TAXGROUP", "Arthropods");
+    long other = follow("TAXGROUP", "Plants");
+    handler.handle(task(w));
+    assertThat(count(s, "ARTICLE")).isEqualTo(1);
+    assertThat(count(other, "ARTICLE")).isZero();
+  }
+
+  @Test
+  void nonIndexedWorkGetsNoHits() throws Exception {
+    long w = work();
+    name(w, carabus, "Coleoptera", true);
+    long s = follow("TAXON", "Carabidae");
+    jdbc.update("UPDATE work SET state = 'NAMES_FOUND' WHERE id = ?", w);
+    handler.handle(task(w));
+    assertThat(count(s, "ARTICLE")).isZero();
+  }
+
+  @Test
+  void candidatesBindsKeysAsOneArray() {
+    follow("TAXON", "t4999");
+    List<String> ids = new java.util.ArrayList<>();
+    for (int i = 0; i < 40000; i++) ids.add("t" + i);
+    assertThat(subs.candidates(null, ids, ids, ids)).hasSize(1);
+    List<Long> longs = new java.util.ArrayList<>();
+    for (long i = 0; i < 40000; i++) longs.add(i);
+    assertThat(index.nameStrings(longs)).isNotNull();
   }
 
   @Test
