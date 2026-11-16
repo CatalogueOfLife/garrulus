@@ -15,7 +15,7 @@ describe('SourcePage', () => {
       taxGroupHandler,
       http.get('/api/sources/7', () => HttpResponse.json({
         id: 7, title: 'Zootaxa', publisher: 'Magnolia Press', tier: 'CORE', journalType: 'TAXONOMIC',
-        primarySubfield: 'Animal Science and Zoology', subfields: ['Animal Science and Zoology', 'Insect Science'],
+        primarySubfield: '1109', subfields: ['1109', '1105', '4242'],
         taxgroups: ['Insects', 'Animals'], taxgroupShares: { Animals: 0.12, Insects: 0.62 },
         codes: ['ZOOLOGICAL'], oaModel: 'HYBRID', country: 'NZ', nameDensity: 4.2, actRate: 0.31, worksPerYear: 1500,
         years: [{ year: 2023, works: 1400 }, { year: 2024, works: 1500 }],
@@ -32,7 +32,12 @@ describe('SourcePage', () => {
     const cat = screen.getByRole('region', { name: 'Categorisation' });
     expect(within(cat).getByText('ZOOLOGICAL')).toBeInTheDocument();
     expect(within(cat).getByText('TAXONOMIC')).toBeInTheDocument();
-    expect(within(cat).getByText('Insect Science')).toBeInTheDocument();
+    const insects = within(cat).getByText('Insect Science');
+    expect(insects.closest('.mantine-Badge-root')).toHaveAttribute('title', '1109');
+    expect(insects.closest('.mantine-Badge-root')).toHaveAttribute('data-variant', 'filled');
+    const eco = within(cat).getByText('Ecology, Evolution, Behavior and Systematics');
+    expect(eco.closest('.mantine-Badge-root')).toHaveAttribute('data-variant', 'light');
+    expect(within(cat).getByText('4242')).toBeInTheDocument();
     expect(within(cat).getByText('HYBRID')).toBeInTheDocument();
     expect(within(cat).getByText('NZ')).toBeInTheDocument();
     const perYear = screen.getByRole('region', { name: 'Papers per year' });

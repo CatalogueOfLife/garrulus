@@ -3,6 +3,7 @@ import { Checkbox, Group, NativeSelect, Radio, Stack, Text, TextInput } from '@m
 import type { FacetCount, FacetName, TaxGroup, WorkFilter } from '../api';
 import { TaxGroupIcon } from './TaxGroupIcon';
 import { TaxonPicker } from './TaxonPicker';
+import { subfieldOptions } from '../subfields';
 
 interface Props {
   filter: WorkFilter;
@@ -123,7 +124,9 @@ export function FilterSidebar({ filter, taxonLabel, facets, taxGroups, onChange 
         </Stack>
       </Radio.Group>
 
-      <CommitInput label="Subfield" value={filter.subfield ?? ''} onCommit={(v) => onChange({ subfield: v || undefined, offset: undefined })} />
+      <NativeSelect label="Subfield" value={filter.subfield ?? ''} onChange={(e) => onChange({ subfield: e.currentTarget.value || undefined, offset: undefined })}>
+        {subfieldOptions(filter.subfield).map((o) => <option key={o.value} value={o.value} title={o.value || undefined}>{o.label}</option>)}
+      </NativeSelect>
 
       <NativeSelect
         label="Journal tier"

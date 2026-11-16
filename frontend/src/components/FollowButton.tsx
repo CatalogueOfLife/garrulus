@@ -8,6 +8,7 @@ import {
 } from '../api';
 import { useMe } from '../auth/useMe';
 import { ConfirmButton } from './ConfirmButton';
+import { subfieldOptions } from '../subfields';
 
 const MIN_YEAR = 1750;
 const CODES = ['ZOOLOGICAL', 'BOTANICAL', 'BACTERIAL', 'VIRUS'];
@@ -125,7 +126,9 @@ function Form({ onClose, type, target, label, existing, onExists }: Omit<DialogP
           <NativeSelect label="Journal type" value={narrow.journalType ?? ''}
             data={[{ value: '', label: 'Any' }, { value: 'TAXONOMIC', label: 'Taxonomic' }, { value: 'GENERAL', label: 'General' }]}
             onChange={(e) => set('journalType', e.currentTarget.value)} />
-          <TextInput label="Subfield" value={narrow.subfield ?? ''} onChange={(e) => set('subfield', e.currentTarget.value)} />
+          <NativeSelect label="Subfield" value={narrow.subfield ?? ''} onChange={(e) => set('subfield', e.currentTarget.value)}>
+            {subfieldOptions(narrow.subfield).map((o) => <option key={o.value} value={o.value} title={o.value || undefined}>{o.label}</option>)}
+          </NativeSelect>
         </Stack>
       </Collapse>
       {error ? <Alert color="red">{error}</Alert> : null}

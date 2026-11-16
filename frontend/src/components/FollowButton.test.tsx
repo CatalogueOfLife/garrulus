@@ -115,4 +115,25 @@ describe('FollowButton', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Yes, unfollow' }));
     await waitFor(() => expect(deleted).toBe(1));
   });
+
+  it('narrowsBySubfieldName', async () => {
+    let patch: Record<string, unknown> | null = null;
+    server.use(
+      signedIn,
+      http.get('/api/me/subscriptions', () => HttpResponse.json([sub({ filters: { subfield: '1109' } })])),
+      http.patch('/api/me/subscriptions/5', async ({ request }) => {
+        patch = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(sub());
+      }),
+    );
+    renderApp(<FollowButton type="TAXON" target="T1" label="Carabus" />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Following' }));
+    const select = (await screen.findByLabelText('Subfield')) as HTMLSelectElement;
+    expect(select.value).toBe('1109');
+    expect(screen.getByRole('option', { name: 'Insect Science' })).toHaveAttribute('title', '1109');
+    await userEvent.selectOptions(select, 'Plant Science');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(patch).not.toBeNull());
+    expect(patch).toMatchObject({ filters: { subfield: '1110' } });
+  });
 });

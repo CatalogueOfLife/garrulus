@@ -1,4 +1,5 @@
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { FilterSidebar } from './FilterSidebar';
 import { renderApp } from '../test/render';
 import { server, taxGroups, xrHandler } from '../test/server';
@@ -36,5 +37,18 @@ describe('FilterSidebar', () => {
     // hierarchical: the parent comes before its child whatever the input order
     const names = screen.getAllByRole('radio').map((r) => (r as HTMLInputElement).value);
     expect(names.indexOf('Animals')).toBeLessThan(names.indexOf('Insects'));
+  });
+
+  it('subfieldIsChosenByName', async () => {
+    server.use(xrHandler);
+    const onChange = vi.fn();
+    renderApp(<FilterSidebar filter={{ subfield: '1109' }} taxGroups={taxGroups} onChange={onChange} facets={{}} />);
+    const select = screen.getByLabelText('Subfield') as HTMLSelectElement;
+    expect(select.value).toBe('1109');
+    expect(screen.getByRole('option', { name: 'Insect Science' })).toHaveAttribute('title', '1109');
+    await userEvent.selectOptions(select, 'Ecology');
+    expect(onChange).toHaveBeenCalledWith({ subfield: '2303', offset: undefined });
+    await userEvent.selectOptions(select, 'Any');
+    expect(onChange).toHaveBeenLastCalledWith({ subfield: undefined, offset: undefined });
   });
 });

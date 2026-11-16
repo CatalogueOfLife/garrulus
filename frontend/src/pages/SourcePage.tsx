@@ -10,6 +10,7 @@ import { TaxGroupIcon } from '../components/TaxGroupIcon';
 import { YearBars } from '../components/YearBars';
 import { WorkList } from '../components/WorkList';
 import { usePageTitle } from '../usePageTitle';
+import { subfieldLabel } from '../subfields';
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -82,7 +83,9 @@ export function SourcePage() {
           {s.journalType ? <Row label="Journal type"><Badge variant="outline">{s.journalType}</Badge></Row> : null}
           {s.subfields.length ? (
             <Row label="Subfields">
-              {s.subfields.map((f) => <Badge key={f} variant={f === s.primarySubfield ? 'filled' : 'light'} tt="none">{f}</Badge>)}
+              {s.subfields.map((f) => (
+                <Badge key={f} variant={f === s.primarySubfield ? 'filled' : 'light'} tt="none" title={f}>{subfieldLabel(f)}</Badge>
+              ))}
             </Row>
           ) : null}
           {s.oaModel ? <Row label="Open access"><Badge variant="outline">{s.oaModel}</Badge></Row> : null}
