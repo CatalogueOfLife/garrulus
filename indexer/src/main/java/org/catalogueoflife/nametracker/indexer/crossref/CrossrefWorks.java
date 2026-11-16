@@ -9,6 +9,7 @@ import java.util.Locale;
 import java.util.Map;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.openalex.WorkRecord;
+import org.catalogueoflife.nametracker.store.work.TitleText;
 import org.catalogueoflife.nametracker.store.work.WorkUpsert;
 import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.JsonNode;
@@ -35,7 +36,7 @@ public final class CrossrefWorks {
         date = null;
       }
     }
-    return new WorkRecord(null, doi, first(w, "title"), date, year, text(w, "volume"), text(w, "issue"),
+    return new WorkRecord(null, doi, TitleText.clean(first(w, "title")), date, year, text(w, "volume"), text(w, "issue"),
         text(w, "page"), authors(w.path("author")), "journal-article".equals(text(w, "type")) ? "article" : text(w, "type"),
         null, null, license(w.path("license")), null, null, text(w, "abstract"), null, null, null);
   }

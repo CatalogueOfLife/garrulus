@@ -70,4 +70,11 @@ class CrossrefWorksTest {
     assertNull(latest("{\"date-parts\":[[2026, 13]]}"));
     assertNull(CrossrefWorks.latestPublished(FinderJson.mapper().readTree("{}")));
   }
+
+  @Test
+  void titleLosesMarkupAndEntities() {
+    JsonNode n = FinderJson.mapper().readTree("{\"DOI\":\"10.1/T\",\"title\":[\"Identification of geraniol from\\n"
+        + "                    <i>Fraxinus mandschurica</i>\\n                    (Mulsant &amp; Rey)\"]}");
+    assertEquals("Identification of geraniol from Fraxinus mandschurica (Mulsant & Rey)", CrossrefWorks.parse(n).title());
+  }
 }

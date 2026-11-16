@@ -8,6 +8,7 @@ import java.util.Locale;
 import java.util.Map;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.finder.doc.AbstractConverter;
+import org.catalogueoflife.nametracker.store.work.TitleText;
 import org.catalogueoflife.nametracker.store.work.WorkUpsert;
 import org.jspecify.annotations.Nullable;
 import tools.jackson.core.type.TypeReference;
@@ -45,7 +46,7 @@ public final class OpenAlexWorks {
     return new WorkRecord(
         shortId(text(w, "id")),
         WorkUpsert.normalizeDoi(text(w, "doi")),
-        text(w, "title"),
+        TitleText.clean(text(w, "title")),
         date,
         date == null ? null : (short) date.getYear(),
         text(biblio, "volume"),

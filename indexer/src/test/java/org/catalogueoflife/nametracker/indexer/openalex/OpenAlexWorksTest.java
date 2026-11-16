@@ -74,4 +74,11 @@ class OpenAlexWorksTest {
     assertNull(w.abstractText());
     assertNull(w.sourceOpenalexId());
   }
+
+  @Test
+  void titleLosesMarkupAndEntities() {
+    JsonNode n = FinderJson.mapper().readTree(
+        "{\"id\":\"https://openalex.org/W1\",\"title\":\"Fruit set of plum (\\n <i>Prunus salicina</i>\\n ) in Mulsant &amp; Rey\"}");
+    assertEquals("Fruit set of plum (Prunus salicina) in Mulsant & Rey", OpenAlexWorks.parse(n).title());
+  }
 }

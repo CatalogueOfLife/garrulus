@@ -9,7 +9,8 @@ import org.jspecify.annotations.Nullable;
  * <p>Merge rule: a row is found by openalex_id, else by (normalised) doi. If none exists it is inserted. Otherwise
  * columns that are null in the stored row are filled from the incoming one, and the bibliographic columns are
  * overwritten by non-null incoming values. origin, first_seen_at, state and text_level never change. Concurrent
- * inserts are resolved by INSERT ... ON CONFLICT DO NOTHING followed by a re-read and merge.
+ * inserts are resolved by INSERT ... ON CONFLICT DO NOTHING followed by a re-read and merge. The DOI is normalised and
+ * the title cleaned of markup and entities ({@link TitleText}) before either.
  */
 public class WorkUpsert {
 
@@ -43,7 +44,7 @@ public class WorkUpsert {
   }
 
   public UpsertResult upsert(Work in) {
-    Work incoming = withDoi(in, normalizeDoi(in.doi()));
+    Work incoming = normalized(in);
     if (incoming.openalexId() == null && incoming.doi() == null) {
       throw new IllegalArgumentException("A work needs an openalex id or a doi");
     }
@@ -73,8 +74,8 @@ public class WorkUpsert {
     return found;
   }
 
-  private static Work withDoi(Work w, @Nullable String doi) {
-    return new Work(w.id(), w.openalexId(), doi, w.sourceId(), w.title(), w.publicationDate(), w.year(), w.volume(),
+  private static Work normalized(Work w) {
+    return new Work(w.id(), w.openalexId(), normalizeDoi(w.doi()), w.sourceId(), TitleText.clean(w.title()), w.publicationDate(), w.year(), w.volume(),
         w.issue(), w.pages(), w.authors(), w.type(), w.language(), w.oaStatus(), w.license(), w.bestOaUrl(),
         w.abstractText(), w.abstractSource(), w.origin(), w.state(), w.textLevel(), w.codes(), w.taxgroups(),
         w.hasActs(), w.firstSeenAt(), w.modified(), w.abstractJats(), w.pmcid(), w.openalexHasTei(),

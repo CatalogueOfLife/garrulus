@@ -157,4 +157,14 @@ class WorkUpsertIT extends AbstractPostgresIT {
     assertThat(works.get(id).abstractJats()).isEqualTo("<abstract/>");
     assertThat(upsert.upsert(withJats).abstractJatsAdded()).isFalse();
   }
+
+  @Test
+  void upsertCleansTitlesOnInsertAndMerge() {
+    WorkUpsert upsert = new WorkUpsert(works);
+    long id = upsert.upsert(work("W-dirty", null, "A <i>Carabus</i>\n  of Mulsant &amp; Rey", "LIVE")).id();
+    assertThat(works.get(id).title()).isEqualTo("A Carabus of Mulsant & Rey");
+    upsert.upsert(work(null, "10.1/dirty", "x", "LIVE"));
+    upsert.upsert(work("W-dirty", "10.1/dirty-2", "The <b>new</b>\ttitle", "LIVE"));
+    assertThat(works.get(id).title()).isEqualTo("The new title");
+  }
 }

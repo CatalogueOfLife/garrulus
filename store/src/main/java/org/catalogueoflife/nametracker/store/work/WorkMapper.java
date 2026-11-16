@@ -48,6 +48,12 @@ public interface WorkMapper {
   /** Merge rule update, see {@link WorkUpsert}. Never touches origin, first_seen_at, state or text_level. */
   int merge(@Param("id") long id, @Param("o") Work o);
 
+  /** Up to {@code limit} works with an id above {@code afterId}, in id order. */
+  List<Work> listAfter(@Param("afterId") long afterId, @Param("limit") int limit);
+
+  /** Sets the title and bumps modified; nothing else changes. */
+  int setTitle(@Param("id") long id, @Param("title") @Nullable String title);
+
   /** Rows state, text_level (may be null), n. */
   List<Map<String, Object>> countByStateAndTextLevel();
 }
