@@ -16,6 +16,13 @@ describe('YearBars', () => {
     expect(bars).toHaveLength(4);
     expect(bars[1]).toHaveAttribute('aria-label', '2021: 0 papers');
   });
+  it('smallNonZeroBarsKeepAMinimumHeightAndZeroStaysEmpty', () => {
+    renderApp(<YearBars years={[{ year: 2024, works: 1 }, { year: 2025, works: 0 }, { year: 2026, works: 1447 }]} />);
+    const h = screen.getAllByTestId('year-bar').map((b) => Number(b.getAttribute('height')));
+    expect(h[0]).toBeGreaterThanOrEqual(2);
+    expect(h[1]).toBe(0);
+    expect(h[2]).toBeGreaterThan(100);
+  });
   it('rendersNothingForNoYears', () => {
     renderApp(<YearBars years={[]} />);
     expect(screen.queryAllByTestId('year-bar')).toHaveLength(0);

@@ -43,6 +43,13 @@ describe('WorkPage', () => {
     expect(document.title).toBe('Garrulus — Carabid notes');
   });
 
+  it('showsActTypesAsLabels', async () => {
+    mount({ ...base, names: [nm(1, 'Carabus auratus', { actTypes: ['SP_NOV', 'COMB_NOV'] })] });
+    expect(await screen.findByText('sp. nov.')).toBeInTheDocument();
+    expect(screen.getByText('comb. nov.')).toBeInTheDocument();
+    expect(screen.queryByText('SP_NOV')).toBeNull();
+  });
+
   it('verbatimClassificationNextToColOne', async () => {
     mount({ ...base, contexts: [{ localId: 'c1', verbatim: 'Coleoptera: Carabidae: Carabus', ranks: [{ rank: 'ORDER', name: 'Coleoptera' }], scope: 'DOCUMENT', blockId: 'b1' }] });
     const verbatim = await screen.findByRole('region', { name: 'Verbatim classification in the article' });

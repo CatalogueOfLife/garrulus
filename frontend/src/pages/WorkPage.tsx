@@ -5,6 +5,7 @@ import { getWork, type NameDetail } from '../api';
 import { ClassificationPath } from '../components/ClassificationPath';
 import { HighlightedText } from '../components/HighlightedText';
 import { Section } from '../components/Section';
+import { actLabel } from '../hitNames';
 import { usePageTitle } from '../usePageTitle';
 
 function NameRow({ n, withTaxon }: { n: NameDetail; withTaxon: boolean }) {
@@ -19,7 +20,7 @@ function NameRow({ n, withTaxon }: { n: NameDetail; withTaxon: boolean }) {
         </>
       ) : null}
       {n.mainSubject ? <Badge ml={6} size="xs" variant="light">main subject</Badge> : null}
-      {n.actTypes.map((a) => <Badge key={a} ml={4} size="xs" variant="outline">{a}</Badge>)}
+      {n.actTypes.map((a) => <Badge key={a} ml={4} size="xs" variant="outline">{actLabel(a)}</Badge>)}
       {n.classification.length ? (
         <Group gap={6}>
           <Text size="xs" c="dimmed">COL classification:</Text>

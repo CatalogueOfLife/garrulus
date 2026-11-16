@@ -8,6 +8,7 @@ const H = 200;
 const M = { left: 44, right: 8, top: 10, bottom: 28 };
 const PLOT_W = W - M.left - M.right;
 const PLOT_H = H - M.top - M.bottom;
+const MIN_BAR = 2; // a non-zero year is always visible
 
 /** 0 … max in at most five integer ticks with a "nice" step (1, 2, 5, 10, 20, 50 …). */
 export function niceTicks(max: number): number[] {
@@ -72,7 +73,7 @@ export function YearBars({ years }: { years: YearCount[] }) {
           fill="var(--mantine-color-dimmed)">Papers</text>
         {sorted.map((y, i) => {
           const x = M.left + i * slot + (slot - bw) / 2;
-          const h = Math.round((y.works / top) * PLOT_H);
+          const h = y.works > 0 ? Math.max(MIN_BAR, Math.round((y.works / top) * PLOT_H)) : 0;
           const on = active === i;
           return (
             <g key={y.year}>
