@@ -281,3 +281,111 @@ export const getClbTaxon = (xrKey: number, id: string) =>
 /** The classification of a taxon, root first. */
 export const getClbClassification = (xrKey: number, id: string) =>
   getJson<ClbClassificationItem[]>(`${CLB_BASE}/dataset/${xrKey}/taxon/${encodeURIComponent(id)}/classification`);
+
+// ---- accounts ----
+
+export type DigestFrequency = 'DAILY' | 'WEEKLY' | 'OFF';
+export interface Me {
+  id: number;
+  email?: string | null;
+  emailVerified: boolean;
+  orcid?: string | null;
+  displayName?: string | null;
+  timeZone?: string | null;
+  digestFrequency: DigestFrequency;
+  digestWeekday: number;
+  digestHour: number;
+}
+export interface MePatch {
+  displayName?: string | null;
+  timeZone?: string;
+  digestFrequency?: DigestFrequency;
+  digestWeekday?: number;
+  digestHour?: number;
+}
+export interface SubscriptionFilters {
+  code?: string; taxgroup?: string; subfield?: string; journalType?: string; tier?: string; oa?: string; country?: string;
+}
+export interface Subscription {
+  id: number;
+  type: 'TAXON' | 'SOURCE' | 'NAME' | 'TAXGROUP';
+  target: string;
+  label: string;
+  mainSubjectOnly: boolean;
+  newNamesOnly: boolean;
+  includeAbstractOnly: boolean;
+  includeReferences: boolean;
+  filters: SubscriptionFilters;
+  sinceYear?: number | null;
+  paused: boolean;
+  feedUrl: string;
+  created: string;
+}
+export interface Hit {
+  id: number;
+  kind: 'ARTICLE' | 'NEW_NAMES';
+  names: unknown[];
+  subscriptionId: number;
+  subscriptionLabel?: string | null;
+  created: string;
+  work?: WorkSummary | null;
+}
+export type EmailOutcome = 'SET' | 'MERGED' | 'REFUSED_OTHER_ORCID';
+
+function xsrfToken(): string | null {
+  const m = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+/** A non-GET request: sends the XSRF header from the cookie and the session cookie; JSON in and out (form when body is a URLSearchParams). */
+export async function send<T = unknown>(method: string, url: string, body?: unknown): Promise<T> {
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  const xsrf = xsrfToken();
+  if (xsrf) headers['X-XSRF-TOKEN'] = xsrf;
+  let payload: BodyInit | undefined;
+  if (body instanceof URLSearchParams) {
+    headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    payload = body.toString();
+  } else if (body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+    payload = JSON.stringify(body);
+  }
+  const res = await fetch(url, { method, headers, body: payload, credentials: 'same-origin' });
+  if (!res.ok) throw new ApiError(res.status, `Request failed (${res.status})`);
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
+}
+
+export const getAuthConfig = () => getJson<{ orcid: boolean }>('/api/auth/config');
+/** The signed-in user, or null when signed out. */
+export async function getMe(): Promise<Me | null> {
+  try {
+    const res = await fetch('/api/me', { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+    if (res.status === 401) return null;
+    if (!res.ok) throw new ApiError(res.status, `Request failed (${res.status})`);
+    return (await res.json()) as Me;
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
+    throw new ApiError(0, 'Network error');
+  }
+}
+export const requestSignInLink = (email: string) => send('POST', '/api/auth/link', { email });
+export const signInWithToken = (token: string) => send<{ userId: number }>('POST', '/login/ott', new URLSearchParams({ token }));
+export const signOut = () => send('POST', '/api/auth/logout');
+export const patchMe = (p: MePatch) => send<Me>('PATCH', '/api/me', p);
+export const requestEmailChange = (email: string) => send('POST', '/api/me/email', { email });
+export const verifyEmail = (token: string) => send<{ outcome: EmailOutcome }>('POST', '/api/auth/verify-email', { token });
+export const deleteMe = () => send('DELETE', '/api/me');
+export const unsubscribe = (t: string) => send('POST', `/api/unsubscribe?${new URLSearchParams({ t })}`);
+
+/** Downloads the export as a file. */
+export async function downloadExport(): Promise<void> {
+  const res = await fetch('/api/me/export', { credentials: 'same-origin' });
+  if (!res.ok) throw new ApiError(res.status, `Request failed (${res.status})`);
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'garrulus-export.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}

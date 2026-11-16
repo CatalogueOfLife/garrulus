@@ -3,6 +3,11 @@ import { SearchPage } from './pages/SearchPage';
 import { NamePage } from './pages/NamePage';
 import { SourcePage } from './pages/SourcePage';
 import { TaxonPage } from './pages/TaxonPage';
+import { AccountPage } from './pages/AccountPage';
+import { SignInPage } from './pages/SignInPage';
+import { SignInVerifyPage } from './pages/SignInVerifyPage';
+import { UnsubscribePage } from './pages/UnsubscribePage';
+import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { WorkPage } from './pages/WorkPage';
 
 export function AppRoutes() {
@@ -13,6 +18,11 @@ export function AppRoutes() {
       <Route path="/name/:id" element={<NamePage />} />
       <Route path="/work/:id" element={<WorkPage />} />
       <Route path="/source/:id" element={<SourcePage />} />
+      <Route path="/signin" element={<SignInPage />} />
+      <Route path="/signin/verify" element={<SignInVerifyPage />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
+      <Route path="/account" element={<AccountPage />} />
+      <Route path="/unsubscribe" element={<UnsubscribePage />} />
     </Routes>
   );
 }
