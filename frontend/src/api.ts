@@ -291,13 +291,17 @@ export type DigestFrequency = 'DAILY' | 'WEEKLY' | 'OFF';
 export interface Me {
   id: number;
   email?: string | null;
-  emailVerified: boolean;
+  /** When the address was verified (ISO instant); null without a verified address. */
+  emailVerified: string | null;
   orcid?: string | null;
   displayName?: string | null;
-  timeZone?: string | null;
+  /** An IANA zone; new accounts start on UTC. */
+  timeZone: string;
   digestFrequency: DigestFrequency;
   digestWeekday: number;
   digestHour: number;
+  /** When the account was created (ISO instant). */
+  created: string;
 }
 export interface MePatch {
   displayName?: string | null;
@@ -324,10 +328,18 @@ export interface Subscription {
   feedUrl: string;
   created: string;
 }
+/** A name of a hit's snapshot. */
+export interface HitName {
+  nameStringId?: number;
+  name: string;
+  actTypes?: string[];
+  mainSubject?: boolean;
+  placement?: string;
+}
 export interface Hit {
   id: number;
   kind: 'ARTICLE' | 'NEW_NAMES';
-  names: unknown[];
+  names: HitName[];
   subscriptionId: number;
   subscriptionLabel?: string | null;
   created: string;
@@ -402,6 +414,8 @@ export const createSubscription = (type: SubscriptionType, target: string, label
 export const patchSubscription = (id: number, p: Partial<SubscriptionInput> & { paused?: boolean }) =>
   send<Subscription>('PATCH', `/api/me/subscriptions/${id}`, p);
 export const deleteSubscription = (id: number) => send('DELETE', `/api/me/subscriptions/${id}`);
+/** A new private feed URL for the follow; the old one stops working. */
+export const newFeedToken = (id: number) => send<Subscription>('POST', `/api/me/subscriptions/${id}/feed-token`);
 export async function getHits(params: { subscription?: string; limit: number; offset: number }): Promise<{ limit: number; offset: number; results: Hit[] }> {
   const p = new URLSearchParams({ limit: String(params.limit), offset: String(params.offset) });
   if (params.subscription) p.set('subscription', params.subscription);

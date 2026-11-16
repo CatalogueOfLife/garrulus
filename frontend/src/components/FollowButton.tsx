@@ -7,6 +7,7 @@ import {
   type Subscription, type SubscriptionFilters, type SubscriptionType,
 } from '../api';
 import { useMe } from '../auth/useMe';
+import { ConfirmButton } from './ConfirmButton';
 
 const MIN_YEAR = 1750;
 const CODES = ['ZOOLOGICAL', 'BOTANICAL', 'BACTERIAL', 'VIRUS'];
@@ -129,7 +130,12 @@ function Form({ onClose, type, target, label, existing, onExists }: Omit<DialogP
       </Collapse>
       {error ? <Alert color="red">{error}</Alert> : null}
       <Group justify="space-between" mt="xs">
-        {existing ? <Button variant="subtle" color="red" onClick={() => remove.mutate()} loading={remove.isPending}>Unfollow</Button> : <span />}
+        {existing ? (
+          <ConfirmButton variant="subtle" color="red" question={`Stop following ${label}?`} confirmLabel="Yes, unfollow"
+            onConfirm={() => remove.mutate()} loading={remove.isPending}>
+            Unfollow
+          </ConfirmButton>
+        ) : <span />}
         <Group gap="xs">
           <Button variant="default" onClick={onClose}>Cancel</Button>
           <Button onClick={submit} loading={save.isPending}>Save</Button>

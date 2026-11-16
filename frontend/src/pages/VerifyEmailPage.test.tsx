@@ -1,9 +1,13 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
+import { Route, Routes } from 'react-router-dom';
 import { VerifyEmailPage } from './VerifyEmailPage';
-import { server } from '../test/server';
+import { meBody, server } from '../test/server';
 import { renderApp } from '../test/render';
+import { takeNext } from '../auth/useMe';
+
+const signedIn = http.get('/api/me', () => HttpResponse.json(meBody));
 
 describe('VerifyEmailPage', () => {
   it.each([
@@ -15,6 +19,7 @@ describe('VerifyEmailPage', () => {
     let calls = 0;
     let xsrf: string | null = null;
     server.use(
+      signedIn,
       http.get('/api/auth/config', () => HttpResponse.json({ orcid: false })),
       http.post('/api/auth/verify-email', ({ request }) => {
         calls++;
@@ -34,6 +39,7 @@ describe('VerifyEmailPage', () => {
 
   it('shows an error for a bad token', async () => {
     server.use(
+      signedIn,
       http.get('/api/auth/config', () => HttpResponse.json({ orcid: false })),
       http.post('/api/auth/verify-email', () => new HttpResponse(null, { status: 400 })),
     );
@@ -42,8 +48,28 @@ describe('VerifyEmailPage', () => {
     expect(await screen.findByText(/invalid or has expired/)).toBeInTheDocument();
   });
 
+  it('sends a signed-out visitor to sign in and back', async () => {
+    let calls = 0;
+    server.use(
+      http.get('/api/auth/config', () => HttpResponse.json({ orcid: false })),
+      http.post('/api/auth/verify-email', () => { calls++; return new HttpResponse(null, { status: 401 }); }),
+    );
+    renderApp(
+      <Routes>
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/signin" element={<p>sign-in page</p>} />
+      </Routes>, '/verify-email?token=t1');
+    expect(await screen.findByText('sign-in page')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(
+      '/signin?next=' + encodeURIComponent('/verify-email?token=t1')));
+    expect(screen.queryByText(/another account/)).toBeNull();
+    expect(calls).toBe(0);
+    expect(takeNext()).toBe('/verify-email?token=t1');
+  });
+
   it('says to retry on a 403, not "expired"', async () => {
     server.use(
+      signedIn,
       http.get('/api/auth/config', () => HttpResponse.json({ orcid: false })),
       http.post('/api/auth/verify-email', () => new HttpResponse(null, { status: 403 })),
     );

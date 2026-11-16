@@ -40,6 +40,23 @@ describe('SourcePage', () => {
     expect(document.title).toBe('Garrulus — Zootaxa');
   });
 
+  it('offers follow and feed only for sources the feeds serve', async () => {
+    const detail = (tier: string) => ({ id: 7, title: 'Zootaxa', tier, subfields: [], taxgroups: [], codes: [], recentWorks: [] });
+    server.use(taxGroupHandler, http.get('/api/sources/7', () => HttpResponse.json(detail('CORE'))));
+    const core = renderApp(<Routes><Route path="/source/:id" element={<SourcePage />} /></Routes>, '/source/7');
+    expect(await screen.findByRole('heading', { name: 'Zootaxa' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Follow' })).toBeInTheDocument();
+    expect(document.querySelector('a[href="/feeds/source/7.atom"]')).not.toBeNull();
+    core.unmount();
+
+    server.use(http.get('/api/sources/7', () => HttpResponse.json(detail('CANDIDATE'))));
+    renderSource();
+    expect(await screen.findByRole('heading', { name: 'Zootaxa' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Follow' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Follow/ })).toBeNull();
+    expect(document.querySelector('a[href="/feeds/source/7.atom"]')).toBeNull();
+  });
+
   it('unknownSourceIsFriendly', async () => {
     server.use(taxGroupHandler, http.get('/api/sources/7', () => HttpResponse.json({ error: 'nope' }, { status: 404 })));
     renderSource();

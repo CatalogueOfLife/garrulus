@@ -21,9 +21,10 @@ export const taxGroupHandler = http.get('/api/vocab/taxgroup', () => HttpRespons
 export const authConfigHandler = (orcid: boolean) =>
   http.get('/api/auth/config', () => HttpResponse.json({ orcid }));
 export const signedOut = http.get('/api/me', () => new HttpResponse(null, { status: 401 }));
+// like the backend: a new account is on UTC; created long ago, so no time zone is proposed
 export const meBody = {
-  id: 1, email: 'a@example.org', emailVerified: true, orcid: null, displayName: 'A',
-  timeZone: null, digestFrequency: 'DAILY', digestWeekday: 1, digestHour: 7,
+  id: 1, email: 'a@example.org', emailVerified: '2026-01-02T03:04:05Z', orcid: null, displayName: 'A',
+  timeZone: 'UTC', digestFrequency: 'DAILY', digestWeekday: 1, digestHour: 7, created: '2026-01-01T00:00:00Z',
 };
 
 // defaults: signed out and the taxgroup list, which pages with a Follow button ask for

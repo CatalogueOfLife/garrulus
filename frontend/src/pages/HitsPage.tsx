@@ -1,12 +1,30 @@
 import { Alert, Anchor, Badge, Button, Group, Loader, Stack, Text, Title } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
-import { getHits } from '../api';
+import { getHits, type HitName } from '../api';
 import { useMe } from '../auth/useMe';
 import { WorkList } from '../components/WorkList';
+import { shownHitNames } from '../hitNames';
 import { usePageTitle } from '../usePageTitle';
 
 const PAGE_SIZE = 20;
+
+/** The hit's names, each with the labels of its acts (sp. nov., comb. nov., ...), at most ten. */
+function HitNames({ names }: { names: HitName[] }) {
+  const shown = shownHitNames(names);
+  if (!shown.names.length) return null;
+  return (
+    <Group gap={6} mb={4} aria-label="Names of this hit" role="list">
+      {shown.names.map((n) => (
+        <Group key={n.name} gap={4} role="listitem">
+          <Text size="sm" fs="italic">{n.name}</Text>
+          {n.acts.map((a) => <Badge key={a} size="xs" variant="outline" tt="none">{a}</Badge>)}
+        </Group>
+      ))}
+      {shown.more ? <Text size="sm" c="dimmed">+{shown.more} more</Text> : null}
+    </Group>
+  );
+}
 
 export function HitsPage() {
   usePageTitle('My hits');
@@ -51,6 +69,7 @@ export function HitsPage() {
                     <Anchor component={Link} to={`/hits?subscription=${h.subscriptionId}`} size="xs">{h.subscriptionLabel}</Anchor>
                   ) : null}
                 </Group>
+                <HitNames names={h.names ?? []} />
                 {h.work ? <WorkList works={[h.work]} /> : <Text size="sm" c="dimmed">This paper is no longer listed.</Text>}
               </li>
             ))}

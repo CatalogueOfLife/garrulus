@@ -1,7 +1,8 @@
 import { Alert, Button, Stack, Text, Title } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useLocation, useSearchParams } from 'react-router-dom';
 import { ApiError, getAuthConfig, verifyEmail } from '../api';
+import { rememberNext, useMe } from '../auth/useMe';
 import { usePageTitle } from '../usePageTitle';
 
 export function VerifyEmailPage() {
@@ -10,11 +11,21 @@ export function VerifyEmailPage() {
   const client = useQueryClient();
   // the first call to /api/auth/** issues the XSRF cookie that the post needs
   const ready = useQuery({ queryKey: ['auth-config'], queryFn: getAuthConfig, staleTime: Infinity });
+  const me = useMe();
+  const location = useLocation();
   const m = useMutation({
     mutationFn: () => verifyEmail(token),
     onSuccess: () => client.invalidateQueries({ queryKey: ['me'] }),
+    // a 401 may mean the session ended meanwhile: reload me, which sends a signed-out visitor to sign in
+    onError: (e) => { if (e instanceof ApiError && e.status === 401) client.invalidateQueries({ queryKey: ['me'] }); },
   });
   const outcome = m.data?.outcome;
+  // the link needs the session that asked for it: sign in first, then come back here
+  if (me.data === null) {
+    const here = location.pathname + location.search;
+    rememberNext(here);
+    return <Navigate to={`/signin?next=${encodeURIComponent(here)}`} replace />;
+  }
   return (
     <Stack maw={460} mx="auto" mt="xl">
       <Title order={2}>Confirm your email address</Title>

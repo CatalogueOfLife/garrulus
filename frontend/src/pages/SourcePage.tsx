@@ -19,6 +19,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+const PUBLIC_TIERS = ['CORE', 'BROAD'];
 const pct = (share: number) => `${Math.round(share * 100)}%`;
 
 export function SourcePage() {
@@ -34,6 +35,8 @@ export function SourcePage() {
   }
   if (!s) return <Loader size="sm" />;
 
+  // only the followed journals (CORE, BROAD) have a feed and can be followed; the API lists no others, but be sure
+  const served = PUBLIC_TIERS.includes(s.tier);
   const icon = (name: string) => groups.data?.find((g) => g.name === name)?.icon
     ?? `https://api.checklistbank.org/vocab/taxgroup/${encodeURIComponent(name)}/icon.svg`;
   const shares = Object.entries(s.taxgroupShares ?? {}).sort((a, b) => b[1] - a[1]);
@@ -46,8 +49,12 @@ export function SourcePage() {
         <Group align="baseline" gap="sm">
           <Title order={2}>{s.title}</Title>
           <Badge variant="light">{s.tier}</Badge>
-          <FollowButton type="SOURCE" target={String(s.id)} label={s.title} />
-          <FeedLink href={`/feeds/source/${s.id}.atom`} />
+          {served ? (
+            <>
+              <FollowButton type="SOURCE" target={String(s.id)} label={s.title} />
+              <FeedLink href={`/feeds/source/${s.id}.atom`} />
+            </>
+          ) : null}
         </Group>
         {s.publisher || s.issnL ? <Text size="sm" c="dimmed">{[s.publisher, s.issnL && `ISSN-L ${s.issnL}`].filter(Boolean).join(' · ')}</Text> : null}
       </div>

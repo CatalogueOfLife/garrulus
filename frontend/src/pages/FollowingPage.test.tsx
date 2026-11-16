@@ -37,7 +37,13 @@ describe('FollowingPage', () => {
     await waitFor(() => expect(patch).toEqual({ paused: true }));
     await waitFor(() => expect(within(row1).getByRole('switch', { name: 'Paused' })).toBeChecked());
     const row2 = screen.getByText('Zootaxa').closest('li') as HTMLElement;
+    // delete asks first; Keep backs out
     await userEvent.click(within(row2).getByRole('button', { name: 'Delete' }));
+    expect(within(row2).getByText(/Delete this follow\?/)).toBeInTheDocument();
+    await userEvent.click(within(row2).getByRole('button', { name: 'Keep' }));
+    expect(deleted).toBe(0);
+    await userEvent.click(within(row2).getByRole('button', { name: 'Delete' }));
+    await userEvent.click(within(row2).getByRole('button', { name: 'Yes, delete' }));
     await waitFor(() => expect(deleted).toBe(2));
     await waitFor(() => expect(screen.queryByText('Zootaxa')).toBeNull());
   });
@@ -53,5 +59,30 @@ describe('FollowingPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Copy feed URL' }));
     expect(writeText).toHaveBeenCalledWith('http://x/feeds/s/tok1.atom');
     expect(await screen.findByText('Copied')).toBeInTheDocument();
+  });
+
+  it('makes a new feed url after a confirmation', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    let subs = [sub(1, 'Carabus')];
+    let posted = 0;
+    server.use(
+      http.get('/api/me', () => HttpResponse.json(meBody)),
+      http.get('/api/me/subscriptions', () => HttpResponse.json(subs)),
+      http.post('/api/me/subscriptions/1/feed-token', () => {
+        posted++;
+        subs = [sub(1, 'Carabus', { feedUrl: 'http://x/feeds/s/fresh.atom' })];
+        return HttpResponse.json(subs[0]);
+      }),
+    );
+    renderApp(<FollowingPage />, '/following');
+    await userEvent.click(await screen.findByRole('button', { name: 'New feed URL' }));
+    expect(screen.getByText(/old feed URL stops working/)).toBeInTheDocument();
+    expect(posted).toBe(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Make a new URL' }));
+    await waitFor(() => expect(posted).toBe(1));
+    expect(await screen.findByText('http://x/feeds/s/fresh.atom')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Copy feed URL' }));
+    expect(writeText).toHaveBeenCalledWith('http://x/feeds/s/fresh.atom');
   });
 });

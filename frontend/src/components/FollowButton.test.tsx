@@ -97,4 +97,22 @@ describe('FollowButton', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Save' }));
     expect(await screen.findByRole('button', { name: 'Unfollow' })).toBeInTheDocument();
   });
+
+  it('unfollowAsksFirst', async () => {
+    let deleted = 0;
+    server.use(
+      signedIn,
+      http.get('/api/me/subscriptions', () => HttpResponse.json(deleted ? [] : [sub()])),
+      http.delete('/api/me/subscriptions/5', () => { deleted++; return new HttpResponse(null, { status: 204 }); }),
+    );
+    renderApp(<FollowButton type="TAXON" target="T1" label="Carabus" />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Following' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Unfollow' }));
+    expect(screen.getByText(/Stop following Carabus\?/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Keep' }));
+    expect(deleted).toBe(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Unfollow' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Yes, unfollow' }));
+    await waitFor(() => expect(deleted).toBe(1));
+  });
 });
