@@ -13,8 +13,8 @@ notifies users who follow taxa, journals or names. It also builds a public name�
   new ones.
 
 **Status:** design approved 2026-11-14. M0 (foundations), M1 (finder v1), M2 (harvest and content) and M3 (match and
-index: ADR-0005) are built; M2's week-long dev run continues (`docs/m2-dev-run.md`, M3 check in `docs/m3-dev-check.md`).
-Next: M4 (accounts and alerts). Finder and salience tuning is a final stage after the milestones.
+index: ADR-0005) and M4 (accounts and alerts: ADR-0006; local only, deployment comes last) are built; M2's week-long
+dev run continues (`docs/m2-dev-run.md`, M3 check in `docs/m3-dev-check.md`). Next: M5. Finder and salience tuning is a final stage after the milestones.
 
 ## Commands
 
@@ -87,6 +87,15 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
 - `indexer` salience (properties only, no env variables; set them in `application.yml`, `.env` or as `-D`/args):
   `nametracker.salience.{title=0.40, abstract=0.20, act=0.35, heading=0.15, share=0.25, repeat=0.15, ubiquity=0.50,
   ubiquity-full-share=0.02, threshold=0.35}`. A name with salience >= threshold is a main subject of the work.
+- `web` accounts and alerts (ADR-0006):
+  - `NAMETRACKER_PUBLIC_URL` (`http://localhost:5173`, links in mails and feeds), `NAMETRACKER_MAIL_FROM`
+    (`Garrulus <noreply@localhost>`), `spring.mail.*` (without `spring.mail.host` mails are logged as suppressed, with
+    the user id), `NAMETRACKER_SIGNING_KEY` (signs unsubscribe links; blank = random per start, WARN),
+    `NAMETRACKER_DIGEST_CRON` (`0 5 * * * *`, UTC, `-` = off), `NAMETRACKER_COOKIE_SECURE` (true behind HTTPS).
+  - `ORCID_CLIENT_ID`, `ORCID_CLIENT_SECRET`, `ORCID_BASE_URL` (`https://orcid.org`; `https://sandbox.orcid.org` for a
+    sandbox client): the ORCID button shows only with a client id.
+  - `NAMETRACKER_HIT_WINDOW_DAYS` (90) sets the public feeds' window in `web` and the alert window in the `indexer`
+    (`nametracker.hits.{window-days,future-days=7}`).
 - `web` public API: `nametracker.web.cors-origins` (env `NAMETRACKER_WEB_CORS_ORIGINS`, comma-separated, default
   `https://www.catalogueoflife.org,https://dev.catalogueoflife.org,https://preview.catalogueoflife.org`) are the origins
   allowed to call `/api/taxa/**` from a browser (GET only; no other path sends CORS headers). The hand-written
@@ -115,7 +124,7 @@ curl ... -d '{"type":"HARVEST_CROSSREF","payload":{"date":"2026-11-14"},"priorit
 - Task types: `SEED_SOURCES`, `ADD_SOURCE`, `ONBOARD_SOURCE`, `HARVEST_OPENALEX` (`window` LIVE or SWEEP),
   `HARVEST_CROSSREF` (`date`), `OPENALEX_RECHECK`, `RESOLVE_CONTENT`. Only onboarded CORE/BROAD sources are harvested.
 - Index task types (M3): `FIND_NAMES` (`workId`) → `MATCH_NAMES` (`workId`) → the work is `INDEXED`; `XR_CHECK` (`{}`),
-  `REBUILD_STATS`, `CATEGORISE_SOURCES`, `RESCORE_SALIENCE` (`{"afterId":0,"batch":500,"all":false}`: recomputes salience, main subject and the work's codes/taxgroups/has_acts from stored mentions and the current ubiquity, placements untouched, continues per batch at REPROCESS; targeted at works with a name whose ubiquity penalty moved by more than 0.05 since `name_ubiquity.scored_share`, `REBUILD_STATS` enqueues it when there is one; admin `{"all":true}` rescores everything, e.g. after changing salience properties) and the admin-only `FIND_PENDING` (`{"limit":n}`, default 100), which enqueues
+  `REBUILD_STATS`, `CATEGORISE_SOURCES`, `EVALUATE_HITS` (`workId`; enqueued after a work is `INDEXED` and by `RESCORE_SALIENCE` for works with a new main subject: writes `hit` rows for matching subscriptions once per subscription, work and kind; `NOTIFIED` is unused), `RESCORE_SALIENCE` (`{"afterId":0,"batch":500,"all":false}`: recomputes salience, main subject and the work's codes/taxgroups/has_acts from stored mentions and the current ubiquity, placements untouched, continues per batch at REPROCESS; targeted at works with a name whose ubiquity penalty moved by more than 0.05 since `name_ubiquity.scored_share`, `REBUILD_STATS` enqueues it when there is one; admin `{"all":true}` rescores everything, e.g. after changing salience properties) and the admin-only `FIND_PENDING` (`{"limit":n}`, default 100), which enqueues
   `FIND_NAMES` for up to n `CONTENT_RESOLVED` works the finder never saw, highest work id first. The queue runs by
   priority (`LIVE`, `REPROCESS`, `BACKFILL`), then `run_after`, then id. A follow-up (`RESOLVE_CONTENT` → `FIND_NAMES` →
   `MATCH_NAMES`, `REBUILD_STATS` → `CATEGORISE_SOURCES`) inherits the priority and the `run_after` of its task, so it
@@ -145,6 +154,19 @@ to true), `/api/taxa/{colId}/stats`, `/api/sources`, `/api/sources/{id}`, `/api/
 `INDEXED` works are listed; taxon filters ignore names that occur only in references. The full text of a work is served
 only when its content is retained (open licence). Against a manual run on 18080, start Vite with a scratch config whose
 proxy targets `http://localhost:18080` on another port (never edit `vite.config.ts` for it).
+
+## Accounts and alerts (M4, `web`)
+
+- `/api/me/**` (session; `GET /api/me`, `PATCH`, `POST /api/me/email`, `DELETE`, `/export`, `/subscriptions`,
+  `/subscriptions/{id}/feed-token`, `/hits`), `/api/auth/**` (`POST /link`, `GET /config`, `POST /verify-email`,
+  `POST /api/auth/logout`), `/api/unsubscribe` and ORCID under `/oauth2`, `/login`. XSRF cookie only on those paths.
+- Feeds: `/feeds/{taxon,source,name,taxgroup}/<id>.atom` (public) and `/feeds/s/<token>.atom` (private, per follow).
+- Admin: `POST /api/admin/digests/run` with `{"userId":n}` and the admin token sends that user's digest now.
+- Dev sign-in: `docker compose --profile mail up -d mailpit` (SMTP 1025, UI http://localhost:8025) and
+  `spring.mail.host=localhost`, `spring.mail.port=1025` in `.env`. Vite must listen on 5173 (it proxies `/api`,
+  `/oauth2`, `/login`, `/feeds` and keeps the `Host` header; a scratch config may point at 18080 but keeps 5173), with
+  `NAMETRACKER_PUBLIC_URL=http://localhost:5173`. The ORCID client needs the redirect URI
+  `http://localhost:5173/login/oauth2/code/orcid`.
 
 ## Evaluation (`eval`)
 
