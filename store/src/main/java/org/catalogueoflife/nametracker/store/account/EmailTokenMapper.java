@@ -16,4 +16,13 @@ public interface EmailTokenMapper {
 
   /** The row of the hash, left in place; null when unknown or expired. */
   @Nullable EmailToken findValid(@Param("tokenHash") String tokenHash);
+
+  /** Deletes the email tokens that expired before {@code now}; returns the number deleted. */
+  int purgeExpired(@Param("now") Instant now);
+
+  /**
+   * Deletes the expired sign-in tokens of Spring's one-time-token login ({@code one_time_tokens}). Its
+   * {@code expires_at} has no time zone; the instant is bound the way JdbcOneTimeTokenService binds it.
+   */
+  int purgeExpiredOneTimeTokens(@Param("now") Instant now);
 }

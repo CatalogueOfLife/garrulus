@@ -24,4 +24,8 @@
   <select id="findValid" resultMap="token">
     SELECT id, user_id, email, token_hash, expires FROM email_token WHERE token_hash = #{tokenHash} AND expires &gt; now()
   </select>
+
+  <delete id="purgeExpired">DELETE FROM email_token WHERE expires &lt;= #{now}</delete>
+
+  <delete id="purgeExpiredOneTimeTokens">DELETE FROM one_time_tokens WHERE expires_at &lt; #{now}</delete>
 </mapper>

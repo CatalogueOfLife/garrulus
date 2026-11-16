@@ -10,7 +10,8 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.server.ResponseStatusException;
 
 /** Small JSON error bodies {status, error}, error being the reason, for the public API and the account API. */
-@RestControllerAdvice(basePackageClasses = {ApiErrors.class, MeController.class, org.catalogueoflife.nametracker.web.me.SubscriptionController.class})
+@RestControllerAdvice(basePackageClasses = {ApiErrors.class, MeController.class, org.catalogueoflife.nametracker.web.me.SubscriptionController.class,
+    org.catalogueoflife.nametracker.web.digest.UnsubscribeController.class})
 public class ApiErrors {
 
   @ExceptionHandler(ResponseStatusException.class)

@@ -63,5 +63,11 @@
     <if test="keepSessionId != null"> AND session_id &lt;&gt; #{keepSessionId}</if>
   </delete>
 
+  <select id="digestCandidates" resultMap="user">
+    SELECT <include refid="cols"/> FROM app_user
+    WHERE email IS NOT NULL AND email_verified IS NOT NULL AND digest_frequency &lt;&gt; 'OFF'
+    ORDER BY id
+  </select>
+
   <delete id="delete">DELETE FROM app_user WHERE id = #{id}</delete>
 </mapper>

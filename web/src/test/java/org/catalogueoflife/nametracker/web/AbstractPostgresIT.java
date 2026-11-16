@@ -12,7 +12,8 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @SpringBootTest(
     classes = WebApplication.class,
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-    properties = "nametracker.admin.token=test-token")
+    // no scheduled digests in tests: DigestJobIT calls the job directly
+    properties = {"nametracker.admin.token=test-token", "nametracker.digest.cron=-"})
 public abstract class AbstractPostgresIT {
 
   @ServiceConnection

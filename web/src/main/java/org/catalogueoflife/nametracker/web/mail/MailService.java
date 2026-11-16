@@ -2,6 +2,7 @@ package org.catalogueoflife.nametracker.web.mail;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,13 +32,34 @@ public class MailService {
     this.from = from;
   }
 
+  /** What became of a message. */
+  public enum Outcome {
+    /** Handed to the mail host. */
+    SENT,
+    /** Not sent: no mail host is configured ({@code spring.mail.host}). */
+    SUPPRESSED,
+    /** The mail host refused it or could not be reached. */
+    FAILED
+  }
+
+  /** True when a mail host is configured, so mails can go out at all. */
+  public boolean configured() {
+    return sender.getIfAvailable() != null;
+  }
+
   /** True if the message was handed to the mail host. */
   public boolean send(String to, @Nullable Long userId, String subject, String text, String html) {
+    return deliver(to, userId, subject, text, html, Map.of()) == Outcome.SENT;
+  }
+
+  /** Sends a multipart text and HTML message with extra headers (e.g. List-Unsubscribe); never throws. */
+  public Outcome deliver(String to, @Nullable Long userId, String subject, String text, String html,
+      Map<String, String> headers) {
     String recipient = userId == null ? "new address" : "user " + userId;
     JavaMailSender s = sender.getIfAvailable();
     if (s == null) {
       LOG.info("mail suppressed (no spring.mail.host): \"{}\" to {}", subject, recipient);
-      return false;
+      return Outcome.SUPPRESSED;
     }
     try {
       MimeMessage message = s.createMimeMessage();
@@ -46,13 +68,16 @@ public class MailService {
       helper.setTo(to);
       helper.setSubject(subject);
       helper.setText(text, html);
+      for (Map.Entry<String, String> h : headers.entrySet()) {
+        message.setHeader(h.getKey(), h.getValue());
+      }
       s.send(message);
       LOG.info("mail \"{}\" sent to {}", subject, recipient);
-      return true;
+      return Outcome.SENT;
     } catch (MessagingException | MailException e) {
       // the exception message may quote the address: log its type only
       LOG.warn("mail \"{}\" to {} failed: {}", subject, recipient, e.getClass().getSimpleName());
-      return false;
+      return Outcome.FAILED;
     }
   }
 

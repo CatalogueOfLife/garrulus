@@ -17,6 +17,7 @@ import java.util.regex.Pattern;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.mail.MailParseException;
+import org.springframework.mail.MailSendException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 
@@ -31,6 +32,8 @@ public class CapturingMailSender implements JavaMailSender {
   private final List<MimeMessage> sent = new ArrayList<>();
 
   private final Session session = Session.getInstance(new Properties());
+
+  private boolean failing;
 
   @Override
   public MimeMessage createMimeMessage() {
@@ -48,6 +51,9 @@ public class CapturingMailSender implements JavaMailSender {
 
   @Override
   public synchronized void send(MimeMessage... mimeMessages) {
+    if (failing) {
+      throw new MailSendException("connection refused (test)");
+    }
     for (MimeMessage m : mimeMessages) {
       try {
         // as a transport does: sets the Content-Type headers from the content
@@ -64,16 +70,22 @@ public class CapturingMailSender implements JavaMailSender {
     throw new UnsupportedOperationException("web sends MIME messages only");
   }
 
-  synchronized List<MimeMessage> sent() {
+  /** While true, every send throws a MailSendException, as an unreachable mail host does. */
+  public synchronized void failing(boolean failing) {
+    this.failing = failing;
+  }
+
+  public synchronized List<MimeMessage> sent() {
     return List.copyOf(sent);
   }
 
-  synchronized void clear() {
+  public synchronized void clear() {
     sent.clear();
+    failing = false;
   }
 
   /** The messages sent to this address. */
-  List<MimeMessage> to(String address) {
+  public List<MimeMessage> to(String address) {
     return sent().stream().filter(m -> recipients(m).contains(address)).toList();
   }
 
@@ -87,7 +99,7 @@ public class CapturingMailSender implements JavaMailSender {
   }
 
   /** The text/plain part of a message (or "" if it has none). */
-  static String plainText(Part part) {
+  public static String plainText(Part part) {
     try {
       if (part.isMimeType("text/plain")) {
         return (String) part.getContent();
@@ -107,7 +119,7 @@ public class CapturingMailSender implements JavaMailSender {
   }
 
   /** The text/html part of a message (or "" if it has none). */
-  static String html(Part part) {
+  public static String html(Part part) {
     try {
       if (part.isMimeType("text/html")) {
         return (String) part.getContent();

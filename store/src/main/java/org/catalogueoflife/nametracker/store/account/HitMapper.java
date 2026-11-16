@@ -26,6 +26,10 @@ public interface HitMapper {
   List<Hit> undeliveredForDigest(@Param("userId") long userId, @Param("since") Instant since,
       @Param("minCreated") Instant minCreated);
 
+  /**
+   * Sets digest_id of the listed hits that are in no digest yet; returns the number marked. An empty list marks
+   * nothing.
+   */
   int markDelivered(@Param("hitIds") List<Long> hitIds, @Param("digestId") long digestId);
 
   /** Clears digest_id of every hit of the digest (rollback of a failed send). */

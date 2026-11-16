@@ -50,8 +50,14 @@ nametracker:
   mail:
     # outgoing mail needs spring.mail.host (and port, credentials); without it mails are logged as suppressed
     from: ${NAMETRACKER_MAIL_FROM:Garrulus <noreply@localhost>}
-  # signs unsubscribe links and feed tokens; blank = a random key per start
+  # signs unsubscribe links; blank = a random key per start (one WARN), so links stop working after a restart
   signing-key: ${NAMETRACKER_SIGNING_KEY:}
+  digest:
+    # hourly email digests (UTC, six fields); "-" switches them off
+    cron: ${NAMETRACKER_DIGEST_CRON:0 5 * * * *}
+  feeds:
+    # public feeds list papers published in the last window-days days (shared with the indexer's alert window)
+    window-days: ${NAMETRACKER_HIT_WINDOW_DAYS:90}
   orcid:
     # ORCID sign-in is offered only when a client id is set
     client-id: ${ORCID_CLIENT_ID:}

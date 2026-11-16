@@ -40,6 +40,9 @@ public interface AccountMapper {
    */
   int deleteSessions(@Param("userId") long userId, @Param("keepSessionId") @Nullable String keepSessionId);
 
+  /** Accounts that may get digests: a verified address and a frequency other than OFF; by id. */
+  java.util.List<AppUser> digestCandidates();
+
   /** Hard delete; subscriptions, hits, digests and email tokens go with it (cascade), sessions do not. */
   int delete(@Param("id") long id);
 }

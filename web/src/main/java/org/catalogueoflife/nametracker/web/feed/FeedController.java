@@ -59,7 +59,7 @@ public class FeedController {
 
   public FeedController(SearchMapper search, SourceMapper sources, NameMapper names, SubscriptionMapper subscriptions,
       HitMapper hits, @Value("${nametracker.public-url}") String publicUrl,
-      @Value("${nametracker.feeds.window-days:90}") int windowDays) {
+      @Value("${nametracker.feeds.window-days}") int windowDays) {
     this.search = search;
     this.sources = sources;
     this.names = names;
@@ -122,7 +122,9 @@ public class FeedController {
     }
     String self = publicUrl + "/feeds/s/" + token + ".atom";
     byte[] xml = AtomWriter.write(new AtomWriter.Feed(self, "Garrulus: " + sub.label(), newest(entries), entries));
-    return ResponseEntity.ok().contentType(ATOM).header("Cache-Control", "private, no-store").body(xml);
+    // the token is the only credential: keep the URL out of search engines and referrers
+    return ResponseEntity.ok().contentType(ATOM).header("Cache-Control", "private, no-store")
+        .header("X-Robots-Tag", "noindex").header("Referrer-Policy", "no-referrer").body(xml);
   }
 
   private static WorkFilter filter(String taxon, Long name, String taxgroup, Long source, boolean mainSubjectOnly) {

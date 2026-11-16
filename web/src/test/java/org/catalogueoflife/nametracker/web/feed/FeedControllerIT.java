@@ -8,6 +8,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.catalogueoflife.nametracker.web.AbstractPostgresIT;
@@ -63,9 +64,9 @@ class FeedControllerIT extends AbstractPostgresIT {
     long src = source();
     String taxon = "FT" + SEQ.incrementAndGet();
     long n = name("Aus bus");
-    long recent = work("Recent <i>Aus bus</i> & co", LocalDate.now().minusDays(5), src);
-    long ref = work("Only cited", LocalDate.now().minusDays(5), src);
-    long minor = work("Minor mention", LocalDate.now().minusDays(5), src);
+    long recent = work("Recent <i>Aus bus</i> & co", LocalDate.now(ZoneOffset.UTC).minusDays(5), src);
+    long ref = work("Only cited", LocalDate.now(ZoneOffset.UTC).minusDays(5), src);
+    long minor = work("Minor mention", LocalDate.now(ZoneOffset.UTC).minusDays(5), src);
     workName(recent, n, taxon, true, false);
     workName(ref, n, taxon, true, true);
     workName(minor, n, taxon, false, false);
@@ -89,9 +90,9 @@ class FeedControllerIT extends AbstractPostgresIT {
     long src = source();
     String taxon = "FO" + SEQ.incrementAndGet();
     long n = name("Old one");
-    workName(work("Old", LocalDate.now().minusDays(200), src), n, taxon, true, false);
-    workName(work("Border", LocalDate.now().minusDays(90), src), n, taxon, true, false);
-    workName(work("Future", LocalDate.now().plusDays(30), src), n, taxon, true, false);
+    workName(work("Old", LocalDate.now(ZoneOffset.UTC).minusDays(200), src), n, taxon, true, false);
+    workName(work("Border", LocalDate.now(ZoneOffset.UTC).minusDays(90), src), n, taxon, true, false);
+    workName(work("Future", LocalDate.now(ZoneOffset.UTC).plusDays(30), src), n, taxon, true, false);
     Document d = parse(get("/feeds/taxon/" + taxon + ".atom").body());
     assertThat(d.getElementsByTagNameNS(NS, "entry").getLength()).isEqualTo(1);
     assertThat(d.getElementsByTagNameNS(NS, "entry").item(0).getTextContent()).contains("Border");
@@ -101,7 +102,7 @@ class FeedControllerIT extends AbstractPostgresIT {
   void sourceNameAndGroupFeeds() throws Exception {
     long src = source();
     long n = name("Cited");
-    long w = work("By source", LocalDate.now().minusDays(1), src);
+    long w = work("By source", LocalDate.now(ZoneOffset.UTC).minusDays(1), src);
     workName(w, n, "X" + SEQ.incrementAndGet(), false, false);
     assertThat(parse(get("/feeds/source/" + src + ".atom").body()).getElementsByTagNameNS(NS, "entry").getLength()).isEqualTo(1);
     assertThat(parse(get("/feeds/name/" + n + ".atom").body()).getElementsByTagNameNS(NS, "entry").getLength()).isEqualTo(1);
@@ -122,8 +123,8 @@ class FeedControllerIT extends AbstractPostgresIT {
     long sub = jdbc.queryForObject("INSERT INTO subscription (user_id, type, target, label, feed_token) VALUES (?, 'TAXON', 'T1', 'My beetles', ?) RETURNING id",
         Long.class, user, token);
     long src = source();
-    long w1 = work("First", LocalDate.now().minusDays(400), src);
-    long w2 = work("Second", LocalDate.now().minusDays(2), src);
+    long w1 = work("First", LocalDate.now(ZoneOffset.UTC).minusDays(400), src);
+    long w2 = work("Second", LocalDate.now(ZoneOffset.UTC).minusDays(2), src);
     jdbc.update("INSERT INTO hit (subscription_id, work_id, kind, created, names) VALUES (?, ?, 'ARTICLE', now() - interval '2 days', "
         + "'[{\"name\":\"Carabus xus\",\"nameStringId\":1}]'::jsonb)", sub, w1);
     jdbc.update("INSERT INTO hit (subscription_id, work_id, kind, created, names) VALUES (?, ?, 'NEW_NAMES', now(), "
@@ -131,6 +132,8 @@ class FeedControllerIT extends AbstractPostgresIT {
     HttpResponse<String> r = get("/feeds/s/" + token + ".atom");
     assertThat(r.statusCode()).isEqualTo(200);
     assertThat(r.headers().firstValue("Cache-Control").orElse("")).isEqualTo("private, no-store");
+    assertThat(r.headers().firstValue("X-Robots-Tag").orElse("")).isEqualTo("noindex");
+    assertThat(r.headers().firstValue("Referrer-Policy").orElse("")).isEqualTo("no-referrer");
     assertThat(r.headers().firstValue("Set-Cookie")).isEmpty();
     Document d = parse(r.body());
     assertThat(d.getElementsByTagNameNS(NS, "title").item(0).getTextContent()).isEqualTo("Garrulus: My beetles");

@@ -2,6 +2,10 @@ package org.catalogueoflife.nametracker.web;
 
 import java.nio.file.Path;
 import java.time.Clock;
+import javax.sql.DataSource;
+import net.javacrumbs.shedlock.core.LockProvider;
+import net.javacrumbs.shedlock.provider.jdbctemplate.JdbcTemplateLockProvider;
+import net.javacrumbs.shedlock.spring.annotation.EnableSchedulerLock;
 import org.catalogueoflife.nametracker.store.blob.BlobStore;
 import org.catalogueoflife.nametracker.store.blob.FileBlobStore;
 import org.catalogueoflife.nametracker.store.task.TaskMapper;
@@ -9,8 +13,12 @@ import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @Configuration
+@EnableScheduling
+@EnableSchedulerLock(defaultLockAtMostFor = "PT30M")
 public class WebConfig {
 
   @Bean
@@ -27,5 +35,15 @@ public class WebConfig {
   @Bean
   Clock clock() {
     return Clock.systemUTC();
+  }
+
+  /** The digest job runs once even with several instances (the shedlock table is shared with the indexer). */
+  @Bean
+  LockProvider lockProvider(DataSource dataSource) {
+    return new JdbcTemplateLockProvider(
+        JdbcTemplateLockProvider.Configuration.builder()
+            .withJdbcTemplate(new JdbcTemplate(dataSource))
+            .usingDbTime()
+            .build());
   }
 }

@@ -376,4 +376,49 @@ class AccountMappersIT extends AbstractPostgresIT {
     digests.insert(new Digest(null, other, null, 1, "SENT", null));
     assertThat(digests.listByUser(u)).extracting(Digest::id).containsExactly(d);
   }
+
+  @Test
+  void digestCandidatesAreVerifiedAndNotOff() {
+    long verified = user("v@example.org");
+    accounts.setEmail(verified, "v@example.org");
+    long off = user("off@example.org");
+    accounts.setEmail(off, "off@example.org");
+    AppUser o = accounts.findById(off);
+    accounts.updateSettings(off, null, o.timeZone(), "OFF", o.digestWeekday(), o.digestHour(), null);
+    user("unverified@example.org");
+    user(null);
+    assertThat(accounts.digestCandidates()).extracting(AppUser::id).containsExactly(verified);
+  }
+
+  @Test
+  void markDeliveredIgnoresEmptyListsAndDeliveredHits() {
+    long u = user("a@example.org");
+    long s = sub(u, "TAXON", "T1");
+    hits.insertIfAbsent(new Hit(null, s, work(), "ARTICLE", null, null, null));
+    long hitId = hits.listByUser(u, null, 10, 0).getFirst().id();
+    long d1 = digests.insert(new Digest(null, u, null, 1, "SENT", null));
+    long d2 = digests.insert(new Digest(null, u, null, 1, "SENT", null));
+    assertThat(hits.markDelivered(List.of(), d1)).isZero();
+    assertThat(hits.markDelivered(List.of(hitId), d1)).isEqualTo(1);
+    // a hit already in a digest is never moved to another one
+    assertThat(hits.markDelivered(List.of(hitId), d2)).isZero();
+    assertThat(hits.listByUser(u, null, 10, 0).getFirst().digestId()).isEqualTo(d1);
+  }
+
+  @Test
+  void expiredTokensArePurged() {
+    long u = user("a@example.org");
+    tokens.insert(u, "new@example.org", "live", Instant.now().plus(1, ChronoUnit.HOURS));
+    tokens.insert(u, "old@example.org", "dead", Instant.now().minus(1, ChronoUnit.HOURS));
+    jdbc.update("DELETE FROM one_time_tokens");
+    jdbc.update("INSERT INTO one_time_tokens (token_value, username, expires_at) VALUES ('t1', 'a@example.org', ?)",
+        java.sql.Timestamp.from(Instant.now().plus(10, ChronoUnit.MINUTES)));
+    jdbc.update("INSERT INTO one_time_tokens (token_value, username, expires_at) VALUES ('t2', 'a@example.org', ?)",
+        java.sql.Timestamp.from(Instant.now().minus(10, ChronoUnit.MINUTES)));
+    assertThat(tokens.purgeExpired(Instant.now())).isEqualTo(1);
+    assertThat(tokens.findValid("live")).isNotNull();
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM email_token WHERE token_hash = 'dead'", Long.class)).isZero();
+    assertThat(tokens.purgeExpiredOneTimeTokens(Instant.now())).isEqualTo(1);
+    assertThat(jdbc.queryForList("SELECT token_value FROM one_time_tokens", String.class)).containsExactly("t1");
+  }
 }
