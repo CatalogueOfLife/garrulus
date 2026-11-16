@@ -19,9 +19,9 @@ Mailpit; deployment is a later stage.
   redelivered task changes nothing. `work.first_indexed_at` is set once (`coalesce`).
 - `web` writes accounts, subscriptions, sessions, tokens, digests and `hit.digest_id`. The two apps never call each other.
 - `EVALUATE_HITS` skips works that are not `INDEXED` and calls the work filter only for non-empty filters, with
-  `mainSubjectOnly=false` (the subscription's name options are applied in Java). Candidate lookups are chunked, so a
-  checklist paper with many names does not exceed the 32,767 bind limit of the Postgres driver; the digest marks hits
-  delivered in chunks for the same reason.
+  `mainSubjectOnly=false` (the subscription's name options are applied in Java). Candidate lookups, name strings and
+  the digest's delivery marking bind each id list as one array (`= ANY(?)`), so a checklist paper with many names needs
+  no chunking; only the digest's work summaries are loaded in chunks of 1000.
 
 ### Hit rules and alert window
 

@@ -14,7 +14,8 @@ notifies users who follow taxa, journals or names. It also builds a public nameâ
 
 **Status:** design approved 2026-11-14. M0 (foundations), M1 (finder v1), M2 (harvest and content) and M3 (match and
 index: ADR-0005) and M4 (accounts and alerts: ADR-0006; local only, deployment comes last) are built; M2's week-long
-dev run continues (`docs/m2-dev-run.md`, M3 check in `docs/m3-dev-check.md`). Next: M5. Finder and salience tuning is a final stage after the milestones.
+dev run continues (`docs/m2-dev-run.md`, M3 check in `docs/m3-dev-check.md`). Next: M5. Finder and salience tuning
+is a final stage after the milestones.
 
 ## Commands
 
