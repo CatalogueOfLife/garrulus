@@ -3,6 +3,7 @@ package org.catalogueoflife.nametracker.web.api.public_;
 import java.util.List;
 import java.util.Set;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
+import org.catalogueoflife.nametracker.store.search.SearchMapper;
 import org.catalogueoflife.nametracker.store.search.WorkFilter;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
@@ -30,8 +31,10 @@ public class SourceController {
 
   private final SourceMapper sources;
   private final WorkController works;
+  private final SearchMapper search;
 
-  public SourceController(SourceMapper sources, WorkController works) {
+  public SourceController(SourceMapper sources, WorkController works, SearchMapper search) {
+    this.search = search;
     this.sources = sources;
     this.works = works;
   }
@@ -63,7 +66,7 @@ public class SourceController {
         false, null);
     return new SourceDetail(s.id(), s.title(), s.publisher(), s.issnL(), s.tier(), s.journalType(), s.primarySubfield(),
         nn(s.subfields()), nn(s.taxgroups()), shares(s), nn(s.codes()), s.oaModel(), s.country(), s.nameDensity(),
-        s.actRate(), s.worksPerYear(), works.page(f, RECENT, 0, List.of()).results());
+        s.actRate(), s.worksPerYear(), search.yearCounts(f), works.page(f, RECENT, 0, List.of()).results());
   }
 
   private static SourceItem item(Source s) {

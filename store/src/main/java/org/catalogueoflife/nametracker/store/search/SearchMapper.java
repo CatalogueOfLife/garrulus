@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Set;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.catalogueoflife.nametracker.store.names.YearCount;
 
 /** Read-only queries of the public API over the index tables. Only INDEXED and NOTIFIED works are ever listed. */
 @Mapper
@@ -30,6 +31,9 @@ public interface SearchMapper {
   List<FeedRow> feedByIds(@Param("ids") Collection<Long> workIds);
 
   long count(@Param("f") WorkFilter f);
+
+  /** Listed works passing the filter per publication year, ascending, uncapped; works without a year are left out. */
+  List<YearCount> yearCounts(@Param("f") WorkFilter f);
 
   /** The 100 most frequent values of the facet within the filtered set, most frequent first. */
   default List<FacetCount> facet(WorkFilter f, String facet) {

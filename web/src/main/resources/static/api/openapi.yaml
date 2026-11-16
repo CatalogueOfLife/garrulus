@@ -769,9 +769,18 @@ components:
       allOf:
         - {$ref: "#/components/schemas/SourceItem"}
         - type: object
-          required: [recentWorks]
+          required: [years, recentWorks]
           properties:
             issnL: {type: [string, "null"]}
+            years:
+              type: array
+              description: Listed works per publication year, ascending, all years (not capped); works without a year are left out.
+              items:
+                type: object
+                required: [year, works]
+                properties:
+                  year: {type: integer}
+                  works: {type: integer, format: int64}
             taxgroupShares: {type: [object, "null"], additionalProperties: {type: number}}
             recentWorks: {type: array, items: {$ref: "#/components/schemas/WorkSummary"}}
     TaxGroup:

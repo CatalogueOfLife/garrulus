@@ -219,4 +219,23 @@ class SearchMapperIT extends AbstractPostgresIT {
     long b = work("DISCOVERED", "2026-01-02", "B", null, new String[0], new String[0], null);
     assertThat(search.byIds(List.of(a, b))).extracting(WorkHit::id).containsExactly(a);
   }
+
+  @Test
+  void yearCountsGroupListedWorksOfTheSourceAscendingWithoutCap() {
+    long src = source("TAXONOMIC");
+    long other = source("GENERAL");
+    for (int y = 1990; y < 2030; y++) { // 40 years: more than the facet cap of 20
+      work("INDEXED", y + "-03-01", "W" + y, null, new String[0], new String[0], src);
+    }
+    work("NOTIFIED", "2000-05-01", "notified", null, new String[0], new String[0], src);
+    work("MATCHED", "2000-06-01", "not listed", null, new String[0], new String[0], src);
+    work("INDEXED", "2000-07-01", "elsewhere", null, new String[0], new String[0], other);
+    jdbc.update("INSERT INTO work (doi, title, state, origin, source_id) VALUES ('10.9/noyear', 'no year', 'INDEXED', 'LIVE', ?)", src);
+    var years = search.yearCounts(filter(b -> { b.source = src; return b; }));
+    assertThat(years).hasSize(40);
+    assertThat(years.get(0).year()).isEqualTo(1990);
+    assertThat(years.get(39).year()).isEqualTo(2029);
+    assertThat(years).filteredOn(y -> y.year() == 2000).singleElement().satisfies(y -> assertThat(y.works()).isEqualTo(2));
+    assertThat(years).extracting(org.catalogueoflife.nametracker.store.names.YearCount::year).isSorted();
+  }
 }

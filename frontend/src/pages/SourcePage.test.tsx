@@ -18,6 +18,7 @@ describe('SourcePage', () => {
         primarySubfield: 'Animal Science and Zoology', subfields: ['Animal Science and Zoology', 'Insect Science'],
         taxgroups: ['Insects', 'Animals'], taxgroupShares: { Animals: 0.12, Insects: 0.62 },
         codes: ['ZOOLOGICAL'], oaModel: 'HYBRID', country: 'NZ', nameDensity: 4.2, actRate: 0.31, worksPerYear: 1500,
+        years: [{ year: 2023, works: 1400 }, { year: 2024, works: 1500 }],
         recentWorks: [work(1, 'A recent paper')],
       })),
     );
@@ -34,6 +35,8 @@ describe('SourcePage', () => {
     expect(within(cat).getByText('Insect Science')).toBeInTheDocument();
     expect(within(cat).getByText('HYBRID')).toBeInTheDocument();
     expect(within(cat).getByText('NZ')).toBeInTheDocument();
+    const perYear = screen.getByRole('region', { name: 'Papers per year' });
+    expect(within(perYear).getByText('2024')).toBeInTheDocument();
     const recent = screen.getByRole('region', { name: 'Recent papers' });
     expect(within(recent).getByText('A recent paper')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /All papers/ })).toHaveAttribute('href', '/?source=7');
@@ -41,7 +44,7 @@ describe('SourcePage', () => {
   });
 
   it('offers follow and feed only for sources the feeds serve', async () => {
-    const detail = (tier: string) => ({ id: 7, title: 'Zootaxa', tier, subfields: [], taxgroups: [], codes: [], recentWorks: [] });
+    const detail = (tier: string) => ({ id: 7, title: 'Zootaxa', tier, subfields: [], taxgroups: [], codes: [], years: [], recentWorks: [] });
     server.use(taxGroupHandler, http.get('/api/sources/7', () => HttpResponse.json(detail('CORE'))));
     const core = renderApp(<Routes><Route path="/source/:id" element={<SourcePage />} /></Routes>, '/source/7');
     expect(await screen.findByRole('heading', { name: 'Zootaxa' })).toBeInTheDocument();

@@ -7,6 +7,7 @@ import { FeedLink } from '../components/FeedLink';
 import { FollowButton } from '../components/FollowButton';
 import { Section } from '../components/Section';
 import { TaxGroupIcon } from '../components/TaxGroupIcon';
+import { YearBars } from '../components/YearBars';
 import { WorkList } from '../components/WorkList';
 import { usePageTitle } from '../usePageTitle';
 
@@ -90,6 +91,10 @@ export function SourcePage() {
           {s.nameDensity != null ? <Row label="Names per paper"><Text size="sm">{s.nameDensity}</Text></Row> : null}
           {s.actRate != null ? <Row label="Papers with acts"><Text size="sm">{pct(s.actRate)}</Text></Row> : null}
         </Stack>
+      </Section>
+
+      <Section title="Papers per year">
+        <YearBars years={s.years} />
       </Section>
 
       <Section title="Recent papers">

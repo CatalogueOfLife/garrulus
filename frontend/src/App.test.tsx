@@ -15,7 +15,7 @@ describe('App', () => {
 
   it('routes /source/:id to the journal page', async () => {
     server.use(signedOut, xrHandler, taxGroupHandler, http.get('/api/sources/5', () => HttpResponse.json({
-      id: 5, title: 'Zootaxa', tier: 'CORE', subfields: [], taxgroups: [], codes: [], recentWorks: [],
+      id: 5, title: 'Zootaxa', tier: 'CORE', subfields: [], taxgroups: [], codes: [], years: [], recentWorks: [],
     })));
     renderApp(<App />, '/source/5');
     expect(await screen.findByRole('heading', { name: 'Zootaxa' })).toBeInTheDocument();

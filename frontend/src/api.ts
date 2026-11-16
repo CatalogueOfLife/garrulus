@@ -169,6 +169,7 @@ export interface SourcePage { total: number; limit: number; offset: number; resu
 export interface SourceDetail extends SourceItem {
   issnL?: string | null;
   taxgroupShares?: Record<string, number> | null;
+  years: { year: number; works: number }[];
   recentWorks: WorkSummary[];
 }
 export interface TaxGroup { name: string; parents: string[]; codes: string[]; icon: string }

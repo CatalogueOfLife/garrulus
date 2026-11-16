@@ -79,6 +79,9 @@ class SourceControllerIT extends AbstractPostgresIT {
     assertThat(r.path("oaModel").asString()).isEqualTo("DIAMOND");
     assertThat(r.path("taxgroupShares").path("Insects").asDouble()).isEqualTo(0.9);
     assertThat(r.path("worksPerYear").asInt()).isEqualTo(40);
+    assertThat(r.path("years")).hasSize(1);
+    assertThat(r.path("years").get(0).path("year").asInt()).isEqualTo(2024);
+    assertThat(r.path("years").get(0).path("works").asInt()).isEqualTo(12);
     assertThat(r.path("recentWorks")).hasSize(10);
     assertThat(r.path("recentWorks").get(0).path("title").asString()).isEqualTo("Work 11");
   }
