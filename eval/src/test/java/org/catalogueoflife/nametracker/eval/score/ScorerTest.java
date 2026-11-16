@@ -374,4 +374,11 @@ class ScorerTest {
     assertThat(ReportWriter.markdown(rep, java.time.LocalDate.of(2026, 11, 15))).doesNotContain("| authorship |");
     assertThat(Scorer.score(List.of(doc()), Map.of("d1", r), opts(MatchMode.STRICT, true)).authorship()).isNull();
   }
+
+  @Test
+  void normReadsLoneBackslashesAsSpaces() {
+    assertThat(Scorer.norm("Themus \\ (Telephorops) \\ coelestis")).isEqualTo("Themus (Telephorops) coelestis");
+    assertThat(Scorer.norm("\\ Aus bus \\")).isEqualTo("Aus bus");
+    assertThat(Scorer.norm("a\\b")).isEqualTo("a\\b");
+  }
 }

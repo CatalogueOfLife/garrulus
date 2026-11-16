@@ -328,7 +328,27 @@ public final class Scorer {
 
   /** Collapses whitespace runs and trims: how names are compared throughout the eval. */
   public static String norm(String s) {
-    return WS.matcher(s).replaceAll(" ").trim();
+    return WS.matcher(maskLabelBackslashes(s)).replaceAll(" ").trim();
+  }
+
+  /** Lone backslashes (whitespace or an edge on both sides, as in the finder's label separators) read as spaces. */
+  private static String maskLabelBackslashes(String text) {
+    int i = text.indexOf('\\');
+    if (i < 0) return text;
+    char[] cs = null;
+    for (; i >= 0; i = text.indexOf('\\', i + 1)) {
+      boolean before = i == 0 || isSpace(text.charAt(i - 1));
+      boolean after = i + 1 == text.length() || isSpace(text.charAt(i + 1));
+      if (before && after) {
+        if (cs == null) cs = text.toCharArray();
+        cs[i] = ' ';
+      }
+    }
+    return cs == null ? text : new String(cs);
+  }
+
+  private static boolean isSpace(char c) {
+    return Character.isWhitespace(c) || Character.isSpaceChar(c);
   }
 
   private static void sample(List<ErrorSample> into, String docId, Block block, String blockId, int start, int end, String text,

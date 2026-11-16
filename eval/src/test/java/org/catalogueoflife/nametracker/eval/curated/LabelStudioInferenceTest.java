@@ -190,8 +190,9 @@ class LabelStudioInferenceTest {
     LongOpenHashSet g = new LongOpenHashSet();
     for (String x : genera) g.add(ColDictionary.hash(x));
     Long2ByteOpenHashMap u = new Long2ByteOpenHashMap();
-    Rank[] table = new Rank[] {Rank.FAMILY};
-    uninomials.forEach((k, v) -> u.put(ColDictionary.hash(k), (byte) 0));
+    java.util.List<Rank> ranks = new java.util.ArrayList<>(new java.util.LinkedHashSet<>(uninomials.values()));
+    Rank[] table = ranks.isEmpty() ? new Rank[] {Rank.FAMILY} : ranks.toArray(new Rank[0]);
+    uninomials.forEach((k, v) -> u.put(ColDictionary.hash(k), (byte) ranks.indexOf(v)));
     return new ColDictionary("t", g, new LongOpenHashSet(), u, table, new LongOpenHashSet(), new LongOpenHashSet());
   }
 
@@ -203,6 +204,13 @@ class LabelStudioInferenceTest {
         new RankedName(Rank.FAMILY, "Nitrospinaceae"), new RankedName(Rank.GENUS, "Nitrospina"));
     // without the dictionary the suffix rule wins
     assertThat(LabelStudioImporter.read(p, inferring()).get(0).contexts().get(0).ranks().get(1).rank()).isNotEqualTo(Rank.GENUS);
+  }
+
+  @Test
+  void dictionaryHelperEncodesTheGivenRank() {
+    var dict = dictionary(Map.of("Aphidoidea", Rank.SUPERFAMILY, "Aphididae", Rank.FAMILY));
+    assertThat(dict.uninomialRank("Aphidoidea")).contains(Rank.SUPERFAMILY);
+    assertThat(dict.uninomialRank("Aphididae")).contains(Rank.FAMILY);
   }
 
   @Test
