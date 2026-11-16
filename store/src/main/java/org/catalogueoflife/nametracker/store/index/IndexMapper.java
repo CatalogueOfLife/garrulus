@@ -65,6 +65,11 @@ public interface IndexMapper {
 
   List<WorkName> workNames(@Param("workId") long workId);
 
+  /** The name strings of the ids; ids without a row are left out. */
+  List<NameString> nameStrings(@Param("ids") java.util.Collection<Long> ids);
+
+  @Nullable WorkFacts workFacts(@Param("workId") long workId);
+
   @Nullable XrRelease currentRelease();
 
   boolean releaseExists(@Param("key") int key);

@@ -37,6 +37,7 @@ class MatchNamesHandlerIT extends AbstractPostgresIT {
   Map<Long, Placement> indexed;
   List<Long> indexedWorks;
   MatchNamesHandler handler;
+  @Autowired org.catalogueoflife.nametracker.store.task.TaskQueue queue;
 
   @BeforeEach
   void setUp(WireMockRuntimeInfo w) {
@@ -55,7 +56,7 @@ class MatchNamesHandlerIT extends AbstractPostgresIT {
     handler = new MatchNamesHandler(index, new MatchCache(index, clb, xr), xr, (id, m) -> {
       indexed.putAll(m);
       indexedWorks.add(id);
-    }, outage);
+    }, outage, queue);
     stubFor(get(urlPathEqualTo(M)).atPriority(10).willReturn(json("match-none.json")));
     stubFor(get(urlPathEqualTo(M)).withQueryParam("scientificName", equalTo("Carabus xyzzyus"))
         .willReturn(json("match-carabus-xyzzyus.json")));

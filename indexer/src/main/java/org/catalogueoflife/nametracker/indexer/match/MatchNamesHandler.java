@@ -18,6 +18,7 @@ import org.catalogueoflife.nametracker.store.index.MentionRow;
 import org.catalogueoflife.nametracker.store.index.NameMatch;
 import org.catalogueoflife.nametracker.store.index.NameString;
 import org.catalogueoflife.nametracker.store.task.Task;
+import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.gbif.nameparser.api.NomCode;
 import org.gbif.nameparser.api.Rank;
 import org.jspecify.annotations.Nullable;
@@ -52,9 +53,11 @@ public class MatchNamesHandler implements TaskHandler {
   private final XrReleaseService xr;
   private final WorkIndexing indexing;
   private final HarvestOutage outage;
+  private final TaskQueue queue;
 
   public MatchNamesHandler(IndexMapper index, MatchCache cache, XrReleaseService xr, WorkIndexing indexing,
-      HarvestOutage outage) {
+      HarvestOutage outage, TaskQueue queue) {
+    this.queue = queue;
     this.index = index;
     this.cache = cache;
     this.xr = xr;
@@ -106,6 +109,8 @@ public class MatchNamesHandler implements TaskHandler {
       }
     }
     indexing.index(workId, placements);
+    // hit evaluation follows the indexing and takes this task's place in the queue
+    queue.enqueue("EVALUATE_HITS", "{\"workId\":" + workId + "}", task.priority(), null, task.runAfter());
     LOG.debug("Matched {} names of work {}", placements.size(), workId);
   }
 

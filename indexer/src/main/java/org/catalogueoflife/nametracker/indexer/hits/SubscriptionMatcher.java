@@ -19,7 +19,7 @@ public final class SubscriptionMatcher {
   public static Match match(Subscription s, WorkInfo work, List<WorkNameView> names) {
     if (!s.includeAbstractOnly() && !"FULLTEXT".equals(work.textLevel())) return NO;
     boolean source = "SOURCE".equals(s.type());
-    if (source && !s.target().equals(String.valueOf(work.sourceId()))) return NO;
+    if (source && (work.sourceId() == null || !s.target().equals(work.sourceId().toString()))) return NO;
     List<WorkNameView> hits = names.stream()
         .filter(n -> source || targetMatches(s, n))
         .filter(n -> s.includeReferences() || !n.onlyReference())

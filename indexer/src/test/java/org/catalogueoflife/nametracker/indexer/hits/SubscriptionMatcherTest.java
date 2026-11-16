@@ -26,6 +26,12 @@ class SubscriptionMatcherTest {
   }
 
   @Test
+  void sourceSubscriptionNeverMatchesWorkWithoutSource() {
+    var s = sub("SOURCE", "null", false, false, true, false);
+    assertThat(SubscriptionMatcher.match(s, new WorkInfo(1, null, "FULLTEXT"), List.of()).matches()).isFalse();
+  }
+
+  @Test
   void taxonMatchesDescendantViaPath() {
     var m = SubscriptionMatcher.match(taxon("Carabidae"), FULL, List.of(name(1, null, true, false)));
     assertThat(m.matches()).isTrue();

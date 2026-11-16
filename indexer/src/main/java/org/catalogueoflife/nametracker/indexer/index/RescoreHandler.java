@@ -1,6 +1,8 @@
 package org.catalogueoflife.nametracker.indexer.index;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
@@ -74,8 +76,12 @@ public class RescoreHandler implements TaskHandler {
         : index.changedWorkIds(afterId, batch, full, CHANGE_THRESHOLD);
     int changed = 0;
     for (long id : ids) {
-      Boolean c = tx.execute(status -> rescore(id));
-      if (Boolean.TRUE.equals(c)) changed++;
+      boolean[] flags = new boolean[2]; // changed, a name became a main subject
+      tx.executeWithoutResult(status -> rescore(id, flags));
+      if (flags[0]) changed++;
+      if (flags[1]) {
+        queue.enqueue("EVALUATE_HITS", "{\"workId\":" + id + "}", task.priority(), null, task.runAfter());
+      }
     }
     LOG.info("Rescored {} works after id {} ({} changed)", ids.size(), afterId, changed);
     if (ids.size() == batch) {
@@ -88,11 +94,11 @@ public class RescoreHandler implements TaskHandler {
     }
   }
 
-  /** Returns true if anything changed. A work that lost its work names meanwhile (reprocessing) is skipped. */
-  private boolean rescore(long workId) {
+  /** flags[0]: anything changed; flags[1]: a name went from not main subject to main subject. A work that lost its work names meanwhile (reprocessing) is skipped. */
+  private void rescore(long workId, boolean[] flags) {
     index.lockWork(workId);
     List<WorkName> existing = index.workNames(workId);
-    if (existing.isEmpty()) return false;
+    if (existing.isEmpty()) return;
     Map<Long, Placement> placements = new HashMap<>();
     for (WorkName n : existing) {
       placements.put(n.nameStringId(),
@@ -101,6 +107,11 @@ public class RescoreHandler implements TaskHandler {
     WorkIndexer.Aggregate a = indexer.aggregate(workId, placements);
     int rows = index.updateSalience(workId, a.rows());
     int work = index.updateWorkColumns(workId, List.of(a.codes()), List.of(a.taxgroups()), a.hasActs());
-    return rows + work > 0;
+    flags[0] = rows + work > 0;
+    Set<Long> wasMain = new HashSet<>();
+    for (WorkName n : existing) if (n.mainSubject()) wasMain.add(n.nameStringId());
+    for (WorkName n : index.workNames(workId)) {
+      if (n.mainSubject() && !wasMain.contains(n.nameStringId())) flags[1] = true;
+    }
   }
 }
