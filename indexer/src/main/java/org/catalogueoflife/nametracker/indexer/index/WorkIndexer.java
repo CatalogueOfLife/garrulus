@@ -7,12 +7,12 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import life.catalogue.api.vocab.TaxGroup;
 import org.catalogueoflife.nametracker.finder.salience.Salience;
 import org.catalogueoflife.nametracker.finder.salience.SalienceInputs;
 import org.catalogueoflife.nametracker.finder.salience.SalienceInputs.MentionView;
 import org.catalogueoflife.nametracker.finder.salience.SalienceProperties;
 import org.catalogueoflife.nametracker.indexer.match.Placement;
+import org.catalogueoflife.nametracker.indexer.match.TaxGroups;
 import org.catalogueoflife.nametracker.indexer.match.WorkIndexing;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
 import org.catalogueoflife.nametracker.store.index.MentionRow;
@@ -111,7 +111,7 @@ public class WorkIndexer implements WorkIndexing {
       if (p == null) p = new Placement(Placement.NONE, null, List.of(), null, null);
       if (main) {
         if (p.code() != null) codes.add(p.code());
-        if (p.taxgroup() != null) addGroups(p.taxgroup(), groups);
+        if (p.taxgroup() != null) TaxGroups.addWithAncestors(p.taxgroup(), groups);
       }
       rows.add(new WorkName(workId, e.getKey(), ms.size(), body, inTitle, inAbstract, inHeading, body == 0,
           new ArrayList<>(acts), best.snippet(), p.method(), p.usageId(), p.taxonPath(), p.code(), p.taxgroup(),
@@ -125,16 +125,5 @@ public class WorkIndexer implements WorkIndexing {
     int n = 0;
     for (MentionRow m : ms) if (!"REFERENCE".equals(m.blockType())) n++;
     return n;
-  }
-
-  /** The group and all its ancestors. */
-  private static void addGroups(String name, Set<String> out) {
-    try {
-      TaxGroup g = TaxGroup.valueOf(name);
-      out.add(g.name());
-      for (TaxGroup a : g.classification()) out.add(a.name());
-    } catch (IllegalArgumentException e) {
-      out.add(name);
-    }
   }
 }

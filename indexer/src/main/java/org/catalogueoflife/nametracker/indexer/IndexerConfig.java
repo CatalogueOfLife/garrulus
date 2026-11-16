@@ -5,6 +5,7 @@ import net.javacrumbs.shedlock.core.LockProvider;
 import net.javacrumbs.shedlock.spring.annotation.EnableSchedulerLock;
 import net.javacrumbs.shedlock.provider.jdbctemplate.JdbcTemplateLockProvider;
 import org.catalogueoflife.nametracker.finder.salience.SalienceProperties;
+import org.catalogueoflife.nametracker.indexer.hits.HitProperties;
 import org.catalogueoflife.nametracker.store.task.TaskMapper;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,6 +36,14 @@ public class IndexerConfig {
       @Value("${nametracker.salience.threshold}") double threshold) {
     return new SalienceProperties(title, abstractWeight, act, heading, share, repeat, ubiquity, ubiquityFullShare,
         threshold);
+  }
+
+  /** Hit window ({@code nametracker.hits.*}). */
+  @Bean
+  HitProperties hitProperties(
+      @Value("${nametracker.hits.window-days}") int windowDays,
+      @Value("${nametracker.hits.future-days}") int futureDays) {
+    return new HitProperties(windowDays, futureDays);
   }
 
   /** For scheduled jobs that must run once even with several instances. */

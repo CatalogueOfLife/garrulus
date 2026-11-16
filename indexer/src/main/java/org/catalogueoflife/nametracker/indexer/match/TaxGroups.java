@@ -1,8 +1,10 @@
 package org.catalogueoflife.nametracker.indexer.match;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import life.catalogue.api.model.SimpleName;
 import life.catalogue.api.vocab.TaxGroup;
 import life.catalogue.matching.TaxGroupAnalyzer;
@@ -17,6 +19,24 @@ public final class TaxGroups {
   private static final TaxGroupAnalyzer ANALYZER = new TaxGroupAnalyzer();
 
   private TaxGroups() {}
+
+  /** The group and all its ancestors; an unknown group name is kept as is. */
+  public static Set<String> withAncestors(String name) {
+    Set<String> out = new LinkedHashSet<>();
+    addWithAncestors(name, out);
+    return out;
+  }
+
+  /** Adds the group and all its ancestors to {@code out}. */
+  public static void addWithAncestors(String name, Set<String> out) {
+    try {
+      TaxGroup g = TaxGroup.valueOf(name);
+      out.add(g.name());
+      for (TaxGroup a : g.classification()) out.add(a.name());
+    } catch (IllegalArgumentException e) {
+      out.add(name);
+    }
+  }
 
   /** The group of the matched usage and its classification; null without a match or when none can be told. */
   public static @Nullable TaxGroup of(ClbMatch m) {
