@@ -15,31 +15,22 @@ import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.stereotype.Component;
 
 /**
- * Ends the one-time-token login ({@code POST /login/ott}) for the SPA: never a redirect. On success the account of the
- * token's address is found or created (address verified), the session's authentication becomes
- * {@link GarrulusPrincipal}, and the answer is {@code 200 {"userId":n}}. A bad, used or expired token is a 401.
+ * Ends the one-time-token login ({@code POST /login/ott}) for the SPA: never a redirect. By the time it runs,
+ * {@link EmailLinkAuthenticationProvider} has found or created the account and the filter has saved its
+ * {@link GarrulusPrincipal} to the session; the answer is {@code 200 {"userId":n}}. A bad, used or expired token is a
+ * 401.
  */
 @Component
 class EmailLinkLoginHandler implements AuthenticationSuccessHandler, AuthenticationFailureHandler {
 
   private static final Logger LOG = LoggerFactory.getLogger(EmailLinkLoginHandler.class);
 
-  private final AccountService accounts;
-  private final CurrentUser currentUser;
-
-  EmailLinkLoginHandler(AccountService accounts, CurrentUser currentUser) {
-    this.accounts = accounts;
-    this.currentUser = currentUser;
-  }
-
   @Override
   public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
       Authentication authentication) throws IOException {
-    // the token's username is the normalised address it was sent to
-    long userId = accounts.findOrCreateByEmail(authentication.getName());
-    accounts.touchLogin(userId);
-    currentUser.signIn(userId, request, response);
-    // the login replaced the CSRF token; hand the SPA the new cookie right away
+    long userId = ((GarrulusPrincipal) authentication.getPrincipal()).userId();
+    // the session authentication strategy (CsrfAuthenticationStrategy) dropped the old CSRF token at login and left
+    // a new, not yet saved one; loading it now sends the SPA its new XSRF-TOKEN cookie with this answer
     CsrfToken csrf = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
     if (csrf != null) {
       csrf.getToken();

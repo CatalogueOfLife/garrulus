@@ -36,16 +36,28 @@ public class SignInRateLimiter {
   public synchronized boolean tryAcquire(String normalisedEmail, String clientIp) {
     Instant now = clock.instant();
     sweep(now);
-    Deque<Instant> address = byAddress.computeIfAbsent(normalisedEmail, k -> new ArrayDeque<>());
-    Deque<Instant> ip = byIp.computeIfAbsent(clientIp, k -> new ArrayDeque<>());
-    prune(address, now, ADDRESS_WINDOW);
-    prune(ip, now, IP_WINDOW);
-    if (address.size() >= PER_ADDRESS || ip.size() >= PER_IP) {
+    // look up without creating: a refused request must not leave an entry behind (heap growth on an open endpoint)
+    if (count(byAddress.get(normalisedEmail), now, ADDRESS_WINDOW) >= PER_ADDRESS
+        || count(byIp.get(clientIp), now, IP_WINDOW) >= PER_IP) {
       return false;
     }
-    address.addLast(now);
-    ip.addLast(now);
+    byAddress.computeIfAbsent(normalisedEmail, k -> new ArrayDeque<>()).addLast(now);
+    byIp.computeIfAbsent(clientIp, k -> new ArrayDeque<>()).addLast(now);
     return true;
+  }
+
+  /** The requests still in the window (pruning the others); 0 for an unknown key. */
+  private static int count(Deque<Instant> times, Instant now, Duration window) {
+    if (times == null) {
+      return 0;
+    }
+    prune(times, now, window);
+    return times.size();
+  }
+
+  /** Number of tracked addresses and IPs (tests). */
+  synchronized int size() {
+    return byAddress.size() + byIp.size();
   }
 
   /** Forgets every request (tests). */

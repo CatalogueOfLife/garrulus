@@ -3,7 +3,6 @@ package org.catalogueoflife.nametracker.web.auth;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Clock;
-import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,11 +10,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.ott.JdbcOneTimeTokenService;
-import org.springframework.security.authentication.ott.OneTimeTokenAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
@@ -52,22 +48,13 @@ public class SecurityConfig {
     return service;
   }
 
-  /**
-   * The token proves that its holder reads the address, so any address is a user here; the account is found or
-   * created afterwards ({@link EmailLinkLoginHandler}). Deliberately not a bean, so that no other authentication
-   * mechanism can ever pick it up.
-   */
-  static UserDetailsService emailLinkUsers() {
-    return email -> User.withUsername(AccountService.normaliseEmail(email)).password("").authorities(List.of()).build();
-  }
-
   /** 401 with the {status, error} body of the public API; never a redirect to a login page. */
   static final AuthenticationEntryPoint JSON_401 = (request, response, e) -> EmailLinkLoginHandler.write(
       response, HttpServletResponse.SC_UNAUTHORIZED, "{\"status\":401,\"error\":\"not signed in\"}");
 
   @Bean
   SecurityFilterChain filterChain(HttpSecurity http, JdbcOneTimeTokenService tokens,
-      SecurityContextRepository contexts, EmailLinkLoginHandler emailLink,
+      SecurityContextRepository contexts, EmailLinkLoginHandler emailLink, AccountService accounts,
       @Value("${server.servlet.session.cookie.secure:false}") boolean secureCookies) throws Exception {
     CookieCsrfTokenRepository csrfTokens = CookieCsrfTokenRepository.withHttpOnlyFalse();
     csrfTokens.setCookieCustomizer(c -> c.secure(secureCookies).sameSite("Lax"));
@@ -82,7 +69,7 @@ public class SecurityConfig {
             // AdminAuth checks the X-Admin-Token header in the controllers
             .requestMatchers("/api/admin/**").permitAll()
             .requestMatchers("/api/auth/**", "/api/unsubscribe", "/login/**", "/oauth2/**", "/feeds/**",
-                "/actuator/health", "/api/openapi.yaml", "/error").permitAll()
+                "/actuator/health", "/actuator/info", "/api/openapi.yaml", "/error").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/**").permitAll()
             // CORS preflights of the public API (CorsConfig answers them)
             .requestMatchers(HttpMethod.OPTIONS, "/api/**").permitAll()
@@ -92,10 +79,12 @@ public class SecurityConfig {
             .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
             // admin: header token, no cookie; unsubscribe: signed token; link: no session yet, rate limited
             .ignoringRequestMatchers("/api/admin/**", "/api/unsubscribe", "/api/auth/link"))
-        .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
+        .addFilterAfter(new CsrfCookieFilter(CsrfCookieFilter.SPA_PATHS), BasicAuthenticationFilter.class)
         .oneTimeTokenLogin(ott -> ott
             .tokenService(tokens)
-            .authenticationProvider(new OneTimeTokenAuthenticationProvider(tokens, emailLinkUsers()))
+            // the token proves that its holder reads the address: the provider finds or creates the account and
+            // authenticates it as GarrulusPrincipal, so no address-named principal ever reaches the session
+            .authenticationProvider(new EmailLinkAuthenticationProvider(tokens, accounts))
             .authenticationSuccessHandler(emailLink)
             .authenticationFailureHandler(emailLink)
             // Spring's POST /ott/generate never resolves a request (so it falls through to a 401/404), and

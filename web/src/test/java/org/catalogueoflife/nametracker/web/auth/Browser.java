@@ -39,11 +39,17 @@ final class Browser {
 
   HttpResponse<String> send(String method, String path, String contentType, String body, boolean csrf)
       throws Exception {
+    return send(method, path, contentType, body, csrf ? xsrf() : null);
+  }
+
+  /** With this exact X-XSRF-TOKEN header (none if null), whatever the cookie says. */
+  HttpResponse<String> send(String method, String path, String contentType, String body, String xsrfHeader)
+      throws Exception {
     HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(base + path))
         .header("Content-Type", contentType)
         .method(method, HttpRequest.BodyPublishers.ofString(body));
-    if (csrf) {
-      b.header("X-XSRF-TOKEN", xsrf());
+    if (xsrfHeader != null) {
+      b.header("X-XSRF-TOKEN", xsrfHeader);
     }
     return http.send(b.build(), HttpResponse.BodyHandlers.ofString());
   }

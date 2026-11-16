@@ -23,12 +23,14 @@ class SecurityIT extends AbstractAuthIT {
   @Test
   void publicAndAdminUnchanged() throws Exception {
     for (String path : new String[] {"/api/vocab/taxgroup", "/api/sources", "/api/works", "/api/ping",
-        "/api/openapi.yaml", "/actuator/health"}) {
+        "/api/openapi.yaml", "/actuator/health", "/actuator/info"}) {
       HttpResponse<String> r = plainGet(path);
       assertThat(r.statusCode()).as(path).isEqualTo(200);
-      // public reads never open a session
-      assertThat(r.headers().allValues("Set-Cookie")).as(path).noneMatch(c -> c.startsWith("SESSION="));
+      // public reads set no cookie at all (no session, no XSRF-TOKEN), so caches can keep them
+      assertThat(r.headers().allValues("Set-Cookie")).as(path).isEmpty();
     }
+    // nor do the portal's taxon calls, found or not
+    assertThat(plainGet("/api/taxa/NOPE/stats").headers().allValues("Set-Cookie")).isEmpty();
     // a missing public resource is still a 404, not a 401
     assertThat(plainGet("/api/works/999999999").statusCode()).isEqualTo(404);
 
@@ -97,6 +99,15 @@ class SecurityIT extends AbstractAuthIT {
     Instant since = jdbc.queryForObject("select digest_since from app_user where id = ?", Timestamp.class, userId)
         .toInstant();
     assertThat(Duration.between(since, Instant.now()).abs()).isLessThan(Duration.ofMinutes(1));
+  }
+
+  @Test
+  void xsrfCookieOnlyOnSpaPaths() throws Exception {
+    for (String path : new String[] {"/api/auth/config", "/api/me"}) {
+      assertThat(plainGet(path).headers().allValues("Set-Cookie")).as(path)
+          .anyMatch(c -> c.startsWith("XSRF-TOKEN=") && !c.startsWith("XSRF-TOKEN=;"))
+          .noneMatch(c -> c.startsWith("SESSION="));
+    }
   }
 
   @Test

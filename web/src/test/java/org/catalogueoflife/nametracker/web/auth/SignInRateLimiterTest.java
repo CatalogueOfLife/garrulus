@@ -126,6 +126,25 @@ class SignInRateLimiterTest {
   }
 
   @Test
+  void refusedRequestsLeaveNoEntries() {
+    for (int i = 0; i < 20; i++) {
+      limiter.tryAcquire("u" + i + "@example.org", "10.0.0.9");
+    }
+    int tracked = limiter.size();
+    for (int i = 0; i < 1000; i++) {
+      assertThat(limiter.tryAcquire("fresh" + i + "@example.org", "10.0.0.9")).isFalse();
+    }
+    assertThat(limiter.size()).isEqualTo(tracked);
+    // nor does an address refused for itself add its IP
+    for (int i = 0; i < 3; i++) {
+      limiter.tryAcquire("a@example.org", "10.0.0.1");
+    }
+    tracked = limiter.size();
+    assertThat(limiter.tryAcquire("a@example.org", "10.0.0.77")).isFalse();
+    assertThat(limiter.size()).isEqualTo(tracked);
+  }
+
+  @Test
   void clearForgetsEverything() {
     for (int i = 0; i < 3; i++) {
       limiter.tryAcquire("a@example.org", "10.0.0.1");

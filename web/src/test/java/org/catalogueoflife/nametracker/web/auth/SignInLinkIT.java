@@ -155,6 +155,9 @@ class SignInLinkIT extends AbstractAuthIT {
     assertThat(b.cookie("SESSION")).isPresent();
     assertThat(jdbc.queryForObject("select count(*) from spring_session where principal_name = ?", Long.class,
         String.valueOf(userId))).isEqualTo(1);
+    // only account ids, never addresses, name a session
+    assertThat(jdbc.queryForObject("select count(*) from spring_session where principal_name like '%@%'",
+        Long.class)).isZero();
     // about 30 days
     assertThat(jdbc.queryForObject("select max_inactive_interval from spring_session where principal_name = ?",
         Integer.class, String.valueOf(userId))).isEqualTo(30 * 24 * 3600);
@@ -171,6 +174,61 @@ class SignInLinkIT extends AbstractAuthIT {
     assertThat(jdbc.queryForObject("select count(*) from spring_session where principal_name = ?", Long.class,
         String.valueOf(userId))).isZero();
     assertThat(getWithCookie("/api/me", sessionCookie).statusCode()).isEqualTo(401);
+  }
+
+  @Test
+  void loginNeedsCsrf() throws Exception {
+    String email = address("henry");
+    Browser b = browser();
+    b.json("POST", "/api/auth/link", "{\"email\":\"" + email + "\"}", false);
+    String token = mail.lastTokenFor(email);
+
+    b.xsrf();
+    HttpResponse<String> noHeader = b.form("/login/ott", "token", token, false);
+    assertThat(noHeader.statusCode()).isEqualTo(403);
+    assertThat(b.cookie("SESSION")).isEmpty();
+    // refused before the token was looked at: it still works
+    assertThat(b.form("/login/ott", "token", token, true).statusCode()).isEqualTo(200);
+  }
+
+  @Test
+  void sessionIdAndCsrfTokenChangeOnLogin() throws Exception {
+    String email = address("ines");
+    Browser b = browser();
+    long userId = userId(b.signIn(email, mail).body());
+    String firstSession = b.cookie("SESSION").orElseThrow();
+    String firstXsrf = b.xsrf();
+
+    // signing in again from a browser that has a session: a new session id (no fixation), a new CSRF token
+    assertThat(userId(b.signIn(email, mail).body())).isEqualTo(userId);
+    String secondSession = b.cookie("SESSION").orElseThrow();
+    assertThat(secondSession).isNotEqualTo(firstSession);
+    assertThat(getWithCookie("/api/me", "SESSION=" + firstSession).statusCode()).isEqualTo(401);
+    assertThat(getWithCookie("/api/me", "SESSION=" + secondSession).statusCode()).isEqualTo(200);
+
+    String secondXsrf = b.cookie("XSRF-TOKEN").orElseThrow();
+    assertThat(secondXsrf).isNotEqualTo(firstXsrf);
+    assertThat(b.send("PATCH", "/api/me", "application/json", "{\"digestHour\":6}", firstXsrf).statusCode())
+        .isEqualTo(403);
+    assertThat(b.send("PATCH", "/api/me", "application/json", "{\"digestHour\":6}", secondXsrf).statusCode())
+        .isEqualTo(200);
+  }
+
+  @Test
+  void failedAccountStepLeavesNoSession() throws Exception {
+    // a token whose username is no address: the provider refuses it before any principal exists
+    String token = UUID.randomUUID().toString();
+    jdbc.update("insert into one_time_tokens (token_value, username, expires_at) "
+        + "values (?, 'not-an-address', localtimestamp + interval '1 hour')", token);
+    long sessions = jdbc.queryForObject("select count(*) from spring_session", Long.class);
+    Browser b = browser();
+
+    HttpResponse<String> login = b.form("/login/ott", "token", token, true);
+    assertThat(login.statusCode()).isEqualTo(401);
+    assertThat(b.cookie("SESSION")).isEmpty();
+    assertThat(jdbc.queryForObject("select count(*) from spring_session", Long.class)).isEqualTo(sessions);
+    assertThat(jdbc.queryForObject("select count(*) from spring_session where principal_name like '%@%' "
+        + "or principal_name = 'not-an-address'", Long.class)).isZero();
   }
 
   HttpResponse<String> getWithCookie(String path, String cookie) throws Exception {
