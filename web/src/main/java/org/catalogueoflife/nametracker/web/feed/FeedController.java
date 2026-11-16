@@ -1,10 +1,10 @@
 package org.catalogueoflife.nametracker.web.feed;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -21,8 +21,7 @@ import org.catalogueoflife.nametracker.store.search.SearchMapper;
 import org.catalogueoflife.nametracker.store.search.WorkFilter;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.catalogueoflife.nametracker.web.digest.HitNames;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -31,23 +30,21 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
+import org.springframework.web.util.UriUtils;
 
 /**
  * Atom feeds. Public feeds (taxon, source, name, taxgroup) list the works indexed for the target, published in the last
  * {@code nametracker.feeds.window-days} days, 50 at most, newest first_indexed_at first. The private feed
- * {@code /feeds/s/{token}.atom} lists the hits of one subscription; its token is the only credential. No cookies are set
- * and no email address is written.
+ * {@code /feeds/s/{token}.atom} lists the hits of one subscription, one entry per hit (id {@code /work/{id}#hit-{hitId}},
+ * updated = the hit's created), so a NEW_NAMES hit of a work already listed is a new entry; its token is the only
+ * credential. No cookies are set and no email address is written.
  */
 @RestController
 public class FeedController {
 
-  private static final Logger LOG = LoggerFactory.getLogger(FeedController.class);
   static final int LIMIT = 50;
   static final MediaType ATOM = MediaType.parseMediaType("application/atom+xml;charset=UTF-8");
   private static final Set<String> PUBLIC_TIERS = Set.of("CORE", "BROAD");
-  private static final ObjectMapper JSON = new ObjectMapper();
 
   private final SearchMapper search;
   private final SourceMapper sources;
@@ -117,7 +114,9 @@ public class FeedController {
     for (Hit h : rows) {
       FeedRow w = works.get(h.workId());
       if (w != null) {
-        entries.add(entry(w, hitLines(h)));
+        AtomWriter.Entry e = entry(w, hitLines(h));
+        entries.add(new AtomWriter.Entry(e.id() + "#hit-" + h.id(), e.title(), e.link(), e.doiUrl(),
+            h.created() == null ? e.updated() : h.created(), e.summary()));
       }
     }
     String self = publicUrl + "/feeds/s/" + token + ".atom";
@@ -158,38 +157,22 @@ public class FeedController {
     if (!hitLines.isEmpty()) {
       sum.append(sum.isEmpty() ? "" : "\n").append(hitLines);
     }
-    return new AtomWriter.Entry(url, w.title() == null || w.title().isBlank() ? "(untitled)" : w.title(), url,
-        w.doi() == null || w.doi().isBlank() ? null : "https://doi.org/" + w.doi(), w.firstIndexedAt(), sum.toString());
+    // DOIs may hold # ? < > or spaces (SICI): percent-encoded as a path, like the digest does
+    String doi = w.doi() == null || w.doi().isBlank() ? null
+        : "https://doi.org/" + UriUtils.encodePath(w.doi().strip(), StandardCharsets.UTF_8);
+    return new AtomWriter.Entry(url, w.title() == null || w.title().isBlank() ? "(untitled)" : w.title(), url, doi,
+        w.firstIndexedAt(), sum.toString());
   }
 
-  /** "Matching names: A, B" and "new: C" for the names of a hit; new names are the NEW_NAMES ones or those with acts. */
+  /**
+   * "Names: A (sp. nov.), B, +3 more", or "New names: ..." for a NEW_NAMES hit: acts first, then main subjects, at most
+   * {@link HitNames#MAX} (the snapshot of a journal follow holds every name of a checklist).
+   */
   private static String hitLines(Hit h) {
-    Set<String> matching = new LinkedHashSet<>();
-    Set<String> fresh = new LinkedHashSet<>();
-    try {
-      JsonNode arr = JSON.readTree(h.names());
-      for (JsonNode n : arr) {
-        String name = n.path("name").asString("");
-        if (name.isBlank()) {
-          continue;
-        }
-        boolean act = n.path("actTypes").isArray() && !n.path("actTypes").isEmpty();
-        if ("NEW_NAMES".equals(h.kind()) || act) {
-          fresh.add(name);
-        } else {
-          matching.add(name);
-        }
-      }
-    } catch (RuntimeException e) {
-      LOG.warn("Unreadable names of hit {}: {}", h.id(), e.toString());
+    HitNames.Shown names = HitNames.of(h).shown();
+    if (names.isEmpty()) {
+      return "";
     }
-    StringBuilder b = new StringBuilder();
-    if (!matching.isEmpty()) {
-      b.append("Matching names: ").append(String.join(", ", matching));
-    }
-    for (String n : fresh) {
-      b.append(b.isEmpty() ? "" : "\n").append("new: ").append(n);
-    }
-    return b.toString();
+    return ("NEW_NAMES".equals(h.kind()) ? "New names: " : "Names: ") + names.text();
   }
 }

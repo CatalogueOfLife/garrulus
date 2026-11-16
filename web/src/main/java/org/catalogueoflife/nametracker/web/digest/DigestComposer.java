@@ -10,27 +10,22 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.store.account.AppUser;
 import org.catalogueoflife.nametracker.store.account.Hit;
 import org.catalogueoflife.nametracker.web.api.public_.dto.WorkSummary;
 import org.jspecify.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.web.util.HtmlUtils;
 import org.springframework.web.util.UriUtils;
-import tools.jackson.databind.JsonNode;
 
 /**
  * The digest mail, plain text and simple HTML (inline styles, brand colours of docs/brand). Pure: the same input gives
  * the same mail. Groups are ordered by subscription label; within a group the hits of one work become one paper,
  * papers with new names (a NEW_NAMES hit) or acts come first, then the newest hit first; at most 20 papers per group,
- * then "and N more" linking to the user's hits of that subscription. Names come from the hits' snapshots; a name of a
- * NEW_NAMES hit or with act types is marked new. Every dynamic value in the HTML is escaped.
+ * then "and N more" linking to the user's hits of that subscription. Names come from the hits' snapshots, composed by
+ * {@link HitNames}: acts first (each with its label, e.g. "sp. nov."), then main subjects, at most 10, then "+N more".
+ * Every dynamic value in the HTML is escaped.
  */
 public final class DigestComposer {
-
-  private static final Logger LOG = LoggerFactory.getLogger(DigestComposer.class);
 
   static final int MAX_PER_SUBSCRIPTION = 20;
 
@@ -50,7 +45,7 @@ public final class DigestComposer {
   public record SubscriptionHits(long subscriptionId, @Nullable String label, List<Paper> papers) {}
 
   /** A work in one group: its hits merged. */
-  private record Entry(WorkSummary work, boolean fresh, Instant newest, Map<String, Boolean> names) {}
+  private record Entry(WorkSummary work, boolean fresh, Instant newest, HitNames names) {}
 
   private final UnsubscribeTokens tokens;
 
@@ -128,15 +123,8 @@ public final class DigestComposer {
       boolean newNames = "NEW_NAMES".equals(p.hit().kind());
       Instant created = p.hit().created() == null ? Instant.EPOCH : p.hit().created();
       Entry e = byWork.computeIfAbsent(p.work().id(),
-          id -> new Entry(p.work(), p.work().hasActs(), created, new LinkedHashMap<>()));
-      for (JsonNode n : names(p.hit())) {
-        String name = n.path("name").asString("");
-        if (name.isBlank()) {
-          continue;
-        }
-        boolean fresh = newNames || (n.path("actTypes").isArray() && !n.path("actTypes").isEmpty());
-        e.names().merge(name, fresh, Boolean::logicalOr);
-      }
+          id -> new Entry(p.work(), p.work().hasActs(), created, new HitNames()));
+      e.names().add(p.hit());
       boolean fresh = e.fresh() || newNames;
       Instant newest = created.isAfter(e.newest()) ? created : e.newest();
       byWork.put(p.work().id(), new Entry(e.work(), fresh, newest, e.names()));
@@ -146,16 +134,6 @@ public final class DigestComposer {
         .thenComparing(Entry::newest, Comparator.reverseOrder())
         .thenComparing(e -> e.work().id(), Comparator.reverseOrder()));
     return out;
-  }
-
-  private static Iterable<JsonNode> names(Hit h) {
-    try {
-      JsonNode arr = FinderJson.mapper().readTree(h.names() == null ? "[]" : h.names());
-      return arr.isArray() ? arr : List.of();
-    } catch (RuntimeException e) {
-      LOG.warn("Unreadable names of hit {}: {}", h.id(), e.getClass().getSimpleName());
-      return List.of();
-    }
   }
 
   private static void paper(Entry e, String base, StringBuilder text, StringBuilder html) {
@@ -179,10 +157,9 @@ public final class DigestComposer {
     if (!meta.isEmpty()) {
       text.append("  ").append(String.join(", ", meta)).append('\n');
     }
-    if (!e.names().isEmpty()) {
-      List<String> names = new ArrayList<>();
-      e.names().forEach((name, fresh) -> names.add(fresh ? name + " (new)" : name));
-      text.append("  Names: ").append(String.join(", ", names)).append('\n');
+    HitNames.Shown names = e.names().shown();
+    if (!names.isEmpty()) {
+      text.append("  Names: ").append(names.text()).append('\n');
     }
     text.append("  ").append(page).append('\n');
     if (doi != null) {
@@ -197,16 +174,20 @@ public final class DigestComposer {
       html.append("<div style=\"font-size:13px;color:").append(FAWN_7).append("\">")
           .append(esc(String.join(", ", meta))).append("</div>\n");
     }
-    if (!e.names().isEmpty()) {
+    if (!names.isEmpty()) {
       html.append("<div style=\"margin-top:4px\">");
       boolean first = true;
-      for (Map.Entry<String, Boolean> n : e.names().entrySet()) {
-        html.append(first ? "" : ", ").append("<i>").append(esc(n.getKey())).append("</i>");
-        if (n.getValue()) {
+      for (HitNames.Name n : names.names()) {
+        html.append(first ? "" : ", ").append("<i>").append(esc(n.name())).append("</i>");
+        for (String act : n.acts()) {
           html.append(" <span style=\"background:").append(FAWN_7).append(";color:#FFFFFF;font-size:11px;")
-              .append("padding:1px 5px;border-radius:4px\">new</span>");
+              .append("padding:1px 5px;border-radius:4px\">").append(esc(act)).append("</span>");
         }
         first = false;
+      }
+      if (names.more() > 0) {
+        html.append(", <span style=\"color:").append(FAWN_7).append("\">+").append(names.more())
+            .append(" more</span>");
       }
       html.append("</div>\n");
     }

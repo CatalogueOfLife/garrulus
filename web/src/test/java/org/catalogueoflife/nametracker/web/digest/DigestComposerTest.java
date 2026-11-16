@@ -71,9 +71,11 @@ class DigestComposerTest {
     assertThat(t.indexOf("With acts")).isLessThan(t.indexOf("New names"));
     assertThat(t.indexOf("New names")).isLessThan(t.indexOf("Plain newest"));
     assertThat(t.indexOf("Plain newest")).isLessThan(t.indexOf("Plain oldest"));
-    assertThat(t).contains("Carabus novus (new)").contains("Carabus actus (new)").contains("Carabus plain")
-        .doesNotContain("Carabus plain (new)");
-    assertThat(m.html()).contains("Carabus novus").contains(">new<");
+    // each name carries its own act label, not a generic "new"
+    assertThat(t).contains("Carabus novus (comb. nov.)").contains("Carabus actus (sp. nov.)").contains("Carabus plain")
+        .doesNotContain("Carabus plain (").doesNotContain("(new)");
+    assertThat(m.html()).contains("Carabus novus").contains(">comb. nov.<").contains(">sp. nov.<")
+        .doesNotContain(">new<");
   }
 
   @Test
@@ -89,7 +91,25 @@ class DigestComposerTest {
     assertThat(m.text().indexOf("Aus (1)")).isLessThan(m.text().indexOf("zebra follows (1)"));
     String aus = m.text().substring(m.text().indexOf("Aus (1)"), m.text().indexOf("zebra follows"));
     assertThat(aus.split("Shared paper", -1)).hasSize(2);
-    assertThat(aus).contains("Aus bus").contains("Aus cus (new)");
+    assertThat(aus).contains("Aus bus").contains("Aus cus (sp. nov.)");
+  }
+
+  @Test
+  void checklistPaperShowsTenNamesActsAndMainSubjectsFirst() {
+    StringBuilder names = new StringBuilder("[");
+    for (int i = 1; i <= 30; i++) {
+      boolean main = i == 12 || i == 20;
+      String acts = i == 25 ? "[\"SP_NOV\"]" : i == 28 ? "[\"TYPE_DESIGNATION\",\"STAT_REV\"]" : "[]";
+      names.append(i == 1 ? "" : ",").append("{\"nameStringId\":").append(i).append(",\"name\":\"Name n")
+          .append(i).append("\",\"actTypes\":").append(acts).append(",\"mainSubject\":").append(main).append('}');
+    }
+    names.append(']');
+    Paper p = paper(1, 9, 1, "ARTICLE", names.toString(), true, "A checklist");
+    Mail m = composer.compose(USER, List.of(new SubscriptionHits(9, "Zootaxa", List.of(p))), URL);
+    String line = m.text().lines().filter(l -> l.startsWith("  Names: ")).findFirst().orElseThrow();
+    assertThat(line).isEqualTo("  Names: Name n25 (sp. nov.), Name n28 (type designation, stat. rev.), Name n12, "
+        + "Name n20, Name n1, Name n2, Name n3, Name n4, Name n5, Name n6, +20 more");
+    assertThat(m.html()).contains("+20 more").doesNotContain("Name n7<").doesNotContain("Name n30<");
   }
 
   @Test

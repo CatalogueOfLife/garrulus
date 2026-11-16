@@ -138,9 +138,117 @@ class FeedControllerIT extends AbstractPostgresIT {
     Document d = parse(r.body());
     assertThat(d.getElementsByTagNameNS(NS, "title").item(0).getTextContent()).isEqualTo("Garrulus: My beetles");
     assertThat(d.getElementsByTagNameNS(NS, "entry").getLength()).isEqualTo(2);
-    assertThat(d.getElementsByTagNameNS(NS, "entry").item(0).getTextContent()).contains("Second").contains("new: Aus bus sp. nov.");
+    assertThat(d.getElementsByTagNameNS(NS, "entry").item(0).getTextContent()).contains("Second")
+        .contains("New names: Aus bus sp. nov. (sp. nov.)");
     assertThat(d.getElementsByTagNameNS(NS, "entry").item(1).getTextContent()).contains("Carabus xus");
     assertThat(r.body()).doesNotContain("@example.org");
+  }
+
+  long user() {
+    return jdbc.queryForObject("INSERT INTO app_user (email, email_verified, digest_since) VALUES (?, now(), now()) RETURNING id",
+        Long.class, "feedu" + SEQ.incrementAndGet() + "@example.org");
+  }
+
+  /** A subscription of a new user; returns its feed token. */
+  String subscription(long[] subId) {
+    String token = "sub" + SEQ.incrementAndGet() + "abcdefghijklmnop";
+    subId[0] = jdbc.queryForObject("INSERT INTO subscription (user_id, type, target, label, feed_token) "
+        + "VALUES (?, 'SOURCE', 'S1', 'Journal', ?) RETURNING id", Long.class, user(), token);
+    return token;
+  }
+
+  static String text(org.w3c.dom.Node entry, String tag) {
+    return ((org.w3c.dom.Element) entry).getElementsByTagNameNS(NS, tag).item(0).getTextContent();
+  }
+
+  @Test
+  void privateFeedHasOneEntryPerHit() throws Exception {
+    long[] sub = new long[1];
+    String token = subscription(sub);
+    long w = work("Twice", LocalDate.now(ZoneOffset.UTC).minusDays(2), source());
+    long article = jdbc.queryForObject("INSERT INTO hit (subscription_id, work_id, kind, created, names) VALUES (?, ?, "
+        + "'ARTICLE', '2026-11-10T08:00:00Z', '[{\"name\":\"Aus bus\",\"nameStringId\":1,\"actTypes\":[]}]'::jsonb) "
+        + "RETURNING id", Long.class, sub[0], w);
+    long fresh = jdbc.queryForObject("INSERT INTO hit (subscription_id, work_id, kind, created, names) VALUES (?, ?, "
+        + "'NEW_NAMES', '2026-11-12T09:30:00Z', '[{\"name\":\"Aus cus\",\"nameStringId\":2,\"actTypes\":[\"COMB_NOV\"]}]'::jsonb) "
+        + "RETURNING id", Long.class, sub[0], w);
+    Document d = parse(get("/feeds/s/" + token + ".atom").body());
+    var entries = d.getElementsByTagNameNS(NS, "entry");
+    assertThat(entries.getLength()).isEqualTo(2);
+    // newest hit first; ids differ per hit, updated is the hit's own time
+    assertThat(text(entries.item(0), "id")).endsWith("/work/" + w + "#hit-" + fresh);
+    assertThat(text(entries.item(0), "updated")).isEqualTo("2026-11-12T09:30:00Z");
+    assertThat(text(entries.item(0), "summary")).contains("New names: Aus cus (comb. nov.)");
+    assertThat(text(entries.item(1), "id")).endsWith("/work/" + w + "#hit-" + article);
+    assertThat(text(entries.item(1), "updated")).isEqualTo("2026-11-10T08:00:00Z");
+    assertThat(text(entries.item(1), "summary")).contains("Names: Aus bus");
+    // the feed's updated is the newest hit
+    assertThat(d.getDocumentElement().getElementsByTagNameNS(NS, "updated").item(0).getTextContent())
+        .isEqualTo("2026-11-12T09:30:00Z");
+  }
+
+  @Test
+  void privateFeedShowsTenNamesActsAndMainSubjectsFirst() throws Exception {
+    long[] sub = new long[1];
+    String token = subscription(sub);
+    long w = work("A checklist", LocalDate.now(ZoneOffset.UTC).minusDays(2), source());
+    StringBuilder names = new StringBuilder("[");
+    for (int i = 1; i <= 25; i++) {
+      String acts = i == 22 ? "[\"GEN_NOV\"]" : "[]";
+      names.append(i == 1 ? "" : ",").append("{\"nameStringId\":").append(i).append(",\"name\":\"Name n").append(i)
+          .append("\",\"actTypes\":").append(acts).append(",\"mainSubject\":").append(i == 15).append('}');
+    }
+    names.append(']');
+    jdbc.update("INSERT INTO hit (subscription_id, work_id, kind, names) VALUES (?, ?, 'ARTICLE', ?::jsonb)",
+        sub[0], w, names.toString());
+    Document d = parse(get("/feeds/s/" + token + ".atom").body());
+    assertThat(text(d.getElementsByTagNameNS(NS, "entry").item(0), "summary")).contains(
+        "Names: Name n22 (gen. nov.), Name n15, Name n1, Name n2, Name n3, Name n4, Name n5, Name n6, Name n7, "
+            + "Name n8, +15 more");
+  }
+
+  @Test
+  void doiLinksArePercentEncoded() throws Exception {
+    long[] sub = new long[1];
+    String token = subscription(sub);
+    long src = source();
+    String taxon = "FD" + SEQ.incrementAndGet();
+    String sici = "10.1002/(SICI)1097-4636(199706)35:4<477::AID-JBM8>3.0.CO;2-#" + SEQ.incrementAndGet();
+    long w = jdbc.queryForObject("INSERT INTO work (doi, title, publication_date, year, state, origin, text_level, "
+        + "source_id, first_indexed_at) VALUES (?, 'SICI', ?, 2026, 'INDEXED', 'LIVE', 'ABSTRACT_ONLY', ?, now()) "
+        + "RETURNING id", Long.class, sici, java.sql.Date.valueOf(LocalDate.now(ZoneOffset.UTC)), src);
+    workName(w, name("Sici"), taxon, true, false);
+    jdbc.update("INSERT INTO hit (subscription_id, work_id, kind, names) VALUES (?, ?, 'ARTICLE', '[]'::jsonb)", sub[0], w);
+    String encoded = "https://doi.org/10.1002/(SICI)1097-4636(199706)35:4%3C477::AID-JBM8%3E3.0.CO;2-%23";
+    for (String path : new String[] {"/feeds/s/" + token + ".atom", "/feeds/taxon/" + taxon + ".atom"}) {
+      Document d = parse(get(path).body());
+      var links = d.getElementsByTagNameNS(NS, "link");
+      String related = null;
+      for (int i = 0; i < links.getLength(); i++) {
+        var l = (org.w3c.dom.Element) links.item(i);
+        if ("related".equals(l.getAttribute("rel"))) {
+          related = l.getAttribute("href");
+        }
+      }
+      assertThat(related).as(path).startsWith(encoded);
+    }
+  }
+
+  @Test
+  void undatedOldYearNotInFeed() throws Exception {
+    long src = source();
+    String taxon = "FY" + SEQ.incrementAndGet();
+    long n = name("Undated");
+    int thisYear = LocalDate.now(ZoneOffset.UTC).getYear();
+    for (Object[] row : new Object[][] {{"Undated old", 2001}, {"Undated now", thisYear}, {"Undated no year", null}}) {
+      long w = jdbc.queryForObject("INSERT INTO work (doi, title, year, state, origin, text_level, source_id, "
+          + "first_indexed_at) VALUES (?, ?, ?, 'INDEXED', 'LIVE', 'ABSTRACT_ONLY', ?, now()) RETURNING id", Long.class,
+          "10.1/y" + SEQ.incrementAndGet(), row[0], row[1], src);
+      workName(w, n, taxon, true, false);
+    }
+    String body = get("/feeds/taxon/" + taxon + ".atom").body();
+    assertThat(parse(body).getElementsByTagNameNS(NS, "entry").getLength()).isEqualTo(2);
+    assertThat(body).contains("Undated now").contains("Undated no year").doesNotContain("Undated old");
   }
 
   @Test
