@@ -15,7 +15,7 @@ const base: WorkDetail = {
   id: 5, title: 'Carabid notes', year: 2026, authors: [{ name: 'A. Author' }], retained: false, hasActs: false,
   codes: [], taxgroups: [], contexts: [], text: null,
   names: [
-    nm(1, 'Carabus auratus', { usageId: 'T1', usageName: 'Carabus auratus L.', classification: [{ id: 'F', name: 'Carabidae', rank: 'family' }, { id: 'G', name: 'Carabus', rank: 'genus' }], bestSnippet: 'SNIPPET-ONE' }),
+    nm(1, 'Carabus auratus', { usageId: 'T1', usageName: 'Carabus auratus L.', classification: [{ id: 'G', name: 'Carabus', rank: 'genus' }, { id: 'F', name: 'Carabidae', rank: 'family' }], bestSnippet: 'SNIPPET-ONE' }),
     nm(2, 'Carabus novus', { placementMethod: 'GENUS', usageId: 'G', usageName: 'Carabus' }),
     nm(3, 'Foo bar', { placementMethod: 'VERBATIM_CONTEXT', usageId: 'T9', usageName: 'Foidae' }),
     nm(4, 'Lost name', { placementMethod: 'NONE' }),
@@ -48,7 +48,8 @@ describe('WorkPage', () => {
     const verbatim = await screen.findByRole('region', { name: 'Verbatim classification in the article' });
     expect(within(verbatim).getByText('Coleoptera: Carabidae: Carabus')).toBeInTheDocument();
     const col = screen.getByRole('region', { name: 'Placed in COL' });
-    expect(within(col).getByText(/Carabidae › Carabus/)).toBeInTheDocument();
+    const path = within(col).getByTestId('classification-path');
+    expect(path.textContent).toBe('Carabidae›Carabus'); // root first
   });
 
   it('closedWorkShowsNoTextOnlySnippets', async () => {

@@ -1,0 +1,4 @@
+/* the CLB PhyloPic icons are black: white in the dark colour scheme */
+[data-mantine-color-scheme='dark'] .icon {
+  filter: invert(1);
+}

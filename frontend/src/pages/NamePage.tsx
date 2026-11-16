@@ -5,6 +5,7 @@ import { ApiError, getName, searchWorks } from '../api';
 import { FeedLink } from '../components/FeedLink';
 import { FollowButton } from '../components/FollowButton';
 import { Section } from '../components/Section';
+import { ClassificationPath } from '../components/ClassificationPath';
 import { WorkList } from '../components/WorkList';
 import { YearBars } from '../components/YearBars';
 import { usePageTitle } from '../usePageTitle';
@@ -34,6 +35,10 @@ export function NamePage() {
         <FollowButton type="NAME" target={String(n.id)} label={n.name} />
         <FeedLink href={`/feeds/name/${n.id}.atom`} />
       </Group>
+      <Text size="sm" c="dimmed" mt={-12}>
+        A name as written in papers.{' '}
+        <Anchor component={Link} to="/about#names" size="sm">What is this?</Anchor>
+      </Text>
 
       <Section title="Match in COL">
         {m?.usageId ? (
@@ -48,16 +53,7 @@ export function NamePage() {
                 <Anchor component={Link} to={`/taxon/${m.acceptedId}`}>Go to the accepted taxon</Anchor>
               </Text>
             ) : null}
-            {m.classification.length ? (
-              <Group gap={6} mt={4}>
-                {m.classification.map((c, i) => (
-                  <Text key={c.id ?? i} size="sm" c="dimmed">
-                    {c.id ? <Anchor component={Link} to={`/taxon/${c.id}`} size="sm">{c.name}</Anchor> : c.name}
-                    {i < m.classification.length - 1 ? ' ›' : ''}
-                  </Text>
-                ))}
-              </Group>
-            ) : null}
+            <ClassificationPath items={m.classification} />
           </div>
         ) : <Text c="dimmed">This name is not matched to the Catalogue of Life.</Text>}
       </Section>

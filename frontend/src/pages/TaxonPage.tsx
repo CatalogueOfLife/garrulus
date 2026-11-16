@@ -3,6 +3,7 @@ import { useQuery, useQueries } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { getClbClassification, getClbTaxon, getTaxonStats, getWork, getXr, searchWorks } from '../api';
 import type { Context } from '../api';
+import { ClassificationPath } from '../components/ClassificationPath';
 import { WorkList } from '../components/WorkList';
 import { YearBars } from '../components/YearBars';
 import { FeedLink } from '../components/FeedLink';
@@ -61,16 +62,11 @@ export function TaxonPage() {
             <FeedLink href={`/feeds/taxon/${encodeURIComponent(id)}.atom`} />
           </Group>
         ) : <Loader size="sm" />}
-        {classification.data?.length ? (
-          <Group gap={6} mt={4}>
-            {classification.data.map((c, i) => (
-              <Text key={c.id} size="sm" c="dimmed">
-                <Anchor component={Link} to={`/taxon/${c.id}`} size="sm">{c.name}</Anchor>
-                {i < classification.data.length - 1 ? ' ›' : ''}
-              </Text>
-            ))}
-          </Group>
-        ) : null}
+        <Text size="sm" c="dimmed" mt={2}>
+          A taxon in the Catalogue of Life, with everything below it.{' '}
+          <Anchor component={Link} to="/about#taxa" size="sm">What is this?</Anchor>
+        </Text>
+        {classification.data?.length ? <ClassificationPath items={classification.data} order="root-first" /> : null}
         {stats.data ? (
           <Text size="sm" mt={4}>{stats.data.total} papers, {stats.data.mainSubjectTotal} with this taxon as main subject.</Text>
         ) : null}

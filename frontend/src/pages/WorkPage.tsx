@@ -2,12 +2,12 @@ import { Alert, Anchor, Badge, Grid, Group, Loader, Stack, Text, Title } from '@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { getWork, type NameDetail } from '../api';
+import { ClassificationPath } from '../components/ClassificationPath';
 import { HighlightedText } from '../components/HighlightedText';
 import { Section } from '../components/Section';
 import { usePageTitle } from '../usePageTitle';
 
 function NameRow({ n, withTaxon }: { n: NameDetail; withTaxon: boolean }) {
-  const path = n.classification.map((t) => t.name).filter(Boolean).join(' › ');
   return (
     <li>
       <Anchor component={Link} to={`/name/${n.id}`} fs="italic">{n.name}</Anchor>
@@ -20,7 +20,12 @@ function NameRow({ n, withTaxon }: { n: NameDetail; withTaxon: boolean }) {
       ) : null}
       {n.mainSubject ? <Badge ml={6} size="xs" variant="light">main subject</Badge> : null}
       {n.actTypes.map((a) => <Badge key={a} ml={4} size="xs" variant="outline">{a}</Badge>)}
-      {path ? <Text size="xs" c="dimmed">COL classification: {path}</Text> : null}
+      {n.classification.length ? (
+        <Group gap={6}>
+          <Text size="xs" c="dimmed">COL classification:</Text>
+          <ClassificationPath items={n.classification} size="xs" />
+        </Group>
+      ) : null}
     </li>
   );
 }
