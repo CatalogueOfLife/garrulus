@@ -161,6 +161,8 @@ proxy targets `http://localhost:18080` on another port (never edit `vite.config.
 - `/api/me/**` (session; `GET /api/me`, `PATCH`, `POST /api/me/email`, `DELETE`, `/export`, `/subscriptions`,
   `/subscriptions/{id}/feed-token`, `/hits`), `/api/auth/**` (`POST /link`, `GET /config`, `POST /verify-email`,
   `POST /api/auth/logout`), `/api/unsubscribe` and ORCID under `/oauth2`, `/login`. XSRF cookie only on those paths.
+  Public reads carry no cache headers; `/api/me/**`, `/api/auth/**`, `/login/**` and `/api/admin/**` send
+  `Cache-Control: no-store` (ADR-0006).
 - Feeds: `/feeds/{taxon,source,name,taxgroup}/<id>.atom` (public) and `/feeds/s/<token>.atom` (private, per follow).
 - Admin: `POST /api/admin/digests/run` with `{"userId":n}` and the admin token sends that user's digest now.
 - Dev sign-in: `docker compose --profile mail up -d mailpit` (SMTP 1025, UI http://localhost:8025) and

@@ -28,7 +28,9 @@ Mailpit; deployment is a later stage.
 - **Window** (Markus, 2026-11-16, replacing "no backfill hits"): a paper is eligible when its date
   (`coalesce(publication_date, first_seen_at::date)`) is at most `nametracker.hits.window-days` (90) days old, inclusive,
   or, for a follow with `since_year`, its year (`coalesce(year, year of first_seen_at)`) is at least `since_year`. In both
-  cases it is at most `future-days` (7) ahead.
+  cases it is at most `future-days` (7) ahead. In the rolling window a paper without a publication date but with a
+  `year` before the year of the window start is outside, even when it was first seen today (an old paper harvested now
+  is not news); the public feeds apply the same guard.
 - **Any `work.origin` counts.** The window, not the origin, keeps old papers out: an onboarded journal's older papers
   give no hits to default-window follows; a follow with an early `since_year` gets the backfill's papers of its taxon
   (capped in the digest).
@@ -54,7 +56,11 @@ Mailpit; deployment is a later stage.
 - **Confirm buttons:** the SPA pages `/signin/verify` and `/verify-email` show an explicit confirm button and post only on
   click. A foreign link therefore cannot silently sign someone in (login CSRF). The pages fetch the XSRF cookie first.
 - **ORCID:** OIDC with scope `openid`, offered only when `ORCID_CLIENT_ID` is set. ORCID gives no email, so a new ORCID
-  account asks for one.
+  account asks for one. Garrulus never calls ORCID after the login, so no authorized client (access token) is kept.
+- **Time zone:** a new account starts on `UTC` (the server cannot know better). `GET /api/me` returns `created`; on the
+  first signed-in load of an account created in the last 10 minutes that is still on `UTC`, the SPA sets the browser's
+  zone once (a `localStorage` flag per user id keeps it from being repeated).
+- `/verify-email` opened while signed out sends the visitor to sign in first, with `next` pointing back to the link.
 - **`next`:** the page to return to after sign-in is kept in `localStorage` for 1 hour, not `sessionStorage`, because an
   email link opens in a new tab. When the user turns signed-in and a fresh `next` exists, the SPA navigates there once
   and clears it.
@@ -73,6 +79,9 @@ Mailpit; deployment is a later stage.
   the older row and the other's hits move over where they do not clash; the 100 cap does not apply to merges.
 - Address held by an account with a different ORCID iD, **or** a requester without ORCID verifying an address held by an
   ORCID account: refused (`REFUSED_OTHER_ORCID`). The safe side; that person can sign in to the holder by email link.
+- An address taken by another account between the lookup and the update is a `409 {"status":409,"error":"conflict"}`;
+  the change is rolled back and the token stays usable. The log names the user id and the exception class only (the
+  database's message holds the address).
 
 ### Digests
 
@@ -83,6 +92,11 @@ Mailpit; deployment is a later stage.
 - Content: undelivered hits created after `digest_since` and at most 14 days (`DAILY`) or 21 days (`WEEKLY`) old; older
   ones stay on "My hits" and are never mailed, so turning digests back on starts empty. At most 20 papers per
   subscription, then "and N more". New names and papers with acts come first. A digest with no hits is not sent.
+- Names per paper: the hit snapshots keep every matching name (hundreds for a checklist in a followed journal); only
+  the composition is cut. Names with acts come first, then main-subject names, then the rest; at most 10, then
+  "+N more". A name with acts carries their labels (sp. nov., gen. nov., subgen. nov., ssp. nov., comb. nov.,
+  stat. nov., stat. rev., syn. nov., nom. nov., type designation, higher taxon nov.) rather than a generic "new". The
+  private feed and the "My hits" page do the same; a `NEW_NAMES` hit keeps its "New names" badge.
 - **At-most-once delivery by design:** the hits are marked with a `digest` row in one committed transaction, then the
   mail is sent. A send that fails (or is suppressed) clears the marks and keeps the row as `FAILED`, so the next hour
   tries again; a crash between the commit and the send loses that digest rather than sending it twice (the hits stay on
@@ -100,14 +114,22 @@ key means a random key per start with a WARN, so links stop working after a rest
 
 Public Atom feeds `/feeds/{taxon,source,name,taxgroup}/…atom` list the papers a default follow would match (any origin,
 published within the window, newest `first_indexed_at` first, 50 entries, entry id = the work's Garrulus URL). The
-private feed `/feeds/s/{token}.atom` lists a subscription's hits (128-bit token, regenerable); it sends
-`X-Robots-Tag: noindex` and `Referrer-Policy: no-referrer`. Addresses never appear in feeds.
+private feed `/feeds/s/{token}.atom` lists a subscription's hits, one entry per hit: entry id
+`<public URL>/work/{id}#hit-{hitId}` and `updated` = the hit's `created`, so a `NEW_NAMES` hit of a paper already in the
+feed is a new entry that readers do not merge away; the feed's `updated` is the newest hit. Its token has 128 bits and
+can be regenerated ("New feed URL" on the Following page; the old URL stops working). It sends
+`Cache-Control: private, no-store`, `X-Robots-Tag: noindex` and `Referrer-Policy: no-referrer`. Public feeds send
+`Cache-Control: public, max-age=900`. DOI links are percent-encoded. Addresses never appear in feeds.
 
-### CSRF scope
+### CSRF scope and cache headers
 
-Cookie-based CSRF protection and the `XSRF-TOKEN` cookie apply only to `/api/me/**`, `/api/auth/**` and `/login/**`. The
-public `GET /api/**` and `/feeds/**` responses set no cookie, so they stay cacheable for the portal and proxies.
-`/api/admin/**` keeps the admin token, which remains the only admin access.
+- The `XSRF-TOKEN` cookie is issued only on `/api/me/**`, `/api/auth/**` and `/login/**`. The CSRF check applies to every
+  non-GET request except `/api/admin/**` (admin token, which remains the only admin access), `/api/unsubscribe`
+  (signed token) and `/api/auth/link` (no session yet, rate limited).
+- The public `GET /api/**` and `/feeds/**` responses set no cookie and no cache-busting headers: Spring Security's
+  default `Cache-Control: no-cache, no-store, …`, `Pragma` and `Expires` are switched off, so they stay cacheable for the
+  portal and proxies. `/api/me/**`, `/api/auth/**`, `/login/**` and `/api/admin/**` send `Cache-Control: no-store`;
+  the feeds set their own (above).
 
 ### Deployment is out of M4
 
