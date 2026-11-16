@@ -153,14 +153,18 @@ salience = clamp(s, 0, 1); main_subject = salience >= threshold
   and `has_acts` of INDEXED and NOTIFIED works from the stored mentions and the current ubiquity, reusing
   `WorkIndexer.aggregate`. Placements (method, usage, path, code, taxgroup), work state and `indexed_at` are never
   touched, and there is no CLB call. One transaction per work (work row locked first), one batch per task; a full batch
-  enqueues `rescore:<lastId>` at REPROCESS with the parent's `run_after`. It is **targeted**: only works with a
+  enqueues `rescore:all:<lastId>` or `rescore:changed:<lastId>` (the mode is in the key, so chains never merge) at REPROCESS with the parent's `run_after`. It is **targeted**: only works with a
   `work_name` of a name whose ubiquity penalty factor `min(1, share / ubiquity-full-share)` differs by more than 0.05
   from the one of `name_ubiquity.scored_share` (the share last scored with, null as 0; migration V6). A name that left
   the ubiquity stays as a row with share 0 until scored, so it counts as changed too. The last batch (fewer works than
   the batch size) sets `scored_share = share` for those names and deletes scored rows with share 0; marking at the end
   means a dead run is simply picked up again by the next night. `REBUILD_STATS` enqueues it (`{"afterId":0}`, dedup
-  `rescore:<date>`, REPROCESS) only when at least one name changed, so the nightly drift of shares does not rescore
+  `rescore:changed:<date>`, REPROCESS) only when at least one name changed, so the nightly drift of shares does not rescore
   everything. An admin task with `{"all":true}` rescores every work (after changing the salience properties, tuning).
+- Lag and drift: in `REBUILD_STATS`, `taxon_stats` and `CATEGORISE_SOURCES` run before the rescore it enqueues, so they
+  lag a rescore by one night. Works indexed between rescores use the current share, while `scored_share` is per name,
+  so a name's works can be scored with slightly different shares until the next rescore (bounded drift: a name is
+  rescored once its penalty factor moves by more than 0.05).
 - `work.codes` and `work.taxgroups` aggregate the main-subject names only, `taxgroups` with every ancestor group, so a
   filter on Insects is an array contains.
 

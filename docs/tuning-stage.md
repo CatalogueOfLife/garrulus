@@ -50,7 +50,8 @@ for f in gnfinder pipeline; do for s in dev test; do
 done; done
 ```
 
-Add `--match OVERLAP` runs if wanted (not committed). Commit the new `eval/reports/*.md` and `.json` (STRICT only).
+Add `--match OVERLAP --out eval/reports/OVERLAP` runs if wanted (`--out` is the report directory, default
+`eval/reports`; without it OVERLAP reports land among the committed ones; the OVERLAP directory is not committed). Commit the new `eval/reports/*.md` and `.json` (STRICT only).
 Curated reports have extra `acts`, `contexts`, `authorship` and `mainSubject` rows.
 
 ## 4. Judge tuning
@@ -63,20 +64,44 @@ mvn -q -pl eval exec:java -Dexec.args="tune --corpus eval/corpus/pensoft --split
 Mode B needs GROBID and the PDF cache (CLAUDE.md, "Mode B"). Tune on dev only, never test. Decide which corpus (or
 combination) drives the choice; the grid is `--grid`, `--thresholds`, `--top`. Copy the printed overrides into
 `finder-core/src/main/resources/org/catalogueoflife/nametracker/finder/pipeline/pipeline-defaults.json`. This changes
-the finder `configHash`, i.e. a new finder version: existing works are re-found after the next deploy. Re-run section 3
+the finder `configHash`, i.e. a new finder version. Only works found after the next deploy get the tuned finder: a
+repeat `FIND_NAMES` on an unchanged document is a no-op even under a new finder version (ADR-0005, design.md), so
+re-finding existing works needs M5's reprocessing (the force flag). Re-run section 3
 for the pipeline (dev and test), commit the reports, and quote the **test** numbers.
 
 ## 5. Salience tuning
 
+The baseline is the `nametracker.salience` block of `indexer/src/main/resources/application.yml` (`--config` to point
+elsewhere; the built-in defaults if it cannot be read; the run prints which one it used). Tune on dev, then evaluate
+exactly the dev values on test without searching:
+
 ```
 mvn -q -pl eval exec:java -Dexec.args="tune-salience --corpus eval/corpus/curated --split dev --report eval/work/salience-tuning.md"
-mvn -q -pl eval exec:java -Dexec.args="tune-salience --corpus eval/corpus/curated --split test --report eval/work/salience-tuning-test.md"
+mvn -q -pl eval exec:java -Dexec.args="tune-salience --corpus eval/corpus/curated --split test --eval-only --set title=0.4,abstract=0.2,act=0.35,heading=0.15,share=0.25,repeat=0.15,threshold=0.35"
 ```
 
-Tune on dev and check test (the second run also searches, so compare its numbers with the dev weights by hand, not by
-trusting its own optimum). Copy the printed `nametracker.salience.*` values into the `salience:` block of
-`indexer/src/main/resources/application.yml`. Then rescore the dev run (indexer 18081, web 18080; restart the indexer
-first so it reads the new weights). `ADMIN_TOKEN` is in `.env`; never print it:
+`--set` takes `nametracker.salience.*` keys without the prefix (title, abstract, act, heading, share, repeat, ubiquity,
+ubiquity-full-share, threshold) on top of the baseline and prints P/R/F1 of those values. The printed overrides carry
+full precision, so what you copy is what was evaluated. Copy them into the `salience:` block of
+`indexer/src/main/resources/application.yml`. Then rescore the dev run.
+
+The dev run's `data/run/indexer.jar` predates `RESCORE_SALIENCE`, migration V6 and the salience move, so redeploy it
+first (indexer 18081, web 18080; never 8080/8081):
+
+1. `mvn -B -DskipTests clean install`.
+2. Keep the old log: `mv data/run/indexer.log data/run/indexer-N.log` with the next free N.
+3. Stop only the pid in `data/run/indexer.pid` (`kill $(cat data/run/indexer.pid)`), nothing else.
+4. `cp indexer/target/nametracker-indexer-0.1.0-SNAPSHOT.jar data/run/indexer.jar` (likewise the web jar to
+   `data/run/web.jar` if web changed; web then needs its own restart).
+5. Restart with the same env as `docs/m2-dev-run.md` (`NAMETRACKER_INDEXER_PORT=18081`, ...). The weights come from the
+   `application.yml` inside the jar, or from env overrides by Spring's relaxed binding of `nametracker.salience.*`:
+   `NAMETRACKER_SALIENCE_TITLE`, `_ABSTRACT`, `_ACT`, `_HEADING`, `_SHARE`, `_REPEAT`, `_UBIQUITY`,
+   `_UBIQUITY_FULL_SHARE`, `_THRESHOLD` (`application.yml` has no placeholders for them).
+
+Warning: on the first deploy of V6 every `scored_share` is null, so the first nightly `REBUILD_STATS` enqueues a
+targeted rescore of nearly all works. That is fine, but expect it.
+
+`ADMIN_TOKEN` is in `.env`; never print it:
 
 ```
 set -a; . ./.env; set +a          # in bash (zsh cannot source this .env)
@@ -84,7 +109,9 @@ curl -s -X POST localhost:18080/api/admin/tasks -H "X-Admin-Token: $ADMIN_TOKEN"
   -d '{"type":"RESCORE_SALIENCE","payload":{"all":true},"priority":"LIVE","dedupKey":"rescore-salience:manual"}'
 ```
 
-The payload also takes `afterId` and `batch` (default 500), both optional. Watch `GET /api/admin/status`.
+The payload also takes `afterId` and `batch` (default 500), both optional. Continuations use the dedup key
+`rescore:all:<lastId>` (or `rescore:changed:<lastId>` for targeted runs), so an all run stays an all run. Watch
+`GET /api/admin/status`.
 
 ## 6. Open decisions for Markus
 
@@ -105,6 +132,7 @@ deleted, nothing from this is to be quoted.
 
 - names: pipeline P .918 R .896 F1 .907; gnfinder P .522 R .844 F1 .645.
 - acts F1: pipeline 1.0 (6 of 6), gnfinder .600. contexts F1: pipeline .182, gnfinder 0. mainSubject F1: pipeline
-  .308, gnfinder .216.
+  .308, gnfinder .216. The `run` report's mainSubject row is a title+act heuristic, not salience, hence .308 here
+  against `tune-salience`'s .632 below.
 - `tune-salience` on the provisional gold: dev F1 .632 to .706, test .667 to .889, on too few labels (21 documents);
   the weights are not committed.
