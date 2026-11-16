@@ -245,6 +245,32 @@ paths:
                 required: [orcid]
                 properties:
                   orcid: {type: boolean}
+  /api/unsubscribe:
+    get:
+      tags: [account]
+      summary: Opens the unsubscribe page of a digest link
+      description: Changes nothing; redirects to the SPA page, which asks and posts the token.
+      operationId: unsubscribePage
+      parameters:
+        - {name: t, in: query, required: false, schema: {type: string}, description: The signed token of the link.}
+      responses:
+        "302":
+          description: Redirect to the unsubscribe page of the SPA.
+    post:
+      tags: [account]
+      summary: Turns digests off (one-click unsubscribe, RFC 8058)
+      description: No sign-in and no CSRF token; the signed token is the credential. Other settings are kept.
+      operationId: unsubscribe
+      parameters:
+        - {name: t, in: query, required: true, schema: {type: string}, description: The signed token of the link.}
+      responses:
+        "200":
+          description: Digests are off (also when they already were).
+          content:
+            application/json:
+              schema: {type: object}
+        "400":
+          description: The token is missing or invalid.
   /api/me:
     get:
       tags: [account]

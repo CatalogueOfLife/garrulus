@@ -13,6 +13,12 @@ spring:
     enabled: true
     locations: classpath:db/migration
     ignore-migration-patterns: "*:future"
+  mail:
+    properties:
+      # JavaMail waits forever by default; a stalled SMTP host must not block the digest job (milliseconds)
+      mail.smtp.connectiontimeout: 10000
+      mail.smtp.timeout: 30000
+      mail.smtp.writetimeout: 30000
   session:
     # Spring Session JDBC; its tables come from the V7 migration, never from framework auto-init
     timeout: 30d

@@ -43,10 +43,11 @@
   </select>
 
   <update id="markDelivered">
+    <!-- one bigint[] parameter, however many hits: a statement has at most 65,535 binds -->
     UPDATE hit SET digest_id = #{digestId} WHERE digest_id IS NULL AND
     <choose>
       <when test="hitIds == null or hitIds.isEmpty()">false</when>
-      <otherwise>id IN <foreach collection="hitIds" item="i" open="(" separator="," close=")">#{i}</foreach></otherwise>
+      <otherwise>id = ANY(#{hitIds, typeHandler=org.catalogueoflife.nametracker.store.type.LongListTypeHandler})</otherwise>
     </choose>
   </update>
 

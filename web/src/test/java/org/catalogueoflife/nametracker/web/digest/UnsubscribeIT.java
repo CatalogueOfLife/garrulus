@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.catalogueoflife.nametracker.web.AbstractPostgresIT;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -21,6 +22,7 @@ class UnsubscribeIT extends AbstractPostgresIT {
   @LocalServerPort int port;
   @Autowired JdbcTemplate jdbc;
   @Autowired UnsubscribeTokens tokens;
+  @Value("${nametracker.public-url}") String publicUrl;
 
   long user() {
     return jdbc.queryForObject("INSERT INTO app_user (email, email_verified, digest_since, time_zone, digest_frequency, "
@@ -71,8 +73,15 @@ class UnsubscribeIT extends AbstractPostgresIT {
   @Test
   void getDoesNotTurnOff() throws Exception {
     long u = user();
-    HttpResponse<String> r = send("GET", "?t=" + tokens.create(u), null);
-    assertThat(r.statusCode()).isEqualTo(405);
+    String token = tokens.create(u);
+    HttpResponse<String> r = send("GET", "?t=" + token, null);
+    // mail clients without RFC 8058 open the URL: they land on the SPA page, which asks and posts
+    assertThat(r.statusCode()).isEqualTo(302);
+    assertThat(r.headers().firstValue("Location")).hasValue(publicUrl + "/unsubscribe?t=" + token);
     assertThat(settings(u).get("digest_frequency")).isEqualTo("WEEKLY");
+    // whatever the parameter holds, it is passed on encoded
+    r = send("GET", "?t=a%26b%3Dc", null);
+    assertThat(r.headers().firstValue("Location")).hasValue(publicUrl + "/unsubscribe?t=a%26b%3Dc");
+    assertThat(send("GET", "", null).headers().firstValue("Location")).hasValue(publicUrl + "/unsubscribe");
   }
 }

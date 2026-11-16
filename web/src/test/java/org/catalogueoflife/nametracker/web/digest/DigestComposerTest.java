@@ -93,6 +93,17 @@ class DigestComposerTest {
   }
 
   @Test
+  void doiLinksArePercentEncoded() {
+    String sici = "10.1002/(SICI)1097-4636(199706)35:4<477::AID-JBM8>3.0.CO;2-#";
+    Paper p = new Paper(new Hit(1L, 9, 1, "ARTICLE", T0, article("A b"), null), new WorkSummary(1, sici, "SICI paper",
+        1997, null, null, List.of(), 0, "ABSTRACT_ONLY", false, List.of()));
+    Mail m = composer.compose(USER, List.of(new SubscriptionHits(9, "x", List.of(p))), URL);
+    String link = "https://doi.org/10.1002/(SICI)1097-4636(199706)35:4%3C477::AID-JBM8%3E3.0.CO;2-%23";
+    assertThat(m.text()).contains(link + "\n");
+    assertThat(m.html()).contains("href=\"" + link + "\"").doesNotContain("<477").doesNotContain("2-#");
+  }
+
+  @Test
   void subjectPlural() {
     Mail one = composer.compose(USER, List.of(new SubscriptionHits(9, "x",
         List.of(paper(1, 9, 1, "ARTICLE", article("A b"), false, "T")))), URL);

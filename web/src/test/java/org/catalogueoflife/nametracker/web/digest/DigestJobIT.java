@@ -17,6 +17,7 @@ import org.catalogueoflife.nametracker.web.auth.CapturingMailSender;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.test.util.AopTestUtils;
 
 class DigestJobIT extends AbstractAuthIT {
 
@@ -188,6 +189,49 @@ class DigestJobIT extends AbstractAuthIT {
     r = admin("{\"userId\":" + u + "}", "test-token");
     assertThat(r.body()).isEqualTo("{\"sent\":false,\"hits\":0}");
     assertThat(admin("{\"userId\":999999999}", "test-token").statusCode()).isEqualTo(404);
+  }
+
+  @Test
+  void concurrentRunKeepsItsHitsAndNothingIsSent() {
+    String email = address();
+    long u = user(email, "DAILY", ago(24 * 30));
+    long s = subscription(u, "Raced");
+    long taken = hit(s, work("Taken by the other run"), "ARTICLE", ago(2), "Aus bus");
+    long left = hit(s, work("Left for the other run"), "ARTICLE", ago(1), "Aus cus");
+    long other = jdbc.queryForObject("INSERT INTO digest (user_id, hits, status) VALUES (?, 1, 'SENT') RETURNING id",
+        Long.class, u);
+    // another run marks one of the collected hits between collect and mark; the seam is a field of the bean
+    // itself, not of the ShedLock proxy
+    DigestJob target = AopTestUtils.getUltimateTargetObject(job);
+    target.beforeMark = ids -> jdbc.update("UPDATE hit SET digest_id = ? WHERE id = ?", other, taken);
+    try {
+      assertThat(job.runFor(u, true)).isEqualTo(new DigestJob.Result(false, 0));
+    } finally {
+      target.beforeMark = ids -> {};
+    }
+    assertThat(mail.to(email)).isEmpty();
+    // the whole transaction rolled back: no digest row of this run, the other hit untouched
+    assertThat(digestRows(u)).containsExactly("SENT:1:");
+    assertThat(digestOf(taken)).isEqualTo(other);
+    assertThat(digestOf(left)).isNull();
+  }
+
+  @Test
+  void broadFollowSpansSeveralSummaryChunks() throws Exception {
+    String email = address();
+    long u = user(email, "DAILY", ago(24 * 30));
+    long s = subscription(u, "Broad");
+    int n = DigestJob.SUMMARY_CHUNK + 1;
+    String prefix = "10.1/broad" + SEQ.incrementAndGet() + "-";
+    jdbc.update("INSERT INTO work (doi, title, publication_date, year, state, origin, text_level, first_indexed_at) "
+        + "SELECT ? || g, 'Broad paper ' || g, current_date, 2026, 'INDEXED', 'LIVE', 'ABSTRACT_ONLY', now() "
+        + "FROM generate_series(1, ?) g", prefix, n);
+    jdbc.update("INSERT INTO hit (subscription_id, work_id, kind, created, names) SELECT ?, id, 'ARTICLE', "
+        + "now() - interval '1 hour', '[]'::jsonb FROM work WHERE doi LIKE ?", s, prefix + "%");
+    assertThat(job.runFor(u, true)).isEqualTo(new DigestJob.Result(true, n));
+    assertThat(CapturingMailSender.plainText(mail.to(email).getFirst())).contains("and " + (n - 20) + " more");
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM hit WHERE subscription_id = ? AND digest_id IS NULL",
+        Long.class, s)).isZero();
   }
 
   @Test

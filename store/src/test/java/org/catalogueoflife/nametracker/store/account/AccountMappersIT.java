@@ -406,6 +406,22 @@ class AccountMappersIT extends AbstractPostgresIT {
   }
 
   @Test
+  void markDeliveredTakesMoreIdsThanBindParameters() {
+    long u = user("a@example.org");
+    long s = sub(u, "TAXON", "T1");
+    hits.insertIfAbsent(new Hit(null, s, work(), "ARTICLE", null, null, null));
+    hits.insertIfAbsent(new Hit(null, s, work(), "ARTICLE", null, null, null));
+    List<Long> ids = new java.util.ArrayList<>(hits.listByUser(u, null, 10, 0).stream().map(Hit::id).toList());
+    // pad with ids of no hit: more than the 65,535 bind parameters of one statement
+    for (long i = 1; i <= 70_000; i++) {
+      ids.add(-i);
+    }
+    long d = digests.insert(new Digest(null, u, null, 2, "SENT", null));
+    assertThat(hits.markDelivered(ids, d)).isEqualTo(2);
+    assertThat(hits.listByUser(u, null, 10, 0)).allMatch(h -> h.digestId() == d);
+  }
+
+  @Test
   void expiredTokensArePurged() {
     long u = user("a@example.org");
     tokens.insert(u, "new@example.org", "live", Instant.now().plus(1, ChronoUnit.HOURS));

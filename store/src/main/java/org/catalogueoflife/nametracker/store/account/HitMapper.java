@@ -28,7 +28,7 @@ public interface HitMapper {
 
   /**
    * Sets digest_id of the listed hits that are in no digest yet; returns the number marked. An empty list marks
-   * nothing.
+   * nothing; the ids are bound as one array, so the list may be of any length.
    */
   int markDelivered(@Param("hitIds") List<Long> hitIds, @Param("digestId") long digestId);
 

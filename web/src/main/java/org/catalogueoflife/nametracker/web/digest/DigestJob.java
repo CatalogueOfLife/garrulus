@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.catalogueoflife.nametracker.store.account.AccountMapper;
@@ -40,6 +40,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  * new SENT digest row in one transaction, then the mail goes out; if it fails, the marks are cleared and the row is
  * kept as FAILED, so the next hour tries again. No hits, no mail and no row. The same run purges expired email and
  * sign-in tokens. Logs name the user id, never the address.
+ *
+ * <p>Delivery is at most once by design: the hits are marked (committed) before the mail is sent, so a crash between
+ * the commit and the send loses that digest rather than sending it twice.
  */
 @Component
 public class DigestJob {
@@ -50,6 +53,12 @@ public class DigestJob {
   public record Result(boolean sent, int hits) {}
 
   private static final Result NOTHING = new Result(false, 0);
+
+  /** Work ids per summary query: those queries bind one parameter per id. */
+  static final int SUMMARY_CHUNK = 1000;
+
+  /** Test seam: runs between collecting the hits and marking them (a concurrent run's window). */
+  volatile Consumer<List<Long>> beforeMark = ids -> {};
 
   private final AccountMapper accounts;
   private final SubscriptionMapper subscriptions;
@@ -135,8 +144,7 @@ public class DigestJob {
     }
     Instant since = u.digestSince() != null ? u.digestSince() : u.emailVerified();
     List<Hit> rows = hits.undeliveredForDigest(userId, since, now.minus(DigestSchedule.maxAge(u)));
-    Map<Long, WorkSummary> listed = rows.isEmpty() ? Map.of()
-        : works.summaries(rows.stream().map(Hit::workId).distinct().toList());
+    Map<Long, WorkSummary> listed = summaries(rows.stream().map(Hit::workId).distinct().toList());
     // a work that is no longer listed cannot be shown: its hit stays undelivered
     List<Hit> mailed = rows.stream().filter(h -> listed.containsKey(h.workId())).toList();
     if (mailed.isEmpty()) {
@@ -145,6 +153,7 @@ public class DigestJob {
     Mail m = composer.compose(u, groups(userId, mailed, listed), publicUrl);
     List<Long> ids = mailed.stream().map(Hit::id).toList();
 
+    beforeMark.accept(ids);
     Long digestId = tx.execute(status -> {
       long id = digests.insert(new Digest(null, userId, null, ids.size(), "SENT", null));
       if (hits.markDelivered(ids, id) != ids.size()) {
@@ -180,6 +189,15 @@ public class DigestJob {
     }
     LOG.info("Digest {} of user {}: {} hits, SENT", digestId, userId, ids.size());
     return new Result(true, ids.size());
+  }
+
+  /** The listed works among the ids, in chunks: a broad follow may hold more hits than one query can bind. */
+  private Map<Long, WorkSummary> summaries(List<Long> workIds) {
+    Map<Long, WorkSummary> out = new java.util.HashMap<>();
+    for (int i = 0; i < workIds.size(); i += SUMMARY_CHUNK) {
+      out.putAll(works.summaries(workIds.subList(i, Math.min(workIds.size(), i + SUMMARY_CHUNK))));
+    }
+    return out;
   }
 
   private List<SubscriptionHits> groups(long userId, List<Hit> mailed, Map<Long, WorkSummary> listed) {

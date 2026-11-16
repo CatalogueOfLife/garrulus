@@ -1,11 +1,13 @@
 package org.catalogueoflife.nametracker.web.digest;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
@@ -16,6 +18,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.util.HtmlUtils;
+import org.springframework.web.util.UriUtils;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -58,7 +61,7 @@ public final class DigestComposer {
   public Mail compose(AppUser u, List<SubscriptionHits> groups, String publicUrl) {
     String base = publicUrl.strip().replaceAll("/+$", "");
     List<SubscriptionHits> sorted = groups.stream()
-        .sorted(Comparator.comparing((SubscriptionHits g) -> label(g).toLowerCase())
+        .sorted(Comparator.comparing((SubscriptionHits g) -> label(g).toLowerCase(Locale.ROOT))
             .thenComparing(SubscriptionHits::subscriptionId))
         .toList();
     Set<Long> works = new HashSet<>();
@@ -159,7 +162,9 @@ public final class DigestComposer {
     WorkSummary w = e.work();
     String title = w.title() == null || w.title().isBlank() ? "(untitled)" : w.title().strip();
     String page = base + "/work/" + w.id();
-    String doi = w.doi() == null || w.doi().isBlank() ? null : "https://doi.org/" + w.doi();
+    // DOIs may hold # ? < > or spaces (SICI): percent-encoded as a path, then HTML-escaped where written
+    String doi = w.doi() == null || w.doi().isBlank() ? null
+        : "https://doi.org/" + UriUtils.encodePath(w.doi().strip(), StandardCharsets.UTF_8);
     List<String> meta = new ArrayList<>();
     if (w.source() != null && w.source().title() != null) {
       meta.add(w.source().title());
