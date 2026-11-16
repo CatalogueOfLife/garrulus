@@ -85,9 +85,13 @@ A second admin run answered `{"sent":false,"hits":0}`, and no mail was sent.
 
 ## Open
 
-- **ORCID sign-in**: waits for the "Garrulus" ORCID client. Markus adds `ORCID_CLIENT_ID` and `ORCID_CLIENT_SECRET`
-  to `.env`, with the redirect URI `http://localhost:5173/login/oauth2/code/orcid`. Then restart web and sign in at
-  `http://localhost:5173/signin`.
+- **ORCID sign-in**: the client is configured (the existing ORCID public client, with the redirect URI
+  `http://127.0.0.1:5173/login/oauth2/code/orcid`; production ORCID rejected `http://localhost`, and ORCID allows one
+  public client per person). Vite's string proxy shorthand rewrote the `Host` header to `localhost:18080`, so the
+  redirect URI pointed at web; the proxy now uses `changeOrigin: false` and Vite listens on 127.0.0.1. Web restarted at
+  13:00 UTC with `NAMETRACKER_PUBLIC_URL=http://127.0.0.1:5173`; `/oauth2/authorization/orcid` now redirects to
+  orcid.org with `redirect_uri=http://127.0.0.1:5173/login/oauth2/code/orcid`. Markus signs in at
+  `http://127.0.0.1:5173/signin`.
 - **The scheduled digest**: the test account now has a daily digest at 07:00 Europe/Berlin. The first scheduled mail,
   with the nightly harvest's Carabidae and Zootaxa papers if there are any, goes to Mailpit on 2026-11-17.
 

@@ -166,10 +166,12 @@ proxy targets `http://localhost:18080` on another port (never edit `vite.config.
 - Feeds: `/feeds/{taxon,source,name,taxgroup}/<id>.atom` (public) and `/feeds/s/<token>.atom` (private, per follow).
 - Admin: `POST /api/admin/digests/run` with `{"userId":n}` and the admin token sends that user's digest now.
 - Dev sign-in: `docker compose --profile mail up -d mailpit` (SMTP 1025, UI http://localhost:8025) and
-  `spring.mail.host=localhost`, `spring.mail.port=1025` in `.env`. Vite must listen on 5173 (it proxies `/api`,
-  `/oauth2`, `/login`, `/feeds` and keeps the `Host` header; a scratch config may point at 18080 but keeps 5173), with
-  `NAMETRACKER_PUBLIC_URL=http://localhost:5173`. The ORCID client needs the redirect URI
-  `http://localhost:5173/login/oauth2/code/orcid`.
+  `spring.mail.host=localhost`, `spring.mail.port=1025` in `.env`. Vite listens on 127.0.0.1:5173 (it proxies `/api`,
+  `/oauth2`, `/login`, `/feeds` with `changeOrigin: false`, so the `Host` header stays; a scratch config may point at
+  18080 but keeps 127.0.0.1:5173). For ORCID, open the SPA at `http://127.0.0.1:5173` and set
+  `NAMETRACKER_PUBLIC_URL=http://127.0.0.1:5173`: production ORCID rejects `http://localhost` redirect URIs but accepts
+  `http://127.0.0.1:5173/login/oauth2/code/orcid`. ORCID allows one public client per person; Garrulus shares the
+  existing client registered for Blixa for now.
 
 ## Evaluation (`eval`)
 
