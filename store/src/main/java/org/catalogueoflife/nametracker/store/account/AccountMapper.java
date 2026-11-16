@@ -21,7 +21,7 @@ public interface AccountMapper {
    */
   long insert(@Param("o") AppUser o);
 
-  /** Sets all of these; the caller passes the current value for what stays and the new digest_since (or null). */
+  /** Sets all of these; the caller passes the current value for what stays; a null digestSince keeps the stored digest_since. */
   int updateSettings(@Param("id") long id, @Param("displayName") @Nullable String displayName,
       @Param("timeZone") String timeZone, @Param("digestFrequency") String digestFrequency,
       @Param("digestWeekday") int digestWeekday, @Param("digestHour") int digestHour,

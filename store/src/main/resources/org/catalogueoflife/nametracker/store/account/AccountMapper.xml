@@ -45,7 +45,7 @@
 
   <update id="updateSettings">
     UPDATE app_user SET display_name = #{displayName}, time_zone = #{timeZone}, digest_frequency = #{digestFrequency},
-      digest_weekday = #{digestWeekday}, digest_hour = #{digestHour}, digest_since = #{digestSince}
+      digest_weekday = #{digestWeekday}, digest_hour = #{digestHour}, digest_since = COALESCE(#{digestSince}, digest_since)
     WHERE id = #{id}
   </update>
 

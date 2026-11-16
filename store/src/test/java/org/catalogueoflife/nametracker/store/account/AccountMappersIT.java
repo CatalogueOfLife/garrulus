@@ -77,6 +77,7 @@ class AccountMappersIT extends AbstractPostgresIT {
     assertThat(u.email()).isEqualTo("x@example.org");
     assertThat(u.emailVerified()).isNotNull();
     assertThat(u.digestSince()).isNotNull();
+    Instant since = accounts.findById(id).digestSince();
     accounts.updateSettings(id, "Ann", "Europe/Berlin", "WEEKLY", 3, 9, null);
     u = accounts.findById(id);
     assertThat(u.displayName()).isEqualTo("Ann");
@@ -84,6 +85,10 @@ class AccountMappersIT extends AbstractPostgresIT {
     assertThat(u.digestFrequency()).isEqualTo("WEEKLY");
     assertThat(u.digestWeekday()).isEqualTo(3);
     assertThat(u.digestHour()).isEqualTo(9);
+    assertThat(u.digestSince()).isNotNull().isEqualTo(since);
+    Instant later = Instant.now().plus(1, ChronoUnit.DAYS).truncatedTo(ChronoUnit.MILLIS);
+    accounts.updateSettings(id, "Ann", "Europe/Berlin", "WEEKLY", 3, 9, later);
+    assertThat(accounts.findById(id).digestSince()).isEqualTo(later);
     assertThat(u.lastLogin()).isNull();
     accounts.touchLogin(id);
     assertThat(accounts.findById(id).lastLogin()).isNotNull();
