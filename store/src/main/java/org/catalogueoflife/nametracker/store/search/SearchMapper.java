@@ -18,6 +18,16 @@ public interface SearchMapper {
   /** The listed (INDEXED or NOTIFIED) works among the ids, as search rows, in no particular order. */
   List<WorkHit> byIds(@Param("ids") Collection<Long> workIds);
 
+  /**
+   * Feed works: listed, passing the filter, published within the last {@code windowDays} days (publication date, else
+   * first_seen_at; never more than 7 days ahead), newest first_indexed_at first. A name filter ignores works that
+   * mention the name only in their references.
+   */
+  List<FeedRow> feed(@Param("f") WorkFilter f, @Param("windowDays") int windowDays, @Param("limit") int limit);
+
+  /** The listed works among the ids as feed rows, in no particular order (no window). */
+  List<FeedRow> feedByIds(@Param("ids") Collection<Long> workIds);
+
   long count(@Param("f") WorkFilter f);
 
   /** The 100 most frequent values of the facet within the filtered set, most frequent first. */
