@@ -25,12 +25,21 @@ describe('SignInPage', () => {
     await userEvent.type(await screen.findByLabelText(/^Email/), 'a@example.org');
     await userEvent.click(screen.getByRole('button', { name: /Email me a sign-in link/ }));
     expect(await screen.findByText('Check your inbox')).toBeInTheDocument();
-    expect(sessionStorage.getItem('garrulus.next')).toBe('/hits');
+    expect(JSON.parse(localStorage.getItem('garrulus.next') ?? '{}').path).toBe('/hits');
   });
 
   it('shows an ORCID error', async () => {
     server.use(authConfigHandler(true));
     renderApp(<SignInPage />, '/signin?error=orcid');
     expect(await screen.findByText(/ORCID sign-in did not work/)).toBeInTheDocument();
+  });
+
+  it('stores next when the ORCID link is clicked', async () => {
+    server.use(authConfigHandler(true));
+    renderApp(<SignInPage />, '/signin?next=/following');
+    const link = await screen.findByRole('link', { name: /Continue with ORCID/ });
+    link.addEventListener('click', (e) => e.preventDefault());
+    await userEvent.click(link);
+    expect(JSON.parse(localStorage.getItem('garrulus.next') ?? '{}').path).toBe('/following');
   });
 });

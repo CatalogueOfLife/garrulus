@@ -28,7 +28,7 @@ export function SignInPage() {
       )}
       {config.data?.orcid && (
         <>
-          <Button component="a" href={orcidHref} variant="default">Continue with ORCID</Button>
+          <Button component="a" href={orcidHref} onClick={() => rememberNext(params.get('next'))} variant="default">Continue with ORCID</Button>
           <Divider label="or" />
         </>
       )}

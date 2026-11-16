@@ -1,8 +1,9 @@
 import { Button, Menu } from '@mantine/core';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { signOut } from '../api';
-import { useMe } from '../auth/useMe';
+import { takeNext, useMe } from '../auth/useMe';
 
 export function AccountMenu() {
   const me = useMe();
@@ -17,8 +18,17 @@ export function AccountMenu() {
       navigate('/');
     },
   });
-  if (me.isPending) return null;
   const u = me.data;
+  const wasSignedIn = useRef(false);
+  useEffect(() => {
+    const signedIn = !!u;
+    if (signedIn && !wasSignedIn.current) {
+      const next = takeNext();
+      if (next) navigate(next);
+    }
+    wasSignedIn.current = signedIn;
+  }, [u, navigate]);
+  if (me.isPending) return null;
   if (!u) {
     const next = here.pathname + here.search;
     const to = next === '/' || next.startsWith('/signin') ? '/signin' : `/signin?next=${encodeURIComponent(next)}`;

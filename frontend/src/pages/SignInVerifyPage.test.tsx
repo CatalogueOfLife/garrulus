@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { Route, Routes } from 'react-router-dom';
 import { SignInVerifyPage } from './SignInVerifyPage';
+import { rememberNext } from '../auth/useMe';
 import { server } from '../test/server';
 import { renderApp } from '../test/render';
 
@@ -16,7 +17,7 @@ const app = () => (
 describe('SignInVerifyPage', () => {
   it('postsTokenOnceAndRedirects (only after the click)', async () => {
     document.cookie = 'XSRF-TOKEN=xyz; path=/';
-    sessionStorage.setItem('garrulus.next', '/hits');
+    rememberNext('/hits');
     let calls = 0;
     let body = '';
     let xsrf: string | null = null;
@@ -40,7 +41,7 @@ describe('SignInVerifyPage', () => {
   });
 
   it('ignores an unsafe next', async () => {
-    sessionStorage.setItem('garrulus.next', '//evil.example');
+    localStorage.setItem('garrulus.next', JSON.stringify({ path: '//evil.example', ts: Date.now() }));
     server.use(
       http.get('/api/auth/config', () => HttpResponse.json({ orcid: false })),
       http.post('/login/ott', () => HttpResponse.json({ userId: 1 })),

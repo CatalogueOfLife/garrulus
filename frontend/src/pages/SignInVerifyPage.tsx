@@ -16,8 +16,9 @@ export function SignInVerifyPage() {
   const m = useMutation({
     mutationFn: () => signInWithToken(token),
     onSuccess: async () => {
+      const next = takeNext() ?? '/'; // taken first, so the app-wide handler does not also act on it
       await client.invalidateQueries({ queryKey: ['me'] });
-      navigate(takeNext());
+      navigate(next);
     },
   });
   return (
