@@ -31,6 +31,14 @@ class SecurityIT extends AbstractAuthIT {
     }
     // nor do the portal's taxon calls, found or not
     assertThat(plainGet("/api/taxa/NOPE/stats").headers().allValues("Set-Cookie")).isEmpty();
+    // public reads carry no cache-busting headers, so Varnish and browsers may keep them
+    for (String path : new String[] {"/api/works", "/api/taxa/NOPE/works", "/api/sources", "/api/openapi.yaml"}) {
+      HttpResponse<String> r = plainGet(path);
+      assertThat(r.statusCode()).as(path).isEqualTo(200);
+      assertThat(r.headers().firstValue("Cache-Control")).as(path).isEmpty();
+      assertThat(r.headers().firstValue("Pragma")).as(path).isEmpty();
+      assertThat(r.headers().firstValue("Expires")).as(path).isEmpty();
+    }
     // a missing public resource is still a 404, not a 401
     assertThat(plainGet("/api/works/999999999").statusCode()).isEqualTo(404);
 
@@ -76,6 +84,10 @@ class SecurityIT extends AbstractAuthIT {
         .contains("\"digestFrequency\":\"WEEKLY\"").contains("\"displayName\":\"Frank\"");
     HttpResponse<String> me = b.get("/api/me");
     assertThat(me.body()).contains("\"digestWeekday\":3");
+    // created (ISO instant): the SPA proposes the browser's time zone to new accounts
+    Instant created = jdbc.queryForObject("select created from app_user where id = ?", Timestamp.class, userId)
+        .toInstant();
+    assertThat(me.body()).contains("\"created\":\"" + created + "\"");
   }
 
   @Test
@@ -108,6 +120,18 @@ class SecurityIT extends AbstractAuthIT {
           .anyMatch(c -> c.startsWith("XSRF-TOKEN=") && !c.startsWith("XSRF-TOKEN=;"))
           .noneMatch(c -> c.startsWith("SESSION="));
     }
+  }
+
+  @Test
+  void accountAndAuthResponsesAreNoStore() throws Exception {
+    assertThat(plainGet("/api/auth/config").headers().allValues("Cache-Control")).containsExactly("no-store");
+    // signed out (401) and signed in
+    assertThat(plainGet("/api/me").headers().allValues("Cache-Control")).containsExactly("no-store");
+    Browser b = signedInAs(emailUser("nostore-" + UUID.randomUUID().toString().substring(0, 8) + "@example.org", null));
+    HttpResponse<String> me = b.get("/api/me");
+    assertThat(me.statusCode()).isEqualTo(200);
+    assertThat(me.headers().allValues("Cache-Control")).containsExactly("no-store");
+    assertThat(b.get("/api/me/subscriptions").headers().allValues("Cache-Control")).containsExactly("no-store");
   }
 
   @Test

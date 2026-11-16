@@ -13,6 +13,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.ott.JdbcOneTimeTokenService;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
@@ -23,6 +24,7 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.header.HeaderWriterFilter;
 import org.springframework.security.web.savedrequest.NullRequestCache;
 
 /**
@@ -84,6 +86,10 @@ public class SecurityConfig {
             // admin: header token, no cookie; unsubscribe: signed token; link: no session yet, rate limited
             .ignoringRequestMatchers("/api/admin/**", "/api/unsubscribe", "/api/auth/link"))
         .addFilterAfter(new CsrfCookieFilter(CsrfCookieFilter.SPA_PATHS), BasicAuthenticationFilter.class)
+        // the default no-cache headers would make every public read uncacheable; the account, sign-in and admin
+        // paths get no-store from NoStoreFilter, the feeds set their own
+        .headers(h -> h.cacheControl(HeadersConfigurer.CacheControlConfig::disable))
+        .addFilterBefore(new NoStoreFilter(), HeaderWriterFilter.class)
         .oneTimeTokenLogin(ott -> ott
             .tokenService(tokens)
             // the token proves that its holder reads the address: the provider finds or creates the account and
@@ -107,6 +113,8 @@ public class SecurityConfig {
     if (clients != null) {
       http.oauth2Login(o -> o
           .clientRegistrationRepository(clients)
+          // the access token is never used after the login: keep no authorized client per ORCID user
+          .authorizedClientRepository(new NoOpAuthorizedClientRepository())
           // the SPA's page; also keeps Spring from generating a login page at /login
           .loginPage(orcidLogin.signInPage())
           .authorizationEndpoint(a -> a.authorizationRequestResolver(

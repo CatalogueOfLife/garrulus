@@ -10,6 +10,7 @@ import org.catalogueoflife.nametracker.store.account.SubscriptionMapper;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -57,11 +58,23 @@ public class AccountMerger {
 
   /**
    * Consumes the token of {@code requesterId} and applies its address. A 400 when the token is unknown, expired or
-   * used meanwhile (nothing changes); a 401 when it is another account's (left in place) or the requester is gone.
+   * used meanwhile (nothing changes); a 401 when it is another account's (left in place) or the requester is gone; a
+   * 409 "conflict" when another account took the address between the lookup and the update (rolled back, the token
+   * stays usable). The database's message names the address, so only the user id and the exception class are logged.
    *
    * @param currentSessionId the requester's current session, which survives the merge (null: none)
    */
   public Result apply(long requesterId, String tokenHash, @Nullable String currentSessionId) {
+    try {
+      return applyInTx(requesterId, tokenHash, currentSessionId);
+    } catch (DuplicateKeyException e) {
+      LOG.warn("address change of user {} conflicted with another account ({})", requesterId,
+          e.getClass().getSimpleName());
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "conflict");
+    }
+  }
+
+  private Result applyInTx(long requesterId, String tokenHash, @Nullable String currentSessionId) {
     return Objects.requireNonNull(tx.execute(status -> {
       EmailToken found = tokens.findValid(tokenHash);
       if (found == null) {

@@ -442,7 +442,7 @@ components:
   schemas:
     Me:
       type: object
-      required: [id, timeZone, digestFrequency, digestWeekday, digestHour]
+      required: [id, timeZone, digestFrequency, digestWeekday, digestHour, created]
       properties:
         id: {type: integer, format: int64}
         email: {type: [string, "null"], description: "Verified address; null until one is verified."}
@@ -453,6 +453,11 @@ components:
         digestFrequency: {type: string, enum: [DAILY, WEEKLY, OFF]}
         digestWeekday: {type: integer, description: "1 is Monday."}
         digestHour: {type: integer}
+        created:
+          type: string
+          format: date-time
+          description: "When the account was created. The web app proposes the browser's time zone once to an account
+            created in the last few minutes that is still on UTC."
     Error:
       type: object
       required: [status, error]

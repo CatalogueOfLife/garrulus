@@ -26,12 +26,14 @@ public class MeController {
   static final Set<String> FREQUENCIES = Set.of("DAILY", "WEEKLY", "OFF");
   static final int MAX_DISPLAY_NAME = 200;
 
+  /** {@code created} lets the SPA propose the browser's time zone once, to a new account still on UTC. */
   public record Me(long id, @Nullable String email, @Nullable Instant emailVerified, @Nullable String orcid,
-      @Nullable String displayName, String timeZone, String digestFrequency, int digestWeekday, int digestHour) {
+      @Nullable String displayName, String timeZone, String digestFrequency, int digestWeekday, int digestHour,
+      Instant created) {
 
     static Me of(AppUser u) {
       return new Me(u.id(), u.email(), u.emailVerified(), u.orcid(), u.displayName(), u.timeZone(),
-          u.digestFrequency(), u.digestWeekday(), u.digestHour());
+          u.digestFrequency(), u.digestWeekday(), u.digestHour(), u.created());
     }
   }
 

@@ -120,6 +120,18 @@ class OrcidLoginIT extends AbstractAuthIT {
       assertThat(second.redirect()).isEqualTo("http://localhost:5173/");
     }
 
+    @Autowired org.springframework.security.web.FilterChainProxy filters;
+
+    @Test
+    void authorizedClientsAreNotKept() {
+      // Garrulus never calls ORCID after the login: the login filter keeps no authorized client (and no tokens)
+      var login = filters.getFilterChains().stream().flatMap(c -> c.getFilters().stream())
+          .filter(f -> f instanceof org.springframework.security.oauth2.client.web.OAuth2LoginAuthenticationFilter)
+          .findFirst().orElseThrow();
+      Object repo = org.springframework.test.util.ReflectionTestUtils.getField(login, "authorizedClientRepository");
+      assertThat(repo).isInstanceOf(NoOpAuthorizedClientRepository.class);
+    }
+
     @Test
     void orcidOnOffersOauthEndpoints() throws Exception {
       Browser b = new Browser(port);
