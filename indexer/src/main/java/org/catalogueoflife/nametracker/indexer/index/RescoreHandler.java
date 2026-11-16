@@ -27,7 +27,7 @@ import tools.jackson.databind.JsonNode;
  * ({@code name_ubiquity.scored_share}) are taken; {@code all:true} takes every work. The last batch marks the scored
  * names. The placements are those of the existing work_name rows and are never changed; no CLB call, state and
  * indexed_at stay. One transaction per work, work row locked first. A full batch enqueues the continuation
- * {@code rescore:<lastId>} at REPROCESS priority with this task's run_after. Idempotent. Enqueued by the admin
+ * {@code rescore:all:<lastId>} or {@code rescore:changed:<lastId>} (the mode is in the key, so an all chain and a targeted chain never merge) at REPROCESS priority with this task's run_after. Idempotent. Enqueued by the admin
  * endpoint, and by {@code REBUILD_STATS} when a name changed.
  */
 @Component
@@ -81,7 +81,7 @@ public class RescoreHandler implements TaskHandler {
     if (ids.size() == batch) {
       long last = ids.get(ids.size() - 1);
       queue.enqueue(TYPE, "{\"afterId\":" + last + ",\"batch\":" + batch + ",\"all\":" + all + "}",
-          TaskPriority.REPROCESS, "rescore:" + last, task.runAfter());
+          TaskPriority.REPROCESS, "rescore:" + (all ? "all" : "changed") + ":" + last, task.runAfter());
     } else {
       // the run is complete: what it scored with is now the baseline of the next change check
       stats.markUbiquityScored(full, CHANGE_THRESHOLD, all);

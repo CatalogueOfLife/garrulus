@@ -142,7 +142,7 @@ class RescoreHandlerIT extends AbstractPostgresIT {
     assertThat(names(a).get(ec).mainSubject()).isFalse();
     assertThat(names(b).get(ec).mainSubject()).isFalse();
     assertThat(names(c).get(ec).mainSubject()).isTrue();
-    var t = jdbc.queryForMap("SELECT payload::text AS payload, priority FROM task WHERE dedup_key = ?", "rescore:" + b);
+    var t = jdbc.queryForMap("SELECT payload::text AS payload, priority FROM task WHERE dedup_key = ?", "rescore:changed:" + b);
     assertThat((String) t.get("payload")).contains("\"afterId\": " + b).contains("\"batch\": 2");
     assertThat(((Number) t.get("priority")).intValue()).isEqualTo(TaskPriority.REPROCESS.code());
     handler.handle(task("{\"afterId\":" + b + ",\"batch\":2}"));
@@ -152,6 +152,23 @@ class RescoreHandlerIT extends AbstractPostgresIT {
     var untouched = jdbc.queryForMap("SELECT salience, main_subject FROM work_name WHERE work_id = ?", notIndexed);
     assertThat(((Number) untouched.get("salience")).doubleValue()).isCloseTo(0.9, within(1e-6));
     assertThat(untouched.get("main_subject")).isEqualTo(true);
+  }
+
+  @Test
+  void allAndTargetedChainsDoNotMerge() throws Exception {
+    long ec = index.nameStringId("Escherichia coli", "BINOMIAL", "SPECIES");
+    long a = indexedWork(Map.of("Escherichia coli", new String[] {"BACTERIAL", "Bacteria"}));
+    long b = indexedWork(Map.of("Escherichia coli", new String[] {"BACTERIAL", "Bacteria"}));
+    indexedWork(Map.of("Escherichia coli", new String[] {"BACTERIAL", "Bacteria"}));
+    jdbc.update("INSERT INTO name_ubiquity (name_string_id, works, share, scored_share) VALUES (?, 100, 0.05, NULL)", ec);
+    handler.handle(task("{\"afterId\":0,\"batch\":2,\"all\":true}"));
+    handler.handle(task("{\"afterId\":0,\"batch\":2,\"all\":false}"));
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM task WHERE dedup_key = ?", Integer.class, "rescore:all:" + b)).isEqualTo(1);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM task WHERE dedup_key = ?", Integer.class, "rescore:changed:" + b)).isEqualTo(1);
+    assertThat(jdbc.queryForObject("SELECT payload::text FROM task WHERE dedup_key = ?", String.class, "rescore:all:" + b))
+        .contains("\"all\": true");
+    assertThat(jdbc.queryForObject("SELECT payload::text FROM task WHERE dedup_key = ?", String.class, "rescore:changed:" + b))
+        .contains("\"all\": false");
   }
 
   private int rescoreTasks() {

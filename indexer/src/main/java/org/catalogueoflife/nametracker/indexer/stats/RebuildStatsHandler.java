@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 /**
  * {@code REBUILD_STATS}, payload {@code {}}, dedup key {@code stats:<date>}. Rebuilds {@code name_ubiquity} (last 5
  * calendar years) and {@code taxon_stats}, enqueues {@code RESCORE_SALIENCE} (REPROCESS, dedup
- * {@code rescore:<date>}) when a name's ubiquity penalty changed since it was last scored, and enqueues
+ * {@code rescore:changed:<date>}) when a name's ubiquity penalty changed since it was last scored, and enqueues
  * {@code CATEGORISE_SOURCES} with this task's priority and run_after. Every step is a full rebuild, so a repeat is
  * harmless. The spool is purged by {@code Spool} itself.
  */
@@ -53,7 +53,7 @@ public class RebuildStatsHandler implements TaskHandler {
     LOG.info("Rebuilt name_ubiquity ({} rows) and taxon_stats ({} rows)", ubiquity, taxa);
     // the ubiquity feeds salience: rescore the works with a name whose penalty moved since it was last scored
     if (stats.changedUbiquityCount(props.ubiquityFullShare(), RescoreHandler.CHANGE_THRESHOLD) > 0) {
-      queue.enqueue("RESCORE_SALIENCE", "{\"afterId\":0}", TaskPriority.REPROCESS, "rescore:" + today,
+      queue.enqueue("RESCORE_SALIENCE", "{\"afterId\":0}", TaskPriority.REPROCESS, "rescore:changed:" + today,
           task.runAfter());
     }
     queue.enqueue("CATEGORISE_SOURCES", "{}", task.priority(), "categorise:" + today, task.runAfter());
