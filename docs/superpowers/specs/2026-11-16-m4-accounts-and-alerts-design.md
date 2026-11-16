@@ -13,7 +13,10 @@ feed** or a **"My hits" page**. Papers that name a new taxon in a followed group
 hits that matter most to a taxonomist. The uBioRSS idea (public feeds per taxon, journal and name, no account needed)
 comes back with it.
 
-**Done when** (roadmap): a test user receives a correct digest, and no backfill paper ever produces a hit.
+**Done when:** a test user receives a correct digest; no hit is for a paper outside its follow's alert window, and no
+follow gets the same paper twice. (The roadmap said "no backfill hits". Markus changed that on 2026-11-16: alerts may
+also come for older papers that enter the index or are found or placed better later, such as a newly followed and
+indexed journal or an improved finder, within an alert window that defaults to 90 days and can start at a chosen year.)
 
 ## Goals
 
@@ -38,10 +41,11 @@ comes back with it.
 
 ## Anti-goals (failure even if it works)
 
-- **Alerting on old papers:** any hit from a `BACKFILL` or `ONBOARDING` work, from a paper published long ago, or a
-  second `ARTICLE` hit for the same paper after a re-index, a rescore or (later) an XR or finder upgrade.
+- **Alerting outside the window or twice:** a hit for a paper published before the follow's alert window, or a second
+  `ARTICLE` hit for the same paper and follow after a re-index, a rescore or (later) an XR or finder upgrade.
 - **Noise:** hits from reference-list mentions, or every *E. coli* mention for a taxon follower.
-- **A flood after a pause:** turning digests back on must not deliver weeks of old hits at once.
+- **A flood after a pause:** turning digests back on must not deliver weeks of old hits at once. A big batch of new
+  hits (a newly onboarded journal, a backfill inside a long window) is capped per follow in the digest.
 - **Spam relay:** the sign-in form must not let anyone make Garrulus mail an address over and over, and it must not
   reveal whether an address has an account.
 - **Leaking subscribers:** no email address in logs, feeds, URLs or public API responses.
@@ -95,10 +99,12 @@ Within A, two calls made with Markus on 2026-11-16:
   name_string id, or `TaxGroup` name), `label` (display text given by the client, at most 200 characters),
   options (`main_subject_only`, `new_names_only`, `include_abstract_only`, `include_references`), `filters` (jsonb with
   the `/api/works` filter names: `code`, `taxgroup`, `subfield`, `journalType`, `tier`, `oa`, `country`), `feed_token`
-  (random, 128 bits, URL-safe), `paused`, created. Unique (user, type, target). Index on (type, target).
+  (random, 128 bits, URL-safe), `since_year` (nullable smallint: the alert start year; null means the rolling window
+  of the last 90 days, `NAMETRACKER_HIT_WINDOW_DAYS`), `paused`, created. Unique (user, type, target). Index on
+  (type, target).
   - Option defaults: `main_subject_only` true for `TAXON` and `TAXGROUP`, false for `NAME` and `SOURCE`;
     `new_names_only` false; `include_abstract_only` true; `include_references` false.
-  - At most 200 subscriptions per user.
+  - At most 100 subscriptions per user (Markus, 2026-11-16).
 - **`hit`**: id, `subscription_id` (cascade), `work_id`, `kind` (`ARTICLE` | `NEW_NAMES`), created, `names` (jsonb
   snapshot of the matching names: name, name_string id, act types, placement, main subject), `digest_id` (null until
   delivered; written by `web`). Unique (subscription, work, kind).
@@ -112,16 +118,23 @@ Within A, two calls made with Markus on 2026-11-16:
 ### Hit evaluation (indexer)
 
 - After `WorkIndexer` sets a work `INDEXED`, it enqueues `EVALUATE_HITS` (`{"workId":n}`), a follow-up that inherits
-  priority and `run_after` like the others. `RESCORE_SALIENCE` and any later M5 re-placement do **not** enqueue it.
+  priority and `run_after` like the others. Every indexing does this: the first one, a re-index when full text arrives,
+  and later (M5) a re-find under a new finder version or a re-placement on a new XR, so a paper whose names are found
+  or placed better reaches the followers it now matches. `RESCORE_SALIENCE` enqueues it only for works where a name
+  became a main subject.
   The work's state stays `INDEXED`: `NOTIFIED` is not used (the public API lists `INDEXED` works only, and a hit is a
   per-subscription fact, not a work state). ADR-0006 records this.
 - **Eligibility for an `ARTICLE` hit** (all must hold):
-  - `work.origin` is `LIVE` or `SWEEP`;
-  - `coalesce(publication_date, first_seen_at::date)` is within the last 60 days (`NAMETRACKER_HIT_WINDOW_DAYS`) and
-    not more than 7 days in the future;
-  - `work.first_indexed_at > subscription.created`;
+  - the paper is inside the follow's alert window: `coalesce(publication_date, first_seen_at::date)` within the last
+    90 days, or, with `since_year`, `coalesce(year, extract(year from first_seen_at))` >= `since_year`; and in both
+    cases not more than 7 days in the future;
+  - the follow existed before this indexing (`subscription.created < work.indexed_at`), so following never pulls in
+    papers already indexed; they come only when they are indexed again;
   - the subscription is not paused;
   - no `ARTICLE` hit exists yet for (subscription, work).
+  - Any `work.origin` counts (`LIVE`, `SWEEP`, `ONBOARDING`, `BACKFILL`): the window, not the origin, keeps old papers
+    out. With the default window a backfill of past years produces no hits; a follow with `since_year` 2000 will get
+    the backfill's papers of its taxon, capped in the digest.
 - **Which subscriptions match** a work (one query by candidate keys, then options in Java):
   - `TAXON`: a `work_name` whose `taxon_path` contains the target.
   - `SOURCE`: `work.source_id` = target (every eligible paper of the journal; options and filters narrow it).
@@ -131,13 +144,13 @@ Within A, two calls made with Markus on 2026-11-16:
     names; `new_names_only` keeps only names with `act_types`; `include_abstract_only` false requires full text.
     For `SOURCE`, name options apply only when set; a `SOURCE` subscription with defaults matches every eligible paper.
   - Filters: the same semantics as `/api/works` (the `WorkFilter` in `store`), applied to the one work.
-- **`NEW_NAMES` follow-up:** when a work is indexed again (full text arrived), within 90 days of `first_seen_at`
-  (`NAMETRACKER_NEW_NAMES_WINDOW_DAYS`), a subscription that already has an `ARTICLE` hit for it and now matches names
+- **`NEW_NAMES` follow-up:** when a work inside the follow's window is indexed again (full text arrived, a better
+  finder), a subscription that already has an `ARTICLE` hit for it and now matches names
   with nomenclatural acts that are not in that hit's `names` snapshot gets one `NEW_NAMES` hit (once per subscription
   and work). "Not in the snapshot" compares (name_string id, act type) pairs: *Carabus xus* in the abstract without a
-  marker and `SP_NOV` in the full text is new. The check runs on every re-index inside the 90 days, whatever changed;
-  the `NEW_NAMES` hit's own `names` holds only the new pairs, which the digest marks as new names. A subscription without an earlier `ARTICLE` hit simply goes through the `ARTICLE` rules above, which use
-  `first_indexed_at`, so a re-index never makes an old paper look new.
+  marker and `SP_NOV` in the full text is new. The check runs on every re-index inside the window, whatever changed;
+  the `NEW_NAMES` hit's own `names` holds only the new pairs, which the digest marks as new names. A subscription without an earlier `ARTICLE` hit simply goes through the `ARTICLE` rules above; a paper is never sent
+  twice to the same follow as an `ARTICLE`.
 - Idempotent: inserts use the unique key (`ON CONFLICT DO NOTHING`); a redelivered task changes nothing.
 
 ### Delivery (web)
@@ -164,8 +177,8 @@ Within A, two calls made with Markus on 2026-11-16:
 ### Feeds (web)
 
 - Public, no account: `/feeds/taxon/{colId}.atom`, `/feeds/source/{id}.atom`, `/feeds/name/{id}.atom`,
-  `/feeds/taxgroup/{group}.atom`. They list the same papers a default subscription of that type would get: `LIVE` or
-  `SWEEP` works published in the last 60 days, newest `first_indexed_at` first, 50 entries. Entry id = the work's
+  `/feeds/taxgroup/{group}.atom`. They list the papers a default subscription of that type would match: works of any
+  origin published in the last 90 days, newest `first_indexed_at` first, 50 entries. Entry id = the work's
   Garrulus URL, updated = `first_indexed_at`, so a feed reader sees each paper once.
 - Private: `/feeds/s/{feedToken}.atom`, the subscription's hits (both kinds), newest first, 50 entries. A new token
   can be generated from the subscription settings.
@@ -192,7 +205,7 @@ Within A, two calls made with Markus on 2026-11-16:
     address (the older account keeps its id);
   - address on an account linked to a *different* ORCID iD: refused, with a message saying so; nothing changes.
   - In a merge, a duplicate (type, target) subscription keeps the older row (its `created` and options) and the
-    other's hits move to it where they don't clash; the 200 cap applies to creating subscriptions, not to merges.
+    other's hits move to it where they don't clash; the 100 cap applies to creating subscriptions, not to merges.
 - **Public base URL** for links in emails and feeds: `NAMETRACKER_PUBLIC_URL` (dev `http://localhost:5173`).
 - **Development:** the Vite dev server already proxies `/api`, `/oauth2`, `/login` and `/feeds` to `web` and keeps the
   `Host` header, so sign-in is same-origin as in production. The ORCID client therefore needs the redirect URI
@@ -216,20 +229,24 @@ Within A, two calls made with Markus on 2026-11-16:
 - **Sign-in page:** "Continue with ORCID" (when configured) and "Email me a sign-in link"; a "check your inbox" state;
   `/signin/verify` page.
 - **Follow button** on the taxon, journal and name pages, and on the search page when exactly one taxonomic group is
-  the only filter. It opens a small dialog: the defaults above, "Only new names", and a collapsed "Narrow down" with
-  the search filters. Signed out, it leads to sign-in and back.
+  the only filter. It opens a small dialog: the defaults above, "Only new names", "Papers published: in the last 90
+  days (default) / since year …", and a collapsed "Narrow down" with the search filters. Signed out, it leads to sign-in and back.
 - **Following** page (subscriptions: edit, pause, delete, copy private feed URL), **My hits** page (newest first,
   "New names" badge, filter by subscription), **Account** page (email, time zone, digest frequency, day and hour,
   export, delete with confirmation).
 
 ### Done-when check (dev run)
 
-Mailpit running; `web` restarted with M4; Markus (or a test address) signs in by email link and by ORCID, follows
-Carabidae (8KTL7), Zootaxa and one name, with a daily digest. After the next nightly harvest has indexed new works,
-the digest arrives in Mailpit (or is triggered with the admin endpoint). Checked and recorded in
-`docs/m4-dev-check.md`: every paper in it is `LIVE`/`SWEEP`, published within 60 days, first indexed after the
-subscription, placed under the followed taxon (or in the journal, or naming the name); and
-`select count(*) from hit join work … where origin in ('BACKFILL','ONBOARDING')` is 0.
+Mailpit running; indexer and `web` restarted with M4; Markus (or a test address) signs in by email link and by
+ORCID, follows Carabidae (8KTL7), Zootaxa and one name with the default window, and a second taxon with a start year,
+with a daily digest. Then a CORE journal not yet onboarded is promoted (its onboarding indexes about 120 days of older
+papers). After that and the next nightly harvest, the digest arrives in Mailpit (or is triggered with the admin
+endpoint). Checked and recorded in `docs/m4-dev-check.md`:
+- every paper in the digest was indexed after its follow was created, lies inside the follow's window, and is placed
+  under the followed taxon (or is in the journal, or names the name);
+- the onboarded journal's papers older than 90 days produced no hit for the default-window follows;
+- `select subscription_id, work_id, count(*) from hit where kind = 'ARTICLE' group by 1, 2 having count(*) > 1` is
+  empty, and no hit lies outside its follow's window (one SQL check each).
 
 ## Left to the builder
 
