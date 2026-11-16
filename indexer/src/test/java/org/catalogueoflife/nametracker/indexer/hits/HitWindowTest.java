@@ -34,6 +34,22 @@ class HitWindowTest {
   }
 
   @Test
+  void noDateButOldYearIsOutsideRollingWindow() {
+    // no publication date, first seen today: the year alone places the paper before the window start (2026-08-18)
+    assertThat(HitWindow.contains(null, 2025, SEEN, null, TODAY, P)).isFalse();
+    assertThat(HitWindow.contains(null, 1886, SEEN, null, TODAY, P)).isFalse();
+    assertThat(HitWindow.contains(null, 2026, SEEN, null, TODAY, P)).isTrue();
+    assertThat(HitWindow.contains(null, null, SEEN, null, TODAY, P)).isTrue();
+    // a window starting in the previous year accepts that year
+    LocalDate jan = LocalDate.of(2026, 1, 20);
+    Instant seenJan = jan.atStartOfDay().toInstant(java.time.ZoneOffset.UTC);
+    assertThat(HitWindow.contains(null, 2025, seenJan, null, jan, P)).isTrue();
+    assertThat(HitWindow.contains(null, 2024, seenJan, null, jan, P)).isFalse();
+    // a publication date wins over the year
+    assertThat(HitWindow.contains(TODAY.minusDays(3), 2025, SEEN, null, TODAY, P)).isTrue();
+  }
+
+  @Test
   void thirtyDaysInFutureRejected() {
     assertThat(rolling(TODAY.plusDays(30))).isFalse();
     assertThat(rolling(TODAY.plusDays(8))).isFalse();

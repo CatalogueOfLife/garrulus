@@ -20,7 +20,8 @@ public interface SearchMapper {
 
   /**
    * Feed works: listed, passing the filter, published within the last {@code windowDays} days (publication date, else
-   * first_seen_at; never more than 7 days ahead), newest first_indexed_at first. A name filter ignores works that
+   * first_seen_at; never more than 7 days ahead; without a publication date, a year before the year of the window
+   * start is outside), newest first_indexed_at first. A name filter ignores works that
    * mention the name only in their references.
    */
   List<FeedRow> feed(@Param("f") WorkFilter f, @Param("windowDays") int windowDays, @Param("limit") int limit);

@@ -123,6 +123,8 @@
     <![CDATA[
     AND COALESCE(w.publication_date, w.first_seen_at::date) >= (now() AT TIME ZONE 'UTC')::date - #{windowDays}
     AND COALESCE(w.publication_date, w.first_seen_at::date) <= (now() AT TIME ZONE 'UTC')::date + 7
+    AND (w.publication_date IS NOT NULL OR w.year IS NULL
+         OR w.year >= extract(year FROM (now() AT TIME ZONE 'UTC')::date - #{windowDays}))
     ]]>
     ORDER BY COALESCE(w.first_indexed_at, w.first_seen_at) DESC, w.id DESC
     LIMIT #{limit}
