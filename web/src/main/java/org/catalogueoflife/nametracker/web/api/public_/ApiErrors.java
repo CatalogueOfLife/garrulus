@@ -2,14 +2,15 @@ package org.catalogueoflife.nametracker.web.api.public_;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.catalogueoflife.nametracker.web.auth.MeController;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 
-/** Small JSON error bodies {status, error}, error being the reason for the public API only. */
-@RestControllerAdvice(basePackageClasses = ApiErrors.class)
+/** Small JSON error bodies {status, error}, error being the reason, for the public API and the account API. */
+@RestControllerAdvice(basePackageClasses = {ApiErrors.class, MeController.class})
 public class ApiErrors {
 
   @ExceptionHandler(ResponseStatusException.class)

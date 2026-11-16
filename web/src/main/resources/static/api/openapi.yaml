@@ -6,6 +6,10 @@ info:
     Read-only, unauthenticated API of Garrulus, the name-literature index of the Catalogue of Life. Only works in
     state INDEXED or NOTIFIED are listed. Errors are `{status, error}`. The `/api/taxa/**` endpoints send CORS headers
     for the COL portal origins (GET only). The admin endpoints under `/api/admin` are not part of this API.
+    The account endpoints (`/api/me`, tag account) need the session cookie of a signed-in user; requests other than
+    GET also need the `X-XSRF-TOKEN` header with the value of the `XSRF-TOKEN` cookie. Sign-in: `POST /api/auth/link`
+    with `{"email": ...}` mails a link (always `202 {}`), and the token from that link is posted as the form parameter
+    `token` to `POST /login/ott`, which answers `200 {"userId": n}` and sets the session cookie, or 401.
   license:
     name: Apache 2.0
     identifier: Apache-2.0
@@ -17,6 +21,7 @@ tags:
   - name: taxa
   - name: sources
   - name: reference
+  - name: account
 paths:
   /api/ping:
     get:
@@ -218,8 +223,76 @@ paths:
               schema:
                 type: array
                 items: {$ref: "#/components/schemas/TaxGroup"}
+  /api/auth/config:
+    get:
+      tags: [account]
+      summary: Which sign-in methods are offered
+      operationId: authConfig
+      responses:
+        "200":
+          description: Email sign-in is always offered; ORCID only when a client is configured.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [orcid]
+                properties:
+                  orcid: {type: boolean}
+  /api/me:
+    get:
+      tags: [account]
+      summary: The signed-in account
+      operationId: getMe
+      security: [{cookieAuth: []}]
+      responses:
+        "200":
+          description: The account and its digest settings.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Me"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+    patch:
+      tags: [account]
+      summary: Change the account settings
+      description: >
+        Every field is optional; an absent field keeps its value and a blank displayName clears it. Turning digests
+        on from OFF restarts them: hits found before are never mailed. Needs the X-XSRF-TOKEN header.
+      operationId: updateMe
+      security: [{cookieAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName: {type: [string, "null"], maxLength: 200}
+                timeZone: {type: [string, "null"], description: "An IANA time zone, e.g. Europe/Berlin."}
+                digestFrequency: {type: [string, "null"], enum: [DAILY, WEEKLY, OFF, null]}
+                digestWeekday: {type: [integer, "null"], minimum: 1, maximum: 7, description: "1 is Monday."}
+                digestHour: {type: [integer, "null"], minimum: 0, maximum: 23, description: "Local hour."}
+      responses:
+        "200":
+          description: The changed account.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Me"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403":
+          description: The X-XSRF-TOKEN header is missing or wrong.
 components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: SESSION
   responses:
+    Unauthorized:
+      description: Not signed in.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
     BadRequest:
       description: An invalid parameter.
       content:
@@ -231,6 +304,19 @@ components:
         application/json:
           schema: {$ref: "#/components/schemas/Error"}
   schemas:
+    Me:
+      type: object
+      required: [id, timeZone, digestFrequency, digestWeekday, digestHour]
+      properties:
+        id: {type: integer, format: int64}
+        email: {type: [string, "null"], description: "Verified address; null until one is verified."}
+        emailVerified: {type: [string, "null"], format: date-time}
+        orcid: {type: [string, "null"]}
+        displayName: {type: [string, "null"]}
+        timeZone: {type: string}
+        digestFrequency: {type: string, enum: [DAILY, WEEKLY, OFF]}
+        digestWeekday: {type: integer, description: "1 is Monday."}
+        digestHour: {type: integer}
     Error:
       type: object
       required: [status, error]

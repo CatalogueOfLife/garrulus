@@ -13,6 +13,11 @@ spring:
     enabled: true
     locations: classpath:db/migration
     ignore-migration-patterns: "*:future"
+  session:
+    # Spring Session JDBC; its tables come from the V7 migration, never from framework auto-init
+    timeout: 30d
+    jdbc:
+      initialize-schema: never
 
 mybatis:
   configuration:
@@ -22,6 +27,16 @@ server:
   port: 8080
   # loopback only, like the indexer; 0.0.0.0 to serve other hosts (behind a proxy)
   address: ${NAMETRACKER_WEB_ADDRESS:127.0.0.1}
+  servlet:
+    session:
+      timeout: 30d
+      cookie:
+        http-only: true
+        same-site: lax
+        # about 30 days, so a session survives a browser restart
+        max-age: 30d
+        # true behind HTTPS (production); also applies to the XSRF-TOKEN cookie
+        secure: ${NAMETRACKER_COOKIE_SECURE:false}
 
 management:
   endpoints:
@@ -30,6 +45,18 @@ management:
         include: health,info
 
 nametracker:
+  # base URL of the SPA, for links in emails and feeds
+  public-url: ${NAMETRACKER_PUBLIC_URL:http://localhost:5173}
+  mail:
+    # outgoing mail needs spring.mail.host (and port, credentials); without it mails are logged as suppressed
+    from: ${NAMETRACKER_MAIL_FROM:Garrulus <noreply@localhost>}
+  # signs unsubscribe links and feed tokens; blank = a random key per start
+  signing-key: ${NAMETRACKER_SIGNING_KEY:}
+  orcid:
+    # ORCID sign-in is offered only when a client id is set
+    client-id: ${ORCID_CLIENT_ID:}
+    client-secret: ${ORCID_CLIENT_SECRET:}
+    base-url: ${ORCID_BASE_URL:https://orcid.org}
   admin:
     # blank = the admin endpoint does not exist. Temporary until ORCID admin roles (M4).
     token: ${ADMIN_TOKEN:}

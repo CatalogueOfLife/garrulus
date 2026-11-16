@@ -3,6 +3,7 @@
 #   docker compose up -d db gnfinder          # what the app and tests need day to day
 #   docker compose --profile grobid up -d     # + GROBID (PDF/TEI parsing)
 #   docker compose --profile annotate up -d   # + Label Studio (annotation)
+#   docker compose --profile mail up -d       # + Mailpit (SMTP 1025, web UI http://localhost:8025)
 #
 # Ports are published on 127.0.0.1 only.
 # Local use only: the database credentials below are throwaway development values.
@@ -53,6 +54,13 @@ services:
       LABEL_STUDIO_DISABLE_SIGNUP_WITHOUT_LINK: "true"
     volumes:
       - ls:/label-studio/data
+
+  mailpit:
+    image: axllent/mailpit:v1.33.1
+    profiles: [mail]
+    ports:
+      - "127.0.0.1:1025:1025"   # SMTP: spring.mail.host=localhost, spring.mail.port=1025
+      - "127.0.0.1:8025:8025"   # web UI
 
 volumes:
   pg:
