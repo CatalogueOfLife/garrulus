@@ -50,6 +50,17 @@ describe('WorkPage', () => {
     expect(screen.queryByText('SP_NOV')).toBeNull();
   });
 
+  it('titleItalicisesMentionsForAWorkWithoutText', async () => {
+    mount({ ...base, title: 'Notes on Carabus auratus and Carabidae', titleMentions: [
+      { id: 1, nameId: 1, startCp: 9, endCp: 24, verbatim: 'Carabus auratus' },
+      { id: 2, nameId: 5, startCp: 29, endCp: 38, verbatim: 'Carabidae' },
+    ], names: [nm(1, 'Carabus auratus', { rank: 'species' }), nm(5, 'Carabidae', { rank: 'family' })] });
+    const h = await screen.findByRole('heading', { level: 1 });
+    expect(h.textContent).toBe('Notes on Carabus auratus and Carabidae');
+    expect(h.querySelector('i')!.textContent).toBe('Carabus auratus');
+    expect(h.querySelectorAll('i')).toHaveLength(1);
+  });
+
   it('verbatimClassificationNextToColOne', async () => {
     mount({ ...base, contexts: [{ localId: 'c1', verbatim: 'Coleoptera: Carabidae: Carabus', ranks: [{ rank: 'ORDER', name: 'Coleoptera' }], scope: 'DOCUMENT', blockId: 'b1' }] });
     const verbatim = await screen.findByRole('region', { name: 'Verbatim classification in the article' });

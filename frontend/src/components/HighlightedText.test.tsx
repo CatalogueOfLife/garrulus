@@ -26,6 +26,24 @@ describe('HighlightedText', () => {
     expect(a.closest('p')?.textContent).toBe(text);
   });
 
+  it('doesNotItaliciseAFamilyMention', () => {
+    const block: TextBlock = {
+      id: 'b2', type: 'paragraph', level: 0, sectionPath: [], text: 'Carabidae are beetles.',
+      mentions: [{ id: 1, nameId: 3, startCp: 0, endCp: 9, verbatim: 'Carabidae' }],
+    };
+    renderApp(<HighlightedText block={block} names={new Map([[3, { rank: 'family' }]])} />);
+    expect(screen.getByRole('link', { name: 'Carabidae' }).querySelector('i')).toBeNull();
+  });
+
+  it('italicisesASpeciesMention', () => {
+    const block: TextBlock = {
+      id: 'b3', type: 'paragraph', level: 0, sectionPath: [], text: 'Carabus auratus is common.',
+      mentions: [{ id: 1, nameId: 3, startCp: 0, endCp: 15, verbatim: 'Carabus auratus' }],
+    };
+    renderApp(<HighlightedText block={block} names={new Map([[3, { rank: 'species' }]])} />);
+    expect(screen.getByRole('link', { name: 'Carabus auratus' }).querySelector('i')).not.toBeNull();
+  });
+
   it('rendersAsSpanInsideAHeadingWithoutNestingWarnings', () => {
     const err = vi.spyOn(console, 'error').mockImplementation(() => {});
     const block: TextBlock = { id: 'h', type: 'title', level: 1, sectionPath: [], text: 'Carabus', mentions: [] };

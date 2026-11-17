@@ -1,6 +1,6 @@
-import { Anchor, Group, Text } from '@mantine/core';
 import { Fragment } from 'react';
-import { Link } from 'react-router-dom';
+import { SciName } from '../ui/SciName';
+import classes from '../ui/work.module.css';
 
 export interface PathItem { id?: string | null; name?: string | null; rank?: string | null }
 
@@ -26,20 +26,19 @@ export function rootFirst<T extends PathItem>(items: T[], order: 'lowest-first' 
   return order === 'lowest-first' ? [...items].reverse() : items;
 }
 
-export function ClassificationPath({ items, order = 'lowest-first', size = 'sm' }: {
-  items: PathItem[]; order?: 'lowest-first' | 'root-first'; size?: 'xs' | 'sm';
+export function ClassificationPath({ items, order = 'lowest-first' }: {
+  items: PathItem[]; order?: 'lowest-first' | 'root-first';
 }) {
   const path = rootFirst(items.filter((i) => i.name), order);
   if (!path.length) return null;
   return (
-    <Group gap={6} data-testid="classification-path">
+    <div className={classes.path} data-testid="classification-path">
       {path.map((c, i) => (
         <Fragment key={c.id ?? `${c.name}-${i}`}>
-          {c.id ? <Anchor component={Link} to={`/taxon/${c.id}`} size={size}>{c.name}</Anchor>
-            : <Text span size={size} c="dimmed">{c.name}</Text>}
-          {i < path.length - 1 ? <Text span size={size} c="dimmed" aria-hidden>›</Text> : null}
+          <span><SciName name={c.name!} rank={c.rank} to={c.id ? `/taxon/${c.id}` : undefined} /></span>
+          {i < path.length - 1 ? <span aria-hidden>›</span> : null}
         </Fragment>
       ))}
-    </Group>
+    </div>
   );
 }

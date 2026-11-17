@@ -45,3 +45,14 @@ a:hover,
   color: var(--gr-red);
   margin-left: 0.25em;
 }
+
+a.gr-mark {
+  text-decoration: underline;
+  text-decoration-color: var(--gr-ink);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+a.gr-mark-act {
+  text-decoration-color: var(--gr-red);
+}

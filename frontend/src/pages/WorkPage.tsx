@@ -1,32 +1,32 @@
-import { Alert, Anchor, Badge, Grid, Group, Loader, Stack, Text, Title } from '@mantine/core';
+import { Alert, Loader } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
-import { getWork, type NameDetail } from '../api';
+import { useParams } from 'react-router-dom';
+import { getWork, type NameDetail, type WorkSummary } from '../api';
 import { ClassificationPath } from '../components/ClassificationPath';
 import { HighlightedText } from '../components/HighlightedText';
 import { Section } from '../components/Section';
-import { actLabel } from '../hitNames';
+import { MetaLine } from '../ui/MetaLine';
+import { SciName } from '../ui/SciName';
+import { SciTitle } from '../ui/SciTitle';
+import { SideColumn } from '../ui/SideColumn';
+import type { NameInfo } from '../ui/nameStyle';
+import list from '../ui/list.module.css';
+import classes from '../ui/work.module.css';
 import { usePageTitle } from '../usePageTitle';
 
 function NameRow({ n, withTaxon }: { n: NameDetail; withTaxon: boolean }) {
   return (
     <li>
-      <Anchor component={Link} to={`/name/${n.id}`} fs="italic">{n.name}</Anchor>
+      <SciName name={n.name} rank={n.rank} usageRank={n.usageRank} kind={n.kind} to={`/name/${n.id}`} acts={n.actTypes} />
       {withTaxon && n.usageId ? (
         <>
           {' → '}
-          <Anchor component={Link} to={`/taxon/${n.usageId}`}>{n.usageName || n.usageId}</Anchor>
-          {n.usageRank ? <Text span size="sm" c="dimmed"> ({n.usageRank})</Text> : null}
+          <SciName name={n.usageName || n.usageId} rank={n.usageRank} to={`/taxon/${n.usageId}`} />
+          {n.usageRank ? <span className={classes.note}> ({n.usageRank})</span> : null}
         </>
       ) : null}
-      {n.mainSubject ? <Badge ml={6} size="xs" variant="light">main subject</Badge> : null}
-      {n.actTypes.map((a) => <Badge key={a} ml={4} size="xs" variant="outline">{actLabel(a)}</Badge>)}
-      {n.classification.length ? (
-        <Group gap={6}>
-          <Text size="xs" c="dimmed">COL classification:</Text>
-          <ClassificationPath items={n.classification} size="xs" />
-        </Group>
-      ) : null}
+      {n.mainSubject ? <span className={classes.note}> main subject</span> : null}
+      {n.classification.length ? <ClassificationPath items={n.classification} /> : null}
     </li>
   );
 }
@@ -39,69 +39,70 @@ export function WorkPage() {
   if (q.isError) return <Alert color="red">{(q.error as Error).message}</Alert>;
   if (!w) return <Loader />;
 
+  const info = new Map<number, NameInfo>(w.names.map((n) => [n.id, { rank: n.rank, usageRank: n.usageRank, kind: n.kind }]));
   const placed = w.names.filter((n) => n.placementMethod === 'MATCH' || n.placementMethod === 'GENUS');
   const verb = w.names.filter((n) => n.placementMethod === 'VERBATIM_CONTEXT');
   const none = w.names.filter((n) => n.placementMethod === 'NONE');
-  const list = (ns: NameDetail[], withTaxon: boolean) => (
-    <Stack component="ul" gap="xs" p={0} m={0} pl="md">
+  const names = (ns: NameDetail[], withTaxon: boolean) => (
+    <ul className={classes.names}>
       {ns.map((n) => <NameRow key={n.id} n={n} withTaxon={withTaxon} />)}
-    </Stack>
+    </ul>
   );
   const showText = w.retained && w.text && w.text.length > 0;
   const snippets = w.names.filter((n) => n.bestSnippet);
+  const [first, ...rest] = (w.abstract ?? '').split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  const authors = w.authors.map((a) => a.name);
 
   return (
-    <Stack gap="lg">
-      <div>
-        <Title order={2}>{w.title || '(untitled)'}</Title>
-        <Text c="dimmed">
-          {w.authors.map((a) => a.name).join(', ')}{w.year ? ` (${w.year})` : ''}
-          {w.source ? <> · <Anchor component={Link} to={`/source/${w.source.id}`}>{w.source.title}</Anchor></> : null}
-        </Text>
-        <Group gap="xs" mt={4}>
-          {w.doi ? <Anchor href={`https://doi.org/${w.doi}`} size="sm">doi:{w.doi}</Anchor> : null}
-          {w.licence ? <Badge variant="light" size="sm">{w.licence}</Badge> : null}
-          {w.hasActs ? <Badge variant="light" size="sm">nomenclatural acts</Badge> : null}
-        </Group>
-      </div>
-      {w.abstract ? <Text>{w.abstract}</Text> : null}
+    <article>
+      <h1 className={classes.title}>
+        {w.title ? <SciTitle title={w.title} mentions={w.titleMentions ?? []} names={info} /> : '(untitled)'}
+      </h1>
+      <MetaLine
+        authors={authors} authorCount={authors.length} source={w.source} volume={w.volume} issue={w.issue}
+        pages={w.pages} date={w.publicationDate} year={w.year} textLevel={w.textLevel as WorkSummary['textLevel']}
+      />
+      {w.doi || w.licence ? (
+        <p className={`${classes.links} gr-wrap`}>
+          {w.doi ? <a href={`https://doi.org/${w.doi}`}>doi:{w.doi}</a> : null}
+          {w.doi && w.licence ? ' ' : null}
+          {w.licence ?? null}
+        </p>
+      ) : null}
 
-      <Grid gutter="xl">
-        <Grid.Col span={{ base: 12, md: 8 }}>
-          <Stack gap="lg">
-            {placed.length ? <Section title="Placed in COL">{list(placed, true)}</Section> : null}
-            {verb.length ? <Section title="Placed by the verbatim classification">{list(verb, true)}</Section> : null}
-            {none.length ? <Section title="Not placed">{list(none, false)}</Section> : null}
-          </Stack>
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, md: 4 }}>
-          {w.contexts.length ? (
-            <Section title="Verbatim classification in the article">
-              <Stack component="ul" gap="xs" p={0} m={0} pl="md">
-                {w.contexts.map((c) => <li key={c.localId}><Text size="sm">{c.verbatim}</Text></li>)}
-              </Stack>
+      <div className={`${list.page} ${classes.body}`}>
+        <div className={`${list.mainCol} ${classes.text}`}>
+          {first ? <p className={classes.lede}>{first}</p> : null}
+          {rest.map((p, i) => <p key={i} className={classes.para}>{p}</p>)}
+          {showText ? (
+            <Section title="Full text">
+              {w.text!.map((b) => (
+                b.type.startsWith('heading') || b.type === 'title'
+                  ? <h3 key={b.id} className={classes.head}><HighlightedText block={b} as="span" names={info} /></h3>
+                  : <div key={b.id} className={classes.para}><HighlightedText block={b} names={info} /></div>
+              ))}
+            </Section>
+          ) : snippets.length ? (
+            <Section title="Snippets">
+              <ul className={classes.names}>
+                {snippets.map((n) => <li key={n.id}>{n.bestSnippet}</li>)}
+              </ul>
             </Section>
           ) : null}
-        </Grid.Col>
-      </Grid>
-
-      {showText ? (
-        <Section title="Full text">
-          <Stack gap="sm">
-            {w.text!.map((b) => (
-              b.type.startsWith('heading') || b.type === 'title'
-                ? <Title key={b.id} order={5}><HighlightedText block={b} as="span" /></Title>
-                : <HighlightedText key={b.id} block={b} />
-            ))}
-          </Stack>
-        </Section>
-      ) : snippets.length ? (
-        <Section title="Snippets">
-          <Stack component="ul" gap="xs" p={0} m={0} pl="md">
-            {snippets.map((n) => <li key={n.id}><Text size="sm">{n.bestSnippet}</Text></li>)}
-          </Stack>
-        </Section>
-      ) : null}
-    </Stack>
+        </div>
+        <SideColumn>
+          {placed.length ? <Section title="Placed in COL">{names(placed, true)}</Section> : null}
+          {verb.length ? <Section title="Placed by the verbatim classification">{names(verb, true)}</Section> : null}
+          {none.length ? <Section title="Not placed">{names(none, false)}</Section> : null}
+          {w.contexts.length ? (
+            <Section title="Verbatim classification in the article">
+              <ul className={classes.names}>
+                {w.contexts.map((c) => <li key={c.localId}>{c.verbatim}</li>)}
+              </ul>
+            </Section>
+          ) : null}
+        </SideColumn>
+      </div>
+    </article>
   );
 }
