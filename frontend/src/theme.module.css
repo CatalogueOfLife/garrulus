@@ -76,6 +76,11 @@
   color: var(--gr-paper);
 }
 
+/* Mantine sets filled text to white, which is the ink in dark mode */
+.button[data-variant='filled'] {
+  color: var(--gr-paper);
+}
+
 .button:disabled,
 .button[data-disabled] {
   background: transparent;
@@ -124,6 +129,11 @@
   color: var(--gr-ink);
 }
 
+/* a modal is square like a menu and edged in ink like one; without the edge it vanishes into the dimmed page in dark mode */
+.modalContent {
+  border: 1px solid var(--gr-ink);
+}
+
 .menuDivider {
   border-color: var(--gr-rule-soft);
 }
@@ -164,17 +174,10 @@
   color: var(--gr-grey);
 }
 
-.segRoot[data-disabled] .segIndicator {
+/* Mantine writes data-disabled="false" on an enabled root; a disabled one marks no label active */
+.segRoot[data-disabled='true'] .segIndicator {
   background: transparent;
   border: 1px solid var(--gr-grey);
-}
-
-.segLabel[data-active][data-disabled] {
-  color: var(--gr-grey);
-}
-
-.segLabel[data-active][data-disabled]::before {
-  background: transparent;
 }
 
 .segInput:focus-visible + .segLabel {

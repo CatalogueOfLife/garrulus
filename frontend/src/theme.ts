@@ -41,7 +41,11 @@ export const theme = createTheme({
   focusRing: 'never',
   components: {
     Button: Button.extend({ defaultProps: { radius: 'xl', variant: 'default' }, classNames: { root: classes.button } }),
-    ActionIcon: ActionIcon.extend({ classNames: { root: classes.button } }),
+    ActionIcon: ActionIcon.extend({
+      classNames: { root: classes.button },
+      // filled (the default) sets its glyph in white, which is the ink in dark mode; ActionIcon has no data-variant to style
+      vars: (_theme, props) => ({ root: { '--ai-color': !props.variant || props.variant === 'filled' ? 'var(--gr-paper)' : undefined } }),
+    }),
     CloseButton: CloseButton.extend({ classNames: { root: classes.closeButton } }),
     Input: Input.extend({ classNames: { wrapper: classes.inputWrapper, input: classes.input } }),
     Combobox: Combobox.extend({ classNames: { dropdown: classes.dropdown, option: classes.option } }),
@@ -69,7 +73,7 @@ export const theme = createTheme({
       defaultProps: { radius: 0, shadow: 'none' },
       classNames: { dropdown: classes.dropdown, item: classes.menuItem, divider: classes.menuDivider },
     }),
-    Modal: Modal.extend({ defaultProps: { radius: 0, shadow: 'none' } }),
+    Modal: Modal.extend({ defaultProps: { radius: 0, shadow: 'none' }, classNames: { content: classes.modalContent } }),
     Popover: Popover.extend({ defaultProps: { radius: 0, shadow: 'none' }, classNames: { dropdown: classes.dropdown } }),
     Divider: Divider.extend({ classNames: { root: classes.divider } }),
     Switch: Switch.extend({ classNames: { input: classes.switchInput, track: classes.switchTrack, thumb: classes.switchThumb } }),
@@ -91,6 +95,16 @@ const mapped: Record<string, string> = {
   '--mantine-primary-color-filled': 'var(--gr-ink)',
   '--mantine-primary-color-filled-hover': 'var(--gr-ink)',
   '--mantine-primary-color-contrast': 'var(--gr-paper)',
+  // the ink colour (the primary): filled buttons read ink-filled, which the tuple keeps black in dark mode too
+  ...Object.fromEntries(Array.from({ length: 10 }, (_, i) => [`--mantine-color-ink-${i}`, 'var(--gr-ink)'])),
+  '--mantine-color-ink-filled': 'var(--gr-ink)',
+  '--mantine-color-ink-filled-hover': 'var(--gr-ink)',
+  '--mantine-color-ink-light': 'transparent',
+  '--mantine-color-ink-light-hover': 'transparent',
+  '--mantine-color-ink-light-color': 'var(--gr-ink)',
+  '--mantine-color-ink-outline': 'var(--gr-ink)',
+  '--mantine-color-ink-outline-hover': 'transparent',
+  '--mantine-color-ink-text': 'var(--gr-ink)',
   '--mantine-color-red-filled': 'var(--gr-red)',
   '--mantine-color-red-filled-hover': 'var(--gr-red)',
   '--mantine-color-red-light-color': 'var(--gr-red)',

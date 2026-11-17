@@ -33,6 +33,7 @@ describe('theme', () => {
       expect(bag['--mantine-color-disabled']).toBe('transparent');
       expect(bag['--mantine-color-disabled-color']).toBe('var(--gr-grey)');
       expect(bag['--mantine-color-red-6']).toBe('var(--gr-red)');
+      expect(bag['--mantine-color-ink-filled']).toBe('var(--gr-ink)');
       expect(bag['--mantine-color-red-outline-hover']).toBe('transparent');
       expect(bag['--input-asterisk-color']).toBe('var(--gr-ink)');
     }
