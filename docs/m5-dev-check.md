@@ -69,13 +69,15 @@ it at 10:15, and the retried rescore succeeded.
   reviews. 166 of them were already in the index and were left untouched. New `BACKFILL` works: 3,747.
 - **Spend:** OpenAlex `api_usage` for the day stayed at 7,453 calls and $0.0233 before and after. The backfill makes no
   OpenAlex API or content call.
-- **Pipeline:** the new works entered the content queue at `BACKFILL` priority. 144 were resolved through free routes
-  during the check: 26 full text, 118 abstract only. The rest wait behind an older content backlog of the same
-  priority, about 19,600 tasks at about 40 a minute. Their indexing is to be confirmed at the M2 dev-run check, about
-  2026-11-22.
-- **Re-run:** a second identical `BACKFILL` was enqueued. It sits behind the same backlog, because the queue orders by
-  priority and then `run_after`. That a re-run creates nothing is covered by `BackfillIT.rerunImportsNothingNew`. The
-  dev re-run will confirm it once the queue reaches it.
+- **Pipeline:** all 3,747 new works reached `INDEXED` by 11:50 UTC, 88 minutes after the import, about 40 works a
+  minute with 8 workers:
+  - Text level: 1,020 full text (Europe PMC 953, Pensoft 67), 2,726 abstract only, 1 without text.
+  - 2,820 works have names.
+  - OpenAlex `api_usage` stayed at 7,453 calls and $0.0233 for the day.
+- **Re-run:** the second identical `BACKFILL` (run 2) read the same 3 files and created 0 works.
+- **Hits:** 72 new hits, all for backfilled papers and all for the two follows that have an early `since_year`:
+  Coleoptera (since 2020) 35, `RN` (since 2000) 37. ADR-0006 intends this ("a follow with an early `since_year` gets
+  the backfill's papers of its taxon"). Default-window follows got none.
 
 ## For the deployment stage (GBIF VM)
 
@@ -87,13 +89,12 @@ it at 10:15, and the retried rescore succeeded.
   - Content resolution, not streaming, is the long part: about 40 works a minute with 8 workers and the per-host
     intervals. That is weeks for 2M works.
   - Size the workers and check the Europe PMC and Pensoft intervals before the full run.
-  - Breadth-first ordering is a second reason: siblings share a `run_after`, so the follow-ups of a file wait behind all
-    content tasks of the backfill.
+  - Siblings share a `run_after`, so a file's works are resolved breadth-first before their names are found.
   - Closed full text waits in the spool until `FIND_NAMES`. The 14-day spool purge must not overtake that.
 - **CLB load:** the pre-match of about 200k keys took 14 minutes, about 250 calls a second against the public CLB API.
   At 4–5M works, expect a few million keys.
 
 **Verdict:**
 - **M5a: met.** Two switches and a forced reprocess caused no hit, and no work left the listings.
-- **M5b: met for the import.** Free snapshot only, correct filter, no OpenAlex spend, existing works untouched. The
-  slice's indexing finishes with the content backlog and is to be confirmed later.
+- **M5b: met.** The slice used the free snapshot only, filtered correctly, left existing works untouched and spent
+  nothing on OpenAlex. Every imported work reached `INDEXED` through free routes, and a re-run created nothing.
