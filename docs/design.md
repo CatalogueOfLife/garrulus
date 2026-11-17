@@ -10,7 +10,7 @@
 > - systemd units `col-nametracker-*`
 > - the repository
 >
-> The brand (logo, jay colour palette, Mantine theme) is in `docs/brand/README.md`.
+> The brand (black and white with one red, Schibsted Grotesk, the jay-head mark) is in `docs/brand/README.md`.
 
 ## Context
 

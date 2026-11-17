@@ -29,8 +29,8 @@ from the bill. Black on white, white on black; never in red or grey, never outli
 
 **Geometry:** a 100-unit square (`viewBox="0 0 100 100"`). The head is one outline from the bill tip at (97, 52); the
 crest notches are at (28, 30) and (30, 45), and each crest cut starts exactly in its notch; the eye is a circle at
-(61, 41), radius 4.6; all three cuts taper to points inside the head. The files are one path filled even-odd (head,
-eye, cuts); `Mark.tsx` draws the same paths with a mask. A change to the geometry goes into all of them at once.
+(61, 41), radius 4.6; all three cuts taper to points inside the head. The files and `Mark.tsx` are one path filled
+even-odd (head, eye, cuts), with no masks and no ids. A change to the geometry goes into all of them at once.
 
 ## Lockups and sizes
 

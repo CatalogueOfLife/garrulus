@@ -31,24 +31,22 @@ describe('Mark', () => {
     expect(big).toHaveAttribute('height', '96');
   });
 
-  it('gives two marks on one page their own mask ids', () => {
+  it('is one even-odd path in the current colour', () => {
+    const { container } = render(<Mark />);
+    const paths = container.querySelectorAll('svg path');
+    expect(paths).toHaveLength(1);
+    expect(paths[0]).toHaveAttribute('fill-rule', 'evenodd');
+    expect(paths[0]).toHaveAttribute('fill', 'currentColor');
+  });
+
+  it('puts no ids on the page, so two marks cannot clash', () => {
     const { container } = render(
       <>
         <Mark />
         <Mark title="Garrulus" />
       </>,
     );
-    const masks = Array.from(container.querySelectorAll('mask'));
-    expect(masks).toHaveLength(2);
-    const [a, b] = masks.map((m) => m.id);
-    expect(a).toBeTruthy();
-    expect(a).not.toBe(b);
-    const painted = Array.from(container.querySelectorAll('path[mask]')).map((p) => p.getAttribute('mask'));
-    expect(painted).toEqual([`url(#${a})`, `url(#${b})`]);
-  });
-
-  it('paints in the current colour', () => {
-    const { container } = render(<Mark />);
-    expect(container.querySelector('path[mask]')).toHaveAttribute('fill', 'currentColor');
+    expect(container.querySelectorAll('svg')).toHaveLength(2);
+    expect(container.querySelectorAll('[id]')).toHaveLength(0);
   });
 });
