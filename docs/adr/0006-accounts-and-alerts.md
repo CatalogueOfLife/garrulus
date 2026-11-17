@@ -143,3 +143,14 @@ Everything is configured by environment variables so that stays possible.
 - A hit is a stored fact: changing the window or a subscription later does not rewrite old hits.
 - A crash between marking and sending loses that digest's mail (the hits stay on "My hits").
 - Purging expired tokens and the in-memory rate limiter assume one `web` instance.
+
+## Amendment 2026-11-17 (M5, ADR-0007): re-index hit rule
+
+- A re-indexed work gives a follow an `ARTICLE` hit only if the follow did not match the previous index. "Following
+  never pulls in papers that are already indexed" (above) still holds for an unchanged re-index; a re-index that newly
+  matches a follow (new names, full text) gives that follow its one `ARTICLE` hit, inside the window.
+- At the swap the indexer stores the ids of all subscriptions matching the old rows (paused ones too) in
+  `work.reindex_prev_subscriptions`; `EVALUATE_HITS` skips a new `ARTICLE` for them. A paused follow that matched before
+  stays silent after it resumes. Window, `since_year`, one `ARTICLE` per (follow, work) and `NEW_NAMES` are unchanged.
+- An XR switch writes no hit at all (`XR_REPLACE` never enqueues `EVALUATE_HITS`). Follows on taxa that moved or vanished
+  get a note on the Following page and once in the next digest that is sent (`subscription.target_status`, `xr_note`).

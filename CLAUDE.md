@@ -13,9 +13,10 @@ notifies users who follow taxa, journals or names. It also builds a public name�
   new ones.
 
 **Status:** design approved 2026-11-14. M0 (foundations), M1 (finder v1), M2 (harvest and content) and M3 (match and
-index: ADR-0005) and M4 (accounts and alerts: ADR-0006; local only, deployment comes last) are built; M2's week-long
-dev run continues (`docs/m2-dev-run.md`, M3 check in `docs/m3-dev-check.md`). Next: M5. Finder and salience tuning
-is a final stage after the milestones.
+index: ADR-0005), M4 (accounts and alerts: ADR-0006; local only, deployment comes last) and M5 (lifecycle and
+backfill: ADR-0007; M5a XR switch, reprocessing and pending re-index, M5b snapshot backfill) are built locally; the
+full backfill runs later on the GBIF VM. M2's week-long dev run continues (`docs/m2-dev-run.md`, M3 check in
+`docs/m3-dev-check.md`). Next: M6. Finder and salience tuning is a final stage after the milestones.
 
 ## Commands
 
@@ -69,14 +70,14 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
     task like any error: it uses attempts and ends `DEAD`.
   - `NAMETRACKER_CLB_BASE_URL` (default `https://api.checklistbank.org`) serves the XR and everything but matching when
     `NAMETRACKER_CLB_MATCH_BASE_URL` is set: a local CLB release bundle for all match calls and the N1 probe, e.g.
-    `NAMETRACKER_CLB_MATCH_BASE_URL=http://localhost:18100` (never 8080/8081). It is not throttled, its `GET /dataset`
-    gives the release key to pin, and a bundle of another release than the pinned one makes `MATCH_NAMES` fail DEAD
-    (ADR-0005, "Local bundle matching").
+    `NAMETRACKER_CLB_MATCH_BASE_URL=http://localhost:18100` (never 8080/8081). It is for development only, not
+    throttled, its `GET /dataset` gives the release key to pin, and a bundle of another release than the pinned one
+    defers `MATCH_NAMES` 30 minutes without using an attempt (ADR-0005, "Local bundle matching").
   - `NAMETRACKER_HARVEST_OUTAGE_DELAY` (30m): a harvest or onboarding page that meets an outage is enqueued again after
     this delay instead of failing.
 - `indexer` matching and index (ADR-0005):
-  - `NAMETRACKER_CLB_BASE_URL` (`https://api.checklistbank.org`): the XR (`GET /dataset/3LXR`) and name matching, at
-    most 10 requests a second. A CLB outage defers `MATCH_NAMES`/`XR_CHECK` 30 minutes without using an attempt. When
+  - `NAMETRACKER_CLB_BASE_URL` (`https://api.checklistbank.org`): the XR (`GET /dataset/3LXR`) and name matching, not
+    throttled. A CLB outage defers `MATCH_NAMES`/`XR_CHECK` 30 minutes without using an attempt. When
     a single match call fails (after the HTTP retries, or with a 4xx), the same match endpoint and release are probed
     with `Animalia`/kingdom: probe ok → the name is at fault, placed `NONE` (not cached, WARN) and the work goes on;
     probe fails retryably → outage; probe 4xx → ordinary failure (attempts, `DEAD`). More than 3 names at fault in one
@@ -85,6 +86,20 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   - `NAMETRACKER_SPOOL_MAX_AGE` (14d) bounds the spool; it is purged daily at 05:30 UTC.
   - `NAMETRACKER_STATS_CRON` (`0 30 4 * * *`): nightly `REBUILD_STATS` (ubiquity, taxon stats) at `LIVE` priority, which
     then enqueues `CATEGORISE_SOURCES`. `XR_CHECK` runs daily at `0 0 6 * * *`. Neither is behind the harvest switch.
+- `indexer` lifecycle and backfill (ADR-0007):
+  - `NAMETRACKER_CLB_MATCH_PARALLELISM` (8): parallel CLB match calls inside one `XR_PREMATCH` task.
+  - `nametracker.xr.max-lost-share` (0.05, property only): the XR gate refuses a release that loses more than this
+    share of the keys matched in the current one.
+  - `NAMETRACKER_DICTIONARY_DIR` (blank = off): directory of `dictionary-<xrKey>.bin`. `BUILD_DICTIONARY` builds the file
+    of a new release there from `NAMETRACKER_XR_ZIP_URL` (default
+    `https://download.checklistbank.org/col/xr_latest_coldp.zip`) and the in-process finder reloads it. With an empty
+    directory the indexer builds the current release's dictionary at start (about 1.4 GB), and `FIND_NAMES` waits
+    (30 minutes, no attempt) until it is ready.
+  - `nametracker.finder.rollout-on-start` (true, property only): at start, a changed finder `configHash` enqueues
+    `REPROCESS_NAMES {"all":true,"rollout":hash}`; the first start only records the baseline.
+  - `NAMETRACKER_SNAPSHOT_BASE_URL` (`https://openalex.s3.amazonaws.com`): the free OpenAlex snapshot;
+    `NAMETRACKER_SNAPSHOT_READ_TIMEOUT` (5m): a works file silent that long counts as broken off (the task fails and
+    reads the file again).
 - `indexer` salience (properties only, no env variables; set them in `application.yml`, `.env` or as `-D`/args):
   `nametracker.salience.{title=0.40, abstract=0.20, act=0.35, heading=0.15, share=0.25, repeat=0.15, ubiquity=0.50,
   ubiquity-full-share=0.02, threshold=0.35}`. A name with salience >= threshold is a main subject of the work.
@@ -131,11 +146,49 @@ curl ... -d '{"type":"HARVEST_CROSSREF","payload":{"date":"2026-11-14"},"priorit
   `MATCH_NAMES`, `REBUILD_STATS` → `CATEGORISE_SOURCES`) inherits the priority and the `run_after` of its task, so it
   takes its parent's place in the queue: depth first, a work goes all the way to `INDEXED` before the peers queued
   after it start.
+- Lifecycle task types (M5, ADR-0007):
+  - `FIND_NAMES` also takes `"force":true` (run the finder again on the same document; a listed work goes to the pending
+    index) and `"refetched":true` (set by a reprocess re-fetch: if the text is gone again, keep the names). `RESOLVE_CONTENT`
+    also takes `"freeOnly":true` (skip paid routes) and `"reprocess":true` (no free full text: keep the names, write
+    nothing).
+  - `REPROCESS_NAMES` (`{"afterId":0,"batch":1000,"all":false,"force":true,"source":null,"workIds":null,"yearFrom":null,
+    "yearTo":null,"rollout":null}`, batch at most 10000): forced `FIND_NAMES` at REPROCESS for works the finder has seen,
+    continues per batch. Does nothing without a filter or `"all":true`; `force:false` enqueues plain `FIND_NAMES`.
+  - `XR_SWITCH` (`{"key":k,"refuse":false,"force":false}`; `auto` is set by `XR_CHECK`): starts PREPARING for release k.
+    `refuse:true` also marks the old release REFUSED (rollback hold: no automatic switch back). `force:true` skips the
+    gate. A refused key is cleared by an admin switch. Refused while another switch is running (also while the last
+    one is SWITCHING).
+  - `XR_PREMATCH` (`{"key","gen","afterName","afterHint","batch":2000}`) → `XR_GATE` (`{"key","gen"}`) → flip →
+    `BUILD_DICTIONARY` (`{"key":k}`) and `XR_REPLACE` (`{"key","batch":500}`) → `XR_FINISH` (`{"key"}`). All steps are
+    chained and idempotent; do not enqueue them by hand except to recover. `XR_CANCEL` (`{"key","refuse":false}`) puts a
+    PREPARING, PREPARED or gate/admin-refused release back to SEEN (or REFUSED); after the flip it is an ERROR no-op.
+  - `BACKFILL` (`{"fromYear":2000,"toYear":<this year>,"files":null,"fromFile":0}`, all optional): reads the snapshot
+    manifest, creates a run and one `BACKFILL_FILE` (`{"runId","idx","records"}`, never by hand) per file of the slice at
+    priority `BACKFILL`. Imports articles and reviews of active CORE/BROAD sources, `origin=BACKFILL`, and queues
+    `RESOLVE_CONTENT`; an existing work (same OpenAlex id or DOI) is never changed. A repeated identical `BACKFILL` of a
+    RUNNING run re-enqueues only the files not done (a DEAD file gets a new task); of a DONE run it starts a new run.
+- Re-indexing: a work that is `INDEXED` stays `INDEXED` and listed while a new `FIND_NAMES` result waits in
+  `mention_pending` / `classification_context_pending`; `MATCH_NAMES` swaps it in one transaction, without a gap.
+  A re-index gives a follow an `ARTICLE` hit only if the follow did not match the previous index (ADR-0006,
+  amendment). An XR switch never writes a hit. The first release-based match of a 5M-work index is a large CLB load.
 
 ```
-# pin the XR (the first key seen stays current until M5), then name and index every resolved work
+# pin the XR (first key seen), then name and index every resolved work
 curl ... -d '{"type":"XR_CHECK","payload":{},"priority":"LIVE","dedupKey":"xr-check:manual"}'
 curl ... -d '{"type":"FIND_PENDING","payload":{"limit":100000},"priority":"REPROCESS","dedupKey":"find-pending:manual"}'
+```
+
+```
+# M5 by hand (18080, $ADMIN_TOKEN as above)
+# switch to a release by key (also back to an older one); add "refuse":true to hold the old release, "force":true to skip the gate
+curl ... -d '{"type":"XR_SWITCH","payload":{"key":315557},"priority":"REPROCESS","dedupKey":"xr-switch:manual"}'
+# cancel before the flip, optionally refusing the key
+curl ... -d '{"type":"XR_CANCEL","payload":{"key":315557,"refuse":false},"priority":"LIVE","dedupKey":"xr-cancel:manual"}'
+# reprocess one journal's works with the current finder (source = source.id), then everything
+curl ... -d '{"type":"REPROCESS_NAMES","payload":{"source":42,"batch":500},"priority":"REPROCESS","dedupKey":"reprocess:manual:src42"}'
+curl ... -d '{"type":"REPROCESS_NAMES","payload":{"all":true},"priority":"REPROCESS","dedupKey":"reprocess:manual:all"}'
+# backfill a slice: 3 snapshot files from file 10, years 2020 to 2024 (omit for 2000 to now, all files)
+curl ... -d '{"type":"BACKFILL","payload":{"fromYear":2020,"toYear":2024,"files":3,"fromFile":10},"priority":"BACKFILL","dedupKey":"backfill:manual"}'
 ```
 - `GET /api/admin/sources?tier=&active=&q=&limit=&offset=` lists sources (limit at most 500, default 100).
 - `PATCH /api/admin/sources/{id}` with `{"tier":"CORE","active":true}` (either field) sets tier and active as ADMIN. A
@@ -143,7 +196,9 @@ curl ... -d '{"type":"FIND_PENDING","payload":{"limit":100000},"priority":"REPRO
   for a bad tier.
 - `POST /api/admin/sources` with `{"openalexId":"S123","tier":"CORE"}` enqueues `ADD_SOURCE` (202).
 - `GET /api/admin/status`: task counts by type and state, work counts by state and text level, today's (UTC) `api_usage`
-  rows, the last 20 harvest runs and source counts by tier. Only COUNT/GROUP BY queries, but they scan the whole task
+  rows, the last 20 harvest runs, source counts by tier, and (M5) `xrReleases` (key, alias, state, current, `keysTotal`,
+  `keysLost`, `switchStarted`, `switchedAt`), `backfillRuns` (years, snapshot date, files total and done, records read and
+  kept, works created) and `finderRollouts` (config hash, started, enqueued, baseline), each the newest 20. Only COUNT/GROUP BY queries, but they scan the whole task
   and work tables, which grow with the backlog: poll it every few minutes, not in a tight loop.
 
 ## Public API (`web`, no token)

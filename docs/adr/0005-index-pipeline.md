@@ -40,15 +40,15 @@ The design suggests partitioning `mention` by work year. M3 keeps one table with
 and the partition key (year) is not known for undated works. Revisit with M5's backfill. A later partitioning is a
 migration of one table; nothing outside `IndexMapper` depends on its layout.
 
-### The XR is pinned at the first key; switching is M5
+### The XR is pinned at the first key; switching is ADR-0007
 
 - `XR_CHECK` (daily `0 0 6 * * *` UTC, ShedLock `xr-check`, dedup key `xr-check:<date>`, not behind the harvest switch)
-  reads `GET /dataset/3LXR`. The first key it sees becomes the `current` row of `xr_release`; a later key is only
-  recorded (`current=false`) and logged. On 2026-11-15 that was 316691, "COL26.10 XR".
-- Every match, cache entry and `taxon_path` refers to the pinned key. Switching the pin means re-matching every name and
-  rewriting every `work_name` without notifying anybody; that is M5's XR release workflow.
+  reads `GET /dataset/3LXR`. The first key it sees becomes the `current` row of `xr_release`. A later key is recorded and,
+  since M5, starts an automatic switch (ADR-0007, "XR switch"); until then it was only recorded and logged. On 2026-11-15 that was 316691, "COL26.10 XR".
+- Every match, cache entry and `taxon_path` refers to the current key. Moving to a new release (pre-match, gate, flip,
+  re-placing every `work_name` without notifying anybody) is the XR switch of ADR-0007.
 - Matching uses `GET /dataset/{key}/match/nameusage` with `mode=RELAXED`, `scientificName`, `rank`, `authorship` and the
-  hints `kingdom`…`genus`, at most 10 requests a second. The result is cached in `name_match` under
+  hints `kingdom`…`genus`, not throttled (M5, ADR-0007; retries and the User-Agent stay). The result is cached in `name_match` under
   (`name_string_id`, `hint_key`, `release_key`); `hint_key` is the sorted hints plus the authorship. The `code`
   parameter is not sent yet.
 - `taxon_path` is the usage id, then the ids of the response's `classification[]`. For a synonym `classification[]` is
@@ -86,12 +86,12 @@ migration of one table; nothing outside `IndexMapper` depends on its layout.
   `nametracker.http.min-interval`); retries and the Garrulus User-Agent stay.
 - The release key comes from the bundle: `GET {match-base-url}/dataset` is rewritten by the bundle to its one release
   (`key`, `alias`). With no release pinned yet, `XR_CHECK` (or the first `MATCH_NAMES`) pins that key. With a release
-  pinned and a different bundle key, matching is refused: `MATCH_NAMES` fails with a `NonRetryableTaskException` naming
-  both keys, which the dispatcher turns into a DEAD task at once (no retries, no NONE placements, no endless deferral),
-  and `XR_CHECK` logs an ERROR. Every `MATCH_NAMES` task asks the bundle for its release before its first match call (a bundle swapped under a
+  pinned and a different bundle key, matching is refused: `MATCH_NAMES` is deferred 30 minutes without using an attempt
+  (M5, ADR-0007; it used to fail DEAD at once), no NONE placements are written, and `XR_CHECK` logs it. Every `MATCH_NAMES` task asks the bundle for its release before its first match call (a bundle swapped under a
   running indexer must not write wrong-release matches into `name_match` under the pinned key; match responses carry
-  no dataset key); inside a task the answer is reused for 30 seconds. Switching the pin is M5.
-- To rerun the mismatch-DEAD tasks once the right bundle runs (`data/run/psql.sh`):
+  no dataset key); inside a task the answer is reused for 30 seconds. A bundle is for development only; switching the
+  release is by hand (`XR_SWITCH`).
+- Mismatches before M5 ended `DEAD`. To rerun such tasks once the right bundle runs (`data/run/psql.sh`):
   `UPDATE task SET state='QUEUED', attempts=0, run_after=now(), finished=NULL, last_error=NULL, locked_by=NULL,
   locked_at=NULL WHERE type='MATCH_NAMES' AND state='DEAD' AND last_error LIKE '%XrMismatchException%';`
 - A bundle that cannot be reached (refused, or its host does not resolve) is an outage, deferred like CLB.
@@ -227,6 +227,5 @@ for the planned portal literature widget.
 - Main-subject flags, taxon pages, facets and the categorisation all depend on the untuned salience defaults. Expect
   false main subjects (common names repeated in the body) and misses (a taxon named once in the title of a long paper)
   until the tuning stage.
-- The pinned XR goes stale with every monthly release until M5 adds the switch; new names in later releases fall back
-  to `GENUS` or the context.
+- The XR no longer goes stale: M5 switches to each new monthly release (ADR-0007).
 - The categorisation stays at its seed values for small or newly onboarded journals for some weeks.
