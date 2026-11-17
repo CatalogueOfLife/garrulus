@@ -96,6 +96,10 @@ nametracker:
     # a local CLB release bundle (http://localhost:18100): serves all match calls and the N1 probe, and tells the release
     # key to pin; not rate limited. Empty means base-url.
     match-base-url: ${NAMETRACKER_CLB_MATCH_BASE_URL:}
+  xr:
+    # the XR switch gate: a new release that loses more than this share of the keys matched in the current one
+    # (no match, or CLB cannot match the name) is REFUSED instead of becoming current
+    max-lost-share: 0.05
   hits:
     # alert window of a follow: papers published at most window-days ago (inclusive), at most future-days ahead
     window-days: ${NAMETRACKER_HIT_WINDOW_DAYS:90}

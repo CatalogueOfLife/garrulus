@@ -111,6 +111,28 @@
       <arg column="alias" javaType="string"/>
       <arg column="first_seen" javaType="java.time.Instant"/>
       <arg column="current" javaType="_boolean"/>
+      <arg column="state" javaType="string"/>
+      <arg column="switch_started" javaType="java.time.Instant"/>
+      <arg column="switched_at" javaType="java.time.Instant"/>
+      <arg column="keys_total" javaType="java.lang.Integer"/>
+      <arg column="keys_lost" javaType="java.lang.Integer"/>
+      <arg column="note" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <resultMap id="matchKey" type="org.catalogueoflife.nametracker.store.index.MatchKey">
+    <constructor>
+      <arg column="name_string_id" javaType="_long"/>
+      <arg column="hint_key" javaType="string"/>
+      <arg column="name" javaType="string"/>
+      <arg column="rank" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <resultMap id="matchLoss" type="org.catalogueoflife.nametracker.store.index.MatchLoss">
+    <constructor>
+      <arg column="total" javaType="_long"/>
+      <arg column="lost" javaType="_long"/>
     </constructor>
   </resultMap>
 
@@ -296,8 +318,64 @@
   <select id="releaseExists" resultType="boolean">SELECT EXISTS (SELECT 1 FROM xr_release WHERE key = #{key})</select>
 
   <insert id="addRelease">
-    INSERT INTO xr_release (key, alias, current) VALUES (#{key}, #{alias}, #{current})
+    INSERT INTO xr_release (key, alias, current, state)
+    VALUES (#{key}, #{alias}, #{current}, CASE WHEN #{current} THEN 'CURRENT' ELSE 'SEEN' END)
   </insert>
+
+  <select id="release" resultMap="release">
+    SELECT * FROM xr_release WHERE key = #{key}
+  </select>
+
+  <select id="lockReleases" resultType="int" flushCache="true">
+    SELECT key FROM xr_release ORDER BY key FOR UPDATE
+  </select>
+
+  <select id="runningSwitch" resultMap="release" flushCache="true">
+    SELECT * FROM xr_release WHERE state IN ('PREPARING', 'PREPARED', 'SWITCHING') ORDER BY key LIMIT 1
+  </select>
+
+  <update id="startSwitch">
+    UPDATE xr_release SET state = 'PREPARING', switch_started = now(), switched_at = NULL, keys_total = NULL,
+      keys_lost = NULL, note = #{note}
+    WHERE key = #{key}
+  </update>
+
+  <update id="setReleaseState">
+    UPDATE xr_release SET state = #{state}, note = #{note} WHERE key = #{key}
+  </update>
+
+  <update id="changeReleaseState">
+    UPDATE xr_release SET state = #{to} WHERE key = #{key} AND state = #{from}
+  </update>
+
+  <update id="setReleaseKeys">
+    UPDATE xr_release SET keys_total = #{total}, keys_lost = #{lost} WHERE key = #{key}
+  </update>
+
+  <update id="retireRelease">
+    UPDATE xr_release SET current = false, state = #{state}, note = #{note} WHERE key = #{key}
+  </update>
+
+  <update id="switchToRelease">
+    UPDATE xr_release SET current = true, state = 'SWITCHING', switched_at = now() WHERE key = #{key}
+  </update>
+
+  <!-- the row comparison walks the primary key (name_string_id, hint_key, release_key) -->
+  <select id="matchKeys" resultMap="matchKey">
+    SELECT m.name_string_id, m.hint_key, s.name, s.rank
+    FROM name_match m JOIN name_string s ON s.id = m.name_string_id
+    WHERE m.release_key = #{releaseKey} AND (m.name_string_id, m.hint_key) &gt; (#{afterName}, #{afterHint})
+    ORDER BY m.name_string_id, m.hint_key
+    LIMIT #{limit}
+  </select>
+
+  <select id="matchLoss" resultMap="matchLoss">
+    SELECT count(*) AS total, count(*) FILTER (WHERE n.match_type IS NULL OR n.match_type = 'none') AS lost
+    FROM name_match c
+    LEFT JOIN name_match n ON n.name_string_id = c.name_string_id AND n.hint_key = c.hint_key
+      AND n.release_key = #{candidate}
+    WHERE c.release_key = #{current} AND c.match_type &lt;&gt; 'none'
+  </select>
 
   <update id="setNamesFound">
     UPDATE work SET current_finder_run = #{finderRunId}, names_doc_sha = #{docSha}, state = 'NAMES_FOUND', modified = now()

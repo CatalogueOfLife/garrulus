@@ -1,0 +1,149 @@
+package org.catalogueoflife.nametracker.indexer.xr;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import org.catalogueoflife.nametracker.finder.api.FinderJson;
+import org.catalogueoflife.nametracker.indexer.match.MatchCache;
+import org.catalogueoflife.nametracker.indexer.match.MatchQuery;
+import org.catalogueoflife.nametracker.indexer.match.UnmatchableNameException;
+import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
+import org.catalogueoflife.nametracker.store.index.IndexMapper;
+import org.catalogueoflife.nametracker.store.index.MatchKey;
+import org.catalogueoflife.nametracker.store.index.XrRelease;
+import org.catalogueoflife.nametracker.store.task.Task;
+import org.catalogueoflife.nametracker.store.task.TaskPriority;
+import org.catalogueoflife.nametracker.store.task.TaskQueue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ObjectNode;
+
+/**
+ * {@code XR_PREMATCH}, payload {@code {"key":k,"afterName":0,"afterHint":"","batch":2000}} (all but key optional).
+ * Matches the next batch of keys (name string, hint key) of the current release's {@code name_match}, in key order,
+ * in release k with {@code nametracker.clb.match-parallelism} parallel calls; a key matched before costs nothing (the
+ * match cache). Each query is rebuilt from the name string's name and rank and the hint key. A name CLB cannot match
+ * stores nothing (counted: the gate sees it as lost); a CLB outage defers the task. A full batch enqueues the
+ * continuation with this task's run_after; the last batch sets k {@code PREPARED} and enqueues {@code XR_GATE} in one
+ * transaction. Stops silently when k is no longer {@code PREPARING} (cancelled, or a redelivered batch after the end).
+ * Nothing visible changes. Idempotent.
+ */
+@Component
+public class XrPrematchHandler implements TaskHandler {
+
+  public static final String TYPE = "XR_PREMATCH";
+  static final int DEFAULT_BATCH = 2000;
+  static final int MAX_BATCH = 20000;
+
+  private static final Logger LOG = LoggerFactory.getLogger(XrPrematchHandler.class);
+
+  private final IndexMapper index;
+  private final MatchCache cache;
+  private final TaskQueue queue;
+  private final TransactionTemplate tx;
+  private final XrSwitchProperties props;
+
+  public XrPrematchHandler(IndexMapper index, MatchCache cache, TaskQueue queue, TransactionTemplate tx,
+      XrSwitchProperties props) {
+    this.index = index;
+    this.cache = cache;
+    this.queue = queue;
+    this.tx = tx;
+    this.props = props;
+  }
+
+  @Override
+  public String type() {
+    return TYPE;
+  }
+
+  static String dedupKey(int key, long afterName, String afterHint) {
+    return "xr-prematch:" + key + ":" + afterName + ":" + afterHint;
+  }
+
+  @Override
+  public void handle(Task task) throws Exception {
+    JsonNode p = FinderJson.mapper().readTree(task.payload());
+    int key = XrSwitchHandler.key(p, TYPE);
+    long afterName = p.path("afterName").asLong(0);
+    String afterHint = p.path("afterHint").asString("");
+    int batch = Math.max(1, Math.min(MAX_BATCH, p.path("batch").asInt(DEFAULT_BATCH)));
+    XrRelease r = index.release(key);
+    if (r == null || !XrSwitchHandler.PREPARING.equals(r.state())) {
+      LOG.debug("XR_PREMATCH of release {} stops: it is {}", key, r == null ? "unknown" : r.state());
+      return;
+    }
+    XrRelease current = index.currentRelease();
+    if (current == null) throw new IllegalStateException("No current XR release to pre-match from");
+
+    List<MatchKey> keys = index.matchKeys(current.key(), afterName, afterHint, batch);
+    int unmatchable = matchAll(keys, key);
+    if (unmatchable > 0) {
+      LOG.warn("XR_PREMATCH of release {}: CLB cannot match {} of {} names after ({}, \"{}\")", key, unmatchable,
+          keys.size(), afterName, afterHint);
+    }
+    if (keys.size() == batch) {
+      MatchKey last = keys.get(keys.size() - 1);
+      ObjectNode next = FinderJson.mapper().createObjectNode();
+      next.put("key", key);
+      next.put("afterName", last.nameStringId());
+      next.put("afterHint", last.hintKey());
+      next.put("batch", batch);
+      queue.enqueue(TYPE, FinderJson.mapper().writeValueAsString(next), TaskPriority.REPROCESS,
+          dedupKey(key, last.nameStringId(), last.hintKey()), task.runAfter());
+      LOG.info("Pre-matched {} keys of release {} in release {} (up to name string {})", keys.size(),
+          current.key(), key, last.nameStringId());
+      return;
+    }
+    Boolean done = tx.execute(s -> {
+      if (index.changeReleaseState(key, XrSwitchHandler.PREPARING, XrSwitchHandler.PREPARED) == 0) return false;
+      queue.enqueue(XrGateHandler.TYPE, "{\"key\":" + key + "}", TaskPriority.REPROCESS, "xr-gate:" + key,
+          task.runAfter());
+      return true;
+    });
+    if (Boolean.TRUE.equals(done)) {
+      LOG.info("Pre-match of release {} done ({} keys in the last batch): gate next", key, keys.size());
+    }
+  }
+
+  /** Matches the keys in the release in parallel; returns how many CLB cannot match. The first other error is thrown. */
+  private int matchAll(List<MatchKey> keys, int releaseKey) throws Exception {
+    if (keys.isEmpty()) return 0;
+    ExecutorService pool = Executors.newFixedThreadPool(Math.min(props.matchParallelism(), keys.size()),
+        Thread.ofPlatform().name("xr-prematch-", 0).daemon().factory());
+    try {
+      List<Future<Boolean>> results = new ArrayList<>(keys.size());
+      for (MatchKey k : keys) results.add(pool.submit(() -> matchOne(k, releaseKey)));
+      int unmatchable = 0;
+      for (Future<Boolean> f : results) {
+        try {
+          if (!f.get()) unmatchable++;
+        } catch (ExecutionException e) {
+          if (e.getCause() instanceof Exception cause) throw cause;
+          if (e.getCause() instanceof Error err) throw err;
+          throw e;
+        }
+      }
+      return unmatchable;
+    } finally {
+      pool.shutdownNow();
+    }
+  }
+
+  /** True if matched (or cached), false if CLB cannot match this name. */
+  private boolean matchOne(MatchKey k, int releaseKey) {
+    try {
+      cache.match(k.nameStringId(), MatchQuery.fromHintKey(k.name(), k.rank(), k.hintKey()), releaseKey);
+      return true;
+    } catch (UnmatchableNameException e) {
+      LOG.debug("XR_PREMATCH: {}", e.getMessage());
+      return false;
+    }
+  }
+}

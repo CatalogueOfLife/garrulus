@@ -6,6 +6,7 @@ import net.javacrumbs.shedlock.spring.annotation.EnableSchedulerLock;
 import net.javacrumbs.shedlock.provider.jdbctemplate.JdbcTemplateLockProvider;
 import org.catalogueoflife.nametracker.finder.salience.SalienceProperties;
 import org.catalogueoflife.nametracker.indexer.hits.HitProperties;
+import org.catalogueoflife.nametracker.indexer.xr.XrSwitchProperties;
 import org.catalogueoflife.nametracker.store.task.TaskMapper;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.springframework.beans.factory.annotation.Value;
@@ -44,6 +45,14 @@ public class IndexerConfig {
       @Value("${nametracker.hits.window-days}") int windowDays,
       @Value("${nametracker.hits.future-days}") int futureDays) {
     return new HitProperties(windowDays, futureDays);
+  }
+
+  /** XR switch gate and pre-match parallelism ({@code nametracker.xr.*}, {@code nametracker.clb.match-parallelism}). */
+  @Bean
+  XrSwitchProperties xrSwitchProperties(
+      @Value("${nametracker.xr.max-lost-share:0.05}") double maxLostShare,
+      @Value("${nametracker.clb.match-parallelism:8}") int matchParallelism) {
+    return new XrSwitchProperties(maxLostShare, matchParallelism);
   }
 
   /** For scheduled jobs that must run once even with several instances. */

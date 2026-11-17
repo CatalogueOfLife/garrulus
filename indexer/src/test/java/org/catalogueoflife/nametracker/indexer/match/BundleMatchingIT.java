@@ -128,7 +128,7 @@ class BundleMatchingIT extends AbstractPostgresIT {
   @Test
   void xrCheckWithAMismatchLogsAndKeepsThePin() {
     index.addRelease(111, "COL25.01 XR", true);
-    xr.check(); // logs an ERROR, does not throw
+    xr.check(); // logs a new release to switch to by hand, does not throw
     assertThat(index.currentRelease().key()).isEqualTo(111);
     assertThat(index.releaseExists(316691)).isFalse();
   }

@@ -75,13 +75,19 @@ public class ClbClient {
    */
   public XrInfo currentXr() {
     URI uri = URI.create(localBundle() ? matchBase + "/dataset" : base + "/dataset/" + XR_DATASET);
+    return xrInfo(uri, localBundle() ? "of the bundle" : XR_DATASET);
+  }
+
+  /** Key and alias of the dataset (a release) with this key, from the CLB API (never the local bundle). */
+  public XrInfo dataset(int key) {
+    return xrInfo(URI.create(base + "/dataset/" + key), String.valueOf(key));
+  }
+
+  private XrInfo xrInfo(URI uri, String what) {
     JsonNode d = getJson(uri);
     if (d.isArray() && !d.isEmpty()) d = d.get(0);
     JsonNode key = d.path("key");
-    if (!key.isNumber()) {
-      throw new HttpProblem(uri, 200, false, "CLB dataset " + (localBundle() ? "of the bundle" : XR_DATASET)
-          + " has no key", null);
-    }
+    if (!key.isNumber()) throw new HttpProblem(uri, 200, false, "CLB dataset " + what + " has no key", null);
     JsonNode alias = d.path("alias");
     return new XrInfo(key.asInt(), alias.isString() ? alias.asString() : "XR " + key.asInt());
   }

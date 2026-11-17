@@ -140,7 +140,42 @@ public interface IndexMapper {
 
   boolean releaseExists(@Param("key") int key);
 
+  /** Inserts the release, in state CURRENT if current, else SEEN. */
   void addRelease(@Param("key") int key, @Param("alias") String alias, @Param("current") boolean current);
+
+  // The XR switch (states in XrRelease). Its steps lock all releases first, so that they run one at a time.
+
+  @Nullable XrRelease release(@Param("key") int key);
+
+  /** Takes the row lock of every release until the end of the transaction; returns their keys. */
+  List<Integer> lockReleases();
+
+  /** A release in PREPARING, PREPARED or SWITCHING, the lowest key if several; null if no switch runs. */
+  @Nullable XrRelease runningSwitch();
+
+  /** State PREPARING, switch_started now, the note; switched_at, keys_total and keys_lost cleared. */
+  void startSwitch(@Param("key") int key, @Param("note") String note);
+
+  /** Sets state and note. */
+  void setReleaseState(@Param("key") int key, @Param("state") String state, @Param("note") @Nullable String note);
+
+  /** Sets the state to {@code to} only if it is {@code from}; returns the rows changed (0 or 1). */
+  int changeReleaseState(@Param("key") int key, @Param("from") String from, @Param("to") String to);
+
+  void setReleaseKeys(@Param("key") int key, @Param("total") int total, @Param("lost") int lost);
+
+  /** The current release stops being current: current false, the given state and note. */
+  void retireRelease(@Param("key") int key, @Param("state") String state, @Param("note") @Nullable String note);
+
+  /** The release becomes the current one: current true, state SWITCHING, switched_at now. Retire the old one first. */
+  void switchToRelease(@Param("key") int key);
+
+  /** Keys of the release's name_match rows after (afterName, afterHint), ordered by name string id and hint key. */
+  List<MatchKey> matchKeys(@Param("releaseKey") int releaseKey, @Param("afterName") long afterName,
+      @Param("afterHint") String afterHint, @Param("limit") int limit);
+
+  /** Keys matched in {@code current} and how many of them are lost in {@code candidate}, see {@link MatchLoss}. */
+  MatchLoss matchLoss(@Param("current") int current, @Param("candidate") int candidate);
 
   /** Sets current_finder_run, names_doc_sha and state NAMES_FOUND. */
   void setNamesFound(@Param("workId") long workId, @Param("finderRunId") long finderRunId,

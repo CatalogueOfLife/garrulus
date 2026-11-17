@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * The pinned COL XR that every match uses. The first release seen becomes the current one; a later key is only
- * recorded (switching the pin is a deliberate step, M5).
+ * recorded here. {@code XR_CHECK} starts the switch to it (package {@code xr}), whose gate flips the current release.
  */
 @Component
 public class XrReleaseService {
@@ -82,17 +82,18 @@ public class XrReleaseService {
 
   /**
    * Asks CLB (or the local bundle) for the XR and records it: pinned if there is no current release, else only
-   * remembered. Idempotent. A local bundle with another release than the pinned one is logged as an ERROR and not
-   * recorded.
+   * remembered (state SEEN). Idempotent. A local bundle with another release than the pinned one is not recorded: it
+   * is logged as a new release to switch to by hand. Returns the release seen.
    */
-  public void check() {
+  public ClbClient.XrInfo check() {
     ClbClient.XrInfo x = clb.currentXr();
     XrRelease pinned = index.currentRelease();
     if (clb.localBundle() && pinned != null && pinned.key() != x.key()) {
-      LOG.error("{}", new XrMismatchException(pinned.key(), x.key(), x.alias()).getMessage());
-      return;
+      LOG.info("New XR release {} ({}) in the local bundle, the current release is {}: switch by hand with XR_SWITCH "
+          + "{\"key\":{}}; MATCH_NAMES waits until then", x.key(), x.alias(), pinned.key(), x.key());
+      return x;
     }
-    if (index.releaseExists(x.key())) return;
+    if (index.releaseExists(x.key())) return x;
     boolean pin = index.currentRelease() == null;
     try {
       index.addRelease(x.key(), x.alias(), pin);
@@ -101,5 +102,6 @@ public class XrReleaseService {
     } catch (DuplicateKeyException e) {
       LOG.debug("XR release {} was recorded concurrently", x.key());
     }
+    return x;
   }
 }
