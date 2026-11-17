@@ -71,6 +71,11 @@ const mapped: Record<string, string> = {
   '--mantine-primary-color-filled': 'var(--gr-ink)',
   '--mantine-primary-color-filled-hover': 'var(--gr-ink)',
   '--mantine-primary-color-contrast': 'var(--gr-paper)',
+  '--mantine-color-red-filled': 'var(--gr-red)',
+  '--mantine-color-red-filled-hover': 'var(--gr-red)',
+  '--mantine-color-red-light-color': 'var(--gr-red)',
+  '--mantine-color-red-outline': 'var(--gr-red)',
+  '--mantine-color-red-text': 'var(--gr-red)',
 };
 
 // Mantine defines these per colour scheme (higher specificity than :root), so they go in light and dark;

@@ -22,7 +22,11 @@
 
 .alertTitle {
   font-weight: 500;
-  color: var(--alert-color);
+  color: var(--gr-ink);
+}
+
+.alertTitleRed {
+  color: var(--gr-red);
 }
 
 .skeleton {

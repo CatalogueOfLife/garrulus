@@ -30,6 +30,10 @@ describe('token contrast', () => {
     }
   }
 
+  it('takes the top-level blocks only, not those inside media queries', () => {
+    expect(tokens.light['--gr-type-display-size']).toBe('132px');
+  });
+
   it('defines the layout, space and type tokens', () => {
     expect(tokens.light['--gr-width']).toBe('1240px');
     expect(tokens.light['--gr-side']).toBe('340px');

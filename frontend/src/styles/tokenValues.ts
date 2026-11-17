@@ -4,7 +4,7 @@
  */
 export function parseTokens(css: string): { light: Record<string, string>; dark: Record<string, string> } {
   const out = { light: {} as Record<string, string>, dark: {} as Record<string, string> };
-  const clean = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const clean = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@[^{};]+\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
   for (const m of clean.matchAll(/([^{}@;]+?)\s*\{([^{}]*)\}/g)) {
     const selector = m[1].trim();
     const target =
