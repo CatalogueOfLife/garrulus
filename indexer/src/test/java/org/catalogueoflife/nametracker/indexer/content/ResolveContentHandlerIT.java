@@ -387,6 +387,48 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
     assertThat(w.textLevel()).isEqualTo("ABSTRACT_ONLY");
   }
 
+  /** Full text arriving for an INDEXED work changes content and text level only: it stays INDEXED and listed. */
+  @Test
+  void indexedWorkStaysIndexedWhenFullTextArrives() throws Exception {
+    Document doc = new Document("work:x", null, List.of(), Map.of());
+    ContentRoute good = route("PMC", w -> Optional.of(new FetchedContent("PMC", "JATS",
+        "<article/>".getBytes(StandardCharsets.UTF_8), doc, "cc-by", "https://example.org/x", true)));
+    long id = work(null, "T", "A", "cc-by", Instant.now());
+    long ns = index.nameStringId("BOLD:AAA0001", "OTU", null);
+    jdbc.update("UPDATE work SET state = 'INDEXED', text_level = 'ABSTRACT_ONLY', names_doc_sha = ?, "
+        + "indexed_at = now() WHERE id = ?", "0".repeat(64), id);
+    jdbc.update("INSERT INTO mention (work_id, name_string_id, block_id, block_type, start_cp, end_cp, verbatim, "
+        + "confidence, snippet) VALUES (?, ?, 'b1', 'ABSTRACT', 0, 1, 'x', 1, 'x')", id, ns);
+
+    new ResolveContentHandler(List.of(good), works, sources, contents, blobs, policy, spool, index, queue, tx,
+        Clock.systemUTC()).handle(task(id));
+
+    Work w = works.get(id);
+    assertThat(w.state()).isEqualTo("INDEXED");
+    assertThat(w.textLevel()).isEqualTo("FULLTEXT");
+    assertThat(index.mentions(id)).hasSize(1);
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'FIND_NAMES'")).isEqualTo(1);
+  }
+
+  /** A document already named into the pending index is not named again. */
+  @Test
+  void pendingDocumentIsNotNamedAgain() throws Exception {
+    long id = work(null, "T", "A", "cc-by", Instant.now());
+    handler.handle(task(id));
+    String chosen = jdbc.queryForObject("SELECT doc_sha256 FROM content WHERE work_id = ?", String.class, id);
+    long run = jdbc.queryForObject("INSERT INTO finder_run (name, version, config_hash) VALUES ('stub', '1', 'x') "
+        + "ON CONFLICT (name, version, config_hash, dictionary_key) DO UPDATE SET name = EXCLUDED.name RETURNING id",
+        Long.class);
+    jdbc.update("UPDATE work SET state = 'INDEXED', names_doc_sha = ?, current_finder_run = ?, pending_doc_sha = ?, "
+        + "pending_finder_run = ? WHERE id = ?", "0".repeat(64), run, chosen, run, id);
+    jdbc.update("DELETE FROM task");
+
+    handler.handle(task(id));
+
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'FIND_NAMES'")).isZero();
+    assertThat(works.get(id).state()).isEqualTo("INDEXED");
+  }
+
   private interface Fetch {
     Optional<FetchedContent> get(Work w);
   }

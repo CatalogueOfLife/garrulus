@@ -66,7 +66,7 @@ class RescoreHandlerIT extends AbstractPostgresIT {
       long ns = mention(w, e.getKey(), "ABSTRACT", p.size() * 20);
       p.put(ns, new Placement("MATCH", "u-" + e.getKey(), List.of("a", "b"), e.getValue()[0], e.getValue()[1]));
     }
-    indexer.index(w, p);
+    indexer.index(w, p, 1);
     return w;
   }
 
@@ -104,7 +104,7 @@ class RescoreHandlerIT extends AbstractPostgresIT {
     Map<Long, Placement> p = new HashMap<>();
     for (WorkName n : first) p.put(n.nameStringId(), new Placement(n.placementMethod(), n.usageId(), n.taxonPath(),
         n.code(), n.taxgroup()));
-    indexer.index(w, p);
+    indexer.index(w, p, 1);
     assertThat(index.workNames(w)).isEqualTo(first);
   }
 

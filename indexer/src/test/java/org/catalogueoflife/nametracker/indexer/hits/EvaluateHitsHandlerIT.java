@@ -284,7 +284,7 @@ class EvaluateHitsHandlerIT extends AbstractPostgresIT {
           "ABSTRACT" + p.size(), p.size() * 20, p.size() * 20 + 10, n);
       p.put(ns, new Placement("MATCH", "u-" + n, List.of("a", "b"), "BACTERIAL", "Bacteria"));
     }
-    indexer.index(w, p);
+    indexer.index(w, p, 1);
     return w;
   }
 

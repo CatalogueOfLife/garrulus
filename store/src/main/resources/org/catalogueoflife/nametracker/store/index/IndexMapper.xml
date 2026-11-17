@@ -141,18 +141,30 @@
   <delete id="deleteContexts">DELETE FROM classification_context WHERE work_id = #{workId}</delete>
   <delete id="deleteWorkNames">DELETE FROM work_name WHERE work_id = #{workId}</delete>
 
-  <select id="insertContext" resultType="long" flushCache="true">
-    INSERT INTO classification_context (work_id, local_id, verbatim, ranks, scope, block_id, until_block_id)
+  <!-- the live and the pending tables have the same columns; ${table} is one of them -->
+  <sql id="contextColumns">work_id, local_id, verbatim, ranks, scope, block_id, until_block_id</sql>
+  <sql id="mentionColumns">work_id, name_string_id, block_id, block_type, start_cp, end_cp, verbatim, authorship, qualifier, confidence, act_type, context_id, snippet, evidence</sql>
+
+  <sql id="contextInsert">
+    INSERT INTO ${table} (<include refid="contextColumns"/>)
     VALUES (#{o.workId}, #{o.localId}, #{o.verbatim}, #{o.ranks, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, #{o.scope}, #{o.blockId}, #{o.untilBlockId})
     RETURNING id
-  </select>
+  </sql>
 
-  <insert id="insertMentions">
-    INSERT INTO mention (work_id, name_string_id, block_id, block_type, start_cp, end_cp, verbatim, authorship, qualifier, confidence, act_type, context_id, snippet, evidence)
+  <sql id="mentionInsert">
+    INSERT INTO ${table} (<include refid="mentionColumns"/>)
     VALUES
     <foreach collection="list" item="m" separator=",">
       (#{m.workId}, #{m.nameStringId}, #{m.blockId}, #{m.blockType}, #{m.startCp}, #{m.endCp}, #{m.verbatim}, #{m.authorship}, #{m.qualifier}, #{m.confidence}, #{m.actType}, #{m.contextId}, #{m.snippet}, #{m.evidence, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler})
     </foreach>
+  </sql>
+
+  <select id="insertContext" resultType="long" flushCache="true">
+    <include refid="contextInsert"><property name="table" value="classification_context"/></include>
+  </select>
+
+  <insert id="insertMentions">
+    <include refid="mentionInsert"><property name="table" value="mention"/></include>
   </insert>
 
   <select id="mentions" resultMap="mention">
@@ -162,6 +174,59 @@
   <select id="contexts" resultMap="context">
     SELECT * FROM classification_context WHERE work_id = #{workId} ORDER BY id
   </select>
+
+  <select id="insertPendingContext" resultType="long" flushCache="true">
+    <include refid="contextInsert"><property name="table" value="classification_context_pending"/></include>
+  </select>
+
+  <insert id="insertPendingMentions">
+    <include refid="mentionInsert"><property name="table" value="mention_pending"/></include>
+  </insert>
+
+  <select id="pendingMentions" resultMap="mention">
+    SELECT * FROM mention_pending WHERE work_id = #{workId} ORDER BY id
+  </select>
+
+  <select id="pendingContexts" resultMap="context">
+    SELECT * FROM classification_context_pending WHERE work_id = #{workId} ORDER BY id
+  </select>
+
+  <delete id="deletePendingMentions">DELETE FROM mention_pending WHERE work_id = #{workId}</delete>
+  <delete id="deletePendingContexts">DELETE FROM classification_context_pending WHERE work_id = #{workId}</delete>
+
+  <update id="setPending">
+    UPDATE work SET pending_finder_run = #{finderRunId}, pending_doc_sha = #{docSha},
+      pending_diagnostics = #{json, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler},
+      modified = now()
+    WHERE id = #{workId}
+  </update>
+
+  <select id="pendingFinderRun" resultType="long">SELECT pending_finder_run FROM work WHERE id = #{workId}</select>
+
+  <select id="pendingDocSha" resultType="string">SELECT pending_doc_sha FROM work WHERE id = #{workId}</select>
+
+  <!-- ids are kept, so a mention still points at its context -->
+  <insert id="movePendingContexts">
+    INSERT INTO classification_context (id, <include refid="contextColumns"/>)
+    SELECT id, <include refid="contextColumns"/> FROM classification_context_pending WHERE work_id = #{workId}
+  </insert>
+
+  <insert id="movePendingMentions">
+    INSERT INTO mention (id, <include refid="mentionColumns"/>)
+    SELECT id, <include refid="mentionColumns"/> FROM mention_pending WHERE work_id = #{workId}
+  </insert>
+
+  <update id="adoptPendingRun">
+    UPDATE work SET current_finder_run = pending_finder_run, names_doc_sha = pending_doc_sha,
+      finder_diagnostics = COALESCE(pending_diagnostics, '{}'::jsonb),
+      pending_finder_run = NULL, pending_doc_sha = NULL, pending_diagnostics = NULL, modified = now()
+    WHERE id = #{workId} AND pending_finder_run IS NOT NULL
+  </update>
+
+  <update id="updateReindexPrevSubscriptions">
+    UPDATE work SET reindex_prev_subscriptions = #{ids, jdbcType=ARRAY, typeHandler=org.catalogueoflife.nametracker.store.type.LongListTypeHandler}
+    WHERE id = #{workId}
+  </update>
 
   <select id="match" resultMap="match">
     SELECT * FROM name_match
@@ -242,7 +307,7 @@
   <update id="updateIndexed">
     UPDATE work SET codes = #{codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler},
       taxgroups = #{taxgroups, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler},
-      has_acts = #{hasActs}, state = 'INDEXED', indexed_at = now(),
+      has_acts = #{hasActs}, state = 'INDEXED', indexed_at = now(), placed_release = #{releaseKey},
       first_indexed_at = COALESCE(first_indexed_at, now()), modified = now()
     WHERE id = #{workId}
   </update>

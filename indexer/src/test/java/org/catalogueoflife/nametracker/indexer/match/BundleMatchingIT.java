@@ -53,7 +53,7 @@ class BundleMatchingIT extends AbstractPostgresIT {
     clb = bundleClient(w.getHttpBaseUrl());
     xr = new XrReleaseService(index, clb);
     indexed = new HashMap<>();
-    handler = new MatchNamesHandler(index, new MatchCache(index, clb, xr), xr, (id, m) -> indexed.putAll(m),
+    handler = new MatchNamesHandler(index, new MatchCache(index, clb, xr), xr, (id, m, key) -> indexed.putAll(m),
         new HarvestOutage(Duration.ofMinutes(30), Clock.systemUTC()),
         org.mockito.Mockito.mock(org.catalogueoflife.nametracker.store.task.TaskQueue.class));
     stubFor(get("/dataset").willReturn(json("{\"key\":316691,\"alias\":\"COL26.10 XR\"}")));

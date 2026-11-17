@@ -334,12 +334,12 @@ class AccountMappersIT extends AbstractPostgresIT {
   void firstIndexedAtIsSetOnceAndKept() throws Exception {
     long w = work();
     assertThat(firstIndexed(w)).isNull();
-    index.setIndexed(w, new String[] {"ZOOLOGICAL"}, new String[] {}, false);
+    index.setIndexed(w, new String[] {"ZOOLOGICAL"}, new String[] {}, false, 1);
     Instant first = firstIndexed(w);
     Instant indexedAt = indexedAt(w);
     assertThat(first).isNotNull().isEqualTo(indexedAt);
     Thread.sleep(20);
-    index.setIndexed(w, new String[] {"ZOOLOGICAL"}, new String[] {}, true);
+    index.setIndexed(w, new String[] {"ZOOLOGICAL"}, new String[] {}, true, 1);
     assertThat(firstIndexed(w)).isEqualTo(first);
     assertThat(indexedAt(w)).isAfter(first);
   }
@@ -355,7 +355,7 @@ class AccountMappersIT extends AbstractPostgresIT {
   @Test
   void workMatchesAppliesFilter() {
     long w = work();
-    index.setIndexed(w, new String[] {"ZOOLOGICAL"}, new String[] {}, false);
+    index.setIndexed(w, new String[] {"ZOOLOGICAL"}, new String[] {}, false, 1);
     WorkFilter all = new WorkFilter(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
         false, null);
     WorkFilter zoo = new WorkFilter(null, null, "ZOOLOGICAL", null, null, null, null, null, null, null, null, null,

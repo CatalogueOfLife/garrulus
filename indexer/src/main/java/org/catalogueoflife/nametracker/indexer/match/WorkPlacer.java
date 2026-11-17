@@ -68,16 +68,15 @@ public class WorkPlacer {
 
   /**
    * Placements per name string id of the work's mentions in the given release. With {@code pending} the mentions and
-   * contexts come from the pending index tables (Task 2).
+   * contexts come from the work's pending index (a re-index not yet swapped in).
    */
   public Map<Long, Placement> place(long workId, int releaseKey, boolean pending) {
-    if (pending) throw new UnsupportedOperationException("pending index: Task 2");
-    List<MentionRow> mentions = index.mentions(workId);
+    List<MentionRow> mentions = pending ? index.pendingMentions(workId) : index.mentions(workId);
     Map<Long, Placement> placements = new LinkedHashMap<>();
     if (mentions.isEmpty()) return placements;
     Map<Long, ContextRow> contexts = new HashMap<>();
     ContextRow document = null;
-    for (ContextRow c : index.contexts(workId)) {
+    for (ContextRow c : pending ? index.pendingContexts(workId) : index.contexts(workId)) {
       contexts.put(c.id(), c);
       if (document == null && "DOCUMENT".equals(c.scope())) document = c;
     }

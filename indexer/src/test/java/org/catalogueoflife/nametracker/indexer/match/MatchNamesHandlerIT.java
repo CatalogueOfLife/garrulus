@@ -53,7 +53,7 @@ class MatchNamesHandlerIT extends AbstractPostgresIT {
     XrReleaseService xr = new XrReleaseService(index, clb);
     indexed = new HashMap<>();
     indexedWorks = new ArrayList<>();
-    handler = new MatchNamesHandler(index, new MatchCache(index, clb, xr), xr, (id, m) -> {
+    handler = new MatchNamesHandler(index, new MatchCache(index, clb, xr), xr, (id, m, key) -> {
       indexed.putAll(m);
       indexedWorks.add(id);
     }, outage, queue);

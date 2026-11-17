@@ -49,6 +49,66 @@ public interface IndexMapper {
 
   List<ContextRow> contexts(@Param("workId") long workId);
 
+  // The pending index: a re-index of a listed work is written here and swapped in by swapPendingIndex.
+
+  /** As {@link #insertContext}, into the pending index; the id comes from the live table's sequence. */
+  long insertPendingContext(@Param("o") ContextRow o);
+
+  void insertPendingMentions(@Param("list") List<MentionRow> list);
+
+  List<MentionRow> pendingMentions(@Param("workId") long workId);
+
+  List<ContextRow> pendingContexts(@Param("workId") long workId);
+
+  /** Deletes the pending mentions and contexts of the work. */
+  default void deletePendingIndex(long workId) {
+    deletePendingMentions(workId);
+    deletePendingContexts(workId);
+  }
+
+  void deletePendingMentions(@Param("workId") long workId);
+
+  void deletePendingContexts(@Param("workId") long workId);
+
+  /** Sets pending_finder_run, pending_doc_sha and pending_diagnostics (a JSON object); state and live index stay. */
+  void setPending(@Param("workId") long workId, @Param("finderRunId") long finderRunId,
+      @Param("docSha") String docSha, @Param("json") String json);
+
+  /** The finder run of the work's pending index, null if it has none. */
+  @Nullable Long pendingFinderRun(@Param("workId") long workId);
+
+  /** The sha of the document of the work's pending index, null if it has none. */
+  @Nullable String pendingDocSha(@Param("workId") long workId);
+
+  /**
+   * Replaces the live mentions and contexts of the work by its pending ones, keeping their ids (contexts first), empties
+   * the pending index and makes the pending run, document sha and diagnostics the current ones. The caller holds the
+   * work lock; work_name rows are left to the caller.
+   */
+  default void swapPendingIndex(long workId) {
+    deleteMentions(workId);
+    deleteContexts(workId);
+    movePendingContexts(workId);
+    movePendingMentions(workId);
+    deletePendingIndex(workId);
+    adoptPendingRun(workId);
+  }
+
+  void movePendingContexts(@Param("workId") long workId);
+
+  void movePendingMentions(@Param("workId") long workId);
+
+  /** current_finder_run, names_doc_sha, finder_diagnostics from the pending columns, which are cleared. */
+  void adoptPendingRun(@Param("workId") long workId);
+
+  /** The subscriptions the work's previous index matched, null if unknown (a first indexing). */
+  default void setReindexPrevSubscriptions(long workId, long @Nullable [] subscriptionIds) {
+    updateReindexPrevSubscriptions(workId,
+        subscriptionIds == null ? null : java.util.Arrays.stream(subscriptionIds).boxed().toList());
+  }
+
+  void updateReindexPrevSubscriptions(@Param("workId") long workId, @Param("ids") @Nullable List<Long> ids);
+
   @Nullable NameMatch match(@Param("nameStringId") long nameStringId, @Param("hintKey") String hintKey,
       @Param("releaseKey") int releaseKey);
 
@@ -99,13 +159,17 @@ public interface IndexMapper {
   @Nullable NameString nameString(@Param("id") long id);
 
 
-  /** Sets codes, taxgroups and has_acts, and also state INDEXED, indexed_at = now() and, once, first_indexed_at. */
-  default void setIndexed(long workId, String[] codes, String[] taxgroups, boolean hasActs) {
-    updateIndexed(workId, List.of(codes), List.of(taxgroups), hasActs);
+  /**
+   * Sets codes, taxgroups and has_acts, and also state INDEXED, indexed_at = now(), placed_release (the XR release the
+   * work names were placed in) and, once, first_indexed_at.
+   */
+  default void setIndexed(long workId, String[] codes, String[] taxgroups, boolean hasActs, int releaseKey) {
+    updateIndexed(workId, List.of(codes), List.of(taxgroups), hasActs, releaseKey);
   }
 
   void updateIndexed(@Param("workId") long workId, @Param("codes") List<String> codes,
-      @Param("taxgroups") List<String> taxgroups, @Param("hasActs") boolean hasActs);
+      @Param("taxgroups") List<String> taxgroups, @Param("hasActs") boolean hasActs,
+      @Param("releaseKey") int releaseKey);
 
   /** Ids of INDEXED or NOTIFIED works after {@code afterId}, ascending. */
   List<Long> indexedWorkIds(@Param("afterId") long afterId, @Param("limit") int limit);

@@ -15,7 +15,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * {@code MATCH_NAMES}, payload {@code {"workId":n}}. Pins the XR (verifying a local bundle), has {@link WorkPlacer}
- * place every distinct name of the work in the current release and hands the placements to {@link WorkIndexing}. A CLB
+ * place every distinct name of the work in the current release and hands the placements to {@link WorkIndexing}. A
+ * work with a pending index (a re-index) is placed from it; the indexing swaps it in. A CLB
  * outage, or a local bundle serving another release than the pinned one, defers the task without using an attempt;
  * nothing is written then. See {@link WorkPlacer} for names CLB cannot match.
  */
@@ -28,22 +29,24 @@ public class MatchNamesHandler implements TaskHandler {
   private final XrReleaseService xr;
   private final WorkPlacer placer;
   private final WorkIndexing indexing;
+  private final IndexMapper index;
   private final HarvestOutage outage;
   private final TaskQueue queue;
 
   @Autowired
-  public MatchNamesHandler(XrReleaseService xr, WorkPlacer placer, WorkIndexing indexing, HarvestOutage outage,
-      TaskQueue queue) {
+  public MatchNamesHandler(XrReleaseService xr, WorkPlacer placer, WorkIndexing indexing, IndexMapper index,
+      HarvestOutage outage, TaskQueue queue) {
     this.xr = xr;
     this.placer = placer;
     this.indexing = indexing;
+    this.index = index;
     this.outage = outage;
     this.queue = queue;
   }
 
   public MatchNamesHandler(IndexMapper index, MatchCache cache, XrReleaseService xr, WorkIndexing indexing,
       HarvestOutage outage, TaskQueue queue) {
-    this(xr, new WorkPlacer(index, cache, outage), indexing, outage, queue);
+    this(xr, new WorkPlacer(index, cache, outage), indexing, index, outage, queue);
   }
 
   @Override
@@ -55,14 +58,15 @@ public class MatchNamesHandler implements TaskHandler {
   public void handle(Task task) throws Exception {
     long workId = FinderJson.mapper().readTree(task.payload()).path("workId").asLong();
     Map<Long, Placement> placements;
+    int key;
     try {
-      int key = xr.currentVerified(); // pin (or outage, or a swapped bundle) before any name is matched
-      placements = placer.place(workId, key, false);
+      key = xr.currentVerified(); // pin (or outage, or a swapped bundle) before any name is matched
+      placements = placer.place(workId, key, index.pendingFinderRun(workId) != null);
     } catch (XrMismatchException e) {
       LOG.warn("Deferring MATCH_NAMES of work {}: {}", workId, e.getMessage());
       throw new ServiceOutageException(ClbClient.SERVICE, outage.retryAt(), e);
     }
-    indexing.index(workId, placements);
+    indexing.index(workId, placements, key);
     // hit evaluation follows the indexing and takes this task's place in the queue
     queue.enqueue("EVALUATE_HITS", "{\"workId\":" + workId + "}", task.priority(), null, task.runAfter());
     LOG.debug("Matched {} names of work {}", placements.size(), workId);

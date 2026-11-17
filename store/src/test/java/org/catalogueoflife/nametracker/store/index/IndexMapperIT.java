@@ -124,12 +124,24 @@ class IndexMapperIT extends AbstractPostgresIT {
     assertThat(jdbc.queryForMap("SELECT state, current_finder_run, names_doc_sha FROM work WHERE id = ?", w))
         .containsEntry("state", "NAMES_FOUND").containsEntry("current_finder_run", run)
         .containsEntry("names_doc_sha", "sha");
-    index.setIndexed(w, new String[] {"ICZN"}, new String[] {"Animals"}, true);
+    index.setIndexed(w, new String[] {"ICZN"}, new String[] {"Animals"}, true, 1);
     Work x = works.get(w);
     assertThat(x.state()).isEqualTo("INDEXED");
     assertThat(x.codes()).containsExactly("ICZN");
     assertThat(x.taxgroups()).containsExactly("Animals");
     assertThat(x.hasActs()).isTrue();
     assertThat(jdbc.queryForObject("SELECT indexed_at IS NOT NULL FROM work WHERE id = ?", Boolean.class, w)).isTrue();
+    assertThat(jdbc.queryForObject("SELECT placed_release FROM work WHERE id = ?", Integer.class, w)).isEqualTo(1);
+  }
+
+  @Test
+  void reindexPrevSubscriptionsAreStoredAndCleared() {
+    long w = newWork();
+    index.setReindexPrevSubscriptions(w, new long[] {3, 5});
+    assertThat(jdbc.queryForObject("SELECT reindex_prev_subscriptions::text FROM work WHERE id = ?", String.class, w))
+        .isEqualTo("{3,5}");
+    index.setReindexPrevSubscriptions(w, null);
+    assertThat(jdbc.queryForObject("SELECT reindex_prev_subscriptions IS NULL FROM work WHERE id = ?", Boolean.class,
+        w)).isTrue();
   }
 }

@@ -24,8 +24,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * Aggregates the mentions of a work into {@code work_name} rows with salience and main-subject flag, fills the work's
  * codes, taxgroups and has_acts (acts outside the references only; {@code act_types} keeps them all) and moves it to
- * INDEXED. One transaction that locks the work row first, so a redelivery
- * replaces the rows and gives identical ones.
+ * INDEXED, placed in the given release. One transaction that locks the work row first, so a redelivery
+ * replaces the rows and gives identical ones. A work with a pending index (a re-index) first records the subscriptions
+ * its old index matches ({@link PreviousMatches}) and swaps the pending index in, in the same transaction: readers see
+ * either the old or the new index, never a gap.
  */
 @Component
 public class WorkIndexer implements WorkIndexing {
@@ -34,27 +36,34 @@ public class WorkIndexer implements WorkIndexing {
 
   private final IndexMapper index;
   private final Salience salience;
+  private final PreviousMatches previous;
   private final TransactionTemplate tx;
 
-  public WorkIndexer(IndexMapper index, SalienceProperties props, TransactionTemplate tx) {
+  public WorkIndexer(IndexMapper index, SalienceProperties props, PreviousMatches previous, TransactionTemplate tx) {
     this.index = index;
     this.salience = new Salience(props);
+    this.previous = previous;
     this.tx = tx;
   }
 
   @Override
-  public void index(long workId, Map<Long, Placement> byNameStringId) {
-    tx.executeWithoutResult(status -> doIndex(workId, byNameStringId));
+  public void index(long workId, Map<Long, Placement> byNameStringId, int releaseKey) {
+    tx.executeWithoutResult(status -> doIndex(workId, byNameStringId, releaseKey));
   }
 
-  private void doIndex(long workId, Map<Long, Placement> placements) {
+  private void doIndex(long workId, Map<Long, Placement> placements, int releaseKey) {
     index.lockWork(workId);
+    if (index.pendingFinderRun(workId) != null) {
+      // the old index is still live here: what it matched decides which follows the new one alerts
+      index.setReindexPrevSubscriptions(workId, previous.capture(workId));
+      index.swapPendingIndex(workId);
+    }
     Aggregate a = aggregate(workId, placements);
     index.deleteWorkNames(workId);
     for (int i = 0; i < a.rows().size(); i += CHUNK) {
       index.insertWorkNames(a.rows().subList(i, Math.min(a.rows().size(), i + CHUNK)));
     }
-    index.setIndexed(workId, a.codes(), a.taxgroups(), a.hasActs());
+    index.setIndexed(workId, a.codes(), a.taxgroups(), a.hasActs(), releaseKey);
   }
 
   /** The work_name rows of a work and its derived work columns; codes and taxgroups are sorted. */

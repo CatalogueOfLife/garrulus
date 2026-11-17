@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Supplier;
 import org.catalogueoflife.nametracker.finder.api.Act;
@@ -29,10 +30,12 @@ import org.catalogueoflife.nametracker.store.index.ContextRow;
 import org.catalogueoflife.nametracker.store.index.FinderRun;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
 import org.catalogueoflife.nametracker.store.index.MentionRow;
+import org.catalogueoflife.nametracker.store.index.WorkFacts;
 import org.catalogueoflife.nametracker.store.task.Task;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.catalogueoflife.nametracker.store.work.Work;
 import org.catalogueoflife.nametracker.store.work.WorkMapper;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -43,8 +46,11 @@ import tools.jackson.databind.JsonNode;
 /**
  * {@code FIND_NAMES}, payload {@code {"workId":n}}. Loads the document of the work, runs the {@link NameFinder} and, in
  * one transaction, replaces the work's mentions, contexts and (through the cascade of
- * {@link IndexMapper#deleteWorkIndex}) its work names, then marks the work NAMES_FOUND. After the commit it deletes the
- * spool file and enqueues {@code MATCH_NAMES} at this task's priority and run_after. A work without text skips the
+ * {@link IndexMapper#deleteWorkIndex}) its work names, then marks the work NAMES_FOUND. A listed work (INDEXED) keeps
+ * its state and its live index instead: the result replaces the work's pending index, which {@code MATCH_NAMES} swaps
+ * in, so the work never drops out of the listings. "Already named" means named into the pending index when there is
+ * one. After the commit it deletes the spool file and enqueues {@code MATCH_NAMES} at this task's priority and
+ * run_after. A work without text skips the
  * finder. A context's verbatim is stored capped at 200 code points. An outage of the finder defers the
  * task by 30 minutes without using an attempt. Without a configured finder this handler is not enabled and its tasks
  * wait in the queue.
@@ -59,6 +65,8 @@ public class FindNamesHandler implements TaskHandler {
   static final int SNIPPET_MARGIN = 80;
   static final int SNIPPET_MAX = 200;
   private static final Logger LOG = LoggerFactory.getLogger(FindNamesHandler.class);
+  /** States in which a work is listed by the public API: a re-index of such a work goes to the pending index. */
+  private static final Set<String> LISTED = Set.of("INDEXED", "NOTIFIED");
 
   private final NameFinder finder;
   private final DocumentLoader loader;
@@ -108,8 +116,9 @@ public class FindNamesHandler implements TaskHandler {
     // A repeat (redelivery, or a second task for the same text) is a no-op that only makes sure MATCH_NAMES is queued.
     // Never fall back to the abstract when the full text that was already named is merely gone from the spool.
     String chosen = DocumentLoader.chosenSha(work, work.textLevel(), contents.listByWork(workId));
-    if (chosen.equals(index.namesDocSha(workId)) && index.currentFinderRun(workId) != null) {
-      finish(task, workId, index.currentFinderRun(workId), chosen, chosen);
+    Named named = named(workId);
+    if (named != null && chosen.equals(named.sha())) {
+      finish(task, workId, named.run(), chosen, chosen);
       return;
     }
 
@@ -126,22 +135,41 @@ public class FindNamesHandler implements TaskHandler {
     String[] namedSha = new String[1];
     tx.executeWithoutResult(status -> {
       index.lockWork(workId); // finder runs on one work are serial; re-check what the winner did
-      String current = index.namesDocSha(workId);
-      Long currentRun = index.currentFinderRun(workId);
-      if (current != null && currentRun != null && (current.equals(chosen) || current.equals(loaded.docSha()))) {
-        runId[0] = currentRun;
-        namedSha[0] = current;
+      Named current = named(workId);
+      if (current != null && (current.sha().equals(chosen) || current.sha().equals(loaded.docSha()))) {
+        runId[0] = current.run();
+        namedSha[0] = current.sha();
         return;
       }
       runId[0] = index.finderRunId(new FinderRun(null, info.name(), info.version(), info.configHash(),
           info.dictionaryKey()));
-      index.deleteWorkIndex(workId);
-      if (result != null) store(workId, doc, result, diagnostics);
-      index.setNamesFound(workId, runId[0], loaded.docSha());
-      index.setDiagnostics(workId, FinderJson.mapper().writeValueAsString(diagnostics));
+      WorkFacts facts = index.workFacts(workId);
+      if (facts != null && LISTED.contains(facts.state())) {
+        // a re-index: the live index stays until MATCH_NAMES swaps the pending one in
+        index.deletePendingIndex(workId);
+        if (result != null) store(workId, doc, result, diagnostics, true);
+        index.setPending(workId, runId[0], loaded.docSha(), FinderJson.mapper().writeValueAsString(diagnostics));
+      } else {
+        index.deleteWorkIndex(workId);
+        if (result != null) store(workId, doc, result, diagnostics, false);
+        index.setNamesFound(workId, runId[0], loaded.docSha());
+        index.setDiagnostics(workId, FinderJson.mapper().writeValueAsString(diagnostics));
+      }
       namedSha[0] = loaded.docSha();
     });
     finish(task, workId, runId[0], namedSha[0], loaded.docSha());
+  }
+
+  /** The document sha and finder run the work was last named with. */
+  private record Named(String sha, long run) {}
+
+  /** What the work was last named with: its pending index if it has one, else its live index; null if never named. */
+  private @Nullable Named named(long workId) {
+    Long pendingRun = index.pendingFinderRun(workId);
+    if (pendingRun != null) return new Named(index.pendingDocSha(workId), pendingRun);
+    String sha = index.namesDocSha(workId);
+    Long run = index.currentFinderRun(workId);
+    return sha == null || run == null ? null : new Named(sha, run);
   }
 
   /**
@@ -171,14 +199,17 @@ public class FindNamesHandler implements TaskHandler {
     }
   }
 
-  private void store(long workId, Document doc, FinderResult result, Map<String, String> diagnostics) {
+  /** Inserts contexts and mentions into the live index, or with {@code pending} into the pending index. */
+  private void store(long workId, Document doc, FinderResult result, Map<String, String> diagnostics,
+      boolean pending) {
     Map<String, Block> blocks = new HashMap<>();
     doc.blocks().forEach(b -> blocks.put(b.id(), b));
 
     Map<String, Long> contextIds = new HashMap<>();
     for (ClassificationContext c : result.contexts()) {
-      long id = index.insertContext(new ContextRow(null, workId, c.id(), cap(c.verbatim(), SNIPPET_MAX),
-          FinderJson.mapper().writeValueAsString(c.ranks()), c.scope().name(), c.blockId(), c.untilBlockId()));
+      ContextRow row = new ContextRow(null, workId, c.id(), cap(c.verbatim(), SNIPPET_MAX),
+          FinderJson.mapper().writeValueAsString(c.ranks()), c.scope().name(), c.blockId(), c.untilBlockId());
+      long id = pending ? index.insertPendingContext(row) : index.insertContext(row);
       contextIds.put(c.id(), id);
     }
     Map<String, String> actTypes = new HashMap<>();
@@ -217,7 +248,12 @@ public class FindNamesHandler implements TaskHandler {
           FinderJson.mapper().writeValueAsString(m.evidence())));
     }
     for (int i = 0; i < rows.size(); i += INSERT_CHUNK) {
-      index.insertMentions(rows.subList(i, Math.min(rows.size(), i + INSERT_CHUNK)));
+      List<MentionRow> chunk = rows.subList(i, Math.min(rows.size(), i + INSERT_CHUNK));
+      if (pending) {
+        index.insertPendingMentions(chunk);
+      } else {
+        index.insertMentions(chunk);
+      }
     }
   }
 
