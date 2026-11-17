@@ -56,16 +56,17 @@ public class WorkIndexer implements WorkIndexing {
   }
 
   @Override
-  public boolean index(long workId, PlacedWork placed, int releaseKey) {
-    return Boolean.TRUE.equals(tx.execute(status -> doIndex(workId, placed, releaseKey)));
+  public Outcome index(long workId, PlacedWork placed, int releaseKey) {
+    return tx.execute(status -> doIndex(workId, placed, releaseKey));
   }
 
-  private boolean doIndex(long workId, PlacedWork placed, int releaseKey) {
+  private Outcome doIndex(long workId, PlacedWork placed, int releaseKey) {
     index.lockWork(workId);
+    if (!stillCurrent(workId, releaseKey)) return Outcome.RELEASE_CHANGED;
     IndexRows rows = index.indexRows(workId);
     if (rows == null || !rows.equals(placed.rows())) {
       LOG.debug("Work {} not indexed: placed {}, but its index is now {}", workId, placed.rows(), rows);
-      return false;
+      return Outcome.STALE;
     }
     Map<Long, Placement> placements = placed.placements();
     if (rows.pending()) {
@@ -75,15 +76,30 @@ public class WorkIndexer implements WorkIndexing {
     }
     Aggregate a = writeWorkNames(workId, placements);
     index.setIndexed(workId, a.codes(), a.taxgroups(), a.hasActs(), releaseKey);
-    return true;
+    return Outcome.INDEXED;
+  }
+
+  /**
+   * True if the release is still the current one. Takes a share lock on the current release row until the end of the
+   * transaction (lock order: work, then release; no path locks a release and then a work), so the flip of an XR switch
+   * ({@code lockReleases}, FOR UPDATE) waits for in-flight indexing, and indexing that starts during the flip sees
+   * the new current release afterwards: no work is placed in the old release once the flip has committed.
+   */
+  private boolean stillCurrent(long workId, int releaseKey) {
+    Integer current = index.lockCurrentReleaseKey();
+    if (current != null && current == releaseKey) return true;
+    LOG.debug("Work {} not written: placed in XR release {}, but the current release is {}", workId, releaseKey,
+        current);
+    return false;
   }
 
   /**
    * Re-places a listed work in another XR release (the XR switch): the same aggregate and {@code work_name} rewrite as
    * {@link #index}, then codes, taxgroups, has_acts and {@code placed_release}; state, {@code indexed_at} and
    * {@code first_indexed_at} stay, and nothing follows (no hit evaluation). One transaction, work row locked first.
-   * Skipped (false) when the work is not INDEXED or NOTIFIED, has a pending index (its MATCH_NAMES places it in the
-   * current release anyway), or its index is no longer the row set the placements were computed from.
+   * Skipped (false) when the release is no longer the current one, the work is not INDEXED or NOTIFIED, has a pending
+   * index (its MATCH_NAMES places it in the current release anyway), or its index is no longer the row set the
+   * placements were computed from.
    */
   public boolean replace(long workId, PlacedWork placed, int releaseKey) {
     return Boolean.TRUE.equals(tx.execute(status -> doReplace(workId, placed, releaseKey)));
@@ -91,6 +107,7 @@ public class WorkIndexer implements WorkIndexing {
 
   private boolean doReplace(long workId, PlacedWork placed, int releaseKey) {
     index.lockWork(workId);
+    if (!stillCurrent(workId, releaseKey)) return false;
     WorkFacts f = index.workFacts(workId);
     if (f == null || !LISTED.contains(f.state())) {
       LOG.debug("Work {} not re-placed: it is {}", workId, f == null ? "gone" : f.state());

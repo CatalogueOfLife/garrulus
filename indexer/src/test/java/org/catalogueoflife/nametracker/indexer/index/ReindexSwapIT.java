@@ -367,7 +367,7 @@ class ReindexSwapIT extends AbstractPostgresIT {
     matchNames(id); // the newer MATCH_NAMES swaps {B} in
     Object indexedAt = work(id).get("indexed_at");
 
-    assertThat(indexer.index(id, old, RELEASE)).isFalse();
+    assertThat(indexer.index(id, old, RELEASE)).isEqualTo(WorkIndexer.Outcome.STALE);
 
     assertThat(work(id).get("indexed_at")).isEqualTo(indexedAt);
     assertThat(names(index.mentions(id))).containsExactly(B);
@@ -386,7 +386,7 @@ class ReindexSwapIT extends AbstractPostgresIT {
     matchNames(id);
     Object indexedAt = work(id).get("indexed_at");
 
-    assertThat(indexer.index(id, first, RELEASE)).isFalse();
+    assertThat(indexer.index(id, first, RELEASE)).isEqualTo(WorkIndexer.Outcome.STALE);
 
     assertThat(work(id).get("indexed_at")).isEqualTo(indexedAt);
     assertThat(workNames(id)).containsExactly(B);

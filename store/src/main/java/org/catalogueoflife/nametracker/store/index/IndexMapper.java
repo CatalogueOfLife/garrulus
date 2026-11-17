@@ -138,6 +138,15 @@ public interface IndexMapper {
 
   @Nullable XrRelease currentRelease();
 
+  /**
+   * The key of the current release, with a share lock on its row until the end of the transaction (it conflicts with
+   * {@link #lockReleases}); null if none is current, also when the flip of a switch committed while this waited.
+   */
+  @Nullable Integer lockCurrentReleaseKey();
+
+  /** How many listed works with a pending index are not placed in the release (their MATCH_NAMES will place them). */
+  long countPendingUnplaced(@Param("releaseKey") int releaseKey);
+
   boolean releaseExists(@Param("key") int key);
 
   /** Inserts the release, in state CURRENT if current, else SEEN. */

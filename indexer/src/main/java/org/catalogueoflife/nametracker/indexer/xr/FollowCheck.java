@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
 import org.catalogueoflife.nametracker.indexer.match.ClbClient;
 import org.catalogueoflife.nametracker.indexer.match.ClbClient.TaxonLookup;
 import org.catalogueoflife.nametracker.store.account.SubscriptionMapper;
@@ -24,7 +25,8 @@ import org.springframework.stereotype.Component;
  * whose taxon is back (a switch back to a release that has it) is OK again, its note cleared. A follow noted since the
  * switch to this release ({@code xr_note_at} at or after {@code switched_at}) is skipped, so a redelivery asks CLB
  * only for what is left. No hit comes from any of this. A CLB outage stops the check ({@code ServiceOutageException});
- * what was written stays.
+ * what was written stays. Before the first lookup CLB must serve the release itself ({@code GET /dataset/k}); if it
+ * answers 4xx the check is skipped with an ERROR and no follow changes.
  */
 @Component
 public class FollowCheck {
@@ -48,6 +50,9 @@ public class FollowCheck {
       byTarget.computeIfAbsent(f.target(), t -> new ArrayList<>()).add(f);
     }
     String col = colName(release.alias());
+    if (byTarget.values().stream().anyMatch(fs -> !fs.get(0).present()) && !served(release)) {
+      return new Result(0, 0, 0, 0);
+    }
     int moved = 0, missing = 0, restored = 0;
     for (Map.Entry<String, List<TaxonFollow>> e : byTarget.entrySet()) {
       String old = e.getKey();
@@ -75,6 +80,23 @@ public class FollowCheck {
     LOG.info("Follow check of XR release {}: {} taxon follows on {} ids not proven present or missing; {} moved, {} "
         + "flagged missing, {} back", release.key(), r.checked(), byTarget.size(), moved, missing, restored);
     return r;
+  }
+
+  /**
+   * True if CLB serves the release itself, asked once before any follow is looked up: a release CLB no longer serves
+   * would answer 404 for every taxon and flag every follow. A 4xx is logged as an ERROR and the check is skipped; an
+   * outage is thrown ({@code ServiceOutageException}).
+   */
+  private boolean served(XrRelease release) {
+    try {
+      clb.dataset(release.key());
+      return true;
+    } catch (HttpProblem e) {
+      if (e.status() < 400 || e.status() >= 500) throw e;
+      LOG.error("Follow check of XR release {} skipped, no follow is changed: CLB does not serve the release ({})",
+          release.key(), e.getMessage());
+      return false;
+    }
   }
 
   /** False if the user follows the successor already (or the follow changed meanwhile). */

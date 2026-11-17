@@ -316,6 +316,16 @@
     SELECT * FROM xr_release WHERE current
   </select>
 
+  <select id="lockCurrentReleaseKey" resultType="java.lang.Integer" flushCache="true">
+    SELECT key FROM xr_release WHERE current FOR SHARE
+  </select>
+
+  <select id="countPendingUnplaced" resultType="long">
+    SELECT count(*) FROM work
+    WHERE state IN ('INDEXED','NOTIFIED') AND pending_finder_run IS NOT NULL
+      AND placed_release IS DISTINCT FROM #{releaseKey}
+  </select>
+
   <select id="releaseExists" resultType="boolean">SELECT EXISTS (SELECT 1 FROM xr_release WHERE key = #{key})</select>
 
   <insert id="addRelease">

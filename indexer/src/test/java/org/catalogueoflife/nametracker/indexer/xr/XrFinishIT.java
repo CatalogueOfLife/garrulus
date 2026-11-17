@@ -55,6 +55,7 @@ class XrFinishIT extends AbstractPostgresIT {
     user = jdbc.queryForObject("INSERT INTO app_user (email) VALUES ('f@example.org') RETURNING id", Long.class);
     FollowCheck check = new FollowCheck(subscriptions, XrSwitchIT.client(w.getHttpBaseUrl(), null));
     finish = new XrFinishHandler(index, check, queue, tx);
+    stubFor(get("/dataset/200").willReturn(okJson("{\"key\":200,\"alias\":\"COL XR 200\"}")));
   }
 
   private static Task task() {
@@ -260,18 +261,55 @@ class XrFinishIT extends AbstractPostgresIT {
 
   @Test
   void finishWaitsForStragglers() throws Exception {
-    long s = follow("ZZZZ", "Gone taxon");
     long w = jdbc.queryForObject("INSERT INTO work (doi, title, license, origin, state, placed_release) VALUES "
         + "('10.1/late', 't', 'cc-by', 'LIVE', 'INDEXED', 100) RETURNING id", Long.class);
+    // a work with a pending re-index is left to its MATCH_NAMES (only counted in the log)
+    long run = jdbc.queryForObject("INSERT INTO finder_run (name, version, config_hash) VALUES ('stub', '2', 'p') "
+        + "ON CONFLICT (name, version, config_hash, dictionary_key) DO UPDATE SET name = EXCLUDED.name RETURNING id",
+        Long.class);
+    long pending = jdbc.queryForObject("INSERT INTO work (doi, title, license, origin, state, placed_release, "
+        + "pending_finder_run) VALUES ('10.1/pending', 't', 'cc-by', 'LIVE', 'INDEXED', 100, ?) RETURNING id",
+        Long.class, run);
 
     finish.handle(task());
 
     assertThat(state()).isEqualTo("SWITCHING");
-    assertThat(jdbc.queryForList("SELECT payload::text FROM task WHERE type = 'XR_REPLACE' AND state = 'QUEUED'",
-        String.class)).containsExactly("{\"key\": 200}");
-    assertThat(sub(s).get("target_status")).isEqualTo("OK"); // no follow check yet
+    assertThat(jdbc.queryForList("SELECT payload::text || ' ' || dedup_key FROM task WHERE type = 'XR_REPLACE' "
+        + "AND state = 'QUEUED'", String.class)).containsExactly("{\"key\": 200} xr-replace:200:t7");
+    assertThat(queuedTypes()).containsExactly("XR_REPLACE");
+    assertThat(jdbc.queryForObject("SELECT placed_release FROM work WHERE id = ?", Integer.class, w)).isEqualTo(100);
+
+    // once XR_REPLACE has placed it, the next XR_FINISH ends the switch
+    jdbc.update("UPDATE work SET placed_release = 200 WHERE id = ?", w);
+    jdbc.update("DELETE FROM task");
+    finish.handle(task());
+    assertFinished();
+    assertThat(index.countPendingUnplaced(200)).isEqualTo(1);
+    assertThat(jdbc.queryForObject("SELECT placed_release FROM work WHERE id = ?", Integer.class, pending))
+        .isEqualTo(100);
+  }
+
+  @Test
+  void releaseNotServedSkipsFollowCheck() throws Exception {
+    long s = follow("ZZZZ", "Gone taxon");
+    stubFor(get("/dataset/200").willReturn(notFound("{\"code\":404,\"message\":\"Dataset 200 not found\"}")));
+
+    finish.handle(task());
+
+    Map<String, Object> f = sub(s);
+    assertThat(f.get("target_status")).isEqualTo("OK");
+    assertThat(f.get("xr_note")).isNull();
     verify(0, getRequestedFor(urlPathMatching(T + ".*")));
-    assertThat(w).isPositive();
+    assertFinished(); // the switch itself ends: its works are placed
+  }
+
+  @Test
+  void releaseCheckOutageDefers() {
+    long s = follow("ZZZZ", "Gone taxon");
+    stubFor(get("/dataset/200").willReturn(aResponse().withStatus(503)));
+    assertThatThrownBy(() -> finish.handle(task())).isInstanceOf(ServiceOutageException.class);
+    assertThat(sub(s).get("target_status")).isEqualTo("OK");
+    assertThat(state()).isEqualTo("SWITCHING");
   }
 
   @Test

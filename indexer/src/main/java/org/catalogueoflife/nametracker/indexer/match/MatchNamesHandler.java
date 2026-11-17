@@ -17,7 +17,9 @@ import org.springframework.stereotype.Component;
  * place every distinct name of the work in the current release and hands the placements to {@link WorkIndexing}. A
  * work with a pending index (a re-index) is placed from it; the indexing swaps it in. When the work's index changed
  * while its names were placed (a newer FIND_NAMES or MATCH_NAMES), nothing is written and no hit evaluation follows:
- * the MATCH_NAMES of the newer row set is queued or done. A CLB
+ * the MATCH_NAMES of the newer row set is queued or done. When an XR switch made another release current while the
+ * names were placed, nothing is written either and MATCH_NAMES of the work is enqueued again (same priority and
+ * run_after), so it is placed in the new release. A CLB
  * outage, or a local bundle serving another release than the pinned one, defers the task without using an attempt;
  * nothing is written then. See {@link WorkPlacer} for names CLB cannot match.
  */
@@ -65,9 +67,19 @@ public class MatchNamesHandler implements TaskHandler {
       LOG.warn("Deferring MATCH_NAMES of work {}: {}", workId, e.getMessage());
       throw new ServiceOutageException(ClbClient.SERVICE, outage.retryAt(), e);
     }
-    if (!indexing.index(workId, placed, key)) {
-      LOG.debug("MATCH_NAMES of work {} is stale: its index changed while the names were placed", workId);
-      return;
+    switch (indexing.index(workId, placed, key)) {
+      case STALE -> {
+        LOG.debug("MATCH_NAMES of work {} is stale: its index changed while the names were placed", workId);
+        return;
+      }
+      case RELEASE_CHANGED -> {
+        // an XR switch flipped while the names were placed: place them again in the new current release
+        queue.enqueue(TYPE, "{\"workId\":" + workId + "}", task.priority(), "match:" + workId + ":xr:t" + task.id(),
+            task.runAfter());
+        LOG.info("MATCH_NAMES of work {}: XR release {} is no longer current, matching again", workId, key);
+        return;
+      }
+      case INDEXED -> { }
     }
     // hit evaluation follows the indexing and takes this task's place in the queue
     queue.enqueue("EVALUATE_HITS", "{\"workId\":" + workId + "}", task.priority(), null, task.runAfter());

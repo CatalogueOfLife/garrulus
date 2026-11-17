@@ -51,7 +51,7 @@ class BundleMatchingIT extends AbstractPostgresIT {
     indexed = new HashMap<>();
     handler = new MatchNamesHandler(index, new MatchCache(index, clb, xr), xr, (id, m, key) -> {
       indexed.putAll(m.placements());
-      return true;
+      return WorkIndexing.Outcome.INDEXED;
     },
         new HarvestOutage(Duration.ofMinutes(30), Clock.systemUTC()),
         org.mockito.Mockito.mock(org.catalogueoflife.nametracker.store.task.TaskQueue.class));

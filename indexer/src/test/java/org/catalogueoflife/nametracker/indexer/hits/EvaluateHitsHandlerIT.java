@@ -48,6 +48,9 @@ class EvaluateHitsHandlerIT extends AbstractPostgresIT {
     jdbc.update("DELETE FROM app_user");
     jdbc.update("DELETE FROM work");
     jdbc.update("DELETE FROM name_ubiquity");
+    jdbc.update("DELETE FROM name_match");
+    jdbc.update("DELETE FROM xr_release");
+    jdbc.update("INSERT INTO xr_release (key, alias, current, state) VALUES (1, 'COL XR 1', true, 'CURRENT')");
     user = jdbc.queryForObject("INSERT INTO app_user (email) VALUES ('a@example.org') RETURNING id", Long.class);
     carabus = index.nameStringId("Carabus xus", "BINOMIAL", "SPECIES");
   }

@@ -17,10 +17,11 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * {@code XR_FINISH}, payload {@code {"key":k}}, enqueued by the last {@code XR_REPLACE}. While k is the current release
- * in state {@code SWITCHING}: (0) if a listed work is still not placed in k (a racing {@code MATCH_NAMES}),
- * {@code XR_REPLACE} is enqueued again instead; (1) the follow check ({@link FollowCheck}; a CLB outage defers the
- * task, k stays {@code SWITCHING}); (2) {@code REBUILD_STATS} at {@code REPROCESS} and (3) state {@code CURRENT}, in
- * one transaction with the releases locked; (4) the {@code name_match} rows of every release but k and the one it
+ * in state {@code SWITCHING}: (1) the follow check ({@link FollowCheck}; a CLB outage defers the task, k stays
+ * {@code SWITCHING}); then, in one transaction with the releases locked: if a listed work is still not placed in k,
+ * {@code XR_REPLACE} is enqueued again instead of finishing; else the count of listed works with a pending re-index
+ * not placed in k is logged, (2) {@code REBUILD_STATS} is enqueued at {@code REPROCESS} and (3) k becomes
+ * {@code CURRENT}; (4) the {@code name_match} rows of every release but k and the one it
  * replaced ({@code previous} in its note) are deleted, outside that lock: they are only a cache, and the lock would
  * hold up every match insert. Without a {@code previous} nothing is deleted. A redelivery once k is {@code CURRENT}
  * only repeats (4). No hit comes from it.
@@ -60,17 +61,24 @@ public class XrFinishHandler implements TaskHandler {
       return;
     }
     if (!XrReplaceHandler.switching(key, r, TYPE)) return;
-    if (!index.unplacedWorkIds(key, 1).isEmpty()) {
-      queue.enqueue(XrReplaceHandler.TYPE, "{\"key\":" + key + "}", TaskPriority.REPROCESS,
-          "xr-replace:" + key + ":t" + task.id(), task.runAfter());
-      LOG.info("XR_FINISH of release {}: works placed in another release meanwhile, re-placing them first", key);
-      return;
-    }
     follows.run(r);
     Boolean done = tx.execute(s -> {
       index.lockReleases();
       XrRelease now = index.release(key);
       if (!XrReplaceHandler.switching(key, now, TYPE)) return false;
+      // under the release lock: an indexing transaction still writing the old release has committed by now
+      if (!index.unplacedWorkIds(key, 1).isEmpty()) {
+        queue.enqueue(XrReplaceHandler.TYPE, "{\"key\":" + key + "}", TaskPriority.REPROCESS,
+            "xr-replace:" + key + ":t" + task.id(), task.runAfter());
+        LOG.info("XR_FINISH of release {}: works were placed in another release meanwhile, re-placing them first",
+            key);
+        return false;
+      }
+      long pending = index.countPendingUnplaced(key);
+      if (pending > 0) {
+        LOG.info("XR release {}: {} listed works with a pending re-index are not placed in it yet; their MATCH_NAMES "
+            + "places them", key, pending);
+      }
       queue.enqueue(RebuildStatsHandler.TYPE, "{}", TaskPriority.REPROCESS, "stats:xr:" + key, task.runAfter());
       index.setReleaseState(key, CURRENT, now.note());
       return true;

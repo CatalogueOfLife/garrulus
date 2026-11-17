@@ -24,7 +24,7 @@ import tools.jackson.databind.JsonNode;
  * places its live index in k (from the pre-matched {@code name_match} rows; a key without one is matched on the spot)
  * and {@link WorkIndexer#replace} writes it in one transaction with the work locked; no {@code indexed_at}, no state,
  * no {@code EVALUATE_HITS}. A non-empty batch enqueues the next one with this task's run_after; an empty one enqueues
- * {@code XR_FINISH {"key":k}}. A CLB outage defers the task; the works done stay done. Stops silently when k is not
+ * {@code XR_FINISH {"key":k}} (dedup keys per task). A CLB outage defers the task; the works done stay done. Stops silently when k is not
  * the current release in state {@code SWITCHING} (finished, or a later switch). Idempotent.
  */
 @Component
@@ -62,8 +62,9 @@ public class XrReplaceHandler implements TaskHandler {
 
     List<Long> ids = index.unplacedWorkIds(key, batch);
     if (ids.isEmpty()) {
-      queue.enqueue(XrFinishHandler.TYPE, "{\"key\":" + key + "}", TaskPriority.REPROCESS, "xr-finish:" + key,
-          task.runAfter());
+      // a key per task: a finish still RUNNING (about to re-place a straggler) must not swallow this one
+      queue.enqueue(XrFinishHandler.TYPE, "{\"key\":" + key + "}", TaskPriority.REPROCESS,
+          "xr-finish:" + key + ":t" + task.id(), task.runAfter());
       LOG.info("Every listed work is placed in XR release {}: finishing the switch", key);
       return;
     }

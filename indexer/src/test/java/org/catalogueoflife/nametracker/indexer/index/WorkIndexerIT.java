@@ -26,6 +26,9 @@ class WorkIndexerIT extends AbstractPostgresIT {
     jdbc.update("DELETE FROM task");
     jdbc.update("DELETE FROM work");
     jdbc.update("DELETE FROM name_ubiquity");
+    jdbc.update("DELETE FROM name_match");
+    jdbc.update("DELETE FROM xr_release");
+    jdbc.update("INSERT INTO xr_release (key, alias, current, state) VALUES (1, 'COL XR 1', true, 'CURRENT')");
   }
 
   private long work(String textLevel) {

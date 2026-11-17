@@ -5,10 +5,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.catalogueoflife.nametracker.indexer.AbstractPostgresIT;
+import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.index.WorkIndexer;
+import org.catalogueoflife.nametracker.indexer.match.MatchNamesHandler;
+import org.catalogueoflife.nametracker.indexer.match.WorkIndexing.Outcome;
 import org.catalogueoflife.nametracker.indexer.match.WorkPlacer;
+import org.catalogueoflife.nametracker.indexer.match.XrReleaseService;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
 import org.catalogueoflife.nametracker.store.index.NameMatch;
 import org.catalogueoflife.nametracker.store.task.Task;
@@ -18,6 +26,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * XR_REPLACE after the flip: release 200 is current and SWITCHING, 100 the release the works are placed in. Both
@@ -25,6 +34,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
  */
 class XrReplaceIT extends AbstractPostgresIT {
 
+  static final Instant RUN_AFTER = Instant.parse("2026-11-01T06:00:00Z");
   static final Timestamp INDEXED_AT = Timestamp.from(Instant.parse("2026-11-01T08:00:00Z"));
 
   @Autowired IndexMapper index;
@@ -33,6 +43,10 @@ class XrReplaceIT extends AbstractPostgresIT {
   @Autowired WorkPlacer placer;
   @Autowired WorkIndexer indexer;
   @Autowired XrReplaceHandler replace;
+  @Autowired MatchNamesHandler matchNames;
+  @Autowired XrReleaseService xr;
+  @Autowired HarvestOutage outage;
+  @Autowired TransactionTemplate tx;
 
   long user;
 
@@ -69,7 +83,7 @@ class XrReplaceIT extends AbstractPostgresIT {
     jdbc.update("INSERT INTO mention (work_id, name_string_id, block_id, block_type, start_cp, end_cp, verbatim, "
         + "confidence, snippet, evidence) VALUES (?, ?, 'title', 'TITLE', 0, ?, ?, 0.9, ?, '{}'::jsonb)", w, ns,
         name.length(), name, name);
-    assertThat(indexer.index(w, placer.place(w, 100), 100)).isTrue();
+    assertThat(indexer.index(w, placer.place(w, 100), 100)).isEqualTo(Outcome.INDEXED);
     jdbc.update("UPDATE work SET indexed_at = ?, state = ? WHERE id = ?", INDEXED_AT, state, w);
     return w;
   }
@@ -172,11 +186,12 @@ class XrReplaceIT extends AbstractPostgresIT {
     assertThat(placedRelease(c)).isEqualTo(200);
     assertThat(queued(XrReplaceHandler.TYPE)).hasSize(1); // the same continuation, deduplicated
 
-    // a MATCH_NAMES that pinned release 100 before the flip writes its work now: the next batch takes it again
-    assertThat(indexer.index(b, placer.place(b, 100), 100)).isTrue();
-    jdbc.update("UPDATE work SET indexed_at = ? WHERE id = ?", INDEXED_AT, b);
-    assertThat(placedRelease(b)).isEqualTo(100);
-    assertThat(path(b)).contains("OLDFAM");
+    // a MATCH_NAMES that pinned release 100 before the flip cannot write it any more
+    assertThat(indexer.index(b, placer.place(b, 100), 100)).isEqualTo(Outcome.RELEASE_CHANGED);
+    assertThat(placedRelease(b)).isEqualTo(200);
+    // a work left in the old release all the same is taken by the next batch: the predicate is the cursor
+    jdbc.update("UPDATE work SET placed_release = 100 WHERE id = ?", b);
+    jdbc.update("UPDATE work_name SET taxon_path = ARRAY['UB','OLDFAM','ANIMALIA'] WHERE work_id = ?", b);
 
     assertThat(drain()).isEqualTo(2); // b, then the empty batch
     for (long w : new long[] {a, b, c}) assertReplaced(w, "INDEXED");
@@ -225,5 +240,82 @@ class XrReplaceIT extends AbstractPostgresIT {
     assertThat(placedRelease(a)).isEqualTo(100);
     assertThat(queued(XrFinishHandler.TYPE)).isEmpty();
   }
-}
+  /** A work with one title mention of the name whose FIND_NAMES just ran: MATCH_NAMES is next. */
+  private long namedWork(String name, String usage) {
+    long ns = name(name, usage);
+    long w = jdbc.queryForObject("INSERT INTO work (doi, title, license, origin, state, text_level) VALUES ('10.1/' || "
+        + "nextval('work_id_seq'), ?, 'cc-by', 'LIVE', 'NAMES_FOUND', 'ABSTRACT_ONLY') RETURNING id", Long.class, name);
+    jdbc.update("INSERT INTO mention (work_id, name_string_id, block_id, block_type, start_cp, end_cp, verbatim, "
+        + "confidence, snippet, evidence) VALUES (?, ?, 'title', 'TITLE', 0, ?, ?, 0.9, ?, '{}'::jsonb)", w, ns,
+        name.length(), name, name);
+    return w;
+  }
 
+  private static Task matchTask(long id, long workId) {
+    return new Task(id, MatchNamesHandler.TYPE, "{\"workId\":" + workId + "}", TaskPriority.LIVE, null, 1,
+        RUN_AFTER, null, null, null, "match:" + workId + ":1:abc", null);
+  }
+
+  @Test
+  void matchNamesAcrossTheFlipPlacesAgainInTheNewRelease() throws Exception {
+    long w = namedWork("Gatus delta", "UD");
+    // the names are placed in 100; the flip to 200 commits before the indexing
+    MatchNamesHandler racing = new MatchNamesHandler(xr, placer, (id, placed, key) -> {
+      flip();
+      return indexer.index(id, placed, key);
+    }, outage, queue);
+
+    racing.handle(matchTask(41, w));
+
+    assertThat(jdbc.queryForObject("SELECT state FROM work WHERE id = ?", String.class, w)).isEqualTo("NAMES_FOUND");
+    assertThat(placedRelease(w)).isNull();
+    assertThat(path(w)).isEmpty();
+    assertThat(queued("EVALUATE_HITS")).isEmpty();
+    Map<String, Object> next = jdbc.queryForMap("SELECT payload::text AS payload, priority, run_after, dedup_key "
+        + "FROM task WHERE type = 'MATCH_NAMES' AND state = 'QUEUED'");
+    assertThat(next.get("payload")).isEqualTo("{\"workId\": " + w + "}");
+    assertThat(((Number) next.get("priority")).intValue()).isEqualTo(TaskPriority.LIVE.code());
+    assertThat(((Timestamp) next.get("run_after")).toInstant()).isEqualTo(RUN_AFTER);
+    assertThat(next.get("dedup_key")).isEqualTo("match:" + w + ":xr:t41");
+
+    List<Task> again = queue.claim(Set.of(MatchNamesHandler.TYPE), "test", 1);
+    matchNames.handle(again.get(0));
+
+    assertThat(jdbc.queryForObject("SELECT state FROM work WHERE id = ?", String.class, w)).isEqualTo("INDEXED");
+    assertThat(placedRelease(w)).isEqualTo(200);
+    assertThat(path(w)).contains("NEWFAM").doesNotContain("OLDFAM");
+    assertThat(queued("EVALUATE_HITS")).hasSize(1); // a first indexing, as always
+  }
+
+  @Test
+  void indexingHoldsOffTheFlip() throws Exception {
+    long w = namedWork("Gatus epsilon", "UE");
+    var placed = placer.place(w, 100);
+    CountDownLatch locked = new CountDownLatch(1);
+    CountDownLatch release = new CountDownLatch(1);
+    // an indexing transaction that has read the current release and not committed yet
+    CompletableFuture<Void> indexing = CompletableFuture.runAsync(() -> tx.executeWithoutResult(s -> {
+      index.lockWork(w);
+      assertThat(index.lockCurrentReleaseKey()).isEqualTo(100);
+      locked.countDown();
+      try {
+        release.await(10, TimeUnit.SECONDS);
+      } catch (InterruptedException e) {
+        throw new IllegalStateException(e);
+      }
+    }));
+    assertThat(locked.await(10, TimeUnit.SECONDS)).isTrue();
+    // the flip's lock waits for it
+    CompletableFuture<Void> gate = CompletableFuture.runAsync(() -> tx.executeWithoutResult(s -> {
+      index.lockReleases();
+      flip();
+    }));
+    Thread.sleep(300);
+    assertThat(gate).isNotDone();
+    release.countDown();
+    indexing.get(10, TimeUnit.SECONDS);
+    gate.get(10, TimeUnit.SECONDS);
+    assertThat(index.currentRelease().key()).isEqualTo(200);
+    assertThat(indexer.index(w, placed, 100)).isEqualTo(Outcome.RELEASE_CHANGED);
+  }
+}
