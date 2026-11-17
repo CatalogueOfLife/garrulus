@@ -9,6 +9,8 @@
 
   --gr-type-display-size: 132px;
   --gr-type-display-line: 0.9;
+  --gr-type-display-tracking: -0.045em;
+  --gr-type-display-weight: 500;
   --gr-type-title-size: 40px;
   --gr-type-title-line: 1.1;
   --gr-type-lede-size: 22px;

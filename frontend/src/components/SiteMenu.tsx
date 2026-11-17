@@ -19,8 +19,9 @@ export function SiteMenu() {
       <Group component="nav" aria-label="Site" gap="md" ml="xl" visibleFrom="sm" wrap="nowrap">
         {SITE_LINKS.map((l) => (
           <NavLink key={l.to} to={l.to} end={l.to === '/'}
-            style={({ isActive: a }) => ({ textDecoration: 'none', color: 'inherit', fontWeight: a ? 700 : 400,
-              borderBottom: a ? '2px solid var(--mantine-color-jay-6)' : '2px solid transparent' })}>
+            style={({ isActive: a }) => ({ color: 'inherit',
+              textDecoration: a ? 'underline' : 'none', textDecorationColor: 'var(--gr-red)',
+              textDecorationThickness: '2px', textUnderlineOffset: '6px' })}>
             {l.label}
           </NavLink>
         ))}

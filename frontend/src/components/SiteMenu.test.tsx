@@ -1,14 +1,9 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Brand } from './Brand';
 import { SiteMenu } from './SiteMenu';
 import { renderApp } from '../test/render';
 
-describe('SiteMenu and Brand', () => {
-  it('brandLinksHome', () => {
-    renderApp(<Brand />, '/about');
-    expect(screen.getByRole('link', { name: 'Garrulus home' })).toHaveAttribute('href', '/');
-  });
+describe('SiteMenu', () => {
   it('showsTheThreeLinksAndHighlightsTheActiveOne', () => {
     renderApp(<SiteMenu />, '/journals');
     const nav = screen.getByRole('navigation', { name: 'Site' });

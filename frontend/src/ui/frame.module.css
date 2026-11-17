@@ -1,0 +1,141 @@
+.rule {
+  border: 0;
+  border-top: 1px solid var(--gr-ink);
+  margin: 0;
+}
+
+.soft {
+  border-top-color: var(--gr-rule-soft);
+}
+
+.header,
+.footer {
+  max-width: var(--gr-width);
+  margin: 0 auto;
+  padding: 0 40px;
+}
+
+.compact {
+  display: flex;
+  align-items: center;
+  gap: var(--gr-space-5);
+  padding: var(--gr-space-4) 0;
+}
+
+.brandLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--gr-ink);
+}
+
+.brandLink:hover {
+  text-decoration: none;
+}
+
+.wordmarkCompact {
+  font-size: 30px;
+  font-weight: var(--gr-type-display-weight);
+  letter-spacing: var(--gr-type-display-tracking);
+  line-height: 1;
+}
+
+.topLine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: var(--gr-space-3);
+  font-size: var(--gr-type-small-size);
+  line-height: var(--gr-type-small-line);
+}
+
+.brandBig {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--gr-space-5);
+  padding: 30px 0 26px;
+}
+
+.wordmarkBig {
+  margin: 0;
+  font-size: var(--gr-type-display-size);
+  line-height: var(--gr-type-display-line);
+  font-weight: var(--gr-type-display-weight);
+  letter-spacing: var(--gr-type-display-tracking);
+}
+
+.wordmarkBig a:hover {
+  text-decoration: none;
+}
+
+.navBar {
+  display: flex;
+  align-items: center;
+  padding: 11px 0;
+  font-size: 16px;
+}
+
+.searchSlot {
+  margin-left: auto;
+  width: var(--gr-side);
+  max-width: 100%;
+}
+
+.footer {
+  margin-top: var(--gr-space-8);
+  padding-bottom: var(--gr-space-6);
+}
+
+.footerLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gr-space-2) var(--gr-space-5);
+  padding-top: var(--gr-space-4);
+  font-size: var(--gr-type-meta-size);
+  line-height: var(--gr-type-meta-line);
+}
+
+.main {
+  max-width: var(--gr-width);
+  margin: 0 auto;
+  padding: var(--gr-space-5) 40px 0;
+}
+
+.meta {
+  margin: 0;
+  color: var(--gr-grey);
+  font-size: var(--gr-type-meta-size);
+  line-height: var(--gr-type-meta-line);
+}
+
+.metaPart + .metaPart {
+  margin-left: var(--gr-space-2);
+}
+
+.meta a {
+  color: inherit;
+}
+
+@media (max-width: 767px) {
+  .brandBig {
+    gap: var(--gr-space-3);
+  }
+}
+
+@media (max-width: 479px) {
+  .header,
+  .footer,
+  .main {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .navBar {
+    flex-wrap: wrap;
+    gap: var(--gr-space-2);
+  }
+
+  .searchSlot {
+    width: 100%;
+  }
+}
