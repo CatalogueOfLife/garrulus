@@ -17,8 +17,8 @@ describe('JournalsPage', () => {
     renderApp(<JournalsPage />, '/journals');
     const link = await screen.findByRole('link', { name: 'Zootaxa' });
     expect(link).toHaveAttribute('href', '/source/7');
-    expect(screen.getAllByText('BROAD').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('GENERAL').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Broad/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/General/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/120 papers a year/)).toHaveLength(2);
   });
 
@@ -33,8 +33,8 @@ describe('JournalsPage', () => {
     const user = userEvent.setup();
     await user.type(screen.getByLabelText('Title'), 'zoo');
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('q=zoo'));
-    await user.click(screen.getByLabelText('BROAD'));
-    await user.click(screen.getByLabelText('GENERAL'));
+    await user.click(screen.getByLabelText('Broad'));
+    await user.click(screen.getByLabelText('General'));
     await user.click(await screen.findByRole('button', { name: '2' }));
     await waitFor(() => expect(seen.at(-1)).toContain('offset=50'));
     const last = new URLSearchParams(seen.at(-1));

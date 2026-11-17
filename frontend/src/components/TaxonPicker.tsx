@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { CloseButton, Group, Loader, Stack, Text, TextInput } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import { useQuery } from '@tanstack/react-query';
 import { getXr, suggestTaxa } from '../api';
-import { SciName } from '../ui/SciName';
+import { isItalicName } from '../ui/nameStyle';
 import styles from '../ui/pages.module.css';
 
 interface Props {
@@ -11,6 +11,27 @@ interface Props {
   label?: string;
   onPick: (usageId: string, label: string) => void;
   onClear: () => void;
+}
+
+const MARKER = /^(?:subsp|ssp|var|subvar|f|forma|morph|ab)\.$/;
+
+/** A suggestion with only its name italic: genus (and epithets) of a genus-or-below rank, the rest, authorship included, roman. */
+function SuggestionName({ text, rank }: { text: string; rank?: string }) {
+  const words = text.split(' ');
+  if (!isItalicName(text, { rank }) && rank) return <>{text}</>;
+  let end = 1;
+  while (end < words.length && (/^[a-z-]+$/.test(words[end]) || MARKER.test(words[end]))) end++;
+  while (end > 1 && MARKER.test(words[end - 1])) end--; // a trailing marker is not part of the name
+  if (!/^[A-Z]/.test(words[0]) || (!rank && end === 1)) return <>{text}</>;
+  const out: ReactNode[] = [];
+  let run: string[] = [];
+  const flush = (i: number) => { if (run.length) out.push(<i key={i}>{run.join(' ')}</i>); run = []; };
+  words.slice(0, end).forEach((w, i) => {
+    if (MARKER.test(w)) { flush(i); out.push(` ${w} `); } else run.push(w);
+  });
+  flush(end);
+  const rest = words.slice(end).join(' ');
+  return <>{out}{rest ? (end > 0 && !MARKER.test(words[end - 1]) ? ' ' : '') + rest : ''}</>;
 }
 
 export function TaxonPicker({ label, onPick, onClear }: Props) {
@@ -55,7 +76,7 @@ export function TaxonPicker({ label, onPick, onClear }: Props) {
                   setText('');
                 }}
               >
-                <SciName name={s.suggestion} rank={s.rank} />
+                <SuggestionName text={s.suggestion} rank={s.rank} />
               </button>
             </li>
           ))}

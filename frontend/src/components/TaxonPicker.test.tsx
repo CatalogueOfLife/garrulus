@@ -25,4 +25,19 @@ describe('TaxonPicker', () => {
     await userEvent.click(option);
     expect(picked).toEqual(['8KTL7']);
   });
+
+  it('italicises only the name of a species suggestion, not the authorship', async () => {
+    server.use(
+      xrHandler,
+      http.get('https://api.checklistbank.org/dataset/:key/nameusage/suggest', () => HttpResponse.json([
+        { match: 'Abies alba Mill.', usageId: 'X1', rank: 'species', suggestion: 'Abies alba Mill.' },
+      ])),
+    );
+    renderApp(<TaxonPicker onPick={() => {}} onClear={() => {}} />);
+    await userEvent.type(screen.getByLabelText('Taxon'), 'Abies');
+    const italic = await screen.findByText('Abies alba');
+    expect(italic.tagName).toBe('I');
+    expect(italic.parentElement).toHaveTextContent('Abies alba Mill.');
+    expect(italic).not.toHaveTextContent('Mill.');
+  });
 });

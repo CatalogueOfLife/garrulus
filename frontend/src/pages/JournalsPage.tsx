@@ -10,6 +10,8 @@ import { usePageTitle } from '../usePageTitle';
 
 const LIMIT = 50;
 
+const sentence = (v?: string | null) => (v ? v.charAt(0) + v.slice(1).toLowerCase() : v);
+
 function Row({ s }: { s: SourceItem }) {
   const facts = [
     s.nameDensity != null ? `${s.nameDensity.toFixed(1)} names per paper` : null,
@@ -21,7 +23,7 @@ function Row({ s }: { s: SourceItem }) {
         <Anchor component={Link} to={`/source/${s.id}`} className={styles.rowTitle}>{s.title}</Anchor>
         {s.worksPerYear != null ? <span className={styles.rowCount}>{s.worksPerYear} papers a year</span> : null}
       </div>
-      <p className={styles.rowMeta}>{[s.tier, s.journalType, s.oaModel, s.publisher, ...facts].filter(Boolean).join(' · ')}</p>
+      <p className={styles.rowMeta}>{[sentence(s.tier), sentence(s.journalType), s.oaModel, s.publisher, ...facts].filter(Boolean).join(' · ')}</p>
     </li>
   );
 }
@@ -62,12 +64,12 @@ export function JournalsPage() {
         <div>
           <Text size="sm" fw={500}>Tier</Text>
           <SegmentedControl aria-label="Tier" value={tier || 'ALL'} onChange={(v) => update({ tier: v === 'ALL' ? '' : v })}
-            data={[{ value: 'ALL', label: 'All' }, { value: 'CORE', label: 'CORE' }, { value: 'BROAD', label: 'BROAD' }]} />
+            data={[{ value: 'ALL', label: 'All' }, { value: 'CORE', label: 'Core' }, { value: 'BROAD', label: 'Broad' }]} />
         </div>
         <div>
           <Text size="sm" fw={500}>Type</Text>
           <SegmentedControl aria-label="Type" value={journalType || 'ALL'} onChange={(v) => update({ journalType: v === 'ALL' ? '' : v })}
-            data={[{ value: 'ALL', label: 'All' }, { value: 'TAXONOMIC', label: 'TAXONOMIC' }, { value: 'GENERAL', label: 'GENERAL' }]} />
+            data={[{ value: 'ALL', label: 'All' }, { value: 'TAXONOMIC', label: 'Taxonomic' }, { value: 'GENERAL', label: 'General' }]} />
         </div>
       </div>
       {list.isError ? <Alert color="red">{(list.error as Error).message}</Alert>
