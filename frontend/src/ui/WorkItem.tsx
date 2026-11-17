@@ -7,13 +7,13 @@ import { SciTitle } from './SciTitle';
 import type { NameInfo } from './nameStyle';
 import classes from './list.module.css';
 
-/** One work in a list: rule above, title with its names in italics, meta line, main names with act markers. */
+/** One work in a list: ink rule above, title with its names in italics, meta line, main names with act markers. */
 export function WorkItem({ work }: { work: WorkSummary }) {
   const info = new Map<number, NameInfo>(work.mainNames.map((n) => [n.id, { rank: n.rank, usageRank: n.usageRank, kind: n.kind }]));
   const anyActs = work.mainNames.some((n) => (n.actTypes ?? []).length > 0);
   return (
     <article>
-      <Rule soft />
+      <Rule />
       <div className={classes.item}>
         <h3 className={classes.title}>
           <Link to={`/work/${work.id}`}>

@@ -115,8 +115,9 @@
   line-height: var(--gr-type-meta-line);
 }
 
-.metaPart + .metaPart {
-  margin-left: var(--gr-space-2);
+/* The gap trails each part, so a part that wraps to a new line starts flush left. */
+.metaPart:not(:last-child) {
+  margin-right: var(--gr-space-2);
 }
 
 .meta a {

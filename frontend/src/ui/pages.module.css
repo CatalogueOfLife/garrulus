@@ -75,7 +75,7 @@
 
 .ruled > li {
   padding: var(--gr-space-3) 0;
-  border-bottom: 1px solid var(--gr-rule-soft);
+  border-bottom: 1px solid var(--gr-ink);
 }
 
 .rowLine {
