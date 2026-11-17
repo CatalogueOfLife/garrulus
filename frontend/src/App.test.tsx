@@ -35,4 +35,11 @@ describe('App', () => {
     expect(await screen.findByRole('button', { name: 'A' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Sign in' })).toBeNull();
   });
+
+  it('shows the not-found page for an unknown path', async () => {
+    server.use(signedOut);
+    renderApp(<App />, '/no/such/page');
+    expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Go to the search' })).toHaveAttribute('href', '/');
+  });
 });

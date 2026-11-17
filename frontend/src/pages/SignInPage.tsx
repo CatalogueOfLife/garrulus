@@ -1,9 +1,10 @@
-import { Alert, Anchor, Button, Divider, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Anchor, Button, Divider, Text, TextInput } from '@mantine/core';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getAuthConfig, requestSignInLink } from '../api';
 import { rememberNext } from '../auth/useMe';
+import styles from '../ui/pages.module.css';
 import { usePageTitle } from '../usePageTitle';
 
 export function SignInPage() {
@@ -21,14 +22,14 @@ export function SignInPage() {
   };
 
   return (
-    <Stack maw={420} mx="auto" mt="xl">
-      <Title order={2}>Sign in to Garrulus</Title>
+    <div className={styles.narrow}>
+      <h1 className={styles.narrowTitle}>Sign in to Garrulus</h1>
       {params.get('error') === 'orcid' && (
         <Alert color="red">ORCID sign-in did not work. Try again, or use your email address.</Alert>
       )}
       {config.data?.orcid && (
         <>
-          <Button component="a" href={orcidHref} onClick={() => rememberNext(params.get('next'))} variant="default">Continue with ORCID</Button>
+          <Button component="a" href={orcidHref} onClick={() => rememberNext(params.get('next'))} >Continue with ORCID</Button>
           <Divider label="or" />
         </>
       )}
@@ -38,16 +39,16 @@ export function SignInPage() {
         </Alert>
       ) : (
         <form onSubmit={submit}>
-          <Stack>
+          <div className={styles.stack}>
             <TextInput label="Email" type="email" required value={email} onChange={(e) => setEmail(e.currentTarget.value)} />
-            {link.isError && <Text c="red" size="sm">That did not work. Try again in a moment.</Text>}
-            <Button type="submit" loading={link.isPending}>Email me a sign-in link</Button>
+            {link.isError && <p className={styles.error}>That did not work. Try again in a moment.</p>}
+            <Button type="submit" variant="filled" loading={link.isPending}>Email me a sign-in link</Button>
             <Text size="xs" c="dimmed">
               No password. <Anchor href="/" size="xs">Back to search</Anchor>
             </Text>
-          </Stack>
+          </div>
         </form>
       )}
-    </Stack>
+    </div>
   );
 }

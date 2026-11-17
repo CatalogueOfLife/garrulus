@@ -19,8 +19,8 @@ export function ConfirmButton({ children, question, confirmLabel, onConfirm, loa
   return (
     <Group gap="xs" wrap="wrap">
       <Text size="sm">{question}</Text>
-      <Button size={size} {...button} loading={loading} onClick={() => { setAsking(false); onConfirm(); }}>{confirmLabel}</Button>
-      <Button size={size} variant="default" onClick={() => setAsking(false)}>Keep</Button>
+      <Button size={size} variant="outline" {...button} loading={loading} onClick={() => { setAsking(false); onConfirm(); }}>{confirmLabel}</Button>
+      <Button size={size} onClick={() => setAsking(false)}>Keep</Button>
     </Group>
   );
 }

@@ -1,9 +1,10 @@
-import { Alert, Button, Divider, Group, Modal, Select, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Button, Group, Modal, Select, Stack, Text, TextInput } from '@mantine/core';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { deleteMe, downloadExport, patchMe, requestEmailChange, type DigestFrequency } from '../api';
 import { useMe } from '../auth/useMe';
+import styles from '../ui/pages.module.css';
 import { usePageTitle } from '../usePageTitle';
 
 const FREQ = [{ value: 'DAILY', label: 'Daily' }, { value: 'WEEKLY', label: 'Weekly' }, { value: 'OFF', label: 'Off' }];
@@ -68,36 +69,35 @@ export function AccountPage() {
   if (me.isPending) return null;
   if (!u) {
     return (
-      <Stack maw={460} mx="auto" mt="xl">
-        <Title order={2}>Your account</Title>
+      <div className={styles.narrow}>
+        <h1 className={styles.narrowTitle}>Your account</h1>
         <Text>Sign in to manage your Garrulus account.</Text>
-        <Button component={Link} to="/signin?next=/account">Sign in</Button>
-      </Stack>
+        <Button component={Link} to="/signin?next=/account" variant="filled">Sign in</Button>
+      </div>
     );
   }
 
   return (
-    <Stack maw={560} mx="auto" mt="md" gap="lg">
-      <Title order={2}>Your account</Title>
+    <div className={styles.accountCol}>
+      <h1 className={styles.pageTitle}>Your account</h1>
       {u.orcid && <Text size="sm" c="dimmed">Signed in with ORCID iD {u.orcid}</Text>}
 
-      <Stack gap="xs">
-        <Title order={3} size="h4">Email</Title>
-        {!u.email && <Alert color="yellow">Add an email address to receive digests.</Alert>}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Email</h2>
+        {!u.email && <Alert color="gray">Add an email address to receive digests.</Alert>}
         <TextInput label="Email" type="email" value={email} onChange={(e) => setEmail(e.currentTarget.value)} />
         <Group>
-          <Button variant="default" loading={change.isPending} disabled={!email.trim() || email.trim() === (u.email ?? '')}
+          <Button loading={change.isPending} disabled={!email.trim() || email.trim() === (u.email ?? '')}
             onClick={() => change.mutate()}>
             {u.email ? 'Change email' : 'Add email'}
           </Button>
         </Group>
         {change.isSuccess && <Text size="sm">We sent a link to that address. The change takes effect when you open it.</Text>}
-        {change.isError && <Text size="sm" c="red">That did not work. Check the address and try again.</Text>}
-      </Stack>
+        {change.isError && <p className={styles.error}>That did not work. Check the address and try again.</p>}
+      </section>
 
-      <Divider />
-      <Stack gap="xs">
-        <Title order={3} size="h4">Digest emails</Title>
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Digest emails</h2>
         <Select label="Time zone" searchable data={zoneOptions} value={zone} onChange={(v) => v && setZone(v)} allowDeselect={false} />
         <Select label="Digest frequency" data={FREQ} value={freq} onChange={(v) => v && setFreq(v)} allowDeselect={false} />
         {freq === 'WEEKLY' && (
@@ -105,31 +105,30 @@ export function AccountPage() {
         )}
         <Select label="Hour (local time)" data={HOURS} value={hour} onChange={(v) => v && setHour(v)} allowDeselect={false} />
         <Group>
-          <Button loading={save.isPending} onClick={() => save.mutate()}>Save settings</Button>
+          <Button variant="filled" loading={save.isPending} onClick={() => save.mutate()}>Save settings</Button>
           {save.isSuccess && <Text size="sm">Settings saved</Text>}
-          {save.isError && <Text size="sm" c="red">Could not save the settings.</Text>}
+          {save.isError && <p className={styles.error}>Could not save the settings.</p>}
         </Group>
-      </Stack>
+      </section>
 
-      <Divider />
-      <Stack gap="xs">
-        <Title order={3} size="h4">Your data</Title>
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Your data</h2>
         <Group>
-          <Button variant="default" loading={exp.isPending} onClick={() => exp.mutate()}>Download my data</Button>
+          <Button loading={exp.isPending} onClick={() => exp.mutate()}>Download my data</Button>
           <Button color="red" variant="outline" onClick={() => setConfirm(true)}>Delete account</Button>
         </Group>
-      </Stack>
+      </section>
 
       <Modal opened={confirm} onClose={() => { setConfirm(false); setTyped(''); }} title="Delete your account?">
         <Stack>
           <Text size="sm">This removes your account, your follows, your hits and your digests for good.</Text>
           <TextInput label="Type DELETE to confirm" value={typed} onChange={(e) => setTyped(e.currentTarget.value)} />
-          {remove.isError && <Text size="sm" c="red">Could not delete the account.</Text>}
-          <Button color="red" disabled={typed !== 'DELETE'} loading={remove.isPending} onClick={() => remove.mutate()}>
+          {remove.isError && <p className={styles.error}>Could not delete the account.</p>}
+          <Button color="red" variant="outline" disabled={typed !== 'DELETE'} loading={remove.isPending} onClick={() => remove.mutate()}>
             Delete my account
           </Button>
         </Stack>
       </Modal>
-    </Stack>
+    </div>
   );
 }

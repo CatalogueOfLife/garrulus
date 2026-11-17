@@ -32,12 +32,12 @@ export function AccountMenu() {
   if (!u) {
     const next = here.pathname + here.search;
     const to = next === '/' || next.startsWith('/signin') ? '/signin' : `/signin?next=${encodeURIComponent(next)}`;
-    return <Button component={Link} to={to} variant="default" size="xs" ml="auto">Sign in</Button>;
+    return <Button component={Link} to={to} size="xs" ml="auto">Sign in</Button>;
   }
   return (
     <Menu position="bottom-end">
       <Menu.Target>
-        <Button variant="default" size="xs" ml="auto">{u.displayName || u.email || 'Account'}</Button>
+        <Button size="xs" ml="auto">{u.displayName || u.email || 'Account'}</Button>
       </Menu.Target>
       <Menu.Dropdown>
         <Menu.Item component={Link} to="/hits">My hits</Menu.Item>

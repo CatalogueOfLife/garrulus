@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { Alert, Anchor, Badge, Button, Group, Loader, Stack, Switch, Text, Title } from '@mantine/core';
+import { Alert, Anchor, Button, Loader, Switch, Text } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { deleteSubscription, getSubscriptions, newFeedToken, patchSubscription, type Subscription } from '../api';
 import { useMe } from '../auth/useMe';
 import { ConfirmButton } from '../components/ConfirmButton';
 import { FollowDialog } from '../components/FollowButton';
+import { EmptyState } from '../ui/EmptyState';
+import styles from '../ui/pages.module.css';
 import { usePageTitle } from '../usePageTitle';
 
 const TYPE_LABEL: Record<Subscription['type'], string> = { TAXON: 'Taxon', SOURCE: 'Journal', NAME: 'Name', TAXGROUP: 'Group' };
@@ -50,54 +52,57 @@ export function FollowingPage() {
   };
 
   return (
-    <Stack gap="md">
-      <Title order={2}>Following</Title>
+    <div>
+      <h1 className={styles.pageTitle}>Following</h1>
       {subs.isError ? <Alert color="red">{(subs.error as Error).message}</Alert>
         : !subs.data ? <Loader size="sm" />
-        : subs.data.length === 0 ? <Text c="dimmed">You follow nothing yet. Use the Follow button on a taxon, journal or name page.</Text>
+        : subs.data.length === 0 ? (
+          <EmptyState title="You follow nothing yet">
+            Use the Follow button on a taxon, journal or name page.
+          </EmptyState>
+        )
         : (
-          <Stack component="ul" gap="md" p={0} m={0} style={{ listStyle: 'none' }}>
+          <ul className={styles.ruled}>
             {subs.data.map((s) => (
               <li key={s.id}>
-                <Group justify="space-between" align="flex-start" wrap="wrap">
+                <div className={styles.rowLine}>
                   <div>
-                    <Group gap="xs">
-                      <Anchor component={Link} to={targetPath(s)} fw={600}>{s.label}</Anchor>
-                      <Badge variant="light" size="sm">{TYPE_LABEL[s.type]}</Badge>
-                    </Group>
-                    <Anchor component={Link} to={`/hits?subscription=${s.id}`} size="sm">Hits</Anchor>
-                    {s.targetStatus === 'MOVED' && s.xrNote ? (
-                      <Alert color="gray" mt="xs" role="note" title="This taxon moved">{s.xrNote}</Alert>
-                    ) : null}
-                    {s.targetStatus === 'MISSING' ? (
-                      <Alert color="yellow" mt="xs" role="note" title="This taxon is no longer in the catalogue">
-                        {s.xrNote ?? 'It is missing from the latest Catalogue of Life.'}{' '}
-                        You can remove this follow with Delete.
-                      </Alert>
-                    ) : null}
-                    {renewed.has(s.id) ? (
-                      <Text size="sm" c="dimmed">New feed URL: <Text span size="sm" ff="monospace">{s.feedUrl}</Text></Text>
-                    ) : null}
+                    <Anchor component={Link} to={targetPath(s)} className={styles.rowTitle}>{s.label}</Anchor>
+                    <p className={styles.rowMeta}>
+                      <span>{TYPE_LABEL[s.type]}</span> · <Anchor component={Link} to={`/hits?subscription=${s.id}`} inherit>Hits</Anchor>
+                    </p>
                   </div>
-                  <Group gap="xs">
-                    <Switch label="Paused" checked={s.paused} onChange={() => pause.mutate(s)} />
-                    <Button size="xs" variant="default" onClick={() => setEditing(s)}>Edit</Button>
-                    <Button size="xs" variant="default" onClick={() => copy(s)}>Copy feed URL</Button>
-                    <ConfirmButton size="xs" variant="default" question="The old feed URL stops working."
-                      confirmLabel="Make a new URL" loading={renew.isPending && renew.variables?.id === s.id}
-                      onConfirm={() => renew.mutate(s)}>
-                      New feed URL
-                    </ConfirmButton>
-                    <ConfirmButton size="xs" variant="subtle" color="red" question="Delete this follow?"
-                      confirmLabel="Yes, delete" onConfirm={() => remove.mutate(s)}>
-                      Delete
-                    </ConfirmButton>
-                    {copied === s.id ? <Text size="sm" c="dimmed">Copied</Text> : null}
-                  </Group>
-                </Group>
+                  <Switch label="Paused" checked={s.paused} onChange={() => pause.mutate(s)} />
+                </div>
+                {s.targetStatus === 'MOVED' && s.xrNote ? (
+                  <Alert color="gray" mt="xs" role="note" title="This taxon moved">{s.xrNote}</Alert>
+                ) : null}
+                {s.targetStatus === 'MISSING' ? (
+                  <Alert color="gray" mt="xs" role="note" title="This taxon is no longer in the catalogue">
+                    {s.xrNote ?? 'It is missing from the latest Catalogue of Life.'}{' '}
+                    You can remove this follow with Delete.
+                  </Alert>
+                ) : null}
+                {renewed.has(s.id) ? (
+                  <Text size="sm" c="dimmed">New feed URL: <Text span size="sm" ff="monospace">{s.feedUrl}</Text></Text>
+                ) : null}
+                <div className={styles.actions}>
+                  <Button size="xs" onClick={() => setEditing(s)}>Edit</Button>
+                  <Button size="xs" onClick={() => copy(s)}>Copy feed URL</Button>
+                  <ConfirmButton size="xs" question="The old feed URL stops working."
+                    confirmLabel="Make a new URL" loading={renew.isPending && renew.variables?.id === s.id}
+                    onConfirm={() => renew.mutate(s)}>
+                    New feed URL
+                  </ConfirmButton>
+                  <ConfirmButton size="xs" color="red" question="Delete this follow?"
+                    confirmLabel="Yes, delete" onConfirm={() => remove.mutate(s)}>
+                    Delete
+                  </ConfirmButton>
+                  {copied === s.id ? <Text size="sm" c="dimmed">Copied</Text> : null}
+                </div>
               </li>
             ))}
-          </Stack>
+          </ul>
         )}
       {editing ? (
         <FollowDialog
@@ -105,6 +110,6 @@ export function FollowingPage() {
           existing={subs.data?.find((s) => s.id === editing.id) ?? editing}
         />
       ) : null}
-    </Stack>
+    </div>
   );
 }

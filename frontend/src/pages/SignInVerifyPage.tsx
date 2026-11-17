@@ -1,8 +1,9 @@
-import { Alert, Button, Stack, Text, Title } from '@mantine/core';
+import { Alert, Button, Text } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { getAuthConfig, signInWithToken } from '../api';
 import { takeNext } from '../auth/useMe';
+import styles from '../ui/pages.module.css';
 import { usePageTitle } from '../usePageTitle';
 
 /** The token is posted only on an explicit click, never on load (a mail scanner or a forged link must not sign anyone in). */
@@ -22,8 +23,8 @@ export function SignInVerifyPage() {
     },
   });
   return (
-    <Stack maw={420} mx="auto" mt="xl">
-      <Title order={2}>Sign in to Garrulus</Title>
+    <div className={styles.narrow}>
+      <h1 className={styles.narrowTitle}>Sign in to Garrulus</h1>
       {m.isError ? (
         <Alert color="red" title="Link not accepted">
           This sign-in link is invalid or has expired. <Link to="/signin">Request a new one.</Link>
@@ -31,9 +32,9 @@ export function SignInVerifyPage() {
       ) : (
         <>
           <Text>Press the button to finish signing in on this device.</Text>
-          <Button onClick={() => m.mutate()} loading={m.isPending} disabled={!token || ready.isPending}>Sign in to Garrulus</Button>
+          <Button variant="filled" onClick={() => m.mutate()} loading={m.isPending} disabled={!token || ready.isPending}>Sign in to Garrulus</Button>
         </>
       )}
-    </Stack>
+    </div>
   );
 }

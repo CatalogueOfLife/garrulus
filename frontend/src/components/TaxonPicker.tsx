@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { CloseButton, Group, Loader, NavLink, Stack, Text, TextInput } from '@mantine/core';
+import { CloseButton, Group, Loader, Stack, Text, TextInput } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import { useQuery } from '@tanstack/react-query';
 import { getXr, suggestTaxa } from '../api';
+import { SciName } from '../ui/SciName';
+import styles from '../ui/pages.module.css';
 
 interface Props {
   /** The label of the selected taxon, if any. */
@@ -40,20 +42,26 @@ export function TaxonPicker({ label, onPick, onClear }: Props) {
         description={xr.isError ? 'The taxon search is unavailable.' : undefined}
       />
       {debounced.length >= 2 && suggest.data?.length ? (
-        <Stack gap={0} role="listbox" aria-label="Taxon suggestions">
+        <ul className={styles.suggestions} role="listbox" aria-label="Taxon suggestions">
           {suggest.data.slice(0, 8).map((s) => (
-            <NavLink
-              key={s.usageId}
-              label={s.suggestion}
-              onClick={() => {
-                onPick(s.usageId, s.match);
-                setText('');
-              }}
-            />
+            <li key={s.usageId} role="presentation">
+              <button
+                type="button"
+                role="option"
+                aria-selected="false"
+                className={styles.suggestion}
+                onClick={() => {
+                  onPick(s.usageId, s.match);
+                  setText('');
+                }}
+              >
+                <SciName name={s.suggestion} rank={s.rank} />
+              </button>
+            </li>
           ))}
-        </Stack>
+        </ul>
       ) : null}
-      {suggest.isError ? <Text size="xs" c="red">Suggestions failed.</Text> : null}
+      {suggest.isError ? <p className={styles.error}>Suggestions failed.</p> : null}
     </Stack>
   );
 }

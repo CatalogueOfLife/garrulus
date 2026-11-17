@@ -1,8 +1,9 @@
-import { Alert, Button, Stack, Text, Title } from '@mantine/core';
+import { Alert, Button, Text } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate, useLocation, useSearchParams } from 'react-router-dom';
 import { ApiError, getAuthConfig, verifyEmail } from '../api';
 import { rememberNext, useMe } from '../auth/useMe';
+import styles from '../ui/pages.module.css';
 import { usePageTitle } from '../usePageTitle';
 
 export function VerifyEmailPage() {
@@ -27,8 +28,8 @@ export function VerifyEmailPage() {
     return <Navigate to={`/signin?next=${encodeURIComponent(here)}`} replace />;
   }
   return (
-    <Stack maw={460} mx="auto" mt="xl">
-      <Title order={2}>Confirm your email address</Title>
+    <div className={styles.narrow}>
+      <h1 className={styles.narrowTitle}>Confirm your email address</h1>
       {outcome === 'SET' && <Alert color="green" title="Address confirmed">Your address is set. <Link to="/account">Go to your account.</Link></Alert>}
       {outcome === 'MERGED' && (
         <Alert color="green" title="Your accounts were merged">The address belonged to an earlier account of yours; both are now one. <Link to="/account">Go to your account.</Link></Alert>
@@ -50,9 +51,9 @@ export function VerifyEmailPage() {
       {!outcome && !m.isError && (
         <>
           <Text>Press the button to confirm that this address is yours.</Text>
-          <Button onClick={() => m.mutate()} loading={m.isPending} disabled={!token || ready.isPending}>Confirm this address</Button>
+          <Button variant="filled" onClick={() => m.mutate()} loading={m.isPending} disabled={!token || ready.isPending}>Confirm this address</Button>
         </>
       )}
-    </Stack>
+    </div>
   );
 }

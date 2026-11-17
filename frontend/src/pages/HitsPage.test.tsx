@@ -45,7 +45,7 @@ describe('HitsPage', () => {
     expect(within(list).getByText('comb. nov.')).toBeInTheDocument();
     expect(within(list).getByText('stat. rev.')).toBeInTheDocument();
     expect(within(list).queryByText(/^new$/i)).toBeNull();
-    const shown = within(list).getAllByText(/^Name n\d+$/).map((e) => e.textContent);
+    const shown = within(list).getAllByText(/^Name n\d+$/).map((e) => e.firstChild?.textContent);
     expect(shown).toEqual(['Name n12', 'Name n13', 'Name n9', 'Name n1', 'Name n2', 'Name n3', 'Name n4', 'Name n5',
       'Name n6', 'Name n7']);
     expect(within(list).getByText('+4 more')).toBeInTheDocument();
