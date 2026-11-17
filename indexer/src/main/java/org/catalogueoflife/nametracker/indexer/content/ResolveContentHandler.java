@@ -18,6 +18,7 @@ import org.catalogueoflife.nametracker.indexer.finder.Spool;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
 import org.catalogueoflife.nametracker.indexer.content.route.AbstractRoute;
 import org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException;
+import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.content.Content;
 import org.catalogueoflife.nametracker.store.blob.BlobStore;
@@ -28,6 +29,7 @@ import org.catalogueoflife.nametracker.store.task.Task;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.catalogueoflife.nametracker.store.work.Work;
 import org.catalogueoflife.nametracker.store.work.WorkMapper;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -52,7 +54,9 @@ import tools.jackson.databind.JsonNode;
  * <p>With {@code "freeOnly":true} the paid routes ({@link ContentRoute#paid()}) are skipped. {@code "reprocess":true}
  * comes from a forced FIND_NAMES whose full text is gone: a full text found is stored as usual and a forced FIND_NAMES
  * ({@code "refetched":true}) follows even when the document is unchanged; when none is found, nothing is written and
- * nothing follows, so the work keeps its content, text level and names (counted in an INFO line).
+ * nothing follows, so the work keeps its content, text level and names (counted in an INFO line). If a route failed
+ * (threw) and none had the text, the task is deferred by 30 minutes as an outage instead, without using an attempt
+ * and without writing anything.
  */
 @Component
 public class ResolveContentHandler implements TaskHandler {
@@ -60,6 +64,8 @@ public class ResolveContentHandler implements TaskHandler {
   public static final String TYPE = "RESOLVE_CONTENT";
   static final int[] RECHECK_DAYS = {7, 30, 90};
   static final int RECHECK_MAX_AGE_DAYS = 90;
+  /** How long a re-fetch for reprocessing waits after a full text route failed. */
+  static final Duration OUTAGE_DELAY = Duration.ofMinutes(30);
   private static final Logger LOG = LoggerFactory.getLogger(ResolveContentHandler.class);
   /** Works since start that kept their names because their full text was no longer free to get. */
   private final AtomicLong kept = new AtomicLong();
@@ -120,7 +126,12 @@ public class ResolveContentHandler implements TaskHandler {
     Source source = work.sourceId() == null ? null : sources.get(work.sourceId());
 
     List<FetchedContent> results = new ArrayList<>();
-    FetchedContent full = fullText(work, source, freeOnly);
+    FullText found = fullText(work, source, freeOnly);
+    FetchedContent full = found.content();
+    if (reprocess && full == null && found.routeFailed()) {
+      // a route that throws is down for now (ContentRoute contract): try again later rather than keep the old names
+      throw new ServiceOutageException("full text routes", clock.instant().plus(OUTAGE_DELAY));
+    }
     if (reprocess && full == null) {
       LOG.info("Work {} keeps its names: its full text is no longer free to get ({} works kept since start)", workId,
           kept.incrementAndGet());
@@ -180,20 +191,25 @@ public class ResolveContentHandler implements TaskHandler {
     if ("ABSTRACT_ONLY".equals(finalLevel)) scheduleRecheck(task, work, source);
   }
 
-  private FetchedContent fullText(Work work, Source source, boolean freeOnly) {
+  /** The first full text of the routes, or null; {@code routeFailed} when a route threw on the way. */
+  private record FullText(@Nullable FetchedContent content, boolean routeFailed) {}
+
+  private FullText fullText(Work work, Source source, boolean freeOnly) {
+    boolean failed = false;
     for (ContentRoute r : routes) {
       try {
         if (freeOnly && r.paid()) continue;
         if (!r.applies(work, source)) continue;
         Optional<FetchedContent> got = r.fetch(work, source);
-        if (got.isPresent() && got.get().fulltext()) return got.get();
+        if (got.isPresent() && got.get().fulltext()) return new FullText(got.get(), failed);
       } catch (BudgetExhaustedException e) {
         LOG.info("Route {} skipped for work {}: budget spent until {}", r.route(), work.id(), e.retryAt());
       } catch (RuntimeException e) {
+        failed = true;
         LOG.warn("Route {} failed for work {}: {}", r.route(), work.id(), e.toString());
       }
     }
-    return null;
+    return new FullText(null, failed);
   }
 
   private void scheduleRecheck(Task task, Work work, Source source) {

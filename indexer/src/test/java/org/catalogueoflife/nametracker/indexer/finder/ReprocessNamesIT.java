@@ -7,6 +7,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.catalogueoflife.nametracker.indexer.content.route.RouteTestSupport.fixture;
 import static org.catalogueoflife.nametracker.indexer.content.route.RouteTestSupport.http;
 
@@ -18,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Timestamp;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -55,10 +57,14 @@ import org.catalogueoflife.nametracker.store.task.Task;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.catalogueoflife.nametracker.store.work.WorkMapper;
+import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -71,6 +77,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * REPROCESS_NAMES walk. The names are OTU identifiers or plain words found as OTUs, which need no CLB call.
  */
 @WireMockTest
+@ExtendWith(OutputCaptureExtension.class)
 @Import(ReprocessNamesIT.StubConfig.class)
 class ReprocessNamesIT extends AbstractPostgresIT {
 
@@ -384,6 +391,40 @@ class ReprocessNamesIT extends AbstractPostgresIT {
     assertThat(workNameRows(id)).isEqualTo(workNames);
     assertThat(count("SELECT count(*) FROM task WHERE type = 'FIND_NAMES'")).isZero();
     assertThat(count("SELECT count(*) FROM task WHERE state = 'QUEUED'")).isZero();
+  }
+
+  @Test
+  void routeOutageDefersRefetch(WireMockRuntimeInfo w, CapturedOutput out) throws Exception {
+    long id = indexedFullTextWorkWithTextGone(w);
+    Map<String, Object> before = work(id);
+    List<String> content = contentRows(id);
+    List<String> workNames = workNameRows(id);
+    stub.hash = "cfg2";
+    findNames(id, true);
+    Map<String, Object> refetch = jdbc.queryForMap("SELECT id, payload::text AS payload, dedup_key FROM task "
+        + "WHERE type = 'RESOLVE_CONTENT'");
+    Task resolve = new Task(((Number) refetch.get("id")).longValue(), ResolveContentHandler.TYPE,
+        (String) refetch.get("payload"), TaskPriority.REPROCESS, null, 1, Instant.now(), null, null, null,
+        (String) refetch.get("dedup_key"), null);
+
+    // Europe PMC is down: the re-fetch is deferred as an outage, nothing is written and the work is not "kept"
+    stubFor(get(urlPathEqualTo("/rest/search")).willReturn(aResponse().withStatus(503)));
+    stubFor(get(urlPathEqualTo("/rest/PMC9836452/fullTextXML")).willReturn(aResponse().withStatus(503)));
+    Instant now = Instant.now();
+    assertThatThrownBy(() -> routes(w, true).handle(resolve)).isInstanceOfSatisfying(ServiceOutageException.class,
+        e -> assertThat(e.retryAt()).isAfter(now.plus(Duration.ofMinutes(29))));
+    assertThat(work(id)).isEqualTo(before);
+    assertThat(contentRows(id)).isEqualTo(content);
+    assertThat(workNameRows(id)).isEqualTo(workNames);
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'FIND_NAMES'")).isZero();
+    assertThat(out.getAll()).doesNotContain("keeps its names");
+
+    // once Europe PMC answers again, the same task goes on
+    europePmcHasText();
+    routes(w, true).handle(resolve);
+    assertThat(jdbc.queryForObject("SELECT " + PAYLOAD + " FROM task WHERE type = 'FIND_NAMES' AND state = 'QUEUED'",
+        String.class)).contains("\"force\":true");
+    assertThat(out.getAll()).doesNotContain("keeps its names");
   }
 
   /** A work the finder has seen (with an empty index), in the source, of the year. */

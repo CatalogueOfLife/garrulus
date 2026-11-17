@@ -11,14 +11,18 @@ import org.catalogueoflife.nametracker.finder.api.FinderResult;
 import org.catalogueoflife.nametracker.finder.api.NameFinder;
 import org.catalogueoflife.nametracker.finder.remote.FinderUnavailableException;
 import org.catalogueoflife.nametracker.indexer.AbstractPostgresIT;
+import org.catalogueoflife.nametracker.store.index.FinderRolloutMapper;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
+import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /** The automatic rollout at start: the finder's configHash against the hashes rolled out before. */
 @Import(FinderRolloutIT.StubConfig.class)
@@ -52,6 +56,10 @@ class FinderRolloutIT extends AbstractPostgresIT {
   @Autowired StubFinder stub;
   @Autowired FinderRollout rollout;
   @Autowired JdbcTemplate jdbc;
+  @Autowired ObjectProvider<NameFinder> finders;
+  @Autowired FinderRolloutMapper mapper;
+  @Autowired TaskQueue queue;
+  @Autowired TransactionTemplate tx;
 
   @BeforeEach
   void clean() {
@@ -115,6 +123,16 @@ class FinderRolloutIT extends AbstractPostgresIT {
 
     assertThat(rows()).hasSize(1);
     assertThat(tasks()).isEmpty();
+  }
+
+  /** The ITs switch the check at start off; the listener checks only when it is on. */
+  @Test
+  void startListenerFollowsTheSwitch() {
+    rollout.onReady(); // this context: nametracker.finder.rollout-on-start=false
+    assertThat(rows()).isEmpty();
+
+    new FinderRollout(finders, mapper, queue, tx, true).onReady();
+    assertThat(rows()).extracting(r -> r.get("config_hash")).containsExactly("cfg1");
   }
 
   @Test

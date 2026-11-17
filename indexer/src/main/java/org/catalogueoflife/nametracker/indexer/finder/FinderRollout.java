@@ -9,6 +9,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -20,7 +21,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * nothing is reprocessed; a hash not seen before is recorded and {@code REPROCESS_NAMES {"all":true,"rollout":hash}}
  * is enqueued (dedup {@code rollout:<hash>}) in the same transaction. A known hash does nothing. The trigger is the
  * configHash alone: the jar version changes with every deploy and a new dictionary is no finder upgrade. A finder
- * whose {@code info()} fails (a remote finder that is down) is skipped with a WARN until the next start.
+ * whose {@code info()} fails (a remote finder that is down) is skipped with a WARN until the next start. The check at
+ * start can be switched off with {@code nametracker.finder.rollout-on-start=false} (the ITs do).
  */
 @Component
 public class FinderRollout {
@@ -31,18 +33,21 @@ public class FinderRollout {
   private final FinderRolloutMapper rollouts;
   private final TaskQueue queue;
   private final TransactionTemplate tx;
+  private final boolean onStart;
 
+  /** {@code onStart}: {@code nametracker.finder.rollout-on-start}, off only in tests. */
   public FinderRollout(ObjectProvider<NameFinder> finder, FinderRolloutMapper rollouts, TaskQueue queue,
-      TransactionTemplate tx) {
+      TransactionTemplate tx, @Value("${nametracker.finder.rollout-on-start:true}") boolean onStart) {
     this.finder = finder.getIfAvailable();
     this.rollouts = rollouts;
     this.queue = queue;
     this.tx = tx;
+    this.onStart = onStart;
   }
 
   @EventListener(ApplicationReadyEvent.class)
   public void onReady() {
-    check();
+    if (onStart) check();
   }
 
   /** Records the finder's configHash and enqueues its rollout if it is new; see the class comment. */
