@@ -255,6 +255,9 @@ class EvaluateHitsHandlerIT extends AbstractPostgresIT {
     long w = work();
     // an empty work indexes to nothing; the follow-up is queued all the same, at the task's priority
     jdbc.update("UPDATE work SET state = 'NAMES_FOUND' WHERE id = ?", w);
+    // MATCH_NAMES needs a pinned release; without one it asks CLB for the XR
+    jdbc.update("DELETE FROM xr_release");
+    index.addRelease(1, "COL XR test", true);
     MatchNamesHandlerFollowUpProbe.run(this, w);
   }
 

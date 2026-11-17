@@ -57,7 +57,7 @@
 
   <select id="candidates" resultMap="sub">
     SELECT <include refid="cols"/> FROM subscription
-    WHERE NOT paused AND (
+    WHERE (#{includePaused} OR NOT paused) AND (
       false
       <if test="sourceId != null"> OR (type = 'SOURCE' AND target = #{sourceId})</if>
       <if test="taxonIds != null and !taxonIds.isEmpty()">

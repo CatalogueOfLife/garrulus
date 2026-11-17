@@ -50,7 +50,13 @@ public interface SubscriptionMapper {
    * Unpaused subscriptions of any user whose (type, target) is one of the keys: SOURCE by {@code sourceId}, TAXON by
    * {@code taxonIds}, NAME by {@code nameIds}, TAXGROUP by {@code taxgroups}. Null or empty key lists match nothing.
    */
+  default List<Subscription> candidates(@Nullable String sourceId, @Nullable List<String> taxonIds,
+      @Nullable List<String> nameIds, @Nullable List<String> taxgroups) {
+    return candidates(sourceId, taxonIds, nameIds, taxgroups, false);
+  }
+
+  /** As {@link #candidates(String, List, List, List)}, with paused subscriptions too when {@code includePaused}. */
   List<Subscription> candidates(@Param("sourceId") @Nullable String sourceId,
       @Param("taxonIds") @Nullable List<String> taxonIds, @Param("nameIds") @Nullable List<String> nameIds,
-      @Param("taxgroups") @Nullable List<String> taxgroups);
+      @Param("taxgroups") @Nullable List<String> taxgroups, @Param("includePaused") boolean includePaused);
 }

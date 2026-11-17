@@ -3,24 +3,16 @@ package org.catalogueoflife.nametracker.indexer.hits;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
-import org.catalogueoflife.nametracker.indexer.match.TaxGroups;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.account.Hit;
 import org.catalogueoflife.nametracker.store.account.HitMapper;
 import org.catalogueoflife.nametracker.store.account.Subscription;
-import org.catalogueoflife.nametracker.store.account.SubscriptionMapper;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
-import org.catalogueoflife.nametracker.store.index.NameString;
 import org.catalogueoflife.nametracker.store.index.WorkFacts;
-import org.catalogueoflife.nametracker.store.index.WorkName;
-import org.catalogueoflife.nametracker.store.search.SearchMapper;
-import org.catalogueoflife.nametracker.store.search.WorkFilter;
 import org.catalogueoflife.nametracker.store.task.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,19 +35,17 @@ public class EvaluateHitsHandler implements TaskHandler {
   private static final Logger LOG = LoggerFactory.getLogger(EvaluateHitsHandler.class);
 
   private final IndexMapper index;
-  private final SubscriptionMapper subscriptions;
+  private final HitMatcher matcher;
   private final HitMapper hits;
-  private final SearchMapper search;
   private final TransactionTemplate tx;
   private final HitProperties props;
   private final Clock clock;
 
-  public EvaluateHitsHandler(IndexMapper index, SubscriptionMapper subscriptions, HitMapper hits,
-      SearchMapper search, TransactionTemplate tx, HitProperties props, Clock clock) {
+  public EvaluateHitsHandler(IndexMapper index, HitMatcher matcher, HitMapper hits,
+      TransactionTemplate tx, HitProperties props, Clock clock) {
     this.index = index;
-    this.subscriptions = subscriptions;
+    this.matcher = matcher;
     this.hits = hits;
-    this.search = search;
     this.tx = tx;
     this.props = props;
     this.clock = clock;
@@ -76,37 +66,25 @@ public class EvaluateHitsHandler implements TaskHandler {
     index.lockWork(workId);
     WorkFacts work = index.workFacts(workId);
     if (work == null || work.indexedAt() == null || !"INDEXED".equals(work.state())) return; // a stale task
-    List<WorkNameView> names = names(workId);
-    Set<String> taxa = new LinkedHashSet<>();
-    Set<String> nameIds = new LinkedHashSet<>();
-    Set<String> groups = new LinkedHashSet<>();
-    for (WorkNameView n : names) {
-      taxa.addAll(List.of(n.taxonPath()));
-      nameIds.add(String.valueOf(n.nameStringId()));
-      if (n.taxgroup() != null) groups.addAll(TaxGroups.withAncestors(n.taxgroup()));
-    }
-    List<Subscription> candidates = subscriptions.candidates(
-        work.sourceId() == null ? null : work.sourceId().toString(), new ArrayList<>(taxa), new ArrayList<>(nameIds),
-        new ArrayList<>(groups));
+    Set<Long> previous = new HashSet<>(index.reindexPrevSubscriptions(workId));
     LocalDate today = LocalDate.now(clock.withZone(ZoneOffset.UTC));
-    WorkInfo info = new WorkInfo(workId, work.sourceId(), work.textLevel());
+    List<HitMatcher.Matched> matched = matcher.matching(workId);
     int made = 0;
-    for (Subscription s : candidates) {
+    for (HitMatcher.Matched h : matched) {
+      Subscription s = h.s();
       if (!s.created().isBefore(work.indexedAt())) continue;
       if (!HitWindow.contains(work.publicationDate(), work.year() == null ? null : work.year(), work.firstSeenAt(),
           s.sinceYear(), today, props)) continue;
-      WorkFilter f = filter(s);
-      if (f != null && !search.workMatches(workId, f)) continue;
-      SubscriptionMatcher.Match m = SubscriptionMatcher.match(s, info, names);
-      if (!m.matches()) continue;
-      made += record(s, workId, m.names());
+      made += record(s, workId, h.m().names(), previous.contains(s.id()));
     }
-    LOG.debug("Evaluated work {}: {} candidates, {} hits", workId, candidates.size(), made);
+    LOG.debug("Evaluated work {}: {} matching, {} hits", workId, matched.size(), made);
   }
 
-  private int record(Subscription s, long workId, List<WorkNameView> matched) {
+  /** {@code matchedBefore}: the follow matched the work's previous index, so a re-index gives it no new ARTICLE. */
+  private int record(Subscription s, long workId, List<WorkNameView> matched, boolean matchedBefore) {
     Hit article = hits.find(s.id(), workId, "ARTICLE");
     if (article == null) {
+      if (matchedBefore) return 0;
       return hits.insertIfAbsent(new Hit(null, s.id(), workId, "ARTICLE", null, snapshot(matched, null).toString(),
           null));
     }
@@ -134,36 +112,6 @@ public class EvaluateHitsHandler implements TaskHandler {
       o.set("actTypes", acts);
       o.put("placement", n.placementMethod());
       o.put("mainSubject", n.mainSubject());
-    }
-    return out;
-  }
-
-  /** Null for a subscription without filters (R3); otherwise the work filter of its keys, name options aside. */
-  private static WorkFilter filter(Subscription s) {
-    JsonNode f = FinderJson.mapper().readTree(s.filters());
-    if (f == null || !f.isObject() || f.isEmpty()) return null;
-    return new WorkFilter(null, null, text(f, "code"), text(f, "taxgroup"), text(f, "subfield"),
-        text(f, "journalType"), text(f, "tier"), text(f, "oa"), text(f, "country"), null, null, null, null, null,
-        false, null);
-  }
-
-  private static String text(JsonNode f, String key) {
-    JsonNode v = f.get(key);
-    return v == null || v.isNull() || v.asString().isBlank() ? null : v.asString();
-  }
-
-  private List<WorkNameView> names(long workId) {
-    List<WorkName> rows = index.workNames(workId);
-    if (rows.isEmpty()) return List.of();
-    var byId = new java.util.HashMap<Long, String>();
-    for (NameString n : index.nameStrings(rows.stream().map(WorkName::nameStringId).toList())) {
-      byId.put(n.id(), n.name());
-    }
-    List<WorkNameView> out = new ArrayList<>(rows.size());
-    for (WorkName r : rows) {
-      out.add(new WorkNameView(r.nameStringId(), byId.getOrDefault(r.nameStringId(), ""),
-          r.taxonPath().toArray(String[]::new), r.taxgroup(), r.mainSubject(), r.onlyReference(),
-          r.actTypes().toArray(String[]::new), r.placementMethod()));
     }
     return out;
   }

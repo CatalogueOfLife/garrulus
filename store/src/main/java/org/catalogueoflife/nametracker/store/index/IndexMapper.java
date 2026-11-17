@@ -110,6 +110,9 @@ public interface IndexMapper {
         subscriptionIds == null ? null : java.util.Arrays.stream(subscriptionIds).boxed().toList());
   }
 
+  /** The ids stored by {@link #setReindexPrevSubscriptions}; empty when none or unknown (a first indexing). */
+  List<Long> reindexPrevSubscriptions(@Param("workId") long workId);
+
   void updateReindexPrevSubscriptions(@Param("workId") long workId, @Param("ids") @Nullable List<Long> ids);
 
   @Nullable NameMatch match(@Param("nameStringId") long nameStringId, @Param("hintKey") String hintKey,

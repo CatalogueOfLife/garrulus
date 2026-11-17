@@ -243,6 +243,10 @@
     WHERE id = #{workId}
   </update>
 
+  <select id="reindexPrevSubscriptions" resultType="long">
+    SELECT unnest(reindex_prev_subscriptions) FROM work WHERE id = #{workId}
+  </select>
+
   <select id="match" resultMap="match">
     SELECT * FROM name_match
     WHERE name_string_id = #{nameStringId} AND hint_key = #{hintKey} AND release_key = #{releaseKey}
