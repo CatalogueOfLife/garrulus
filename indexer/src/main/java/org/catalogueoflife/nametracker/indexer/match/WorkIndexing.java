@@ -10,7 +10,12 @@ public interface WorkIndexing {
     /** Nothing written: the work's index changed since the placements were computed (a newer run takes over). */
     STALE,
     /** Nothing written: the placements are of a release that is no longer the current one (an XR switch flipped). */
-    RELEASE_CHANGED
+    RELEASE_CHANGED,
+    /**
+     * Nothing written: the live index the follows of the old index were to be taken from changed while the names were
+     * placed, or was not placed in this release; place again.
+     */
+    LIVE_CHANGED
   }
 
   /**

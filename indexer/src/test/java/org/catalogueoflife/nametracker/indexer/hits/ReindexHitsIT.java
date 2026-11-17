@@ -28,6 +28,8 @@ import org.catalogueoflife.nametracker.indexer.finder.FindNamesHandler;
 import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.match.MatchNamesHandler;
 import org.catalogueoflife.nametracker.indexer.match.PlacedWork;
+import org.catalogueoflife.nametracker.indexer.match.WorkIndexing;
+import org.catalogueoflife.nametracker.store.index.NameMatch;
 import org.catalogueoflife.nametracker.indexer.match.WorkPlacer;
 import org.catalogueoflife.nametracker.indexer.match.XrReleaseService;
 import org.catalogueoflife.nametracker.store.index.ContextRow;
@@ -68,6 +70,7 @@ class ReindexHitsIT extends AbstractPostgresIT {
     volatile List<String> names = List.of();
     volatile boolean context;
     volatile boolean fail;
+    volatile NameKind kind = NameKind.OTU;
 
     @Override
     public FinderInfo info() {
@@ -83,7 +86,7 @@ class ReindexHitsIT extends AbstractPostgresIT {
           int cs = b.text().indexOf(n);
           if (cs < 0) continue;
           int start = CodePoints.toCodePoint(b.text(), cs);
-          ms.add(new Mention("m" + ms.size(), b.id(), start, start + CodePoints.length(n), n, n, NameKind.OTU, null,
+          ms.add(new Mention("m" + ms.size(), b.id(), start, start + CodePoints.length(n), n, n, kind, null,
               null, null, 1.0, new Evidence(Set.of(Generator.DICTIONARY), null, null), null,
               context ? "c1" : null, Map.of()));
         }
@@ -111,6 +114,7 @@ class ReindexHitsIT extends AbstractPostgresIT {
   @Autowired IndexMapper index;
   @Autowired SubscriptionMapper subs;
   @Autowired JdbcTemplate jdbc;
+  @Autowired WorkIndexing indexer;
 
   long user;
 
@@ -128,6 +132,7 @@ class ReindexHitsIT extends AbstractPostgresIT {
     stub.names = List.of();
     stub.context = false;
     stub.fail = false;
+    stub.kind = NameKind.OTU;
   }
 
   private static Task task(String type, long workId) {
@@ -162,9 +167,22 @@ class ReindexHitsIT extends AbstractPostgresIT {
   }
 
   private long follow(String name) {
+    return follow(name, true);
+  }
+
+  private long follow(String name, boolean includeAbstractOnly) {
+    return follow(user, name, includeAbstractOnly);
+  }
+
+  private long follow(long userId, String name, boolean includeAbstractOnly) {
     long ns = index.nameStringId(name, "OTU", null);
-    return subs.insert(new Subscription(null, user, "NAME", String.valueOf(ns), null, false, false, true, false, "{}",
-        null, null, false, null));
+    return subs.insert(new Subscription(null, userId, "NAME", String.valueOf(ns), null, false, false,
+        includeAbstractOnly, false, "{}", null, null, false, null));
+  }
+
+  private long followTaxon(String taxonId) {
+    return subs.insert(new Subscription(null, user, "TAXON", taxonId, null, false, false, true, false, "{}", null, null,
+        false, null));
   }
 
   private void evaluate(long workId) throws Exception {
@@ -207,6 +225,104 @@ class ReindexHitsIT extends AbstractPostgresIT {
     jdbc.update("UPDATE subscription SET paused = false WHERE id = ?", f);
     evaluate(w);
     assertThat(count(f, "ARTICLE")).isZero();
+  }
+
+  /**
+   * A full text arriving changes the work's text level at once, while its live index stays the abstract one until the
+   * re-index is swapped in: a follow that wants full text only did not match that abstract index, so the full text
+   * index alerts it.
+   */
+  @Test
+  void fullTextArrivingAlertsFollowThatSkipsAbstracts() throws Exception {
+    long w = indexedWork(A);
+    long fullOnly = follow(A, false);
+    long other = jdbc.queryForObject("INSERT INTO app_user (email) VALUES ('b@example.org') RETURNING id", Long.class);
+    long any = follow(other, A, true);
+    // RESOLVE_CONTENT found a full text: the level changes before the re-index (no full text document here, so the
+    // finder reads the abstract again; the level is what counts)
+    jdbc.update("UPDATE work SET text_level = 'FULLTEXT' WHERE id = ?", w);
+    reindex(w, A);
+    assertThat(jdbc.queryForObject("SELECT names_text_level FROM work WHERE id = ?", String.class, w))
+        .isEqualTo("FULLTEXT");
+    evaluate(w);
+    assertThat(count(fullOnly, "ARTICLE")).isEqualTo(1);
+    assertThat(count(any, "ARTICLE")).isZero(); // it matched the abstract index already
+  }
+
+  /** A MATCH_NAMES of a listed work without a pending index re-indexes the same rows: no follow looks new. */
+  @Test
+  void matchAgainWithoutPendingIndexGivesNoHit() throws Exception {
+    long w = indexedWork(A);
+    long f = follow(A);
+    match.handle(task(MatchNamesHandler.TYPE, w));
+    assertThat(index.reindexPrevSubscriptions(w)).containsExactly(f);
+    evaluate(w);
+    assertThat(count(f, "ARTICLE")).isZero();
+  }
+
+  static final String SP = "Fooa bara";
+
+  /** Release 100 current; the binomial {@link #SP} is cached as matched in 100 (family F100) and in 200 (F200). */
+  private long twoReleases() {
+    jdbc.update("DELETE FROM xr_release");
+    index.addRelease(100, "COL XR 100", true);
+    index.addRelease(200, "COL XR 200", false);
+    long ns = index.nameStringId(SP, "BINOMIAL", null);
+    for (int r : new int[] {100, 200}) {
+      index.putMatch(new NameMatch(ns, "", r, "exact", "U1", SP, "species", "accepted", "U1", "ZOOLOGICAL", null,
+          List.of("U1", "F" + r), "[]", null));
+    }
+    stub.kind = NameKind.BINOMIAL;
+    return ns;
+  }
+
+  /** The flip of an XR switch, without XR_REPLACE: 200 is current, the work is still placed in 100. */
+  private void flipTo200() {
+    jdbc.update("UPDATE xr_release SET current = false, state = 'RETIRED' WHERE key = 100");
+    jdbc.update("UPDATE xr_release SET current = true, state = 'SWITCHING' WHERE key = 200");
+  }
+
+  /**
+   * A re-index placed across an XR switch: the live index is placed in the old release, the pending one in the new. A
+   * follow the work matches only through the new release's classification matched the live index as placed in the new
+   * release too, so the switch gives it no ARTICLE.
+   */
+  @Test
+  void reindexAcrossSwitchGivesNoSwitchCausedHit() throws Exception {
+    twoReleases();
+    long w = indexedWork(SP);
+    assertThat(jdbc.queryForObject("SELECT placed_release FROM work WHERE id = ?", Integer.class, w)).isEqualTo(100);
+    long f200 = followTaxon("F200");
+    flipTo200();
+
+    reindex(w, SP);
+
+    assertThat(jdbc.queryForObject("SELECT placed_release FROM work WHERE id = ?", Integer.class, w)).isEqualTo(200);
+    assertThat(jdbc.queryForList("SELECT unnest(taxon_path) FROM work_name WHERE work_id = ?", String.class, w))
+        .containsExactly("U1", "F200");
+    assertThat(index.reindexPrevSubscriptions(w)).containsExactly(f200);
+    evaluate(w);
+    assertThat(count(f200, "ARTICLE")).isZero();
+  }
+
+  /** Without the live index placed in the new release (or when it changed meanwhile) nothing is written. */
+  @Test
+  void pendingIndexAcrossSwitchNeedsTheLivePlacement() throws Exception {
+    twoReleases();
+    long w = indexedWork(SP);
+    flipTo200();
+    jdbc.update("UPDATE work SET abstract = 'Now we barcoded Fooa bara.' WHERE id = ?", w);
+    find.handle(task(FindNamesHandler.TYPE, w));
+    PlacedWork pendingOnly = new PlacedWork(index.indexRows(w), Map.of());
+    assertThat(indexer.index(w, pendingOnly, 200)).isEqualTo(WorkIndexing.Outcome.LIVE_CHANGED);
+    assertThat(jdbc.queryForObject("SELECT pending_finder_run IS NOT NULL FROM work WHERE id = ?", Boolean.class, w))
+        .isTrue();
+    assertThat(jdbc.queryForObject("SELECT placed_release FROM work WHERE id = ?", Integer.class, w)).isEqualTo(100);
+
+    // MATCH_NAMES on a changed live index places again under a fresh key
+    PlacedWork stale = new PlacedWork(index.indexRows(w), Map.of(),
+        new PlacedWork.LiveIndex(new org.catalogueoflife.nametracker.store.index.IndexRows(false, -1L, "x"), Map.of()));
+    assertThat(indexer.index(w, stale, 200)).isEqualTo(WorkIndexing.Outcome.LIVE_CHANGED);
   }
 
   @Test

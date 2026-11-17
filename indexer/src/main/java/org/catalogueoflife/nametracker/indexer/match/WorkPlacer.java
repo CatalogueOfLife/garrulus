@@ -69,11 +69,22 @@ public class WorkPlacer {
   /**
    * Places the row set of the work's index that is to be indexed: its pending index if it has one, else its live index.
    * The row set is read before the rows, so a change in between shows as a changed {@link IndexRows} at indexing time.
+   * A work with a pending index whose live index is placed in another release (an XR switch came in between) also gets
+   * its live index placed in this release ({@link PlacedWork#live()}): the follows the old index matches are taken from
+   * it, so the switch itself makes no follow look new. Those are mostly cache hits of the pre-match.
    */
   public PlacedWork place(long workId, int releaseKey) {
     IndexRows rows = index.indexRows(workId);
     if (rows == null) rows = new IndexRows(false, null, null); // no such work: nothing to place, nothing to index
-    return new PlacedWork(rows, place(workId, releaseKey, rows.pending()));
+    PlacedWork.LiveIndex live = null;
+    if (rows.pending()) {
+      Integer placedIn = index.placedRelease(workId);
+      if (placedIn == null || placedIn != releaseKey) {
+        IndexRows liveRows = index.liveIndexRows(workId); // read before the rows, as above
+        if (liveRows != null) live = new PlacedWork.LiveIndex(liveRows, place(workId, releaseKey, false));
+      }
+    }
+    return new PlacedWork(rows, place(workId, releaseKey, rows.pending()), live);
   }
 
   /**

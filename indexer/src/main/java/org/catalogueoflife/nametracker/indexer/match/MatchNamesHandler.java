@@ -19,7 +19,8 @@ import org.springframework.stereotype.Component;
  * while its names were placed (a newer FIND_NAMES or MATCH_NAMES), nothing is written and no hit evaluation follows:
  * the MATCH_NAMES of the newer row set is queued or done. When an XR switch made another release current while the
  * names were placed, nothing is written either and MATCH_NAMES of the work is enqueued again (same priority and
- * run_after), so it is placed in the new release. A CLB
+ * run_after), so it is placed in the new release; so it is when the live index of a re-indexed work changed while it was
+ * placed in this release for the previous matches (see {@link WorkPlacer#place(long, int)}). A CLB
  * outage, or a local bundle serving another release than the pinned one, defers the task without using an attempt;
  * nothing is written then. See {@link WorkPlacer} for names CLB cannot match.
  */
@@ -77,6 +78,13 @@ public class MatchNamesHandler implements TaskHandler {
         queue.enqueue(TYPE, "{\"workId\":" + workId + "}", task.priority(), "match:" + workId + ":xr:t" + task.id(),
             task.runAfter());
         LOG.info("MATCH_NAMES of work {}: XR release {} is no longer current, matching again", workId, key);
+        return;
+      }
+      case LIVE_CHANGED -> {
+        // the live index to take the old matches from changed meanwhile: place both again
+        queue.enqueue(TYPE, "{\"workId\":" + workId + "}", task.priority(), "match:" + workId + ":live:t" + task.id(),
+            task.runAfter());
+        LOG.info("MATCH_NAMES of work {}: its live index changed while the names were placed, matching again", workId);
         return;
       }
       case INDEXED -> { }

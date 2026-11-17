@@ -220,7 +220,7 @@
   <update id="setPending">
     UPDATE work SET pending_finder_run = #{finderRunId}, pending_doc_sha = #{docSha},
       pending_diagnostics = #{json, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler},
-      modified = now()
+      pending_text_level = #{textLevel}, modified = now()
     WHERE id = #{workId}
   </update>
 
@@ -243,6 +243,18 @@
     FROM work WHERE id = #{workId}
   </select>
 
+  <select id="liveIndexRows" resultMap="indexRows" flushCache="true">
+    SELECT false AS pending, current_finder_run AS finder_run, names_doc_sha AS doc_sha FROM work WHERE id = #{workId}
+  </select>
+
+  <select id="namesTextLevel" resultType="string" flushCache="true">
+    SELECT COALESCE(names_text_level, text_level) FROM work WHERE id = #{workId}
+  </select>
+
+  <select id="placedRelease" resultType="java.lang.Integer" flushCache="true">
+    SELECT placed_release FROM work WHERE id = #{workId}
+  </select>
+
   <!-- ids are kept, so a mention still points at its context -->
   <insert id="movePendingContexts">
     INSERT INTO classification_context (id, <include refid="contextColumns"/>)
@@ -256,8 +268,9 @@
 
   <update id="adoptPendingRun">
     UPDATE work SET current_finder_run = pending_finder_run, names_doc_sha = pending_doc_sha,
-      finder_diagnostics = COALESCE(pending_diagnostics, '{}'::jsonb),
-      pending_finder_run = NULL, pending_doc_sha = NULL, pending_diagnostics = NULL, modified = now()
+      finder_diagnostics = COALESCE(pending_diagnostics, '{}'::jsonb), names_text_level = pending_text_level,
+      pending_finder_run = NULL, pending_doc_sha = NULL, pending_diagnostics = NULL, pending_text_level = NULL,
+      modified = now()
     WHERE id = #{workId} AND pending_finder_run IS NOT NULL
   </update>
 
@@ -293,8 +306,6 @@
     </foreach>
   </insert>
 
-  <select id="textLevel" resultType="string">SELECT text_level FROM work WHERE id = #{workId}</select>
-
   <select id="ubiquity" resultMap="ubiquityRow">
     SELECT name_string_id, share FROM name_ubiquity WHERE name_string_id IN
     <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
@@ -326,6 +337,15 @@
       AND placed_release IS DISTINCT FROM #{releaseKey}
   </select>
 
+  <select id="pendingWithoutMatch" resultType="long" flushCache="true">
+    SELECT w.id FROM work w
+    WHERE w.state IN ('INDEXED','NOTIFIED') AND w.pending_finder_run IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM task t
+                      WHERE t.type = 'MATCH_NAMES' AND t.state IN ('QUEUED','RUNNING')
+                        AND t.payload->>'workId' = w.id::text)
+    ORDER BY w.id LIMIT #{limit}
+  </select>
+
   <select id="releaseExists" resultType="boolean">SELECT EXISTS (SELECT 1 FROM xr_release WHERE key = #{key})</select>
 
   <insert id="addRelease">
@@ -342,7 +362,7 @@
   </select>
 
   <select id="lockReleases" resultType="int" flushCache="true">
-    SELECT key FROM xr_release ORDER BY key FOR UPDATE
+    SELECT key FROM xr_release ORDER BY key FOR NO KEY UPDATE
   </select>
 
   <select id="runningSwitch" resultMap="release" flushCache="true">
@@ -393,7 +413,8 @@
   </select>
 
   <update id="setNamesFound">
-    UPDATE work SET current_finder_run = #{finderRunId}, names_doc_sha = #{docSha}, state = 'NAMES_FOUND', modified = now()
+    UPDATE work SET current_finder_run = #{finderRunId}, names_doc_sha = #{docSha}, names_text_level = #{textLevel},
+      state = 'NAMES_FOUND', modified = now()
     WHERE id = #{workId}
   </update>
 

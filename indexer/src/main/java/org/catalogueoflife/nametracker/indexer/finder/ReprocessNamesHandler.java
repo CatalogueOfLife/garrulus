@@ -22,7 +22,9 @@ import tools.jackson.databind.node.ObjectNode;
  * ({@code current_finder_run} set) with id above {@code afterId}, in id order and one batch per task, filtered by
  * {@code source} (a source id), {@code workIds} and {@code yearFrom}/{@code yearTo}, and enqueues {@code FIND_NAMES
  * {"workId":n,"force":true}} for each at REPROCESS priority (dedup {@code find:<id>:force:<rollout or "manual">}); with
- * {@code "force":false} a plain FIND_NAMES, which is a no-op for an already named document. Without a filter it runs
+ * {@code "force":false} a plain FIND_NAMES: an already named document is not named again, but its MATCH_NAMES runs
+ * again and re-places the work in the current release (no ARTICLE hit for a follow its index matched before). Without
+ * a filter it runs
  * only with {@code "all":true}, so an empty payload reprocesses nothing. A full batch enqueues its continuation
  * ({@code reprocess:<rollout or "manual">:<lastId>}); the last batch of a rollout sets
  * {@code finder_rollout.enqueued_at}.

@@ -14,6 +14,7 @@ import org.catalogueoflife.nametracker.store.index.WorkFacts;
 import org.catalogueoflife.nametracker.store.index.WorkName;
 import org.catalogueoflife.nametracker.store.search.SearchMapper;
 import org.catalogueoflife.nametracker.store.search.WorkFilter;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
@@ -44,6 +45,14 @@ public class HitMatcher {
 
   /** As {@link #matching(long)}, with paused subscriptions too when {@code includePaused}. */
   public List<Matched> matching(long workId, boolean includePaused) {
+    return matching(workId, includePaused, null);
+  }
+
+  /**
+   * As {@link #matching(long, boolean)}, with the work judged at the given text level instead of its current one
+   * (null: the current one).
+   */
+  public List<Matched> matching(long workId, boolean includePaused, @Nullable String textLevel) {
     WorkFacts work = index.workFacts(workId);
     if (work == null) return List.of();
     List<WorkNameView> names = names(workId);
@@ -58,7 +67,7 @@ public class HitMatcher {
     List<Subscription> candidates = subscriptions.candidates(
         work.sourceId() == null ? null : work.sourceId().toString(), new ArrayList<>(taxa), new ArrayList<>(nameIds),
         new ArrayList<>(groups), includePaused);
-    WorkInfo info = new WorkInfo(workId, work.sourceId(), work.textLevel());
+    WorkInfo info = new WorkInfo(workId, work.sourceId(), textLevel != null ? textLevel : work.textLevel());
     List<Matched> out = new ArrayList<>();
     for (Subscription s : candidates) {
       WorkFilter f = filter(s);

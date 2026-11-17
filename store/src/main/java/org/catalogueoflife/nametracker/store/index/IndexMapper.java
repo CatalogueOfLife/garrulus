@@ -70,9 +70,12 @@ public interface IndexMapper {
 
   void deletePendingContexts(@Param("workId") long workId);
 
-  /** Sets pending_finder_run, pending_doc_sha and pending_diagnostics (a JSON object); state and live index stay. */
+  /**
+   * Sets pending_finder_run, pending_doc_sha, pending_diagnostics (a JSON object) and pending_text_level (the text
+   * level the document was chosen at); state and live index stay.
+   */
   void setPending(@Param("workId") long workId, @Param("finderRunId") long finderRunId,
-      @Param("docSha") String docSha, @Param("json") String json);
+      @Param("docSha") String docSha, @Param("json") String json, @Param("textLevel") @Nullable String textLevel);
 
   /** The finder run of the work's pending index, null if it has none. */
   @Nullable Long pendingFinderRun(@Param("workId") long workId);
@@ -82,6 +85,18 @@ public interface IndexMapper {
 
   /** The row set to place and index: the pending index if the work has one, else the live index; null if no work. */
   @Nullable IndexRows indexRows(@Param("workId") long workId);
+
+  /** The row set of the work's live index (pending false), even when it has a pending one; null if no work. */
+  @Nullable IndexRows liveIndexRows(@Param("workId") long workId);
+
+  /**
+   * The text level the work's live index was built from (names_text_level), else its text level: the level a full
+   * text arriving changes at once, while the live index stays the old one until a re-index is swapped in.
+   */
+  @Nullable String namesTextLevel(@Param("workId") long workId);
+
+  /** The XR release the work's work_name rows are placed in, null if none. */
+  @Nullable Integer placedRelease(@Param("workId") long workId);
 
   /**
    * Replaces the live mentions and contexts of the work by its pending ones, keeping their ids (contexts first), empties
@@ -101,7 +116,10 @@ public interface IndexMapper {
 
   void movePendingMentions(@Param("workId") long workId);
 
-  /** current_finder_run, names_doc_sha, finder_diagnostics from the pending columns, which are cleared. */
+  /**
+   * current_finder_run, names_doc_sha, finder_diagnostics and names_text_level from the pending columns, which are
+   * cleared.
+   */
   void adoptPendingRun(@Param("workId") long workId);
 
   /** The subscriptions the work's previous index matched, null if unknown (a first indexing). */
@@ -122,9 +140,6 @@ public interface IndexMapper {
   void putMatch(@Param("o") NameMatch o);
 
   void insertWorkNames(@Param("list") List<WorkName> list);
-
-  /** The text level of the work (FULLTEXT, ABSTRACT_ONLY, NO_TEXT), null if unset. */
-  @Nullable String textLevel(@Param("workId") long workId);
 
   /** The ubiquity of the given name strings; names without a row are left out. */
   List<NameUbiquity> ubiquity(@Param("ids") java.util.Collection<Long> ids);
@@ -147,6 +162,12 @@ public interface IndexMapper {
   /** How many listed works with a pending index are not placed in the release (their MATCH_NAMES will place them). */
   long countPendingUnplaced(@Param("releaseKey") int releaseKey);
 
+  /**
+   * Ids of INDEXED or NOTIFIED works with a pending index and no QUEUED or RUNNING MATCH_NAMES task, ascending; at
+   * most {@code limit}. Nothing would ever swap their pending index in.
+   */
+  List<Long> pendingWithoutMatch(@Param("limit") int limit);
+
   boolean releaseExists(@Param("key") int key);
 
   /** Inserts the release, in state CURRENT if current, else SEEN. */
@@ -159,7 +180,11 @@ public interface IndexMapper {
   /** The releases, highest key first. */
   List<XrRelease> releases(@Param("limit") int limit);
 
-  /** Takes the row lock of every release until the end of the transaction; returns their keys. */
+  /**
+   * Takes the row lock of every release until the end of the transaction (FOR NO KEY UPDATE: it conflicts with the
+   * share lock of {@link #lockCurrentReleaseKey} and with itself, but not with the key share lock of a name_match
+   * insert); returns their keys.
+   */
   List<Integer> lockReleases();
 
   /** A release in PREPARING, PREPARED or SWITCHING, the lowest key if several; null if no switch runs. */
@@ -195,9 +220,12 @@ public interface IndexMapper {
   MatchLoss matchLoss(@Param("current") int current, @Param("candidate") int candidate,
       @Param("before") java.time.@Nullable Instant before);
 
-  /** Sets current_finder_run, names_doc_sha and state NAMES_FOUND. */
+  /**
+   * Sets current_finder_run, names_doc_sha, names_text_level (the text level the document was chosen at) and state
+   * NAMES_FOUND.
+   */
   void setNamesFound(@Param("workId") long workId, @Param("finderRunId") long finderRunId,
-      @Param("docSha") String docSha);
+      @Param("docSha") String docSha, @Param("textLevel") @Nullable String textLevel);
 
   /** The sha of the document the finder last saw for the work, null if it never ran. */
   @Nullable String namesDocSha(@Param("workId") long workId);

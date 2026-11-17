@@ -120,10 +120,11 @@ class IndexMapperIT extends AbstractPostgresIT {
   void stateTransitions() {
     long w = newWork();
     long run = index.finderRunId(new FinderRun(null, "p", "1", "st", null));
-    index.setNamesFound(w, run, "sha");
-    assertThat(jdbc.queryForMap("SELECT state, current_finder_run, names_doc_sha FROM work WHERE id = ?", w))
+    index.setNamesFound(w, run, "sha", "ABSTRACT_ONLY");
+    assertThat(jdbc.queryForMap("SELECT state, current_finder_run, names_doc_sha, names_text_level FROM work "
+        + "WHERE id = ?", w))
         .containsEntry("state", "NAMES_FOUND").containsEntry("current_finder_run", run)
-        .containsEntry("names_doc_sha", "sha");
+        .containsEntry("names_doc_sha", "sha").containsEntry("names_text_level", "ABSTRACT_ONLY");
     index.setIndexed(w, new String[] {"ICZN"}, new String[] {"Animals"}, true, 1);
     Work x = works.get(w);
     assertThat(x.state()).isEqualTo("INDEXED");

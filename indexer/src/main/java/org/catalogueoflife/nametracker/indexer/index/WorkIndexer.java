@@ -31,9 +31,11 @@ import org.springframework.transaction.support.TransactionTemplate;
  * codes, taxgroups and has_acts (acts outside the references only; {@code act_types} keeps them all) and moves it to
  * INDEXED, placed in the given release. One transaction that locks the work row first, so a redelivery replaces the
  * rows and gives identical ones. Under that lock the row set the placements were computed from must still be the one
- * to index ({@link IndexRows}); if a newer finder run or a swap came in between, nothing is written. A work with a
- * pending index (a re-index) first records the subscriptions its old index matches ({@link PreviousMatches}) and swaps
- * the pending index in, in the same transaction: readers see either the old or the new index, never a gap.
+ * to index ({@link IndexRows}); if a newer finder run or a swap came in between, nothing is written. A work that is
+ * already listed (a re-index, with or without a pending index) first records the subscriptions its live index matches
+ * ({@link PreviousMatches}), placed in the release being indexed: if the live rows are placed in another release (an
+ * XR switch came in between), they are re-placed in this one first, so the switch makes no follow look new. A pending
+ * index is then swapped in, in the same transaction: readers see either the old or the new index, never a gap.
  */
 @Component
 public class WorkIndexer implements WorkIndexing {
@@ -69,12 +71,28 @@ public class WorkIndexer implements WorkIndexing {
       return Outcome.STALE;
     }
     Map<Long, Placement> placements = placed.placements();
-    if (rows.pending()) {
-      // the old index is still live here: what it matched decides which follows the new one alerts
+    Aggregate a = null;
+    WorkFacts f = index.workFacts(workId);
+    if (f != null && LISTED.contains(f.state())) {
+      // the live index decides which follows the new one alerts: what it matches, placed in this release
+      Integer placedIn = index.placedRelease(workId);
+      if (placedIn == null || placedIn != releaseKey) {
+        if (!rows.pending()) {
+          a = writeWorkNames(workId, placements); // the live rows are the ones to index
+        } else {
+          PlacedWork.LiveIndex live = placed.live();
+          if (live == null || !live.rows().equals(index.liveIndexRows(workId))) {
+            LOG.debug("Work {} not indexed: its live index {} is not the one placed in release {}", workId,
+                index.liveIndexRows(workId), releaseKey);
+            return Outcome.LIVE_CHANGED;
+          }
+          writeWorkNames(workId, live.placements());
+        }
+      }
       index.setReindexPrevSubscriptions(workId, previous.capture(workId));
-      index.swapPendingIndex(workId);
     }
-    Aggregate a = writeWorkNames(workId, placements);
+    if (rows.pending()) index.swapPendingIndex(workId);
+    if (a == null) a = writeWorkNames(workId, placements);
     index.setIndexed(workId, a.codes(), a.taxgroups(), a.hasActs(), releaseKey);
     return Outcome.INDEXED;
   }
@@ -138,11 +156,12 @@ public class WorkIndexer implements WorkIndexing {
 
   /**
    * Computes the work_name rows (salience, main subject) and the work's codes, taxgroups and has_acts from the stored
-   * mentions, the current name_ubiquity and the given placements. Reads only; the caller holds the work lock and
-   * writes. Shared by indexing and {@code RESCORE_SALIENCE}.
+   * mentions, the current name_ubiquity and the given placements. Abstract-only is the text level the live mentions were
+   * found at ({@link IndexMapper#namesTextLevel}). Reads only; the caller holds the work lock and writes. Shared by
+   * indexing and {@code RESCORE_SALIENCE}.
    */
   public Aggregate aggregate(long workId, Map<Long, Placement> placements) {
-    boolean abstractOnly = "ABSTRACT_ONLY".equals(index.textLevel(workId));
+    boolean abstractOnly = "ABSTRACT_ONLY".equals(index.namesTextLevel(workId));
     Map<Long, List<MentionRow>> byName = new LinkedHashMap<>();
     boolean hasActs = false;
     for (MentionRow m : index.mentions(workId)) {

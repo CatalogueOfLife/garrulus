@@ -47,7 +47,8 @@ import tools.jackson.databind.JsonNode;
 /**
  * {@code FIND_NAMES}, payload {@code {"workId":n}}. Loads the document of the work, runs the {@link NameFinder} and, in
  * one transaction, replaces the work's mentions, contexts and (through the cascade of
- * {@link IndexMapper#deleteWorkIndex}) its work names, then marks the work NAMES_FOUND. A listed work (INDEXED) keeps
+ * {@link IndexMapper#deleteWorkIndex}) its work names, then marks the work NAMES_FOUND. The index records the text level
+ * the document was chosen at (the re-index hit rule judges the old index by it). A listed work (INDEXED) keeps
  * its state and its live index instead: the result replaces the work's pending index, which {@code MATCH_NAMES} swaps
  * in, so the work never drops out of the listings. "Already named" means named into the pending index when there is
  * one. After the commit it deletes the spool file and enqueues {@code MATCH_NAMES} at this task's priority and
@@ -166,11 +167,12 @@ public class FindNamesHandler implements TaskHandler {
         // a re-index: the live index stays until MATCH_NAMES swaps the pending one in
         index.deletePendingIndex(workId);
         if (result != null) store(workId, doc, result, diagnostics, true);
-        index.setPending(workId, runId[0], loaded.docSha(), FinderJson.mapper().writeValueAsString(diagnostics));
+        index.setPending(workId, runId[0], loaded.docSha(), FinderJson.mapper().writeValueAsString(diagnostics),
+            work.textLevel());
       } else {
         index.deleteWorkIndex(workId);
         if (result != null) store(workId, doc, result, diagnostics, false);
-        index.setNamesFound(workId, runId[0], loaded.docSha());
+        index.setNamesFound(workId, runId[0], loaded.docSha(), work.textLevel());
         index.setDiagnostics(workId, FinderJson.mapper().writeValueAsString(diagnostics));
       }
       namedSha[0] = loaded.docSha();
