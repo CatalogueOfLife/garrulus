@@ -56,3 +56,19 @@ a.gr-mark {
 a.gr-mark-act {
   text-decoration-color: var(--gr-red);
 }
+
+.gr-bar {
+  fill: var(--gr-ink);
+}
+
+.gr-bar.gr-current {
+  fill: var(--gr-red);
+}
+
+.gr-axis-line {
+  stroke: var(--gr-grey);
+}
+
+.gr-axis-text {
+  fill: var(--gr-grey);
+}

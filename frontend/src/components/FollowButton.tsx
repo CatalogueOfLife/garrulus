@@ -175,7 +175,7 @@ export function FollowButton({ type, target, label }: { type: SubscriptionType; 
   }
   return (
     <>
-      <Button variant={existing ? 'light' : 'default'} size="xs" onClick={() => setOpened(true)}>
+      <Button variant={existing ? 'filled' : 'default'} size="xs" onClick={() => setOpened(true)}>
         {existing ? 'Following' : 'Follow'}
       </Button>
       <FollowDialog

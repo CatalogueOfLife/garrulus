@@ -28,7 +28,9 @@ describe('NamePage', () => {
     );
     renderName('5');
     expect(await screen.findByRole('heading', { name: 'Carabus nemoralis' })).toBeInTheDocument();
-    expect(screen.getByText('species', { selector: '.mantine-Badge-label' })).toBeInTheDocument();
+    expect(screen.getByText('species')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Atom feed' })).toHaveAttribute('href', '/feeds/name/5.atom');
+    expect(screen.getByRole('heading', { level: 1 }).querySelector('i')).not.toBeNull();
     const match = screen.getByRole('region', { name: 'Match in COL' });
     expect(within(match).getByRole('link', { name: 'Carabus nemoralis' })).toHaveAttribute('href', '/taxon/S1');
     expect(within(match).getByRole('link', { name: /accepted/i })).toHaveAttribute('href', '/taxon/S2');

@@ -82,6 +82,12 @@ describe('FollowButton', () => {
     expect(patch).toMatchObject({ sinceYear: null, mainSubjectOnly: true });
   });
 
+  it('followingStateIsAFilledPillAndFollowIsOutline', async () => {
+    server.use(signedIn, http.get('/api/me/subscriptions', () => HttpResponse.json([sub()])));
+    renderApp(<FollowButton type="TAXON" target="T1" label="Carabus" />);
+    expect(await screen.findByRole('button', { name: 'Following' })).toHaveAttribute('data-variant', 'filled');
+  });
+
   it('exists409SwitchesToEditing', async () => {
     let subs: object[] = [];
     server.use(

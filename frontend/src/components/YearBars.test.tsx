@@ -48,6 +48,15 @@ describe('YearBars', () => {
     expect(screen.getByTestId('year-readout')).toHaveTextContent('2025: 1 paper');
     expect(screen.getByTestId('year-readout').textContent).not.toMatch(/papers/);
   });
+  it('marksTheSelectedRangeWithGrCurrentAndLeavesTheOthersInk', () => {
+    renderApp(<YearBars years={[{ year: 2024, works: 2 }, { year: 2025, works: 8 }, { year: 2026, works: 4 }]} range={{ from: 2025, to: 2026 }} />);
+    const bars = screen.getAllByTestId('year-bar');
+    expect(bars.map((b) => b.classList.contains('gr-current'))).toEqual([false, true, true]);
+  });
+  it('marksNoBarWithoutARange', () => {
+    renderApp(<YearBars years={[{ year: 2024, works: 2 }, { year: 2025, works: 8 }]} />);
+    expect(screen.getAllByTestId('year-bar').some((b) => b.classList.contains('gr-current'))).toBe(false);
+  });
   it('thinsLabelsForManyYearsKeepingFirstAndLast', () => {
     const idx = labelIndices(40);
     expect(idx[0]).toBe(0);

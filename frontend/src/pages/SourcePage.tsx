@@ -1,6 +1,5 @@
-import { Alert, Anchor, Badge, Group, Loader, Stack, Text, Title } from '@mantine/core';
+import { Alert, Loader, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ApiError, getSource, getTaxGroups } from '../api';
 import { FeedLink } from '../components/FeedLink';
@@ -9,17 +8,13 @@ import { Section } from '../components/Section';
 import { TaxGroupIcon } from '../components/TaxGroupIcon';
 import { YearBars } from '../components/YearBars';
 import { WorkList } from '../components/WorkList';
+import { DetailHead } from '../ui/DetailHead';
+import { SideColumn } from '../ui/SideColumn';
+import { StatRows, type StatRow } from '../ui/StatRows';
+import list from '../ui/list.module.css';
+import classes from '../ui/detail.module.css';
 import { usePageTitle } from '../usePageTitle';
 import { subfieldLabel } from '../subfields';
-
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <Group gap="sm" align="baseline" wrap="nowrap">
-      <Text size="sm" c="dimmed" w={130} style={{ flex: '0 0 auto' }}>{label}</Text>
-      <Group gap={6}>{children}</Group>
-    </Group>
-  );
-}
 
 const PUBLIC_TIERS = ['CORE', 'BROAD'];
 const pct = (share: number) => `${Math.round(share * 100)}%`;
@@ -45,65 +40,75 @@ export function SourcePage() {
   const shown = shares.length ? shares.map(([g, v]) => ({ name: g, share: v as number | null }))
     : s.taxgroups.map((g) => ({ name: g, share: null }));
 
+  const cat: StatRow[] = [];
+  if (s.codes.length) cat.push({ label: 'Nomenclatural codes', value: s.codes.join(', ') });
+  if (s.journalType) cat.push({ label: 'Journal type', value: s.journalType });
+  if (s.oaModel) cat.push({ label: 'Open access', value: s.oaModel });
+  if (s.country) cat.push({ label: 'Country', value: s.country });
+  if (s.worksPerYear != null) cat.push({ label: 'Papers per year', value: Math.round(s.worksPerYear) });
+  if (s.nameDensity != null) cat.push({ label: 'Names per paper', value: s.nameDensity });
+  if (s.actRate != null) cat.push({ label: 'Papers with acts', value: pct(s.actRate) });
+
   return (
-    <Stack gap="lg">
-      <div>
-        <Group align="baseline" gap="sm">
-          <Title order={2}>{s.title}</Title>
-          <Badge variant="light">{s.tier}</Badge>
+    <article>
+      <DetailHead
+        title={s.title}
+        parts={[s.tier, s.publisher, s.issnL && `ISSN-L ${s.issnL}`]}
+      />
+
+      <div className={`${list.page} ${classes.body}`}>
+        <div className={list.mainCol}>
+          <Section title="Recent papers">
+            {s.recentWorks.length ? <WorkList works={s.recentWorks} /> : <Text c="dimmed">No papers yet.</Text>}
+            <p className={classes.more}>
+              <Link to={`/?source=${encodeURIComponent(id)}`}>All papers of this journal</Link>
+            </p>
+          </Section>
+        </div>
+
+        <SideColumn>
           {served ? (
-            <>
+            <div className={classes.actions}>
               <FollowButton type="SOURCE" target={String(s.id)} label={s.title} />
               <FeedLink href={`/feeds/source/${s.id}.atom`} />
-            </>
+            </div>
           ) : null}
-        </Group>
-        {s.publisher || s.issnL ? <Text size="sm" c="dimmed">{[s.publisher, s.issnL && `ISSN-L ${s.issnL}`].filter(Boolean).join(' · ')}</Text> : null}
+
+          <Section title="Taxonomic groups">
+            {shown.length ? (
+              <ul className={classes.plain}>
+                {shown.map((g) => (
+                  <li key={g.name}>
+                    <span className={classes.group}>
+                      <TaxGroupIcon group={{ name: g.name, icon: icon(g.name) }} />
+                      <span>{g.name}</span>
+                    </span>
+                    {g.share !== null ? <span className={classes.muted}> {pct(g.share)}</span> : null}
+                  </li>
+                ))}
+              </ul>
+            ) : <Text c="dimmed">No taxonomic groups recorded.</Text>}
+          </Section>
+
+          <Section title="Categorisation">
+            <StatRows rows={cat} />
+            {s.subfields.length ? (
+              <ul className={classes.plain} aria-label="Subfields">
+                {s.subfields.map((f) => (
+                  <li key={f} title={f} className={f === s.primarySubfield ? classes.primary : undefined}
+                    data-primary={f === s.primarySubfield ? 'true' : undefined}>
+                    {subfieldLabel(f)}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </Section>
+
+          <Section title="Papers per year">
+            <YearBars years={s.years} />
+          </Section>
+        </SideColumn>
       </div>
-
-      <Section title="Taxonomic groups">
-        {shown.length ? (
-          <Stack gap={6} component="ul" p={0} m={0} style={{ listStyle: 'none' }}>
-            {shown.map((g) => (
-              <li key={g.name}>
-                <Group gap="xs">
-                  <TaxGroupIcon group={{ name: g.name, icon: icon(g.name) }} />
-                  <Text size="sm">{g.name}</Text>
-                  {g.share !== null ? <Text size="sm" c="dimmed">{pct(g.share)}</Text> : null}
-                </Group>
-              </li>
-            ))}
-          </Stack>
-        ) : <Text c="dimmed">No taxonomic groups recorded.</Text>}
-      </Section>
-
-      <Section title="Categorisation">
-        <Stack gap={6}>
-          {s.codes.length ? <Row label="Nomenclatural codes">{s.codes.map((c) => <Badge key={c} variant="outline">{c}</Badge>)}</Row> : null}
-          {s.journalType ? <Row label="Journal type"><Badge variant="outline">{s.journalType}</Badge></Row> : null}
-          {s.subfields.length ? (
-            <Row label="Subfields">
-              {s.subfields.map((f) => (
-                <Badge key={f} variant={f === s.primarySubfield ? 'filled' : 'light'} tt="none" title={f}>{subfieldLabel(f)}</Badge>
-              ))}
-            </Row>
-          ) : null}
-          {s.oaModel ? <Row label="Open access"><Badge variant="outline">{s.oaModel}</Badge></Row> : null}
-          {s.country ? <Row label="Country"><Badge variant="outline">{s.country}</Badge></Row> : null}
-          {s.worksPerYear != null ? <Row label="Papers per year"><Text size="sm">{Math.round(s.worksPerYear)}</Text></Row> : null}
-          {s.nameDensity != null ? <Row label="Names per paper"><Text size="sm">{s.nameDensity}</Text></Row> : null}
-          {s.actRate != null ? <Row label="Papers with acts"><Text size="sm">{pct(s.actRate)}</Text></Row> : null}
-        </Stack>
-      </Section>
-
-      <Section title="Papers per year">
-        <YearBars years={s.years} />
-      </Section>
-
-      <Section title="Recent papers">
-        {s.recentWorks.length ? <WorkList works={s.recentWorks} /> : <Text c="dimmed">No papers yet.</Text>}
-        <Anchor component={Link} to={`/?source=${encodeURIComponent(id)}`} size="sm">All papers of this journal</Anchor>
-      </Section>
-    </Stack>
+    </article>
   );
 }

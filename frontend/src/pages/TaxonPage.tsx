@@ -1,4 +1,4 @@
-import { Alert, Anchor, Badge, Group, Loader, Stack, Text, Title } from '@mantine/core';
+import { Alert, Anchor, Loader, Text } from '@mantine/core';
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { getClbClassification, getClbTaxon, getTaxonStats, getWork, getXr, searchWorks } from '../api';
@@ -9,6 +9,12 @@ import { YearBars } from '../components/YearBars';
 import { FeedLink } from '../components/FeedLink';
 import { FollowButton } from '../components/FollowButton';
 import { Section } from '../components/Section';
+import { DetailHead } from '../ui/DetailHead';
+import { SciName } from '../ui/SciName';
+import { SideColumn } from '../ui/SideColumn';
+import { StatRows } from '../ui/StatRows';
+import list from '../ui/list.module.css';
+import classes from '../ui/detail.module.css';
 import { usePageTitle } from '../usePageTitle';
 
 /**
@@ -50,56 +56,71 @@ export function TaxonPage() {
   usePageTitle(name ?? `Taxon ${id}`);
   if (taxon.isError) return <Alert color="red">{(taxon.error as Error).message}</Alert>;
 
+  const rank = taxon.data?.name.rank;
+  const total = recent.data?.total;
   return (
-    <Stack gap="lg">
-      <div>
-        {name ? (
-          <Group align="baseline" gap="sm">
-            <Title order={2} fs="italic">{name}</Title>
-            {taxon.data?.name.rank ? <Badge variant="light">{taxon.data.name.rank}</Badge> : null}
-            {taxon.data?.status ? <Text size="sm" c="dimmed">{taxon.data.status}</Text> : null}
-            <FollowButton type="TAXON" target={id} label={name} />
-            <FeedLink href={`/feeds/taxon/${encodeURIComponent(id)}.atom`} />
-          </Group>
-        ) : <Loader size="sm" />}
-        <Text size="sm" c="dimmed" mt={2}>
+    <article>
+      {name ? (
+        <DetailHead
+          title={<SciName name={name} rank={rank} />}
+          parts={[rank, taxon.data?.status]}
+        />
+      ) : <Loader size="sm" />}
+      {classification.data?.length ? <ClassificationPath items={classification.data} order="root-first" /> : null}
+
+      <div className={`${list.page} ${classes.body}`}>
+        <div className={list.mainCol}>
+          <Section title="Recent papers (main subject)">
+            {recent.isError ? <Alert color="red">{(recent.error as Error).message}</Alert>
+              : recent.data ? (recent.data.results.length ? <WorkList works={recent.data.results} /> : <Text c="dimmed">No papers yet.</Text>)
+              : <Loader size="sm" />}
+            {total !== undefined && recent.data && total > recent.data.results.length ? (
+              <p className={classes.more}>
+                <Link to={`/?taxon=${encodeURIComponent(id)}&mainSubjectOnly=true`}>All {total} papers</Link>
+              </p>
+            ) : null}
+          </Section>
+
+          <Section title="New names (main subject)">
+            {acts.isError ? <Alert color="red">{(acts.error as Error).message}</Alert>
+              : acts.data ? (acts.data.results.length ? <WorkList works={acts.data.results} /> : <Text c="dimmed">No nomenclatural acts found.</Text>)
+              : <Loader size="sm" />}
+          </Section>
+
+          <Section title="Verbatim classifications used">
+            {details.some((d) => d.isLoading) || recent.isLoading || taxon.isLoading || classification.isLoading
+              ? <Loader size="sm" /> : verbatim.length ? (
+              <ul className={classes.plain}>
+                {verbatim.map((v) => <li key={v}>{v}</li>)}
+              </ul>
+            ) : <Text c="dimmed">None recorded in the recent papers.</Text>}
+          </Section>
+        </div>
+
+        <SideColumn lede={<>
           A taxon in the Catalogue of Life, with everything below it.{' '}
-          <Anchor component={Link} to="/about#taxa" size="sm">What is this?</Anchor>
-        </Text>
-        {classification.data?.length ? <ClassificationPath items={classification.data} order="root-first" /> : null}
-        {stats.data ? (
-          <Text size="sm" mt={4}>{stats.data.total} papers, {stats.data.mainSubjectTotal} with this taxon as main subject.</Text>
-        ) : null}
+          <Anchor component={Link} to="/about#taxa" inherit>What is this?</Anchor>
+        </>}>
+          {name ? (
+            <div className={classes.actions}>
+              <FollowButton type="TAXON" target={id} label={name} />
+              <FeedLink href={`/feeds/taxon/${encodeURIComponent(id)}.atom`} />
+            </div>
+          ) : null}
+          {stats.data ? (
+            <Section title="Papers">
+              <StatRows rows={[
+                { label: 'All papers', value: stats.data.total },
+                { label: 'Main subject', value: stats.data.mainSubjectTotal },
+              ]} />
+            </Section>
+          ) : null}
+          <Section title="Papers per year (all papers)">
+            {stats.isError ? <Alert color="red">{(stats.error as Error).message}</Alert>
+              : stats.data ? <YearBars years={stats.data.years} /> : <Loader size="sm" />}
+          </Section>
+        </SideColumn>
       </div>
-
-      <Section title="Papers per year (all papers)">
-        {stats.isError ? <Alert color="red">{(stats.error as Error).message}</Alert>
-          : stats.data ? <YearBars years={stats.data.years} /> : <Loader size="sm" />}
-      </Section>
-
-      <Section title="Recent papers (main subject)">
-        {recent.isError ? <Alert color="red">{(recent.error as Error).message}</Alert>
-          : recent.data ? (recent.data.results.length ? <WorkList works={recent.data.results} /> : <Text c="dimmed">No papers yet.</Text>)
-          : <Loader size="sm" />}
-        {recent.data && recent.data.total > recent.data.results.length ? (
-          <Anchor component={Link} to={`/?taxon=${encodeURIComponent(id)}&mainSubjectOnly=true`} size="sm">All {recent.data.total} papers</Anchor>
-        ) : null}
-      </Section>
-
-      <Section title="New names (main subject)">
-        {acts.isError ? <Alert color="red">{(acts.error as Error).message}</Alert>
-          : acts.data ? (acts.data.results.length ? <WorkList works={acts.data.results} /> : <Text c="dimmed">No nomenclatural acts found.</Text>)
-          : <Loader size="sm" />}
-      </Section>
-
-      <Section title="Verbatim classifications used">
-        {details.some((d) => d.isLoading) || recent.isLoading || taxon.isLoading || classification.isLoading
-          ? <Loader size="sm" /> : verbatim.length ? (
-          <Stack component="ul" gap="xs" p={0} m={0} pl="md">
-            {verbatim.map((v) => <li key={v}><Text size="sm">{v}</Text></li>)}
-          </Stack>
-        ) : <Text c="dimmed">None recorded in the recent papers.</Text>}
-      </Section>
-    </Stack>
+    </article>
   );
 }

@@ -39,8 +39,11 @@ export function labelIndices(n: number): number[] {
 
 const papers = (n: number) => `${n} ${n === 1 ? 'paper' : 'papers'}`;
 
-/** One bar per year with a y axis (grid, "Papers") and year labels; hover or focus shows the count at once. */
-export function YearBars({ years }: { years: YearCount[] }) {
+/**
+ * One bar per year with a y axis (grid, "Papers") and year labels; hover or focus shows the count at once. Bars are ink;
+ * those within `range` (the selected years) carry `gr-current` and are red.
+ */
+export function YearBars({ years, range }: { years: YearCount[]; range?: { from?: number; to?: number } }) {
   const [active, setActive] = useState<number | null>(null);
   if (years.length === 0) return <Text c="dimmed" size="sm">No papers yet.</Text>;
   const byYear = new Map(years.map((y) => [y.year, y.works]));
@@ -64,29 +67,30 @@ export function YearBars({ years }: { years: YearCount[] }) {
         {ticks.map((t) => (
           <g key={t} data-testid="y-tick">
             <line x1={M.left} x2={W - M.right} y1={yOf(t)} y2={yOf(t)}
-              stroke="var(--mantine-color-dimmed)" strokeOpacity={t === 0 ? 0.6 : 0.2} />
+              className="gr-axis-line" strokeOpacity={t === 0 ? 0.6 : 0.2} />
             <text x={M.left - 6} y={yOf(t)} textAnchor="end" dominantBaseline="middle" fontSize={11}
-              fill="var(--mantine-color-dimmed)">{t}</text>
+              className="gr-axis-text">{t}</text>
           </g>
         ))}
         <text transform={`translate(11 ${M.top + PLOT_H / 2}) rotate(-90)`} textAnchor="middle" fontSize={11}
-          fill="var(--mantine-color-dimmed)">Papers</text>
+          className="gr-axis-text">Papers</text>
         {sorted.map((y, i) => {
           const x = M.left + i * slot + (slot - bw) / 2;
           const h = y.works > 0 ? Math.max(MIN_BAR, Math.round((y.works / top) * PLOT_H)) : 0;
-          const on = active === i;
+          const selected = range !== undefined && (range.from !== undefined || range.to !== undefined)
+            && y.year >= (range.from ?? -Infinity) && y.year <= (range.to ?? Infinity);
           return (
             <g key={y.year}>
               <rect x={M.left + i * slot} y={M.top} width={slot} height={PLOT_H} fill="transparent"
                 onMouseEnter={() => setActive(i)} onMouseLeave={() => setActive(null)} />
               <rect data-testid="year-bar" aria-label={`${y.year}: ${papers(y.works)}`} tabIndex={0}
                 x={x} y={M.top + PLOT_H - h} width={bw} height={h}
-                fill={on ? 'var(--mantine-color-jay-8)' : 'var(--mantine-color-jay-6)'}
+                className={selected ? 'gr-bar gr-current' : 'gr-bar'}
                 onMouseEnter={() => setActive(i)} onMouseLeave={() => setActive(null)}
                 onFocus={() => setActive(i)} onBlur={() => setActive(null)} />
               {labels.has(i) ? (
                 <text data-testid="x-label" x={x + bw / 2} y={H - 8} textAnchor="middle" fontSize={11}
-                  fill="var(--mantine-color-dimmed)">{y.year}</text>
+                  className="gr-axis-text">{y.year}</text>
               ) : null}
             </g>
           );

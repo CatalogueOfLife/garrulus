@@ -1,4 +1,4 @@
-import { Alert, Anchor, Badge, Group, Loader, Stack, Text, Title } from '@mantine/core';
+import { Alert, Anchor, Loader, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { ApiError, getName, searchWorks } from '../api';
@@ -8,6 +8,11 @@ import { Section } from '../components/Section';
 import { ClassificationPath } from '../components/ClassificationPath';
 import { WorkList } from '../components/WorkList';
 import { YearBars } from '../components/YearBars';
+import { DetailHead } from '../ui/DetailHead';
+import { SciName } from '../ui/SciName';
+import { SideColumn } from '../ui/SideColumn';
+import list from '../ui/list.module.css';
+import classes from '../ui/detail.module.css';
 import { usePageTitle } from '../usePageTitle';
 
 export function NamePage() {
@@ -27,58 +32,66 @@ export function NamePage() {
   const first = n.firstAppearance;
 
   return (
-    <Stack gap="lg">
-      <Group align="baseline" gap="sm">
-        <Title order={2} fs="italic">{n.name}</Title>
-        {n.rank ? <Badge variant="light">{n.rank}</Badge> : null}
-        <Text size="sm" c="dimmed">{n.kind}</Text>
-        <FollowButton type="NAME" target={String(n.id)} label={n.name} />
-        <FeedLink href={`/feeds/name/${n.id}.atom`} />
-      </Group>
-      <Text size="sm" c="dimmed" mt={-12}>
-        A name as written in papers.{' '}
-        <Anchor component={Link} to="/about#names" size="sm">What is this?</Anchor>
-      </Text>
+    <article>
+      <DetailHead
+        title={<SciName name={n.name} rank={n.rank} kind={n.kind} />}
+        parts={[n.rank, n.kind]}
+      />
 
-      <Section title="Match in COL">
-        {m?.usageId ? (
-          <div>
-            <Text>
-              <Anchor component={Link} to={`/taxon/${m.usageId}`} fs="italic">{m.usageName || m.usageId}</Anchor>
-              {m.rank ? <Text span c="dimmed"> ({m.rank})</Text> : null}
-              {m.status ? <Text span c="dimmed"> · {m.status}</Text> : null}
-            </Text>
-            {synonym ? (
-              <Text size="sm">
-                <Anchor component={Link} to={`/taxon/${m.acceptedId}`}>Go to the accepted taxon</Anchor>
+      <div className={`${list.page} ${classes.body}`}>
+        <div className={list.mainCol}>
+          <Section title="Match in COL">
+            {m?.usageId ? (
+              <div>
+                <Text>
+                  <SciName name={m.usageName || m.usageId} rank={m.rank} to={`/taxon/${m.usageId}`} />
+                  {m.rank ? <span className={classes.muted}> ({m.rank})</span> : null}
+                  {m.status ? <span className={classes.muted}> · {m.status}</span> : null}
+                </Text>
+                {synonym ? (
+                  <Text size="sm">
+                    <Anchor component={Link} to={`/taxon/${m.acceptedId}`}>Go to the accepted taxon</Anchor>
+                  </Text>
+                ) : null}
+                <ClassificationPath items={m.classification} />
+              </div>
+            ) : <Text c="dimmed">This name is not matched to the Catalogue of Life.</Text>}
+          </Section>
+
+          <Section title="First appearance">
+            {first ? (
+              <Text>
+                <Anchor component={Link} to={`/work/${first.workId}`}>{first.title || `Work ${first.workId}`}</Anchor>
+                {first.publicationDate ? <span className={classes.muted}> · {first.publicationDate}</span> : null}
               </Text>
+            ) : <Text c="dimmed">Not seen in any paper yet.</Text>}
+          </Section>
+
+          <Section title="Papers naming this name">
+            {works.isError ? <Alert color="red">{(works.error as Error).message}</Alert>
+              : works.data ? (works.data.results.length ? <WorkList works={works.data.results} /> : <Text c="dimmed">No papers yet.</Text>)
+              : <Loader size="sm" />}
+            {works.data && works.data.total > works.data.results.length ? (
+              <p className={classes.more}>
+                <Link to={`/?name=${encodeURIComponent(id)}`}>All {works.data.total} papers</Link>
+              </p>
             ) : null}
-            <ClassificationPath items={m.classification} />
+          </Section>
+        </div>
+
+        <SideColumn lede={<>
+          A name as written in papers.{' '}
+          <Anchor component={Link} to="/about#names" inherit>What is this?</Anchor>
+        </>}>
+          <div className={classes.actions}>
+            <FollowButton type="NAME" target={String(n.id)} label={n.name} />
+            <FeedLink href={`/feeds/name/${n.id}.atom`} />
           </div>
-        ) : <Text c="dimmed">This name is not matched to the Catalogue of Life.</Text>}
-      </Section>
-
-      <Section title="Papers per year">
-        <YearBars years={n.timeline} />
-      </Section>
-
-      <Section title="First appearance">
-        {first ? (
-          <Text>
-            <Anchor component={Link} to={`/work/${first.workId}`}>{first.title || `Work ${first.workId}`}</Anchor>
-            {first.publicationDate ? <Text span c="dimmed"> · {first.publicationDate}</Text> : null}
-          </Text>
-        ) : <Text c="dimmed">Not seen in any paper yet.</Text>}
-      </Section>
-
-      <Section title="Papers naming this name">
-        {works.isError ? <Alert color="red">{(works.error as Error).message}</Alert>
-          : works.data ? (works.data.results.length ? <WorkList works={works.data.results} /> : <Text c="dimmed">No papers yet.</Text>)
-          : <Loader size="sm" />}
-        {works.data && works.data.total > works.data.results.length ? (
-          <Anchor component={Link} to={`/?name=${encodeURIComponent(id)}`} size="sm">All {works.data.total} papers</Anchor>
-        ) : null}
-      </Section>
-    </Stack>
+          <Section title="Papers per year">
+            <YearBars years={n.timeline} />
+          </Section>
+        </SideColumn>
+      </div>
+    </article>
   );
 }

@@ -35,6 +35,9 @@ describe('TaxonPage', () => {
     renderApp(<Routes><Route path="/taxon/:id" element={<TaxonPage />} /></Routes>, '/taxon/T1');
     expect(await screen.findByRole('heading', { name: 'Carabus' })).toBeInTheDocument();
     expect(screen.getByText('genus')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1 }).querySelector('i')).not.toBeNull();
+    expect(screen.getByRole('link', { name: 'Atom feed' })).toHaveAttribute('href', '/feeds/taxon/T1.atom');
+    expect(await screen.findByText('6')).toBeInTheDocument();
     expect(await screen.findByText('Carabidae')).toBeInTheDocument();
     expect(await screen.findAllByTestId('year-bar')).toHaveLength(2);
     const recent = screen.getByRole('region', { name: 'Recent papers (main subject)' });

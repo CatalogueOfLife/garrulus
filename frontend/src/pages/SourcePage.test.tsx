@@ -33,10 +33,10 @@ describe('SourcePage', () => {
     expect(within(cat).getByText('ZOOLOGICAL')).toBeInTheDocument();
     expect(within(cat).getByText('TAXONOMIC')).toBeInTheDocument();
     const insects = within(cat).getByText('Insect Science');
-    expect(insects.closest('.mantine-Badge-root')).toHaveAttribute('title', '1109');
-    expect(insects.closest('.mantine-Badge-root')).toHaveAttribute('data-variant', 'filled');
+    expect(insects).toHaveAttribute('title', '1109');
+    expect(insects).toHaveAttribute('data-primary', 'true');
     const eco = within(cat).getByText('Ecology, Evolution, Behavior and Systematics');
-    expect(eco.closest('.mantine-Badge-root')).toHaveAttribute('data-variant', 'light');
+    expect(eco).not.toHaveAttribute('data-primary');
     expect(within(cat).getByText('4242')).toBeInTheDocument();
     expect(within(cat).getByText('HYBRID')).toBeInTheDocument();
     expect(within(cat).getByText('NZ')).toBeInTheDocument();
@@ -54,7 +54,7 @@ describe('SourcePage', () => {
     const core = renderApp(<Routes><Route path="/source/:id" element={<SourcePage />} /></Routes>, '/source/7');
     expect(await screen.findByRole('heading', { name: 'Zootaxa' })).toBeInTheDocument();
     expect(await screen.findByRole('link', { name: 'Follow' })).toBeInTheDocument();
-    expect(document.querySelector('a[href="/feeds/source/7.atom"]')).not.toBeNull();
+    expect(screen.getByRole('link', { name: 'Atom feed' })).toHaveAttribute('href', '/feeds/source/7.atom');
     core.unmount();
 
     server.use(http.get('/api/sources/7', () => HttpResponse.json(detail('CANDIDATE'))));
