@@ -50,11 +50,13 @@
 @media (max-width: 767px) {
   :root {
     --gr-type-display-size: 88px;
+    --gr-type-title-size: 32px;
   }
 }
 
 @media (max-width: 479px) {
   :root {
     --gr-type-display-size: 56px;
+    --gr-type-title-size: 28px;
   }
 }

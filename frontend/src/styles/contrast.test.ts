@@ -32,6 +32,14 @@ describe('token contrast', () => {
 
   it('takes the top-level blocks only, not those inside media queries', () => {
     expect(tokens.light['--gr-type-display-size']).toBe('132px');
+    expect(tokens.light['--gr-type-title-size']).toBe('40px');
+  });
+
+  it('sets smaller page titles on tablets and phones', () => {
+    const css = readFileSync('src/styles/tokens.css', 'utf8');
+    const inMedia = (width: number) => css.match(new RegExp(`@media \\(max-width: ${width}px\\) \\{([\\s\\S]*?)\\n\\}`))?.[1] ?? '';
+    expect(inMedia(767)).toMatch(/--gr-type-title-size: 32px;/);
+    expect(inMedia(479)).toMatch(/--gr-type-title-size: 28px;/);
   });
 
   it('defines the layout, space and type tokens', () => {
