@@ -18,6 +18,7 @@ import org.catalogueoflife.nametracker.indexer.finder.Spool;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
 import org.catalogueoflife.nametracker.indexer.content.route.AbstractRoute;
 import org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException;
+import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.content.Content;
@@ -54,9 +55,10 @@ import tools.jackson.databind.JsonNode;
  * <p>With {@code "freeOnly":true} the paid routes ({@link ContentRoute#paid()}) are skipped. {@code "reprocess":true}
  * comes from a forced FIND_NAMES whose full text is gone: a full text found is stored as usual and a forced FIND_NAMES
  * ({@code "refetched":true}) follows even when the document is unchanged; when none is found, nothing is written and
- * nothing follows, so the work keeps its content, text level and names (counted in an INFO line). If a route failed
- * (threw) and none had the text, the task is deferred by 30 minutes as an outage instead, without using an attempt
- * and without writing anything.
+ * nothing follows, so the work keeps its content, text level and names (counted in an INFO line). If a route is down
+ * (it threw a retryable problem, {@link HarvestOutage#retryable}) and none had the text, the task is deferred by 30
+ * minutes as an outage instead, without using an attempt and without writing anything. A route that failed for good
+ * (a 4xx, an unreadable answer) counts as having no text: deferring would repeat the same failure for ever.
  */
 @Component
 public class ResolveContentHandler implements TaskHandler {
@@ -128,8 +130,8 @@ public class ResolveContentHandler implements TaskHandler {
     List<FetchedContent> results = new ArrayList<>();
     FullText found = fullText(work, source, freeOnly);
     FetchedContent full = found.content();
-    if (reprocess && full == null && found.routeFailed()) {
-      // a route that throws is down for now (ContentRoute contract): try again later rather than keep the old names
+    if (reprocess && full == null && found.routeDown()) {
+      // a route that is down may have the text: try again later rather than keep the old names
       throw new ServiceOutageException("full text routes", clock.instant().plus(OUTAGE_DELAY));
     }
     if (reprocess && full == null) {
@@ -191,25 +193,25 @@ public class ResolveContentHandler implements TaskHandler {
     if ("ABSTRACT_ONLY".equals(finalLevel)) scheduleRecheck(task, work, source);
   }
 
-  /** The first full text of the routes, or null; {@code routeFailed} when a route threw on the way. */
-  private record FullText(@Nullable FetchedContent content, boolean routeFailed) {}
+  /** The first full text of the routes, or null; {@code routeDown} when a route threw a retryable problem on the way. */
+  private record FullText(@Nullable FetchedContent content, boolean routeDown) {}
 
   private FullText fullText(Work work, Source source, boolean freeOnly) {
-    boolean failed = false;
+    boolean down = false;
     for (ContentRoute r : routes) {
       try {
         if (freeOnly && r.paid()) continue;
         if (!r.applies(work, source)) continue;
         Optional<FetchedContent> got = r.fetch(work, source);
-        if (got.isPresent() && got.get().fulltext()) return new FullText(got.get(), failed);
+        if (got.isPresent() && got.get().fulltext()) return new FullText(got.get(), down);
       } catch (BudgetExhaustedException e) {
         LOG.info("Route {} skipped for work {}: budget spent until {}", r.route(), work.id(), e.retryAt());
       } catch (RuntimeException e) {
-        failed = true;
+        if (HarvestOutage.retryable(e) != null || e instanceof ServiceOutageException) down = true;
         LOG.warn("Route {} failed for work {}: {}", r.route(), work.id(), e.toString());
       }
     }
-    return new FullText(null, failed);
+    return new FullText(null, down);
   }
 
   private void scheduleRecheck(Task task, Work work, Source source) {

@@ -13,7 +13,11 @@ public interface ContentRoute {
 
   boolean applies(Work w, @Nullable Source s);
 
-  /** Empty when the route has nothing; throws only for retryable problems. */
+  /**
+   * Empty when the route has nothing. Throws for a problem: a retryable {@link
+   * org.catalogueoflife.nametracker.indexer.http.HttpProblem} when the service is down, a non-retryable one (or any other
+   * exception) for a failure that would repeat; {@code RESOLVE_CONTENT} tells the two apart on a reprocess.
+   */
   Optional<FetchedContent> fetch(Work w, @Nullable Source s);
 
   /** True for a route that costs money per call; {@code RESOLVE_CONTENT} with {@code freeOnly} skips it. */

@@ -427,6 +427,30 @@ class ReprocessNamesIT extends AbstractPostgresIT {
     assertThat(out.getAll()).doesNotContain("keeps its names");
   }
 
+  /**
+   * A route that fails for good (Europe PMC answers 400) is no outage: deferring would repeat it for ever. The work
+   * keeps its names, as when no free text is found.
+   */
+  @Test
+  void deterministicRouteFailureKeepsNames(WireMockRuntimeInfo w, CapturedOutput out) throws Exception {
+    long id = indexedFullTextWorkWithTextGone(w);
+    Map<String, Object> before = work(id);
+    List<String> content = contentRows(id);
+    List<String> workNames = workNameRows(id);
+    stub.hash = "cfg2";
+    findNames(id, true);
+
+    stubFor(get(urlPathEqualTo("/rest/search")).willReturn(aResponse().withStatus(400)));
+    stubFor(get(urlPathEqualTo("/rest/PMC9836452/fullTextXML")).willReturn(aResponse().withStatus(400)));
+    assertThat(runQueued(ResolveContentHandler.TYPE, routes(w, true))).isEqualTo(1);
+
+    assertThat(work(id)).isEqualTo(before);
+    assertThat(contentRows(id)).isEqualTo(content);
+    assertThat(workNameRows(id)).isEqualTo(workNames);
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'FIND_NAMES'")).isZero();
+    assertThat(out.getAll()).contains("Work " + id + " keeps its names");
+  }
+
   /** A work the finder has seen (with an empty index), in the source, of the year. */
   private long seenWork(long run, Long sourceId, int year) {
     return jdbc.queryForObject("INSERT INTO work (doi, source_id, title, year, origin, state, text_level, "
