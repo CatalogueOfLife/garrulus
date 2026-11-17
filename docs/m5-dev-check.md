@@ -79,6 +79,38 @@ it at 10:15, and the retried rescore succeeded.
   Coleoptera (since 2020) 35, `RN` (since 2000) 37. ADR-0006 intends this ("a follow with an early `since_year` gets
   the backfill's papers of its taxon"). Default-window follows got none.
 
+## Throughput measurement (2026-11-17/18)
+
+Two more 3-file slices were run with `task.started` (V14, 0aecb41) recording each attempt's run time. Both used 8
+workers and the in-process finder.
+
+| Slice | Works | Import → all `INDEXED` | Works/min | Workers busy (avg) |
+|---|---|---|---|---|
+| Files 1892–1894, 2 s poll only | 3,597 | 80 min | 45 | 2.6 of 8 |
+| Files 1889–1891, refill on finish (267b435) | 3,620 | 21 min | 170 | 7.8 of 8 |
+
+Run time per task in the second slice:
+
+| Stage | Median | p90 | Total worker time |
+|---|---|---|---|
+| `RESOLVE_CONTENT` | 0.68 s | 9.4 s | 151 min |
+| `MATCH_NAMES` | 0.01 s | 0.22 s | 9 min |
+| `FIND_NAMES` | 0.01 s | 0.12 s | 3 min |
+| `EVALUATE_HITS` | <0.01 s | <0.01 s | 0.2 min |
+| `BACKFILL_FILE` (about 670 MB each) | 77 s | 82 s | 4 min |
+
+- **The first slice was slow because of the dispatcher.** It only claimed tasks in its 2-second poll, so workers sat
+  idle after short tasks. Refilling a worker as soon as its task finishes (267b435) made the pipeline 3.7 times faster.
+- **Content resolution is now 90% of the work.** The second slice made about 5.7 Europe PMC calls a second, which is at
+  the 200 ms per-host interval. More workers would wait in that host limiter, so about 170 works a minute is the
+  ceiling with the current Europe PMC interval.
+- **What that means for the GBIF backfill:** about 2M works at 170 a minute take about 8 days. Going faster needs a
+  shorter Europe PMC interval, which is a politeness decision, or fewer Europe PMC searches per work.
+- **Follow-ups the dispatcher review raised for GBIF:**
+  - The claim index does not contain `type`. Run EXPLAIN on a claim while a large backlog of a type without a handler
+    sits at a higher priority.
+  - Refills share the single scheduler thread with the heartbeat and the crons while the database is stalled.
+
 ## For the deployment stage (GBIF VM)
 
 - **Backfill size:** 0.41% of the last three files were kept. Extrapolated over 465M records, the backfill is about
