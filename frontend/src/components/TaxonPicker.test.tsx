@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { TaxonPicker } from './TaxonPicker';
@@ -24,6 +24,35 @@ describe('TaxonPicker', () => {
     expect(urls.at(-1)).toBe('316691|Carab');
     await userEvent.click(option);
     expect(picked).toEqual(['8KTL7']);
+  });
+
+  it('keepsTheFocusInThePickerWhenASuggestionIsChosenByKeyboard', async () => {
+    server.use(
+      xrHandler,
+      http.get('https://api.checklistbank.org/dataset/:key/nameusage/suggest', () => HttpResponse.json([
+        { match: 'Carabidae Latreille, 1802', usageId: '8KTL7', rank: 'family', suggestion: 'Carabidae Latreille, 1802' },
+      ])),
+    );
+    const user = userEvent.setup();
+    renderApp(<TaxonPicker onPick={() => {}} onClear={() => {}} />);
+    await user.type(screen.getByLabelText('Taxon'), 'Carab');
+    await screen.findByRole('option');
+    await user.tab();
+    expect(screen.getByRole('option')).toHaveFocus();
+    await user.keyboard('{Enter}');
+    // the chosen option disappears with the list; focus goes back to the field, not to the top of the page
+    await waitFor(() => expect(screen.queryByRole('option')).toBeNull());
+    expect(screen.getByLabelText('Taxon')).toHaveFocus();
+  });
+
+  it('keepsTheFocusInThePickerWhenTheTaxonIsCleared', async () => {
+    server.use(xrHandler);
+    const cleared: boolean[] = [];
+    const user = userEvent.setup();
+    renderApp(<TaxonPicker label="Carabidae" onPick={() => {}} onClear={() => cleared.push(true)} />);
+    await user.click(screen.getByRole('button', { name: 'Clear taxon' }));
+    expect(cleared).toEqual([true]);
+    expect(screen.getByLabelText('Taxon')).toHaveFocus();
   });
 
   it('italicises only the name of a species suggestion, not the authorship', async () => {

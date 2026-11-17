@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Button, Pagination, Skeleton, TextInput } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
@@ -23,6 +23,9 @@ export function SearchPage() {
   const filter = filterFromParams(params);
   const taxonLabel = params.get('taxonLabel') ?? undefined;
   const apiFilter: WorkFilter = { ...filter, limit: String(PAGE_SIZE) };
+  // the field follows the URL (back, forward, links) but is not remounted, so it keeps the focus after Enter
+  const [text, setText] = useState(filter.q ?? '');
+  useEffect(() => setText(filter.q ?? ''), [filter.q]);
 
   const works = useQuery({
     queryKey: ['works', apiFilter],
@@ -55,8 +58,8 @@ export function SearchPage() {
       aria-label="Search text"
       placeholder="Search titles and abstracts"
       radius="xl"
-      key={filter.q ?? ''}
-      defaultValue={filter.q ?? ''}
+      value={text}
+      onChange={(e) => setText(e.currentTarget.value)}
       onKeyDown={(e) => {
         if (e.key === 'Enter') update({ q: e.currentTarget.value || undefined, offset: undefined });
       }}

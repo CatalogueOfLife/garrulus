@@ -97,4 +97,21 @@ describe('SearchPage', () => {
     await userEvent.click(pill);
     expect(pill).toHaveAttribute('aria-expanded', 'true');
   });
+
+  it('keepsFocusInTheSearchFieldAfterEnter', async () => {
+    const seen: string[] = [];
+    server.use(xrHandler, taxGroupHandler, sourcesHandler(), http.get('/api/works', ({ request }) => {
+      seen.push(new URL(request.url).searchParams.get('q') ?? '');
+      return HttpResponse.json(emptyPage);
+    }));
+    renderApp(<SearchPage />, '/?q=carabus');
+    const field = screen.getByRole('textbox', { name: 'Search text' });
+    expect(field).toHaveValue('carabus');
+    await userEvent.clear(field);
+    await userEvent.type(field, 'gekko{Enter}');
+    await waitFor(() => expect(seen).toContain('gekko'));
+    // a keyboard user stays where they were instead of being dropped to the top of the page
+    expect(screen.getByRole('textbox', { name: 'Search text' })).toHaveFocus();
+    expect(screen.getByRole('textbox', { name: 'Search text' })).toHaveValue('gekko');
+  });
 });

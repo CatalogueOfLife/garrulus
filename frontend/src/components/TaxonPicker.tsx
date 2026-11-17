@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { CloseButton, Group, Loader, Stack, Text, TextInput } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import { useQuery } from '@tanstack/react-query';
@@ -36,6 +36,7 @@ function SuggestionName({ text, rank }: { text: string; rank?: string }) {
 
 export function TaxonPicker({ label, onPick, onClear }: Props) {
   const [text, setText] = useState('');
+  const input = useRef<HTMLInputElement>(null);
   const [debounced] = useDebouncedValue(text.trim(), 200);
   const xr = useQuery({ queryKey: ['xr'], queryFn: getXr, staleTime: Infinity });
   const xrKey = xr.data?.key;
@@ -50,10 +51,11 @@ export function TaxonPicker({ label, onPick, onClear }: Props) {
       {label ? (
         <Group gap={4} wrap="nowrap">
           <Text size="sm">{label}</Text>
-          <CloseButton size="sm" aria-label="Clear taxon" onClick={onClear} />
+          <CloseButton size="sm" aria-label="Clear taxon" onClick={() => { onClear(); input.current?.focus(); }} />
         </Group>
       ) : null}
       <TextInput
+        ref={input}
         aria-label="Taxon"
         placeholder="Find a taxon…"
         value={text}
@@ -74,6 +76,8 @@ export function TaxonPicker({ label, onPick, onClear }: Props) {
                 onClick={() => {
                   onPick(s.usageId, s.match);
                   setText('');
+                  // the chosen option goes away with the list; keep a keyboard user in the picker
+                  input.current?.focus();
                 }}
               >
                 <SuggestionName text={s.suggestion} rank={s.rank} />
