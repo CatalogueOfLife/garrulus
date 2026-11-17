@@ -124,9 +124,7 @@ light scheme.
   rank), the style is decided in this order:
   1. The name's own rank.
   2. The COL usage rank (`usageRank`) where the name is placed.
-  3. The name's shape. Binomials and trinomials are italic. A uninomial with a family-group or higher suffix is roman
-     (-idae, -inae, -ini, -oidea, -aceae, -oideae, -eae, -ales, -ineae, -mycetes, -mycota, -phyta, -opsida,
-     -phyceae). Any other uninomial is roman, because roman makes no claim.
+  3. The name's shape: binomials and trinomials are italic; any uninomial is roman, because roman makes no claim.
   4. OTU codes (BOLD BINs, UNITE SHs) are always roman.
 - **Act markers** ("sp. nov.", "comb. nov.", "stat. rev." …) follow the name in red, roman, same size.
 - **Links:** ink, underlined only on hover and in running text; the current place is underlined in red (2px,
