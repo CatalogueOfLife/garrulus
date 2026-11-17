@@ -9,7 +9,7 @@ export const SITE_LINKS = [
 ];
 
 // the current place: underlined in red, as in the inline nav (the font ships no bold)
-const current = { textDecoration: 'underline', textDecorationColor: 'var(--gr-red)', textDecorationThickness: '2px', textUnderlineOffset: '4px' };
+const current = { textDecorationLine: 'underline', textDecorationColor: 'var(--gr-red)', textDecorationThickness: '2px', textUnderlineOffset: '4px' };
 
 const isActive = (to: string, path: string) => (to === '/' ? path === '/' : path === to || path.startsWith(`${to}/`));
 
@@ -23,7 +23,8 @@ export function SiteMenu() {
         {SITE_LINKS.map((l) => (
           <NavLink key={l.to} to={l.to} end={l.to === '/'}
             style={({ isActive: a }) => ({ color: 'inherit',
-              textDecoration: a ? 'underline' : 'none', textDecorationColor: 'var(--gr-red)',
+              // longhands only: React drops the colour and thickness when a shorthand changes on navigation
+              textDecorationLine: a ? 'underline' : 'none', textDecorationColor: 'var(--gr-red)',
               textDecorationThickness: '2px', textUnderlineOffset: '6px' })}>
             {l.label}
           </NavLink>

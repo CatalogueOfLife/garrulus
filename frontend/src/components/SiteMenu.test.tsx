@@ -12,6 +12,14 @@ describe('SiteMenu', () => {
     expect(screen.getByRole('link', { name: 'Journals' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'About' })).not.toHaveAttribute('aria-current');
   });
+  it('keepsTheRedUnderlineOnTheCurrentLinkAfterInAppNavigation', async () => {
+    renderApp(<SiteMenu />, '/journals');
+    await userEvent.setup().click(screen.getByRole('link', { name: 'About' }));
+    const about = screen.getByRole('link', { name: 'About' });
+    expect(about).toHaveAttribute('aria-current', 'page');
+    expect(about.style.textDecorationLine).toBe('underline');
+    expect(about.style.textDecorationColor).toBe('var(--gr-red)');
+  });
   it('burgerOpensTheSameLinks', async () => {
     renderApp(<SiteMenu />, '/');
     await userEvent.setup().click(screen.getByRole('button', { name: 'Menu' }));
