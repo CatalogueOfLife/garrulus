@@ -11,6 +11,7 @@ import { WorkList } from '../components/WorkList';
 import { DetailHead } from '../ui/DetailHead';
 import { SideColumn } from '../ui/SideColumn';
 import { StatRows, type StatRow } from '../ui/StatRows';
+import { sentence } from '../ui/sentence';
 import list from '../ui/list.module.css';
 import classes from '../ui/detail.module.css';
 import { usePageTitle } from '../usePageTitle';
@@ -41,19 +42,19 @@ export function SourcePage() {
     : s.taxgroups.map((g) => ({ name: g, share: null }));
 
   const cat: StatRow[] = [];
-  if (s.codes.length) cat.push({ label: 'Nomenclatural codes', value: s.codes.join(', ') });
-  if (s.journalType) cat.push({ label: 'Journal type', value: s.journalType });
-  if (s.oaModel) cat.push({ label: 'Open access', value: s.oaModel });
+  if (s.codes.length) cat.push({ label: 'Nomenclatural codes', value: s.codes.map(sentence).join(', ') });
+  if (s.journalType) cat.push({ label: 'Journal type', value: sentence(s.journalType) });
+  if (s.oaModel) cat.push({ label: 'Open access', value: sentence(s.oaModel) });
   if (s.country) cat.push({ label: 'Country', value: s.country });
   if (s.worksPerYear != null) cat.push({ label: 'Papers per year', value: Math.round(s.worksPerYear) });
-  if (s.nameDensity != null) cat.push({ label: 'Names per paper', value: s.nameDensity });
+  if (s.nameDensity != null) cat.push({ label: 'Names per paper', value: Math.round(s.nameDensity * 10) / 10 });
   if (s.actRate != null) cat.push({ label: 'Papers with acts', value: pct(s.actRate) });
 
   return (
     <article>
       <DetailHead
         title={s.title}
-        parts={[s.tier, s.publisher, s.issnL && `ISSN-L ${s.issnL}`]}
+        parts={[sentence(s.tier), s.publisher, s.issnL && `ISSN-L ${s.issnL}`]}
       />
 
       <div className={`${list.page} ${classes.body}`}>

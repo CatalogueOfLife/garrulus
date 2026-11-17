@@ -18,7 +18,7 @@ describe('NamePage', () => {
   it('namePageShowsMatchTimelineAndFirstAppearance', async () => {
     server.use(
       http.get('/api/names/5', () => HttpResponse.json({
-        id: 5, name: 'Carabus nemoralis', kind: 'SCIENTIFIC', rank: 'species',
+        id: 5, name: 'Carabus nemoralis', kind: 'BINOMIAL', rank: 'SPECIES',
         match: { usageId: 'S1', usageName: 'Carabus nemoralis', rank: 'species', status: 'synonym', acceptedId: 'S2',
           classification: [{ id: 'A', name: 'Animalia', rank: 'kingdom' }, { id: 'F', name: 'Carabidae', rank: 'family' }] },
         timeline: [{ year: 2024, works: 1 }, { year: 2026, works: 3 }],
@@ -28,7 +28,9 @@ describe('NamePage', () => {
     );
     renderName('5');
     expect(await screen.findByRole('heading', { name: 'Carabus nemoralis' })).toBeInTheDocument();
+    // rank and kind come in upper case from the API; no all-caps labels
     expect(screen.getByText('species')).toBeInTheDocument();
+    expect(screen.getByText('binomial')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Atom feed' })).toHaveAttribute('href', '/feeds/name/5.atom');
     expect(screen.getByRole('heading', { level: 1 }).querySelector('i')).not.toBeNull();
     const match = screen.getByRole('region', { name: 'Match in COL' });
@@ -38,7 +40,7 @@ describe('NamePage', () => {
     expect(await screen.findAllByTestId('year-bar')).toHaveLength(3); // 2025 gap filled
     const first = screen.getByRole('region', { name: 'First appearance' });
     expect(within(first).getByRole('link', { name: 'The first paper' })).toHaveAttribute('href', '/work/9');
-    expect(within(first).getByText(/2024-03-01/)).toBeInTheDocument();
+    expect(within(first).getByText(/1 Mar 2024/)).toBeInTheDocument();
     const works = screen.getByRole('region', { name: 'Papers naming this name' });
     expect(await within(works).findByText('Carabid revision')).toBeInTheDocument();
     expect(document.title).toBe('Garrulus — Carabus nemoralis');

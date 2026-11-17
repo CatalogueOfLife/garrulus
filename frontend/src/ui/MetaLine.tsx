@@ -18,7 +18,8 @@ export interface MetaLineProps {
 
 const TEXT_LEVEL: Record<string, string> = { FULLTEXT: 'Full text', ABSTRACT_ONLY: 'Abstract' };
 
-function formatDate(date: string): string {
+/** A calendar date (yyyy-mm-dd) as "16 Nov 2026". */
+export function formatDate(date: string): string {
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return date;
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });

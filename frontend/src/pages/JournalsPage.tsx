@@ -7,10 +7,10 @@ import { listSources, type SourceItem } from '../api';
 import { EmptyState } from '../ui/EmptyState';
 import styles from '../ui/pages.module.css';
 import { usePageTitle } from '../usePageTitle';
+import { sentence } from '../ui/sentence';
 
 const LIMIT = 50;
 
-const sentence = (v?: string | null) => (v ? v.charAt(0) + v.slice(1).toLowerCase() : v);
 
 function Row({ s }: { s: SourceItem }) {
   const facts = [

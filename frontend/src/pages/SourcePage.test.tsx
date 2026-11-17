@@ -17,7 +17,7 @@ describe('SourcePage', () => {
         id: 7, title: 'Zootaxa', publisher: 'Magnolia Press', tier: 'CORE', journalType: 'TAXONOMIC',
         primarySubfield: '1109', subfields: ['1109', '1105', '4242'],
         taxgroups: ['Insects', 'Animals'], taxgroupShares: { Animals: 0.12, Insects: 0.62 },
-        codes: ['ZOOLOGICAL'], oaModel: 'HYBRID', country: 'NZ', nameDensity: 4.2, actRate: 0.31, worksPerYear: 1500,
+        codes: ['ZOOLOGICAL'], oaModel: 'HYBRID', country: 'NZ', nameDensity: 4.2371, actRate: 0.31, worksPerYear: 1500,
         years: [{ year: 2023, works: 1400 }, { year: 2024, works: 1500 }],
         recentWorks: [work(1, 'A recent paper')],
       })),
@@ -25,20 +25,23 @@ describe('SourcePage', () => {
     renderSource();
     expect(await screen.findByRole('heading', { name: 'Zootaxa' })).toBeInTheDocument();
     expect(screen.getByText(/Magnolia Press/)).toBeInTheDocument();
+    // no all-caps labels: API values in sentence case
+    expect(screen.getByText('Core')).toBeInTheDocument();
     const groups = screen.getByRole('region', { name: 'Taxonomic groups' });
     expect(await within(groups).findByText('62%')).toBeInTheDocument();
     expect(within(groups).getByText('12%')).toBeInTheDocument();
     expect(await within(groups).findByRole('img', { name: 'Insects' })).toHaveAttribute('src', 'https://icons.example/insects.svg');
     const cat = screen.getByRole('region', { name: 'Categorisation' });
-    expect(within(cat).getByText('ZOOLOGICAL')).toBeInTheDocument();
-    expect(within(cat).getByText('TAXONOMIC')).toBeInTheDocument();
+    expect(within(cat).getByText('Zoological')).toBeInTheDocument();
+    expect(within(cat).getByText('Taxonomic')).toBeInTheDocument();
+    expect(within(cat).getByText('4.2')).toBeInTheDocument();
     const insects = within(cat).getByText('Insect Science');
     expect(insects).toHaveAttribute('title', '1109');
     expect(insects).toHaveAttribute('data-primary', 'true');
     const eco = within(cat).getByText('Ecology, Evolution, Behavior and Systematics');
     expect(eco).not.toHaveAttribute('data-primary');
     expect(within(cat).getByText('4242')).toBeInTheDocument();
-    expect(within(cat).getByText('HYBRID')).toBeInTheDocument();
+    expect(within(cat).getByText('Hybrid')).toBeInTheDocument();
     expect(within(cat).getByText('NZ')).toBeInTheDocument();
     const perYear = screen.getByRole('region', { name: 'Papers per year' });
     expect(within(perYear).getByText('2024')).toBeInTheDocument();

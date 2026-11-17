@@ -9,6 +9,7 @@ import { ClassificationPath } from '../components/ClassificationPath';
 import { WorkList } from '../components/WorkList';
 import { YearBars } from '../components/YearBars';
 import { DetailHead } from '../ui/DetailHead';
+import { formatDate } from '../ui/MetaLine';
 import { SciName } from '../ui/SciName';
 import { SideColumn } from '../ui/SideColumn';
 import list from '../ui/list.module.css';
@@ -35,7 +36,7 @@ export function NamePage() {
     <article>
       <DetailHead
         title={<SciName name={n.name} rank={n.rank} kind={n.kind} />}
-        parts={[n.rank, n.kind]}
+        parts={[n.rank?.toLowerCase(), n.kind === 'OTU' ? n.kind : n.kind?.toLowerCase()]}
       />
 
       <div className={`${list.page} ${classes.body}`}>
@@ -62,7 +63,7 @@ export function NamePage() {
             {first ? (
               <Text>
                 <Anchor component={Link} to={`/work/${first.workId}`}>{first.title || `Work ${first.workId}`}</Anchor>
-                {first.publicationDate ? <span className={classes.muted}> · {first.publicationDate}</span> : null}
+                {first.publicationDate ? <span className={classes.muted}> · {formatDate(first.publicationDate)}</span> : null}
               </Text>
             ) : <Text c="dimmed">Not seen in any paper yet.</Text>}
           </Section>
