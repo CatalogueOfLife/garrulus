@@ -244,6 +244,27 @@ class XrSwitchIT extends AbstractPostgresIT {
     assertThat(index.currentRelease().key()).isEqualTo(100);
   }
 
+  /** A key that cannot be asked (a bad stored hint key) or whose answer cannot be read counts as lost, nothing more. */
+  @Test
+  void prematchCountsBadKeysAsLost() throws Exception {
+    key("Prematchus bonus", "", 100, "exact");
+    key("Prematchus barbarus", "nohint", 100, "exact");
+    key("Prematchus tribalis", "tribe=Fooini", 100, "exact");
+    key("Prematchus garbus", "", 100, "exact");
+    stubFor(get(urlPathEqualTo(M200)).withQueryParam("scientificName", equalTo("Prematchus garbus"))
+        .willReturn(aResponse().withHeader("Content-Type", "application/json").withBody("{not json")));
+    release(200, "PREPARING", "{\"refuse\":false,\"force\":false}");
+
+    prematch.handle(task(XrPrematchHandler.TYPE, "{\"key\":200}"));
+
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM name_match WHERE release_key = 200", Integer.class))
+        .isEqualTo(1);
+    assertThat(rel(200).state()).isEqualTo("PREPARED");
+    gate.handle(task(XrGateHandler.TYPE, "{\"key\":200}"));
+    assertThat(rel(200).keysTotal()).isEqualTo(4);
+    assertThat(rel(200).keysLost()).isEqualTo(3);
+  }
+
   @Test
   void prematchSkipsUnmatchableNames() throws Exception {
     key("Prematchus bonus", "", 100, "exact");

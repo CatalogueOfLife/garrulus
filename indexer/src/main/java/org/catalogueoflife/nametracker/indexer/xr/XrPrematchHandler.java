@@ -7,6 +7,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
+import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
 import org.catalogueoflife.nametracker.indexer.match.MatchCache;
 import org.catalogueoflife.nametracker.indexer.match.MatchQuery;
 import org.catalogueoflife.nametracker.indexer.match.UnmatchableNameException;
@@ -21,6 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ObjectNode;
 
@@ -30,7 +32,8 @@ import tools.jackson.databind.node.ObjectNode;
  * Matches the next batch of keys (name string, hint key) of the current release's {@code name_match}, in key order,
  * in release k with {@code nametracker.clb.match-parallelism} parallel calls; a key matched before costs nothing (the
  * match cache). Each query is rebuilt from the name string's name and rank and the hint key. A name CLB cannot match
- * stores nothing (counted: the gate sees it as lost); a CLB outage defers the task. A full batch enqueues the
+ * stores nothing (counted: the gate sees it as lost); so does a key that cannot be asked or whose answer cannot be read
+ * (WARN with the key); a CLB outage defers the task. A full batch enqueues the
  * continuation with this task's run_after; the last batch sets k {@code PREPARED} and enqueues {@code XR_GATE} in one
  * transaction. Stops silently when k is no longer {@code PREPARING} (cancelled, or a redelivered batch after the end)
  * or the task belongs to an earlier switch generation (a chain of a cancelled switch to k, started again since).
@@ -141,13 +144,25 @@ public class XrPrematchHandler implements TaskHandler {
     }
   }
 
-  /** True if matched (or cached), false if CLB cannot match this name. */
+  /**
+   * True if matched (or cached), false if CLB cannot match this name, or if this one key cannot be asked or its answer
+   * not read (a bad stored hint key, an unparsable answer): such a key counts as lost (WARN), the batch goes on.
+   */
   private boolean matchOne(MatchKey k, int releaseKey) {
     try {
       cache.match(k.nameStringId(), MatchQuery.fromHintKey(k.name(), k.rank(), k.hintKey()), releaseKey);
       return true;
     } catch (UnmatchableNameException e) {
       LOG.debug("XR_PREMATCH: {}", e.getMessage());
+      return false;
+    } catch (IllegalArgumentException | JacksonException e) {
+      LOG.warn("XR_PREMATCH: key ({}, \"{}\") of \"{}\" counts as lost: {}", k.nameStringId(), k.hintKey(), k.name(),
+          e.toString());
+      return false;
+    } catch (HttpProblem e) {
+      if (e.status() < 200 || e.status() >= 300) throw e; // a 2xx problem is an unreadable answer to this one name
+      LOG.warn("XR_PREMATCH: key ({}, \"{}\") of \"{}\" counts as lost: {}", k.nameStringId(), k.hintKey(), k.name(),
+          e.toString());
       return false;
     }
   }
