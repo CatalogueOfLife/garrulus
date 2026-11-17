@@ -45,7 +45,8 @@
 
 .row {
   display: flex;
-  align-items: baseline;
+  /* centred, not on the baseline: a group icon would give the label its bottom edge as baseline, dropping the count */
+  align-items: center;
   justify-content: space-between;
   gap: var(--gr-space-3);
   width: 100%;
