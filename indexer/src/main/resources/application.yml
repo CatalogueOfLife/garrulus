@@ -74,6 +74,10 @@ nametracker:
     # (eval build-dictionary output; also used to de-hyphenate TEI text), else none and FIND_NAMES tasks wait
     url: ${NAMETRACKER_FINDER_URL:}
     dictionary: ${FINDER_DICTIONARY:}
+    # directory of dictionary-<xrKey>.bin files: BUILD_DICTIONARY (after an XR switch) builds the new one there from
+    # xr-zip-url and the in-process finder reloads it; blank = no per-release dictionaries
+    dictionary-dir: ${NAMETRACKER_DICTIONARY_DIR:}
+    xr-zip-url: ${NAMETRACKER_XR_ZIP_URL:https://download.checklistbank.org/col/xr_latest_coldp.zip}
     gnfinder-url: ${GNFINDER_URL:}
     # optional file with a JSON object of pipeline overrides
     config: ${FINDER_CONFIG:}
