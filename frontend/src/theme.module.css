@@ -142,14 +142,15 @@
   --divider-color: var(--gr-ink);
 }
 
-/* Segmented control: an ink outline pill; the chosen segment is filled in ink like a checked radio. */
+/* Segmented control: an ink outline pill; the chosen segment has no fill, its label is underlined in red like a
+   chosen facet row (the current place). */
 .segRoot {
   background: transparent;
   border: 1px solid var(--gr-ink);
 }
 
 .segIndicator {
-  background: var(--gr-ink);
+  background: transparent;
   box-shadow: none;
 }
 
@@ -162,11 +163,15 @@
 }
 
 .segLabel[data-active] {
-  color: var(--gr-paper);
+  color: var(--gr-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--gr-red);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
 }
 
 .segLabel[data-active]::before {
-  background: var(--gr-ink);
+  background: transparent;
   box-shadow: none;
 }
 
