@@ -70,6 +70,13 @@ export function SearchPage() {
     <>
       <PageHeader variant="big" searchSlot={search} />
       <div className={frame.main}>
+        {/* the filters come first in the DOM (above the list on narrow screens): keyboard users can jump past them */}
+        <a href="#results" className={classes.skip} onClick={(e) => {
+          e.preventDefault();
+          document.getElementById('results')?.focus();
+        }}>
+          Skip to results
+        </a>
         <Button variant="default" radius="xl" size="xs" className={classes.filtersToggle}
           aria-expanded={filtersOpen} aria-controls="search-side" onClick={() => setFiltersOpen((o) => !o)}>
           Filters
@@ -92,7 +99,7 @@ export function SearchPage() {
               />
             </SideColumn>
           </div>
-          <div className={classes.mainCol}>
+          <div id="results" tabIndex={-1} role="region" aria-label="Results" className={`${classes.mainCol} ${classes.results}`}>
             {works.isError ? (
               <Alert color="red" title="Search failed">
                 {works.error instanceof ApiError ? works.error.message : 'The search is unavailable. Try again later.'}

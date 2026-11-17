@@ -98,6 +98,27 @@ describe('SearchPage', () => {
     expect(pill).toHaveAttribute('aria-expanded', 'true');
   });
 
+  it('offersASkipLinkPastTheFiltersAsTheFirstStopAfterTheHeader', async () => {
+    server.use(xrHandler, taxGroupHandler, sourcesHandler(), http.get('/api/works', () =>
+      HttpResponse.json({ ...emptyPage, total: 1, results: [work(1, 'Carabid revision')] })));
+    const user = userEvent.setup();
+    renderApp(<SearchPage />);
+    await screen.findByText('Carabid revision');
+    const skip = screen.getByRole('link', { name: 'Skip to results' });
+    expect(skip).toHaveAttribute('href', '#results');
+    const results = document.getElementById('results')!;
+    expect(results).toHaveAttribute('tabindex', '-1');
+    expect(results).toContainElement(screen.getByRole('link', { name: 'Carabid revision' }));
+    // the search field is the header's last stop; the skip link comes next, before the Filters pill and the filters
+    screen.getByRole('textbox', { name: 'Search text' }).focus();
+    await user.tab();
+    expect(skip).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(results).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('link', { name: 'Carabid revision' })).toHaveFocus();
+  });
+
   it('keepsFocusInTheSearchFieldAfterEnter', async () => {
     const seen: string[] = [];
     server.use(xrHandler, taxGroupHandler, sourcesHandler(), http.get('/api/works', ({ request }) => {

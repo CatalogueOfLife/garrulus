@@ -146,6 +146,38 @@
   margin-top: var(--gr-space-5);
 }
 
+/* Skip link: out of sight until focused, then an ink pill over the top-left of the main area (absolute without
+   offsets keeps it at its place in the flow without taking room). */
+.skip {
+  position: absolute;
+  z-index: 2;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: var(--gr-ink);
+  color: var(--gr-paper);
+  font-size: var(--gr-type-ui-size);
+  line-height: var(--gr-type-ui-line);
+  text-decoration: none;
+}
+
+.skip:not(:focus) {
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.skip:hover {
+  text-decoration: none;
+}
+
+/* the skip target: focus passes through it to the first result, which shows the ring */
+.results:focus {
+  outline: none;
+}
+
 @media (max-width: 1023px) {
   .filtersToggle {
     display: inline-flex;
