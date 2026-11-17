@@ -11,7 +11,10 @@ body {
   line-height: var(--gr-type-body-line);
 }
 
-:focus-visible {
+/* The theme turns Mantine's own ring off (focusRing: 'never'), whose `.mantine-focus-never:focus { outline: none }`
+   would hide this one on every Mantine button; the second selector wins over it. */
+:focus-visible,
+.mantine-focus-never:focus-visible {
   outline: 2px solid var(--gr-red);
   outline-offset: 2px;
 }

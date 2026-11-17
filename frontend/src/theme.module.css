@@ -62,3 +62,159 @@
   text-transform: none;
   font-weight: 400;
 }
+
+.paginationControl:hover {
+  background: transparent;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+/* Buttons and action icons: the outline pill inverts on hover; disabled is grey on paper, never a grey fill. */
+.button[data-variant='default']:where(:not(:disabled, [data-disabled], [data-loading])):hover {
+  background: var(--gr-ink);
+  color: var(--gr-paper);
+}
+
+.button:disabled,
+.button[data-disabled] {
+  background: transparent;
+  border: 1px solid var(--gr-grey);
+  color: var(--gr-grey);
+}
+
+.closeButton {
+  color: var(--gr-ink);
+}
+
+.closeButton:hover {
+  background: transparent;
+}
+
+/* Inputs: an ink outline on paper (Mantine's are grey on white or dark grey); same specificity as Mantine's, loaded later. */
+[data-mantine-color-scheme] .inputWrapper[data-variant='default'] {
+  --input-bd: var(--gr-ink);
+  --input-bg: var(--gr-paper);
+  --input-bd-focus: var(--gr-ink);
+  --input-disabled-bg: transparent;
+  --input-disabled-color: var(--gr-grey);
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--gr-red);
+  outline-offset: 2px;
+}
+
+/* Menus, popovers and combobox lists: square, ink border, paper background; hover and keyboard highlight underline. */
+.dropdown {
+  --popover-border-color: var(--gr-ink);
+  background: var(--gr-paper);
+}
+
+.menuItem[data-hovered],
+.option:hover,
+.option[data-combobox-selected] {
+  background: transparent;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.option[data-combobox-selected] {
+  color: var(--gr-ink);
+}
+
+.menuDivider {
+  border-color: var(--gr-rule-soft);
+}
+
+.divider {
+  --divider-color: var(--gr-ink);
+}
+
+/* Segmented control: an ink outline pill; the chosen segment is filled in ink like a checked radio. */
+.segRoot {
+  background: transparent;
+  border: 1px solid var(--gr-ink);
+}
+
+.segIndicator {
+  background: var(--gr-ink);
+  box-shadow: none;
+}
+
+.segControl {
+  --separator-color: transparent;
+}
+
+.segLabel {
+  color: var(--gr-ink);
+}
+
+.segLabel[data-active] {
+  color: var(--gr-paper);
+}
+
+.segLabel[data-active]::before {
+  background: var(--gr-ink);
+  box-shadow: none;
+}
+
+.segLabel[data-disabled] {
+  color: var(--gr-grey);
+}
+
+.segRoot[data-disabled] .segIndicator {
+  background: transparent;
+  border: 1px solid var(--gr-grey);
+}
+
+.segLabel[data-active][data-disabled] {
+  color: var(--gr-grey);
+}
+
+.segLabel[data-active][data-disabled]::before {
+  background: transparent;
+}
+
+.segInput:focus-visible + .segLabel {
+  outline: 2px solid var(--gr-red);
+  outline-offset: 2px;
+}
+
+/* Switch: ink outline track, filled in ink when on; the thumb is paper with an ink edge. */
+[data-mantine-color-scheme] .switchTrack {
+  --switch-bg: transparent;
+  --switch-bd: var(--gr-ink);
+  --switch-text-color: var(--gr-ink);
+  --switch-disabled-color: var(--gr-grey);
+}
+
+[data-mantine-color-scheme] .switchThumb {
+  --switch-thumb-bg: var(--gr-paper);
+  --switch-thumb-bd: var(--gr-ink);
+  --switch-thumb-bg-disabled: var(--gr-paper);
+}
+
+.switchInput:checked + * > .switchThumb {
+  --switch-thumb-bd: var(--gr-paper);
+}
+
+.switchInput:disabled + .switchTrack {
+  --switch-bg: transparent;
+  --switch-bd: var(--gr-grey);
+}
+
+.switchInput:disabled + * > .switchThumb {
+  --switch-thumb-bd: var(--gr-grey);
+}
+
+.switchInput:focus-visible + .switchTrack {
+  outline: 2px solid var(--gr-red);
+  outline-offset: 2px;
+}
+
+.checkboxInput:disabled {
+  background: transparent;
+  border-color: var(--gr-grey);
+}
