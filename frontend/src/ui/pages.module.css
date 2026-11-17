@@ -28,7 +28,8 @@
   letter-spacing: -0.01em;
 }
 
-.lede {
+.lede,
+.prose .lede {
   margin: 0 0 var(--gr-space-5);
   font-size: var(--gr-type-lede-size);
   line-height: var(--gr-type-lede-line);
