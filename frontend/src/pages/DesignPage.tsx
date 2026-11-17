@@ -38,14 +38,15 @@ const SCALE = [
   { token: '--gr-type-display', key: 'display', weight: 500, tracking: 'var(--gr-type-display-tracking)', text: 'Garrulus' },
   { token: '--gr-type-title', key: 'title', weight: 500, tracking: '-0.02em', text: 'Names in the literature' },
   { token: '--gr-type-lede', key: 'lede', weight: 400, tracking: '-0.01em', text: 'Garrulus follows the journals of biodiversity science and finds the names in them.' },
-  { token: '--gr-type-head', key: 'head', weight: 500, tracking: '-0.01em', text: 'A new species of Hemiphyllodactylus from northern Vietnam' },
+  { token: '--gr-type-head', key: 'head', weight: 500, tracking: '-0.01em', text: <>A new species of <i>Hemiphyllodactylus</i> from northern Vietnam</> },
   { token: '--gr-type-body', key: 'body', weight: 400, tracking: 'normal', text: 'Running text, such as the full text of an open-access article.' },
   { token: '--gr-type-ui', key: 'ui', weight: 400, tracking: 'normal', text: 'Navigation, filters, names lists and buttons.' },
   { token: '--gr-type-meta', key: 'meta', weight: 400, tracking: 'normal', text: 'Dinh, Nishikawa, Luu et al. ZooKeys 1297: 311–337 16 Nov 2026' },
   { token: '--gr-type-small', key: 'small', weight: 500, tracking: 'normal', text: 'Facet group headings, footnotes and the header line.' },
 ];
 
-// The sample works of mockup B. Offsets are code points into the title.
+// The sample works of mockup B. Offsets are code points into the title; each title genus is a main name, as in the
+// real lists, so its rank sets the title's italics.
 let nextId = 1;
 function mentionsIn(title: string, names: { text: string; nameId: number }[]): MentionSpan[] {
   return names.map(({ text, nameId }) => {
@@ -53,8 +54,8 @@ function mentionsIn(title: string, names: { text: string; nameId: number }[]): M
     return { id: nextId++, nameId, startCp, endCp: startCp + Array.from(text).length, verbatim: text };
   });
 }
-const name = (id: number, n: string, rank: string, act: string): NameRef =>
-  ({ id, name: n, rank, placementMethod: 'MATCH', actTypes: [act] });
+const name = (id: number, n: string, rank: string, act?: string): NameRef =>
+  ({ id, name: n, rank, placementMethod: 'MATCH', actTypes: act ? [act] : [] });
 
 const T1 = 'A new species of Hemiphyllodactylus Bleeker, 1860 (Squamata, Gekkonidae) from northern Vietnam';
 const T2 = 'Integrative taxonomy of Tenumembrana Luo & Wang, 2025 (Blattodea, Blattidae), with clarification of its type species and descriptions of two new species';
@@ -65,7 +66,7 @@ const SAMPLE_WORKS: WorkSummary[] = [
     id: 1, title: T1, year: 2026, publicationDate: '2026-11-16', source: { id: 1, title: 'ZooKeys' },
     volume: '1297', pages: '311-337', authors: ['Dinh', 'Nishikawa', 'Luu'], authorCount: 5, textLevel: 'FULLTEXT',
     hasActs: true,
-    mainNames: [name(11, 'Hemiphyllodactylus baviensis', 'species', 'SP_NOV')],
+    mainNames: [name(11, 'Hemiphyllodactylus baviensis', 'species', 'SP_NOV'), name(10, 'Hemiphyllodactylus', 'genus')],
     titleMentions: mentionsIn(T1, [
       { text: 'Hemiphyllodactylus', nameId: 10 }, { text: 'Squamata', nameId: 12 }, { text: 'Gekkonidae', nameId: 13 },
     ]),
@@ -77,6 +78,7 @@ const SAMPLE_WORKS: WorkSummary[] = [
       name(21, 'Tenumembrana parva', 'species', 'SP_NOV'),
       name(22, 'Tenumembrana tenebrosa', 'species', 'SP_NOV'),
       name(23, 'Tenumembrana fallax', 'species', 'COMB_NOV'),
+      name(20, 'Tenumembrana', 'genus'),
     ],
     titleMentions: mentionsIn(T2, [
       { text: 'Tenumembrana', nameId: 20 }, { text: 'Blattodea', nameId: 24 }, { text: 'Blattidae', nameId: 25 },
@@ -85,7 +87,10 @@ const SAMPLE_WORKS: WorkSummary[] = [
   {
     id: 3, title: T3, year: 2026, publicationDate: '2026-11-12', source: { id: 2, title: 'European Journal of Taxonomy' },
     volume: '1122', authors: ['Caterino'], authorCount: 1, textLevel: 'ABSTRACT_ONLY', hasActs: true,
-    mainNames: [name(31, 'Syntelia tajumulcensis', 'species', 'SP_NOV'), name(32, 'Syntelia undosa', 'species', 'SP_NOV')],
+    mainNames: [
+      name(31, 'Syntelia tajumulcensis', 'species', 'SP_NOV'), name(32, 'Syntelia undosa', 'species', 'SP_NOV'),
+      name(30, 'Syntelia', 'genus'),
+    ],
     titleMentions: mentionsIn(T3, [
       { text: 'Syntelia', nameId: 30 }, { text: 'Coleoptera', nameId: 33 }, { text: 'Histeroidea', nameId: 34 },
       { text: 'Synteliidae', nameId: 35 },
@@ -181,7 +186,7 @@ function Overlays() {
     <>
       <h3 className={styles.sub}>Menu, modal, alert, collapse</h3>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 32, alignItems: 'flex-start' }}>
-        <Menu opened withinPortal={false} trapFocus={false} closeOnEscape={false}>
+        <Menu opened withinPortal={false} trapFocus={false} closeOnEscape={false} middlewares={{ flip: false, shift: false }} zIndex={1}>
           <Menu.Target><Button>Menu</Button></Menu.Target>
           <Menu.Dropdown>
             <Menu.Item>Account</Menu.Item>
@@ -193,7 +198,7 @@ function Overlays() {
           <Button onClick={() => setModal(true)}>Open modal</Button>
           <Modal opened={modal} onClose={() => setModal(false)} title="Delete account">
             This removes your follows and your digests. It cannot be undone.
-            <div style={{ marginTop: 16 }}><Button color="red" onClick={() => setModal(false)}>Delete</Button></div>
+            <div style={{ marginTop: 16 }}><Button variant="outline" color="red" onClick={() => setModal(false)}>Delete</Button></div>
           </Modal>
         </div>
         <div style={{ marginTop: 130 }}>
@@ -348,7 +353,7 @@ export function DesignPage() {
         <p className={styles.note}>The three works of mockup B, as they appear in a list.</p>
         <div className={styles.workList}>
           {SAMPLE_WORKS.map((w) => <WorkItem key={w.id} work={w} />)}
-          <Rule soft />
+          <Rule />
         </div>
         <h3 className={styles.sub}>Title, meta line and names, apart</h3>
         <p style={{ fontSize: 'var(--gr-type-head-size)', fontWeight: 500, margin: '0 0 4px', maxWidth: 760 }}>

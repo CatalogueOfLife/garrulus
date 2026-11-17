@@ -49,6 +49,16 @@ describe('DesignPage', () => {
     expect(screen.getByRole('heading', { level: 3, name: /Syntelia/ })).toBeInTheDocument();
   });
 
+  it('setsTheGeneraInTheSampleTitlesAndTheTypeScaleInItalics', () => {
+    renderApp(<DesignPage />, '/design');
+    for (const [title, genus] of [[/^A new species of Hemiphyllodactylus Bleeker/, 'Hemiphyllodactylus'], [/^Integrative taxonomy/, 'Tenumembrana'], [/^Revision of the New World/, 'Syntelia']] as const) {
+      const heading = screen.getByRole('heading', { level: 3, name: title });
+      expect(within(heading).getByText(genus).tagName).toBe('I');
+    }
+    const head = screen.getByText('--gr-type-head').closest('div')!;
+    expect(within(head).getByText('Hemiphyllodactylus').tagName).toBe('I');
+  });
+
   it('doesNotTakeFocusOrTrapItInTheOpenMenuDemo', () => {
     renderApp(<DesignPage />, '/design');
     expect(screen.getByRole('menuitem', { name: 'Account' })).toBeInTheDocument();

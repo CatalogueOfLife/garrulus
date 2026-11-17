@@ -98,7 +98,8 @@
 }
 
 .wordmarkBig {
-  font-size: 92px;
+  /* 92 px, but never wider than the display size of the header at this width (56 px on phones) */
+  font-size: min(92px, var(--gr-type-display-size));
   font-weight: 500;
   letter-spacing: -0.045em;
   line-height: 0.9;
@@ -123,10 +124,18 @@
   font-size: var(--gr-type-meta-size);
 }
 
-.hover button,
-.hover [role='button'] {
+/* Forced states mirror the real ones: outline pills invert on hover, pagination underlines, the rest stays as it is;
+   active is hover pressed down by a pixel, as in Mantine. */
+.hover button[data-variant='default'],
+.active button[data-variant='default'] {
   background: var(--gr-ink) !important;
   color: var(--gr-paper) !important;
+}
+
+.hover :global(.mantine-Pagination-control):not([data-active]) {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
 }
 
 .focus :is(button, input, select, a, [role='checkbox'], [role='radio']) {
@@ -135,9 +144,7 @@
 }
 
 .active button {
-  background: var(--gr-ink) !important;
-  color: var(--gr-paper) !important;
-  opacity: 0.8;
+  transform: translateY(1px);
 }
 
 .workList {
