@@ -3,8 +3,9 @@ import { useState } from 'react';
 
 export interface YearCount { year: number; works: number }
 
-const W = 640;
-const H = 200;
+// Drawn at the side column's width (340 px), so 11-unit text renders at 11 px instead of being scaled down.
+const W = 340;
+const H = 150;
 const M = { left: 44, right: 8, top: 10, bottom: 28 };
 const PLOT_W = W - M.left - M.right;
 const PLOT_H = H - M.top - M.bottom;
@@ -23,10 +24,10 @@ export function niceTicks(max: number): number[] {
   return ticks;
 }
 
-/** Indices of the years that get a label: all up to 12 years, else every n-th, always the first and the last. */
-export function labelIndices(n: number): number[] {
-  if (n <= 12) return Array.from({ length: n }, (_, i) => i);
-  const step = Math.ceil(n / 8);
+/** Indices of the years that get a label: all up to `all` years, else about `target`, always the first and the last. */
+export function labelIndices(n: number, all = 12, target = 8): number[] {
+  if (n <= all) return Array.from({ length: n }, (_, i) => i);
+  const step = Math.ceil(n / target);
   const idx: number[] = [];
   for (let i = 0; i < n; i += step) idx.push(i);
   const last = n - 1;
@@ -56,7 +57,8 @@ export function YearBars({ years, range }: { years: YearCount[]; range?: { from?
   const slot = PLOT_W / sorted.length;
   const bw = Math.min(40, Math.max(2, slot * 0.7));
   const yOf = (v: number) => M.top + PLOT_H - (v / top) * PLOT_H;
-  const labels = new Set(labelIndices(sorted.length));
+  // four-digit years at 11 px need about 34 px each: eight fit the plot side by side
+  const labels = new Set(labelIndices(sorted.length, 8, 6));
   const cur = active === null ? null : sorted[active];
   return (
     <div style={{ maxWidth: W }}>

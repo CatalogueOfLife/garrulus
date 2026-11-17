@@ -57,6 +57,14 @@ describe('YearBars', () => {
     renderApp(<YearBars years={[{ year: 2024, works: 2 }, { year: 2025, works: 8 }]} />);
     expect(screen.getAllByTestId('year-bar').some((b) => b.classList.contains('gr-current'))).toBe(false);
   });
+  it('drawsAtTheSideColumnWidthSoTheAxisTextIsNotScaledDown', () => {
+    const years = Array.from({ length: 12 }, (_, i) => ({ year: 2015 + i, works: i }));
+    const { container } = renderApp(<YearBars years={years} />);
+    const width = Number(container.querySelector('svg')!.getAttribute('viewBox')!.split(' ')[2]);
+    expect(width).toBeLessThanOrEqual(340);
+    // 12 four-digit labels at 11 px do not fit 340 px side by side
+    expect(screen.getAllByTestId('x-label').length).toBeLessThanOrEqual(8);
+  });
   it('thinsLabelsForManyYearsKeepingFirstAndLast', () => {
     const idx = labelIndices(40);
     expect(idx[0]).toBe(0);
