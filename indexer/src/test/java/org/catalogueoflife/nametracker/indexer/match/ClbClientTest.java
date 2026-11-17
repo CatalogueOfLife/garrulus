@@ -240,4 +240,47 @@ class ClbClientTest {
     assertThatThrownBy(() -> client(w).match(316691, new MatchQuery("Carabus", null, null, new TreeMap<>())))
         .isInstanceOf(HttpProblem.class);
   }
+  // --- taxon lookup; the 404 bodies are those of the CLB backend (TaxonDao.enrich404 and its exception mappers)
+
+  static final String T = "/dataset/316691/taxon/";
+
+  static ClbClient.TaxonLookup lookup(WireMockRuntimeInfo w, String id, ResponseDefinitionBuilder r) {
+    stubFor(get(urlPathEqualTo(T + id)).willReturn(r));
+    return client(w).taxon(316691, id);
+  }
+
+  static ResponseDefinitionBuilder notFound(String body) {
+    return json(body).withStatus(404);
+  }
+
+  @Test
+  void taxonLookupReadsSupersededBy(WireMockRuntimeInfo w) throws IOException {
+    // an id archived in the project with a recorded successor (ArchivedExceptionMapper)
+    assertThat(lookup(w, "637G6", notFound(fixture("taxon-archived-404.json"))))
+        .isEqualTo(new ClbClient.TaxonLookup(ClbClient.TaxonLookup.Status.GONE, "VJTPP"));
+    verify(getRequestedFor(urlEqualTo(T + "637G6")).withHeader("Accept", equalTo("application/json")));
+  }
+
+  @Test
+  void taxonLookupFoundGoneAndSynonym(WireMockRuntimeInfo w) throws IOException {
+    ClbClient.TaxonLookup found = new ClbClient.TaxonLookup(ClbClient.TaxonLookup.Status.FOUND, null);
+    ClbClient.TaxonLookup gone = new ClbClient.TaxonLookup(ClbClient.TaxonLookup.Status.GONE, null);
+    assertThat(lookup(w, "5WYRN", json("{\"id\":\"5WYRN\",\"status\":\"accepted\"}"))).isEqualTo(found);
+    // archived without a successor, and never known at all (NotFoundExceptionMapper)
+    String noSuccessor = fixture("taxon-archived-404.json").replace("\"supersededBy\": \"VJTPP\"", "\"extinct\": false");
+    assertThat(lookup(w, "ABCD", notFound(noSuccessor))).isEqualTo(gone);
+    assertThat(lookup(w, "ZZZZ", notFound("{\"code\":404,\"message\":\"Taxon ZZZZ not found\"}"))).isEqualTo(gone);
+    assertThat(lookup(w, "YYYY", aResponse().withStatus(404))).isEqualTo(gone);
+    // the id is a synonym in the release (SynonymExceptionMapper): still there
+    assertThat(lookup(w, "CFSCR", notFound("{\"code\":404,\"message\":\"synonym\",\"acceptedId\":\"4CGXP\"}")))
+        .isEqualTo(found);
+  }
+
+  @Test
+  void taxonLookupOutageAndOtherErrors(WireMockRuntimeInfo w) {
+    stubFor(get(urlPathEqualTo(T + "DOWN")).willReturn(aResponse().withStatus(503)));
+    assertThatThrownBy(() -> client(w).taxon(316691, "DOWN")).isInstanceOf(ServiceOutageException.class);
+    stubFor(get(urlPathEqualTo(T + "BAD")).willReturn(aResponse().withStatus(400)));
+    assertThatThrownBy(() -> client(w).taxon(316691, "BAD")).isExactlyInstanceOf(HttpProblem.class);
+  }
 }

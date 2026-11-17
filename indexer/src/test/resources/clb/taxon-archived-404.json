@@ -1,0 +1,16 @@
+{
+  "code": 404,
+  "message": "Usage 3:637G6 was deleted and archived in release: 315557, superseded by VJTPP",
+  "usage": {
+    "id": "637G6",
+    "name": {
+      "id": "637G6",
+      "scientificName": "Helosciadium",
+      "authorship": "W.D.J.Koch",
+      "rank": "genus"
+    },
+    "status": "accepted",
+    "releaseKeys": [315557],
+    "supersededBy": "VJTPP"
+  }
+}

@@ -92,6 +92,37 @@ public class ClbClient {
     return new XrInfo(key.asInt(), alias.isString() ? alias.asString() : "XR " + key.asInt());
   }
 
+  /** The answer to a taxon lookup: FOUND, or GONE with the successor CLB names, if any. */
+  public record TaxonLookup(Status status, @Nullable String supersededBy) {
+    public enum Status { FOUND, GONE }
+  }
+
+  /**
+   * Looks up the taxon id in the release ({@code GET /dataset/{key}/taxon/{id}} of the CLB API, never the local bundle).
+   * 200 is FOUND, and so is a 404 that names an {@code acceptedId}: the id is a synonym in the release, not removed.
+   * Any other 404 is GONE; when CLB archived the id and recorded its successor, the body's
+   * {@code usage.supersededBy} is that id ({@code TaxonDao.enrich404}). A CLB that is down is a
+   * {@link ServiceOutageException}; any other answer an {@link HttpProblem}.
+   */
+  public TaxonLookup taxon(int releaseKey, String id) {
+    URI uri = URI.create(base + "/dataset/" + releaseKey + "/taxon/" + enc(id));
+    HttpResponse<byte[]> resp = get(uri);
+    int status = resp.statusCode();
+    if (status >= 200 && status < 300) return new TaxonLookup(TaxonLookup.Status.FOUND, null);
+    if (status != 404) throw new HttpProblem(uri, status, false, "HTTP " + status + " from CLB: " + uri, null);
+    JsonNode body;
+    try {
+      body = FinderJson.mapper().readTree(resp.body());
+    } catch (RuntimeException e) {
+      body = FinderJson.mapper().createObjectNode(); // a bare 404 without a JSON body
+    }
+    if (body.path("acceptedId").isString()) return new TaxonLookup(TaxonLookup.Status.FOUND, null);
+    JsonNode next = body.path("usage").path("supersededBy");
+    String successor = next.isString() && !next.asString().isBlank() && !next.asString().equals(id)
+        ? next.asString() : null;
+    return new TaxonLookup(TaxonLookup.Status.GONE, successor);
+  }
+
   public ClbMatch match(int releaseKey, MatchQuery q) {
     Map<String, String> p = new LinkedHashMap<>();
     p.put("scientificName", q.name());
@@ -147,13 +178,7 @@ public class ClbClient {
   }
 
   private JsonNode getJson(URI uri) {
-    HttpResponse<byte[]> resp;
-    try {
-      resp = http.get(uri, Map.of("Accept", "application/json"));
-    } catch (HttpProblem e) {
-      if (HarvestOutage.retryable(e) != null || unknownMatchHost(e)) throw new ServiceOutageException(SERVICE, outage.retryAt(), e);
-      throw e;
-    }
+    HttpResponse<byte[]> resp = get(uri);
     int status = resp.statusCode();
     if (status < 200 || status >= 300) {
       throw new HttpProblem(uri, status, false, "HTTP " + status + " from CLB: " + uri, null);
@@ -162,6 +187,16 @@ public class ClbClient {
       return FinderJson.mapper().readTree(resp.body());
     } catch (RuntimeException e) {
       throw new HttpProblem(uri, status, false, "Unreadable CLB response: " + uri, e);
+    }
+  }
+
+  /** The response, whatever its status; a CLB that is down is a {@link ServiceOutageException}. */
+  private HttpResponse<byte[]> get(URI uri) {
+    try {
+      return http.get(uri, Map.of("Accept", "application/json"));
+    } catch (HttpProblem e) {
+      if (HarvestOutage.retryable(e) != null || unknownMatchHost(e)) throw new ServiceOutageException(SERVICE, outage.retryAt(), e);
+      throw e;
     }
   }
 

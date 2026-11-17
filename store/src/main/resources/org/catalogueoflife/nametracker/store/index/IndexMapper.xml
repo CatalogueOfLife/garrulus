@@ -410,6 +410,38 @@
     WHERE id = #{workId}
   </update>
 
+  <update id="updatePlacement">
+    UPDATE work SET codes = #{codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler},
+      taxgroups = #{taxgroups, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler},
+      has_acts = #{hasActs}, placed_release = #{releaseKey}, modified = now()
+    WHERE id = #{workId}
+  </update>
+
+  <!-- one ordered index range per other release (work_placed_release_idx), so a batch reads about limit rows however
+       many works are placed already; the predicate is the cursor -->
+  <select id="unplacedWorkIds" resultType="long" flushCache="true">
+    SELECT id FROM (
+      SELECT x.id FROM xr_release r
+      CROSS JOIN LATERAL (
+        SELECT w.id FROM work w
+        WHERE w.placed_release = r.key AND w.state IN ('INDEXED','NOTIFIED') AND w.pending_finder_run IS NULL
+        ORDER BY w.id LIMIT #{limit}) x
+      WHERE r.key &lt;&gt; #{releaseKey}
+      UNION ALL
+      (SELECT w.id FROM work w
+       WHERE w.placed_release IS NULL AND w.state IN ('INDEXED','NOTIFIED') AND w.pending_finder_run IS NULL
+       ORDER BY w.id LIMIT #{limit})
+    ) u
+    ORDER BY id LIMIT #{limit}
+  </select>
+
+  <delete id="deleteMatchesExcept">
+    DELETE FROM name_match WHERE release_key IN (
+      SELECT key FROM xr_release
+      WHERE NOT current AND state NOT IN ('PREPARING','PREPARED','SWITCHING')
+        AND key NOT IN <foreach collection="keep" item="k" open="(" separator="," close=")">#{k}</foreach>)
+  </delete>
+
   <select id="seenWorkIds" resultType="long">
     SELECT id FROM work WHERE current_finder_run IS NOT NULL AND id > #{afterId}
     <if test="sourceId != null"> AND source_id = #{sourceId}</if>

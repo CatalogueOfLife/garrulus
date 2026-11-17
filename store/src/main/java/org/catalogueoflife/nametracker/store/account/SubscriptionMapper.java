@@ -46,6 +46,29 @@ public interface SubscriptionMapper {
   /** Step 3 of {@link #merge}: the remaining subscriptions change owner. */
   int reassign(@Param("fromUserId") long fromUserId, @Param("toUserId") long toUserId);
 
+  // The XR switch is the one writer of target_status, xr_note, xr_note_at, previous_target and, for a move, target.
+
+  /**
+   * The {@code TAXON} subscriptions (paused ones too) to check against the release: those not noted since
+   * {@code notedSince} that are flagged MISSING or whose id is not proven present. An id is proven present when a
+   * {@code name_match} row of the release has it as usage id, or the taxon path of a {@code work_name} row of a work
+   * placed in the release contains it (both indexed). {@code present} tells which of the two kinds a row is.
+   */
+  List<TaxonFollow> taxonFollowsToCheck(@Param("releaseKey") int releaseKey,
+      @Param("notedSince") java.time.Instant notedSince);
+
+  /**
+   * Moves the follow from {@code from} to {@code to}: previous_target from, target_status MOVED, the note, now.
+   * Returns 0 and changes nothing if its target is no longer {@code from} or its user follows {@code to} already.
+   */
+  int moveTarget(@Param("id") long id, @Param("from") String from, @Param("to") String to, @Param("note") String note);
+
+  /** Sets target_status MISSING and the note, now, if the target is still {@code target}. */
+  int flagMissing(@Param("id") long id, @Param("target") String target, @Param("note") String note);
+
+  /** A MISSING follow whose taxon is back: target_status OK, note cleared. */
+  int clearMissing(@Param("id") long id, @Param("target") String target);
+
   /**
    * Unpaused subscriptions of any user whose (type, target) is one of the keys: SOURCE by {@code sourceId}, TAXON by
    * {@code taxonIds}, NAME by {@code nameIds}, TAXGROUP by {@code taxgroups}. Null or empty key lists match nothing.

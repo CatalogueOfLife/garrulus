@@ -1,0 +1,93 @@
+package org.catalogueoflife.nametracker.indexer.xr;
+
+import java.util.List;
+import org.catalogueoflife.nametracker.finder.api.FinderJson;
+import org.catalogueoflife.nametracker.indexer.stats.RebuildStatsHandler;
+import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
+import org.catalogueoflife.nametracker.store.index.IndexMapper;
+import org.catalogueoflife.nametracker.store.index.XrRelease;
+import org.catalogueoflife.nametracker.store.task.Task;
+import org.catalogueoflife.nametracker.store.task.TaskPriority;
+import org.catalogueoflife.nametracker.store.task.TaskQueue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.databind.JsonNode;
+
+/**
+ * {@code XR_FINISH}, payload {@code {"key":k}}, enqueued by the last {@code XR_REPLACE}. While k is the current release
+ * in state {@code SWITCHING}: (0) if a listed work is still not placed in k (a racing {@code MATCH_NAMES}),
+ * {@code XR_REPLACE} is enqueued again instead; (1) the follow check ({@link FollowCheck}; a CLB outage defers the
+ * task, k stays {@code SWITCHING}); (2) {@code REBUILD_STATS} at {@code REPROCESS} and (3) state {@code CURRENT}, in
+ * one transaction with the releases locked; (4) the {@code name_match} rows of every release but k and the one it
+ * replaced ({@code previous} in its note) are deleted, outside that lock: they are only a cache, and the lock would
+ * hold up every match insert. Without a {@code previous} nothing is deleted. A redelivery once k is {@code CURRENT}
+ * only repeats (4). No hit comes from it.
+ */
+@Component
+public class XrFinishHandler implements TaskHandler {
+
+  public static final String TYPE = "XR_FINISH";
+  static final String CURRENT = "CURRENT";
+
+  private static final Logger LOG = LoggerFactory.getLogger(XrFinishHandler.class);
+
+  private final IndexMapper index;
+  private final FollowCheck follows;
+  private final TaskQueue queue;
+  private final TransactionTemplate tx;
+
+  public XrFinishHandler(IndexMapper index, FollowCheck follows, TaskQueue queue, TransactionTemplate tx) {
+    this.index = index;
+    this.follows = follows;
+    this.queue = queue;
+    this.tx = tx;
+  }
+
+  @Override
+  public String type() {
+    return TYPE;
+  }
+
+  @Override
+  public void handle(Task task) throws Exception {
+    JsonNode p = FinderJson.mapper().readTree(task.payload());
+    int key = XrSwitchHandler.key(p, TYPE);
+    XrRelease r = index.release(key);
+    if (r != null && r.current() && CURRENT.equals(r.state())) {
+      prune(r); // a redelivery after the state change
+      return;
+    }
+    if (!XrReplaceHandler.switching(key, r, TYPE)) return;
+    if (!index.unplacedWorkIds(key, 1).isEmpty()) {
+      queue.enqueue(XrReplaceHandler.TYPE, "{\"key\":" + key + "}", TaskPriority.REPROCESS,
+          "xr-replace:" + key + ":t" + task.id(), task.runAfter());
+      LOG.info("XR_FINISH of release {}: works placed in another release meanwhile, re-placing them first", key);
+      return;
+    }
+    follows.run(r);
+    Boolean done = tx.execute(s -> {
+      index.lockReleases();
+      XrRelease now = index.release(key);
+      if (!XrReplaceHandler.switching(key, now, TYPE)) return false;
+      queue.enqueue(RebuildStatsHandler.TYPE, "{}", TaskPriority.REPROCESS, "stats:xr:" + key, task.runAfter());
+      index.setReleaseState(key, CURRENT, now.note());
+      return true;
+    });
+    if (!Boolean.TRUE.equals(done)) return;
+    LOG.info("XR release {} ({}) is CURRENT: the switch has ended", key, r.alias());
+    prune(r);
+  }
+
+  /** Deletes the matches of every release but r and the one it replaced; keeps all if that one is unknown. */
+  private void prune(XrRelease r) {
+    JsonNode previous = XrSwitchHandler.note(r.note()).path(XrGateHandler.PREVIOUS);
+    if (!previous.isNumber()) {
+      LOG.info("XR release {}: the release it replaced is not recorded, so no old matches are deleted", r.key());
+      return;
+    }
+    int deleted = index.deleteMatchesExcept(List.of(r.key(), previous.asInt()));
+    LOG.info("Deleted {} name matches of releases other than {} and {}", deleted, r.key(), previous.asInt());
+  }
+}

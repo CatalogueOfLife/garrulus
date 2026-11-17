@@ -19,6 +19,7 @@ import org.catalogueoflife.nametracker.store.index.IndexMapper;
 import org.catalogueoflife.nametracker.store.index.IndexRows;
 import org.catalogueoflife.nametracker.store.index.MentionRow;
 import org.catalogueoflife.nametracker.store.index.NameUbiquity;
+import org.catalogueoflife.nametracker.store.index.WorkFacts;
 import org.catalogueoflife.nametracker.store.index.WorkName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +39,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class WorkIndexer implements WorkIndexing {
 
   static final int CHUNK = 1000;
+  /** The states of a work the public API lists. */
+  static final Set<String> LISTED = Set.of("INDEXED", "NOTIFIED");
   private static final Logger LOG = LoggerFactory.getLogger(WorkIndexer.class);
 
   private final IndexMapper index;
@@ -70,13 +73,47 @@ public class WorkIndexer implements WorkIndexing {
       index.setReindexPrevSubscriptions(workId, previous.capture(workId));
       index.swapPendingIndex(workId);
     }
+    Aggregate a = writeWorkNames(workId, placements);
+    index.setIndexed(workId, a.codes(), a.taxgroups(), a.hasActs(), releaseKey);
+    return true;
+  }
+
+  /**
+   * Re-places a listed work in another XR release (the XR switch): the same aggregate and {@code work_name} rewrite as
+   * {@link #index}, then codes, taxgroups, has_acts and {@code placed_release}; state, {@code indexed_at} and
+   * {@code first_indexed_at} stay, and nothing follows (no hit evaluation). One transaction, work row locked first.
+   * Skipped (false) when the work is not INDEXED or NOTIFIED, has a pending index (its MATCH_NAMES places it in the
+   * current release anyway), or its index is no longer the row set the placements were computed from.
+   */
+  public boolean replace(long workId, PlacedWork placed, int releaseKey) {
+    return Boolean.TRUE.equals(tx.execute(status -> doReplace(workId, placed, releaseKey)));
+  }
+
+  private boolean doReplace(long workId, PlacedWork placed, int releaseKey) {
+    index.lockWork(workId);
+    WorkFacts f = index.workFacts(workId);
+    if (f == null || !LISTED.contains(f.state())) {
+      LOG.debug("Work {} not re-placed: it is {}", workId, f == null ? "gone" : f.state());
+      return false;
+    }
+    IndexRows rows = index.indexRows(workId);
+    if (rows == null || rows.pending() || !rows.equals(placed.rows())) {
+      LOG.debug("Work {} not re-placed: placed {}, but its index is now {}", workId, placed.rows(), rows);
+      return false;
+    }
+    Aggregate a = writeWorkNames(workId, placed.placements());
+    index.setPlacement(workId, a.codes(), a.taxgroups(), a.hasActs(), releaseKey);
+    return true;
+  }
+
+  /** Replaces the work's work_name rows by those of the aggregate; returns it. The caller holds the work lock. */
+  private Aggregate writeWorkNames(long workId, Map<Long, Placement> placements) {
     Aggregate a = aggregate(workId, placements);
     index.deleteWorkNames(workId);
     for (int i = 0; i < a.rows().size(); i += CHUNK) {
       index.insertWorkNames(a.rows().subList(i, Math.min(a.rows().size(), i + CHUNK)));
     }
-    index.setIndexed(workId, a.codes(), a.taxgroups(), a.hasActs(), releaseKey);
-    return true;
+    return a;
   }
 
   /** The work_name rows of a work and its derived work columns; codes and taxgroups are sorted. */

@@ -73,6 +73,46 @@
     ORDER BY id
   </select>
 
+  <resultMap id="taxonFollow" type="org.catalogueoflife.nametracker.store.account.TaxonFollow">
+    <constructor>
+      <arg column="id" javaType="_long"/>
+      <arg column="user_id" javaType="_long"/>
+      <arg column="target" javaType="string"/>
+      <arg column="target_status" javaType="string"/>
+      <arg column="present" javaType="_boolean"/>
+    </constructor>
+  </resultMap>
+
+  <select id="taxonFollowsToCheck" resultMap="taxonFollow">
+    SELECT * FROM (
+      SELECT s.id, s.user_id, s.target, s.target_status,
+        EXISTS (SELECT 1 FROM name_match m WHERE m.release_key = #{releaseKey} AND m.usage_id = s.target)
+        OR EXISTS (SELECT 1 FROM work_name wn JOIN work w ON w.id = wn.work_id
+                   WHERE wn.taxon_path @&gt; ARRAY[s.target] AND w.placed_release = #{releaseKey}) AS present
+      FROM subscription s
+      WHERE s.type = 'TAXON' AND (s.xr_note_at IS NULL OR s.xr_note_at &lt; #{notedSince})
+    ) f
+    WHERE NOT present OR target_status = 'MISSING'
+    ORDER BY target, id
+  </select>
+
+  <update id="moveTarget">
+    UPDATE subscription s SET previous_target = s.target, target = #{to}, target_status = 'MOVED', xr_note = #{note},
+      xr_note_at = now()
+    WHERE s.id = #{id} AND s.target = #{from}
+      AND NOT EXISTS (SELECT 1 FROM subscription o WHERE o.user_id = s.user_id AND o.type = s.type AND o.target = #{to})
+  </update>
+
+  <update id="flagMissing">
+    UPDATE subscription SET target_status = 'MISSING', xr_note = #{note}, xr_note_at = now()
+    WHERE id = #{id} AND target = #{target}
+  </update>
+
+  <update id="clearMissing">
+    UPDATE subscription SET target_status = 'OK', xr_note = NULL, xr_note_at = NULL
+    WHERE id = #{id} AND target = #{target} AND target_status = 'MISSING'
+  </update>
+
   <!-- account merge (see SubscriptionMapper#merge): pairs of the two accounts with the same (type, target) -->
   <sql id="duplicatePairs">
     SELECT CASE WHEN (a.created, a.id) &lt; (b.created, b.id) THEN a.id ELSE b.id END AS keep_id,

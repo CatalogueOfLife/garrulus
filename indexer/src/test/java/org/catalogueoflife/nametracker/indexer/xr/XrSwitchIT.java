@@ -382,6 +382,7 @@ class XrSwitchIT extends AbstractPostgresIT {
     assertThat(r.state()).isEqualTo("SWITCHING");
     assertThat(r.switchedAt()).isNotNull();
     assertThat(r.keysTotal()).isEqualTo(10);
+    assertThat(r.note()).contains("\"previous\":100"); // kept by XR_FINISH for one more switch
     assertThat(index.currentRelease().key()).isEqualTo(200);
     assertThat(xr.current()).isEqualTo(200);
     XrRelease old = rel(100);

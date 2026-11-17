@@ -226,6 +226,31 @@ public interface IndexMapper {
       @Param("sourceId") @Nullable Long sourceId, @Param("workIds") @Nullable List<Long> workIds,
       @Param("yearFrom") @Nullable Integer yearFrom, @Param("yearTo") @Nullable Integer yearTo);
 
+  /**
+   * Sets codes, taxgroups, has_acts and placed_release of a work re-placed in another XR release; state, indexed_at
+   * and first_indexed_at stay.
+   */
+  default void setPlacement(long workId, String[] codes, String[] taxgroups, boolean hasActs, int releaseKey) {
+    updatePlacement(workId, List.of(codes), List.of(taxgroups), hasActs, releaseKey);
+  }
+
+  void updatePlacement(@Param("workId") long workId, @Param("codes") List<String> codes,
+      @Param("taxgroups") List<String> taxgroups, @Param("hasActs") boolean hasActs,
+      @Param("releaseKey") int releaseKey);
+
+  /**
+   * Ids of INDEXED or NOTIFIED works without a pending index that are not placed in the release (placed in another one,
+   * or in none), ascending; at most {@code limit}. Reads the works of each other release by the index on
+   * (placed_release, id): {@code placed_release} only ever holds keys of {@code xr_release}.
+   */
+  List<Long> unplacedWorkIds(@Param("releaseKey") int releaseKey, @Param("limit") int limit);
+
+  /**
+   * Deletes the name_match rows of every release except the given ones, the current one and one in a running switch
+   * (PREPARING, PREPARED, SWITCHING); returns the rows deleted.
+   */
+  int deleteMatchesExcept(@Param("keep") List<Integer> keep);
+
   /** Ids of INDEXED or NOTIFIED works after {@code afterId}, ascending. */
   List<Long> indexedWorkIds(@Param("afterId") long afterId, @Param("limit") int limit);
 

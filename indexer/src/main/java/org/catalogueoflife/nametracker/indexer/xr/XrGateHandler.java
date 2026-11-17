@@ -22,14 +22,18 @@ import tools.jackson.databind.node.ObjectNode;
  * been passed by the pre-match), {@code keys_lost} have no row or a {@code none} row in release k. A lost share above {@code nametracker.xr.max-lost-share} refuses k (state {@code REFUSED}, ERROR log)
  * unless the switch was started with {@code force}. Else the flip, in one transaction: the old release stops being
  * current ({@code RETIRED}, or {@code REFUSED} if the switch was started with {@code refuse}); k becomes current in
- * state {@code SWITCHING} with {@code switched_at}; {@code BUILD_DICTIONARY} and {@code XR_REPLACE} are enqueued. From
- * then on new works are matched in k. A no-op unless k is {@code PREPARED} in generation g, so a redelivery, or a gate
+ * state {@code SWITCHING} with {@code switched_at} and the old key as {@code previous} in its note (for
+ * {@code XR_FINISH}); {@code BUILD_DICTIONARY} and {@code XR_REPLACE} are enqueued. From then on new works are matched
+ * in k. A no-op unless k is {@code PREPARED} in generation g, so a redelivery, or a gate
  * of an earlier switch to k, changes nothing.
  */
 @Component
 public class XrGateHandler implements TaskHandler {
 
   public static final String TYPE = "XR_GATE";
+
+  /** The note field of a flipped release that holds the key of the release it replaced. */
+  static final String PREVIOUS = "previous";
 
   private static final Logger LOG = LoggerFactory.getLogger(XrGateHandler.class);
 
@@ -100,6 +104,9 @@ public class XrGateHandler implements TaskHandler {
     } else {
       index.retireRelease(old.key(), XrSwitchHandler.RETIRED, old.note());
     }
+    // the release switched away from: XR_FINISH keeps its matches for one more switch
+    note.put(PREVIOUS, old.key());
+    index.setReleaseState(key, r.state(), FinderJson.mapper().writeValueAsString(note));
     index.switchToRelease(key);
     String payload = "{\"key\":" + key + "}";
     queue.enqueue("BUILD_DICTIONARY", payload, TaskPriority.REPROCESS, "build-dictionary:" + key, task.runAfter());
