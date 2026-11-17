@@ -111,4 +111,33 @@ class MatchCacheIT extends AbstractPostgresIT {
     cache.match(id, new MatchQuery("Felis leo", null, null, new TreeMap<>(Map.of("family", "Felidae"))));
     verify(2, getRequestedFor(urlPathEqualTo("/dataset/316691/match/nameusage")));
   }
+
+  @Test
+  void explicitReleaseIsCachedSeparately(WireMockRuntimeInfo w) throws IOException {
+    String body = ClbClientTest.fixture("match-felis-leo.json");
+    for (String k : new String[] {"316691", "400001"}) {
+      stubFor(get(urlPathEqualTo("/dataset/" + k + "/match/nameusage")).willReturn(aResponse()
+          .withHeader("Content-Type", "application/json").withBody(body)));
+    }
+    stubXr("316691");
+    ClbClient clb = client(w);
+    XrReleaseService xr = new XrReleaseService(index, clb);
+    xr.check();
+    index.addRelease(400001, "COL XR 400001", false);
+    MatchCache cache = new MatchCache(index, clb, xr);
+    long id = index.nameStringId("Felis leo", "SPECIES", "species");
+    MatchQuery q = new MatchQuery("Felis leo", null, null, new TreeMap<>(Map.of("family", "Felidae")));
+
+    assertThat(cache.match(id, q, 316691).releaseKey()).isEqualTo(316691);
+    assertThat(cache.match(id, q, 400001).releaseKey()).isEqualTo(400001);
+    verify(1, getRequestedFor(urlPathEqualTo("/dataset/316691/match/nameusage")));
+    verify(1, getRequestedFor(urlPathEqualTo("/dataset/400001/match/nameusage")));
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM name_match", Integer.class)).isEqualTo(2);
+
+    cache.match(id, q, 316691);
+    cache.match(id, q, 400001);
+    cache.match(id, q); // current
+    verify(1, getRequestedFor(urlPathEqualTo("/dataset/316691/match/nameusage")));
+    verify(1, getRequestedFor(urlPathEqualTo("/dataset/400001/match/nameusage")));
+  }
 }

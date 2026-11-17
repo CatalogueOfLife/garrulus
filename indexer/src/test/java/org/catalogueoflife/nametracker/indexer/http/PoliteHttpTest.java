@@ -173,7 +173,7 @@ class PoliteHttpTest {
     assertEquals(Duration.ZERO, h.intervalFor("localhost"));
     assertEquals(Duration.ZERO, h.intervalFor("::1"));
     assertEquals(Duration.ofMillis(50), h.intervalFor("127.0.0.1"));
-    assertEquals(Duration.ofMillis(100), new PoliteHttp(HttpClient.newHttpClient(), PoliteHttp.defaultIntervals(),
+    assertEquals(Duration.ZERO, new PoliteHttp(HttpClient.newHttpClient(), PoliteHttp.defaultIntervals(),
         PoliteHttp.userAgent(), t, t::sleep).intervalFor("api.checklistbank.org"));
     assertEquals(PoliteHttp.DEFAULT_INTERVAL, h.intervalFor("example.org"));
     for (int i = 0; i < 5; i++) h.limiterFor("localhost").acquire();
@@ -197,5 +197,10 @@ class PoliteHttpTest {
     verify(1, getRequestedFor(urlEqualTo("/big")));
     assertTrue(t.sleeps.isEmpty());
     assertEquals(900, h.get(uri(w, "/small"), Map.of()).body().length);
+  }
+
+  @Test
+  void clbHasNoInterval() {
+    assertEquals(Duration.ZERO, PoliteHttp.defaultIntervals().get("api.checklistbank.org"));
   }
 }

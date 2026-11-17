@@ -7,7 +7,7 @@ import org.catalogueoflife.nametracker.store.index.NameMatch;
 import org.springframework.stereotype.Component;
 
 /**
- * Matches in the current XR release, stored per (name string, hint key, release). A stored match is returned as is, so
+ * Matches in an XR release (by default the current one), stored per (name string, hint key, release). A stored match is returned as is, so
  * a name is asked of CLB once per hint set and release. Not transactional: two concurrent misses both ask CLB and the
  * second {@code putMatch} overwrites the first with the same result.
  */
@@ -25,7 +25,11 @@ public class MatchCache {
   }
 
   public NameMatch match(long nameStringId, MatchQuery q) {
-    int release = xr.current();
+    return match(nameStringId, q, xr.current());
+  }
+
+  /** Matches in an explicit release (the cache key includes it), whether or not it is the pinned one. */
+  public NameMatch match(long nameStringId, MatchQuery q, int release) {
     String hintKey = q.hintKey();
     NameMatch hit = index.match(nameStringId, hintKey, release);
     if (hit != null) return hit;

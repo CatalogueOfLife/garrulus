@@ -89,8 +89,10 @@ nametracker:
     # blank means the public pool
     mailto: ${CROSSREF_MAILTO:}
   clb:
-    # ChecklistBank API: the pinned XR (dataset 3LXR) and name matching, at most 10 requests a second
+    # ChecklistBank API: the pinned XR (dataset 3LXR) and name matching, not throttled
     base-url: ${NAMETRACKER_CLB_BASE_URL:https://api.checklistbank.org}
+    # parallel CLB match calls of one XR_PREMATCH task
+    match-parallelism: ${NAMETRACKER_CLB_MATCH_PARALLELISM:8}
     # a local CLB release bundle (http://localhost:18100): serves all match calls and the N1 probe, and tells the release
     # key to pin; not rate limited. Empty means base-url.
     match-base-url: ${NAMETRACKER_CLB_MATCH_BASE_URL:}

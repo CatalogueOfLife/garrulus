@@ -111,12 +111,16 @@ class BundleMatchingIT extends AbstractPostgresIT {
   }
 
   @Test
-  void aBundleOfAnotherReleaseRefusesMatchingNonRetryably() {
+  void mismatchDefersInsteadOfDead() {
     index.addRelease(111, "COL25.01 XR", true);
     long w = workWithName();
+    Instant before = Instant.now();
     assertThatThrownBy(() -> handler.handle(task(w)))
-        .isInstanceOf(NonRetryableTaskException.class).hasMessageContaining("316691").hasMessageContaining("111");
-    assertThat(TaskDispatcher.nonRetryable(new XrMismatchException(111, 316691, "x"))).isTrue();
+        .isInstanceOfSatisfying(ServiceOutageException.class, e -> {
+          assertThat(e.retryAt()).isAfter(before.plus(Duration.ofMinutes(29)));
+          assertThat(e.getCause()).isInstanceOf(XrMismatchException.class);
+          assertThat(e.getCause().getMessage()).contains("316691").contains("111");
+        });
     assertThat(indexed).isEmpty();
     verify(0, getRequestedFor(urlPathEqualTo(M)));
     assertThat(index.currentRelease().key()).isEqualTo(111);
@@ -158,8 +162,9 @@ class BundleMatchingIT extends AbstractPostgresIT {
     jdbc.update("DELETE FROM name_match");
     stubFor(get("/dataset").willReturn(json("{\"key\":999,\"alias\":\"other\"}"))); // swapped, within the TTL
     long w2 = workWithName();
-    assertThatThrownBy(() -> handler.handle(task(w2))).isInstanceOf(XrMismatchException.class)
-        .hasMessageContaining("999").hasMessageContaining("316691");
+    assertThatThrownBy(() -> handler.handle(task(w2))).isInstanceOf(ServiceOutageException.class)
+        .hasRootCauseInstanceOf(XrMismatchException.class).hasRootCauseMessage(
+            new XrMismatchException(316691, 999, "other").getMessage());
     assertThat(jdbc.queryForObject("SELECT count(*) FROM name_match", Integer.class)).isZero();
   }
 
