@@ -82,6 +82,30 @@ class IndexMapperIT extends AbstractPostgresIT {
   }
 
   @Test
+  void updateSalienceHandlesWorksWithTensOfThousandsOfNames() {
+    int n = 25_000; // 3 bind parameters per row in a VALUES list would be 75,000 > 65,535
+    long w = newWork();
+    jdbc.update("INSERT INTO name_string (name, kind) SELECT 'Bulk salience ' || g, 'SCIENTIFIC' FROM generate_series(1, ?) g", n);
+    jdbc.update("INSERT INTO work_name (work_id, name_string_id, mention_count, body_count, in_title, in_abstract,"
+        + " in_heading, only_reference, best_snippet, placement_method, salience, main_subject)"
+        + " SELECT ?, id, 1, 1, false, false, false, false, 's', 'NONE', 0.1, false FROM name_string"
+        + " WHERE name LIKE 'Bulk salience %'", w);
+    List<Long> ids = jdbc.queryForList("SELECT name_string_id FROM work_name WHERE work_id = ? ORDER BY 1", Long.class, w);
+    assertThat(ids).hasSize(n);
+    List<WorkName> upd = new java.util.ArrayList<>();
+    for (int i = 0; i < n; i++) {
+      upd.add(new WorkName(w, ids.get(i), 1, 1, false, false, false, false, List.of(), "s", "NONE", null, List.of(),
+          null, null, i % 2 == 0 ? 0.9f : 0.1f, i % 2 == 0));
+    }
+    assertThat(index.updateSalience(w, upd)).isEqualTo(n / 2);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM work_name WHERE work_id = ? AND main_subject AND salience > 0.8",
+        Integer.class, w)).isEqualTo(n / 2);
+    // unchanged values are not written again
+    assertThat(index.updateSalience(w, upd)).isZero();
+    assertThat(index.updateSalience(w, List.of())).isZero();
+  }
+
+  @Test
   void workNameRoundTrip() {
     long w = newWork();
     long ns = index.nameStringId("Round trip", "SCIENTIFIC", null);

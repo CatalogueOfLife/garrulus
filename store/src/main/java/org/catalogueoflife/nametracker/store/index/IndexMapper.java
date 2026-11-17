@@ -302,7 +302,22 @@ public interface IndexMapper {
       @Param("threshold") double threshold);
 
   /** Sets salience and main_subject of the work's rows, only where either differs; returns the rows changed. */
-  int updateSalience(@Param("workId") long workId, @Param("list") List<WorkName> list);
+  default int updateSalience(long workId, List<WorkName> list) {
+    if (list.isEmpty()) return 0;
+    List<Long> ids = new java.util.ArrayList<>(list.size());
+    List<Float> salience = new java.util.ArrayList<>(list.size());
+    List<Boolean> main = new java.util.ArrayList<>(list.size());
+    for (WorkName o : list) {
+      ids.add(o.nameStringId());
+      salience.add(o.salience());
+      main.add(o.mainSubject());
+    }
+    return updateSalienceArrays(workId, ids, salience, main);
+  }
+
+  /** Array-bound form of {@link #updateSalience}: four parameters however many names the work has. */
+  int updateSalienceArrays(@Param("workId") long workId, @Param("ids") List<Long> ids,
+      @Param("salience") List<Float> salience, @Param("main") List<Boolean> main);
 
   /**
    * Sets codes, taxgroups and has_acts of the work, only if one differs, and leaves state and indexed_at alone.

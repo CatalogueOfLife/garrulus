@@ -499,11 +499,12 @@
     ORDER BY w.id LIMIT #{limit}
   </select>
 
-  <update id="updateSalience">
+  <update id="updateSalienceArrays">
     UPDATE work_name wn SET salience = v.salience, main_subject = v.main_subject
-    FROM (VALUES
-      <foreach collection="list" item="o" separator=",">(#{o.nameStringId}::bigint, #{o.salience}::real, #{o.mainSubject}::boolean)</foreach>
-    ) AS v(name_string_id, salience, main_subject)
+    FROM unnest(#{ids, typeHandler=org.catalogueoflife.nametracker.store.type.LongListTypeHandler},
+                #{salience, typeHandler=org.catalogueoflife.nametracker.store.type.FloatListTypeHandler},
+                #{main, typeHandler=org.catalogueoflife.nametracker.store.type.BooleanListTypeHandler})
+      AS v(name_string_id, salience, main_subject)
     WHERE wn.work_id = #{workId} AND wn.name_string_id = v.name_string_id
       AND (wn.salience IS DISTINCT FROM v.salience OR wn.main_subject IS DISTINCT FROM v.main_subject)
   </update>
