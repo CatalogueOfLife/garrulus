@@ -49,6 +49,12 @@ describe('DesignPage', () => {
     expect(screen.getByRole('heading', { level: 3, name: /Syntelia/ })).toBeInTheDocument();
   });
 
+  it('doesNotTakeFocusOrTrapItInTheOpenMenuDemo', () => {
+    renderApp(<DesignPage />, '/design');
+    expect(screen.getByRole('menuitem', { name: 'Account' })).toBeInTheDocument();
+    expect(document.activeElement).toBe(document.body);
+  });
+
   it('listsTheItalicsRuleAsATable', () => {
     renderApp(<DesignPage />, '/design');
     const table = screen.getByRole('table', { name: 'Italics rule' });

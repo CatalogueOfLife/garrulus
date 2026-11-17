@@ -181,7 +181,7 @@ function Overlays() {
     <>
       <h3 className={styles.sub}>Menu, modal, alert, collapse</h3>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 32, alignItems: 'flex-start' }}>
-        <Menu opened withinPortal={false}>
+        <Menu opened withinPortal={false} trapFocus={false} closeOnEscape={false}>
           <Menu.Target><Button>Menu</Button></Menu.Target>
           <Menu.Dropdown>
             <Menu.Item>Account</Menu.Item>
