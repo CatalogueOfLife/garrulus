@@ -239,6 +239,21 @@ class TaskQueueIT extends AbstractPostgresIT {
   }
 
   @Test
+  void startedIsSetAtClaimAndSurvivesHeartbeatAndComplete() {
+    long id = queue.enqueue("PING", "{}", TaskPriority.LIVE, null);
+    queue.claim(Set.of("PING"), "w1", 1);
+    Instant started = jdbc.queryForObject("SELECT started FROM task WHERE id=?", java.sql.Timestamp.class, id).toInstant();
+    assertThat(started).isNotNull();
+    assertThat(queue.heartbeat(List.of(id))).isEqualTo(1);
+    assertThat(jdbc.queryForObject("SELECT started FROM task WHERE id=?", java.sql.Timestamp.class, id).toInstant())
+        .isEqualTo(started);
+    assertThat(queue.complete(id, 1)).isTrue();
+    assertThat(jdbc.queryForObject("SELECT started FROM task WHERE id=?", java.sql.Timestamp.class, id).toInstant())
+        .isEqualTo(started);
+    assertThat(jdbc.queryForObject("SELECT finished >= started FROM task WHERE id=?", Boolean.class, id)).isTrue();
+  }
+
+  @Test
   void heartbeatKeepsTaskFromBeingStale() {
     long id = queue.enqueue("PING", "{}", TaskPriority.LIVE, null);
     queue.claim(Set.of("PING"), "w1", 1);

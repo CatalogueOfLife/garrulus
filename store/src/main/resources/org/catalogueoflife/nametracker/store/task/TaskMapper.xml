@@ -39,7 +39,7 @@
   </select>
 
   <select id="claim" resultMap="taskResult" flushCache="true">
-    UPDATE task SET state = 'RUNNING', locked_by = #{workerId}, locked_at = now(), attempts = attempts + 1
+    UPDATE task SET state = 'RUNNING', locked_by = #{workerId}, locked_at = now(), started = now(), attempts = attempts + 1
     WHERE id IN (
       SELECT id FROM task
       WHERE state = 'QUEUED' AND run_after &lt;= now()
