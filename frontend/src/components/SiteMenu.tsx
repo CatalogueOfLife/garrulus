@@ -8,6 +8,9 @@ export const SITE_LINKS = [
   { to: '/about', label: 'About' },
 ];
 
+// the current place: underlined in red, as in the inline nav (the font ships no bold)
+const current = { textDecoration: 'underline', textDecorationColor: 'var(--gr-red)', textDecorationThickness: '2px', textUnderlineOffset: '4px' };
+
 const isActive = (to: string, path: string) => (to === '/' ? path === '/' : path === to || path.startsWith(`${to}/`));
 
 /** The three site links: inline from the sm breakpoint up, a burger menu below. */
@@ -16,7 +19,7 @@ export function SiteMenu() {
   const { pathname } = useLocation();
   return (
     <>
-      <Group component="nav" aria-label="Site" gap="md" visibleFrom="sm" wrap="nowrap">
+      <Group component="nav" aria-label="Site" gap={28} visibleFrom="sm" wrap="nowrap">
         {SITE_LINKS.map((l) => (
           <NavLink key={l.to} to={l.to} end={l.to === '/'}
             style={({ isActive: a }) => ({ color: 'inherit',
@@ -34,7 +37,7 @@ export function SiteMenu() {
           {SITE_LINKS.map((l) => (
             <Menu.Item key={l.to} component={NavLink} to={l.to} onClick={close}
               data-active={isActive(l.to, pathname) || undefined}
-              fw={isActive(l.to, pathname) ? 700 : 400}>
+              style={isActive(l.to, pathname) ? current : undefined}>
               {l.label}
             </Menu.Item>
           ))}
