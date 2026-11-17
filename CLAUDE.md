@@ -50,7 +50,8 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
 - `indexer`: `NAMETRACKER_INDEXER_PORT` (8081), `NAMETRACKER_INDEXER_WORKERS`, `NAMETRACKER_INDEXER_POLL_INTERVAL`,
   `NAMETRACKER_INDEXER_MAX_ATTEMPTS`, `NAMETRACKER_INDEXER_BACKOFF`, `NAMETRACKER_INDEXER_STALE_AFTER` (1h),
   `NAMETRACKER_INDEXER_REQUEUE_INTERVAL` (10m), `NAMETRACKER_INDEXER_HEARTBEAT_INTERVAL` (2m). Task delivery is
-  at-least-once, so handlers must be idempotent. `task.started` (V14) is the start of the last attempt; `finished - started` is its run time.
+  at-least-once, so handlers must be idempotent. A finished task claims for the free workers at once; the poll
+  (`NAMETRACKER_INDEXER_POLL_INTERVAL`, 2s) only picks up tasks enqueued by `web` or newly due. `task.started` (V14) is the start of the last attempt; `finished - started` is its run time.
 - `indexer` harvest (see ADR-0004):
   - `NAMETRACKER_HARVEST_ENABLED` is the master switch of all scheduled harvests and **defaults to false**. Tasks
     enqueued by hand run regardless.
