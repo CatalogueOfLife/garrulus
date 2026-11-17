@@ -34,8 +34,10 @@ public abstract class AbstractPostgresIT {
   /** The discard port: connections are refused at once. */
   public static final String UNROUTABLE = "http://127.0.0.1:9";
 
+  /** Every cached test context keeps its own pool of 10 connections open: more than the default 100 in all. */
   @ServiceConnection
-  static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17");
+  static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17")
+      .withCommand("postgres", "-c", "max_connections=300");
 
   static {
     POSTGRES.start();

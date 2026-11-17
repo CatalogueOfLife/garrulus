@@ -79,6 +79,11 @@ public class OpenAlexTeiRoute implements ContentRoute {
   }
 
   @Override
+  public boolean paid() {
+    return true;
+  }
+
+  @Override
   public boolean applies(Work w, @Nullable Source s) {
     return enabled && apiKey != null && s != null && "CORE".equals(s.tier()) && !"BACKFILL".equals(w.origin())
         && Boolean.TRUE.equals(w.openalexHasTei()) && w.openalexId() != null && !w.openalexId().isBlank();

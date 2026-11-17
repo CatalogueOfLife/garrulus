@@ -672,7 +672,7 @@ class PipelineNameFinderTest {
     assertThatThrownBy(() -> d.withOverrides("{\"llmJudgeEnabled\": null}"))
         .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("LLM judge not implemented");
     assertThatThrownBy(() -> new PipelineConfig(d.judgeWeights(), d.judgeBias(), d.judgeThreshold(), d.certainOdds(),
-        d.maxChunkCodePoints(), d.actMaxDistance(), d.enabledGenerators(), true))
+        d.maxChunkCodePoints(), d.actMaxDistance(), d.enabledGenerators(), true, d.epoch()))
         .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("LLM judge not implemented");
   }
 

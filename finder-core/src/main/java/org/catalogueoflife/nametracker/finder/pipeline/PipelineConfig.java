@@ -34,10 +34,12 @@ import java.util.TreeMap;
  * @param actMaxDistance code points allowed between a name and its act marker
  * @param enabledGenerators the candidate generators in use, see {@link PipelineNameFinder} for the markup generator rule
  * @param llmJudgeEnabled must be false: the LLM judge is a documented option that is not implemented
+ * @param epoch the generation of the finder code: part of {@link #configHash()}, so bumping it by hand in
+ *     {@code pipeline-defaults.json} after a finder-core change makes the indexer reprocess every work
  */
 public record PipelineConfig(Map<String, Double> judgeWeights, double judgeBias, double judgeThreshold, double certainOdds,
                              int maxChunkCodePoints, int actMaxDistance, Set<Generator> enabledGenerators,
-                             boolean llmJudgeEnabled) {
+                             boolean llmJudgeEnabled, int epoch) {
   static final String DEFAULTS = "pipeline-defaults.json";
   private static final String LLM = "LLM judge not implemented: llmJudgeEnabled must be false";
   private static final JsonMapper MAPPER = FinderJson.mapper().rebuild()
@@ -51,6 +53,7 @@ public record PipelineConfig(Map<String, Double> judgeWeights, double judgeBias,
     if (judgeWeights == null) throw new IllegalArgumentException("judgeWeights is required");
     if (maxChunkCodePoints <= 0) throw new IllegalArgumentException("maxChunkCodePoints must be positive");
     if (actMaxDistance < 0) throw new IllegalArgumentException("actMaxDistance must not be negative");
+    if (epoch < 0) throw new IllegalArgumentException("epoch must not be negative");
     if (!(judgeThreshold >= 0 && judgeThreshold <= 1)) throw new IllegalArgumentException("judgeThreshold must be in [0, 1]");
     // sorted and enum-ordered, so equal configs serialise (and hash) identically whatever the input order
     judgeWeights = Collections.unmodifiableMap(new TreeMap<>(judgeWeights));

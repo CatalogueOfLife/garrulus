@@ -177,6 +177,14 @@ public interface IndexMapper {
       @Param("taxgroups") List<String> taxgroups, @Param("hasActs") boolean hasActs,
       @Param("releaseKey") int releaseKey);
 
+  /**
+   * Ids of works the finder has seen ({@code current_finder_run} set) after {@code afterId}, ascending, filtered by
+   * the arguments that are not null.
+   */
+  List<Long> seenWorkIds(@Param("afterId") long afterId, @Param("limit") int limit,
+      @Param("sourceId") @Nullable Long sourceId, @Param("workIds") @Nullable List<Long> workIds,
+      @Param("yearFrom") @Nullable Integer yearFrom, @Param("yearTo") @Nullable Integer yearTo);
+
   /** Ids of INDEXED or NOTIFIED works after {@code afterId}, ascending. */
   List<Long> indexedWorkIds(@Param("afterId") long afterId, @Param("limit") int limit);
 

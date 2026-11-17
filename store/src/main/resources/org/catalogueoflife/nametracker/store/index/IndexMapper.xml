@@ -331,6 +331,15 @@
     WHERE id = #{workId}
   </update>
 
+  <select id="seenWorkIds" resultType="long">
+    SELECT id FROM work WHERE current_finder_run IS NOT NULL AND id > #{afterId}
+    <if test="sourceId != null"> AND source_id = #{sourceId}</if>
+    <if test="workIds != null"> AND id = ANY(#{workIds, typeHandler=org.catalogueoflife.nametracker.store.type.LongListTypeHandler})</if>
+    <if test="yearFrom != null"> <![CDATA[ AND year >= #{yearFrom} ]]></if>
+    <if test="yearTo != null"> <![CDATA[ AND year <= #{yearTo} ]]></if>
+    ORDER BY id LIMIT #{limit}
+  </select>
+
   <select id="indexedWorkIds" resultType="long">
     SELECT id FROM work WHERE state IN ('INDEXED','NOTIFIED') AND id > #{afterId} ORDER BY id LIMIT #{limit}
   </select>

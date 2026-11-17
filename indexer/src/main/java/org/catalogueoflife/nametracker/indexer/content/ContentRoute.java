@@ -15,4 +15,9 @@ public interface ContentRoute {
 
   /** Empty when the route has nothing; throws only for retryable problems. */
   Optional<FetchedContent> fetch(Work w, @Nullable Source s);
+
+  /** True for a route that costs money per call; {@code RESOLVE_CONTENT} with {@code freeOnly} skips it. */
+  default boolean paid() {
+    return false;
+  }
 }

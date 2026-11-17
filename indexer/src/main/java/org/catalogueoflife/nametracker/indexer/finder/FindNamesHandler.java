@@ -23,6 +23,7 @@ import org.catalogueoflife.nametracker.finder.api.Mention;
 import org.catalogueoflife.nametracker.finder.api.NameFinder;
 import org.catalogueoflife.nametracker.finder.gnfinder.GnfinderUnavailableException;
 import org.catalogueoflife.nametracker.finder.remote.FinderUnavailableException;
+import org.catalogueoflife.nametracker.indexer.content.ResolveContentHandler;
 import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.content.ContentMapper;
@@ -41,6 +42,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.databind.JsonNode;
 
 /**
  * {@code FIND_NAMES}, payload {@code {"workId":n}}. Loads the document of the work, runs the {@link NameFinder} and, in
@@ -52,6 +54,13 @@ import org.springframework.transaction.support.TransactionTemplate;
  * run_after. A work without text skips the finder (on a re-index its empty result still replaces the old names). A
  * context's verbatim is stored capped at 200 code points. An outage of the finder defers the task by 30 minutes without
  * using an attempt. Without a configured finder this handler is not enabled and its tasks wait in the queue.
+ *
+ * <p>With {@code "force":true} (reprocessing) the finder runs even when the document was already named. When a named
+ * FULLTEXT work's full text is gone (spool purged, blob missing), a forced run does not fall back to the abstract: it
+ * writes nothing and enqueues {@code RESOLVE_CONTENT {"workId":n,"freeOnly":true,"reprocess":true}} (dedup
+ * {@code content:<id>:reprocess:<configHash12>}), which fetches the text again from the free routes and, if it finds
+ * it, enqueues a forced FIND_NAMES marked {@code "refetched":true}. Such a run never asks for another re-fetch: if the
+ * text is gone again, the work keeps its names (WARN).
  */
 @Component
 public class FindNamesHandler implements TaskHandler {
@@ -105,7 +114,9 @@ public class FindNamesHandler implements TaskHandler {
 
   @Override
   public void handle(Task task) throws Exception {
-    long workId = FinderJson.mapper().readTree(task.payload()).path("workId").asLong();
+    JsonNode payload = FinderJson.mapper().readTree(task.payload());
+    long workId = payload.path("workId").asLong();
+    boolean force = payload.path("force").asBoolean(false);
     Work work = works.get(workId);
     if (work == null) {
       LOG.warn("FIND_NAMES for unknown work {}", workId);
@@ -115,12 +126,16 @@ public class FindNamesHandler implements TaskHandler {
     // Never fall back to the abstract when the full text that was already named is merely gone from the spool.
     String chosen = DocumentLoader.chosenSha(work, work.textLevel(), contents.listByWork(workId));
     Named named = named(workId);
-    if (named != null && chosen.equals(named.sha())) {
+    if (!force && named != null && chosen.equals(named.sha())) {
       finish(task, workId, named.run(), chosen, chosen);
       return;
     }
 
     DocumentLoader.Loaded loaded = loader.load(work);
+    if (force && named != null && "abstract".equals(loaded.diagnostics().get("fallback"))) {
+      refetch(task, workId, payload.path("refetched").asBoolean(false));
+      return;
+    }
     Document doc = loaded.doc();
     Map<String, String> diagnostics = new LinkedHashMap<>(loaded.diagnostics());
 
@@ -134,7 +149,7 @@ public class FindNamesHandler implements TaskHandler {
     tx.executeWithoutResult(status -> {
       index.lockWork(workId); // finder runs on one work are serial; re-check what the winner did
       Named current = named(workId);
-      if (current != null && (current.sha().equals(chosen) || current.sha().equals(loaded.docSha()))) {
+      if (!force && current != null && (current.sha().equals(chosen) || current.sha().equals(loaded.docSha()))) {
         runId[0] = current.run();
         namedSha[0] = current.sha();
         return;
@@ -156,6 +171,21 @@ public class FindNamesHandler implements TaskHandler {
       namedSha[0] = loaded.docSha();
     });
     finish(task, workId, runId[0], namedSha[0], loaded.docSha());
+  }
+
+  /**
+   * A forced run whose full text is gone: asks the free routes for it again, keeping the names meanwhile, unless this
+   * run already followed such a re-fetch.
+   */
+  private void refetch(Task task, long workId, boolean refetched) {
+    if (refetched) {
+      LOG.warn("Full text of work {} is gone again after its re-fetch: the work keeps its names", workId);
+      return;
+    }
+    String hash = guarded(finder::info).configHash();
+    queue.enqueue(ResolveContentHandler.TYPE, "{\"workId\":" + workId + ",\"freeOnly\":true,\"reprocess\":true}",
+        task.priority(), "content:" + workId + ":reprocess:" + hash.substring(0, Math.min(12, hash.length())),
+        task.runAfter());
   }
 
   /** The document sha and finder run the work was last named with. */

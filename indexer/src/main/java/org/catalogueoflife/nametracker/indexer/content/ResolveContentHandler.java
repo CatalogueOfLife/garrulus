@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.finder.DocumentLoader;
 import org.catalogueoflife.nametracker.indexer.finder.FindNamesHandler;
@@ -47,6 +48,11 @@ import tools.jackson.databind.JsonNode;
  * days (or undated), is looked at again 7, 30 and 90 days after it was first seen (dedup key
  * {@code content:<workId>:recheck:<k>}). The rules are checked again after each re-check, so a work that no longer
  * qualifies is resolved once more and then left alone.
+ *
+ * <p>With {@code "freeOnly":true} the paid routes ({@link ContentRoute#paid()}) are skipped. {@code "reprocess":true}
+ * comes from a forced FIND_NAMES whose full text is gone: a full text found is stored as usual and a forced FIND_NAMES
+ * ({@code "refetched":true}) follows even when the document is unchanged; when none is found, nothing is written and
+ * nothing follows, so the work keeps its content, text level and names (counted in an INFO line).
  */
 @Component
 public class ResolveContentHandler implements TaskHandler {
@@ -55,6 +61,8 @@ public class ResolveContentHandler implements TaskHandler {
   static final int[] RECHECK_DAYS = {7, 30, 90};
   static final int RECHECK_MAX_AGE_DAYS = 90;
   private static final Logger LOG = LoggerFactory.getLogger(ResolveContentHandler.class);
+  /** Works since start that kept their names because their full text was no longer free to get. */
+  private final AtomicLong kept = new AtomicLong();
 
   private final List<ContentRoute> routes;
   private final WorkMapper works;
@@ -102,6 +110,8 @@ public class ResolveContentHandler implements TaskHandler {
   public void handle(Task task) throws Exception {
     JsonNode payload = FinderJson.mapper().readTree(task.payload());
     long workId = payload.path("workId").asLong();
+    boolean freeOnly = payload.path("freeOnly").asBoolean(false);
+    boolean reprocess = payload.path("reprocess").asBoolean(false);
     Work work = works.get(workId);
     if (work == null) {
       LOG.warn("RESOLVE_CONTENT for unknown work {}", workId);
@@ -110,7 +120,12 @@ public class ResolveContentHandler implements TaskHandler {
     Source source = work.sourceId() == null ? null : sources.get(work.sourceId());
 
     List<FetchedContent> results = new ArrayList<>();
-    FetchedContent full = fullText(work, source);
+    FetchedContent full = fullText(work, source, freeOnly);
+    if (reprocess && full == null) {
+      LOG.info("Work {} keeps its names: its full text is no longer free to get ({} works kept since start)", workId,
+          kept.incrementAndGet());
+      return;
+    }
     if (full != null) results.add(full);
     if (AbstractRoute.present(work)) results.add(AbstractRoute.fetch(work));
 
@@ -149,20 +164,26 @@ public class ResolveContentHandler implements TaskHandler {
     List<Content> stored = contents.listByWork(workId);
     String chosen = DocumentLoader.chosenSha(work, finalLevel, stored);
     String pendingSha = index.pendingDocSha(workId);
-    if (!chosen.equals(pendingSha != null ? pendingSha : index.namesDocSha(workId))) {
+    if (reprocess || !chosen.equals(pendingSha != null ? pendingSha : index.namesDocSha(workId))) {
       // closed full text waits in the transient spool until FIND_NAMES has run; only when that task follows
       if (closed.containsKey(chosen)) spool.put(workId, chosen, closed.get(chosen));
       // the follow-up takes this task's place in the queue (priority and run_after): depth first
-      queue.enqueue(FindNamesHandler.TYPE, "{\"workId\":" + workId + "}", task.priority(),
-          "names:" + workId + ":" + chosen.substring(0, 12), task.runAfter());
+      if (reprocess) {
+        queue.enqueue(FindNamesHandler.TYPE, "{\"workId\":" + workId + ",\"force\":true,\"refetched\":true}",
+            task.priority(), "find:" + workId + ":force:refetched:" + chosen.substring(0, 12), task.runAfter());
+      } else {
+        queue.enqueue(FindNamesHandler.TYPE, "{\"workId\":" + workId + "}", task.priority(),
+            "names:" + workId + ":" + chosen.substring(0, 12), task.runAfter());
+      }
     }
 
     if ("ABSTRACT_ONLY".equals(finalLevel)) scheduleRecheck(task, work, source);
   }
 
-  private FetchedContent fullText(Work work, Source source) {
+  private FetchedContent fullText(Work work, Source source, boolean freeOnly) {
     for (ContentRoute r : routes) {
       try {
+        if (freeOnly && r.paid()) continue;
         if (!r.applies(work, source)) continue;
         Optional<FetchedContent> got = r.fetch(work, source);
         if (got.isPresent() && got.get().fulltext()) return got.get();
