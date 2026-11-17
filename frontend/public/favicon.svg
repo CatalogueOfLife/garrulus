@@ -1,21 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-labelledby="t">
-  <title id="t">Garrulus</title>
-  <defs>
-    <clipPath id="vane">
-      <path d="M16 2C21.6 3.8 23.4 11 20.9 18C19.7 21.4 18 23.8 16.7 25H15.3C13 22.6 10.3 18 10.2 12.6C10.1 7.4 12.4 3.3 16 2Z"/>
-    </clipPath>
-  </defs>
-  <g transform="rotate(35 16 16)">
-    <g clip-path="url(#vane)">
-      <rect x="9" y="1" width="15" height="25" fill="#2A6FBA"/>
-      <rect x="9" y="1" width="15" height="2.4" fill="#100F0F"/>
-      <rect x="9" y="3.4" width="15" height="2.1" fill="#A8CEF2"/>
-      <rect x="9" y="7.5" width="15" height="1.5" fill="#100F0F"/>
-      <rect x="9" y="9" width="15" height="2.1" fill="#A8CEF2"/>
-      <rect x="9" y="13.1" width="15" height="1.5" fill="#100F0F"/>
-      <rect x="9" y="14.6" width="15" height="2.1" fill="#A8CEF2"/>
-      <rect x="9" y="18.7" width="15" height="7.3" fill="#2A2826"/>
-    </g>
-    <path d="M16 4.5V30.5" stroke="#14365B" stroke-width="1.1" stroke-linecap="round"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="3 7 96 96">
+  <title>Garrulus</title>
+  <style>@media (prefers-color-scheme: dark){path{fill:#fff}}</style>
+  <path fill="#000" fill-rule="evenodd" d="M 97 52 C 90 47.5 82 45 74 44.5 C 71 35 63 28.4 52 26 C 40 23.38 24 16 5 15 C 17 21 24 26 28 30 C 19 30 12 33 6 39 C 16 39 24 41 30 45 C 22 57 23 74 36 95 C 42 84 49.9 73.9 60 67 C 66 62.9 72 60.38 78 59 C 85 57.39 91 55.5 97 52 Z
+    M 56.4 41 A 4.6 4.6 0 1 0 65.6 41 A 4.6 4.6 0 1 0 56.4 41 Z
+    M 28 30 C 40 28.6 49.5 40 48 62 C 45.3 46.2 37.8 36.4 28 30 Z
+    M 30 45 C 39 51 41.2 61.5 38 82 C 35 67 34.3 53.5 30 45 Z
+    M 78 54.5 C 70 49.6 54.6 61.6 49 73.5 C 56.5 65.5 67 59.8 78 54.5 Z"/>
 </svg>

@@ -9,8 +9,8 @@ notifies users who follow taxa, journals or names. It also builds a public nameâ
   database, systemd units `col-nametracker-*`, the repo.
 - **Public name "Garrulus"** (the European jay): everything users see. That covers the UI, logo, page titles, emails,
   feeds, public URLs and the outgoing HTTP User-Agent `Garrulus/<version> (+https://www.catalogueoflife.org)`.
-- **Brand:** logo, jay colour palette and the Mantine theme are in `docs/brand/`. Take colours from there; never invent
-  new ones.
+- **Brand:** logo, colour tokens (black, white, one red), typeface and the Mantine theme are in `docs/brand/` and
+  `frontend/src/styles/tokens.css`. Take colours from there; never invent new ones.
 
 **Status:** design approved 2026-11-14. M0 (foundations), M1 (finder v1), M2 (harvest and content) and M3 (match and
 index: ADR-0005), M4 (accounts and alerts: ADR-0006; local only, deployment comes last) and M5 (lifecycle and
