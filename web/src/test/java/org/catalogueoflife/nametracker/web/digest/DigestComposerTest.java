@@ -30,7 +30,7 @@ class DigestComposerTest {
       String title) {
     Hit h = new Hit(hitId, subscriptionId, workId, kind, T0.plusSeconds(hitId), names, null);
     WorkSummary w = new WorkSummary(workId, "10.1/w" + workId, title, 2026, LocalDate.of(2026, 11, 1),
-        new SourceRef(3, "Zootaxa"), List.of(), 0, "ABSTRACT_ONLY", hasActs, List.of());
+        new SourceRef(3, "Zootaxa"), List.of(), 0, "ABSTRACT_ONLY", hasActs, List.of(), null, null, null);
     return new Paper(h, w);
   }
 
@@ -148,7 +148,7 @@ class DigestComposerTest {
   void doiLinksArePercentEncoded() {
     String sici = "10.1002/(SICI)1097-4636(199706)35:4<477::AID-JBM8>3.0.CO;2-#";
     Paper p = new Paper(new Hit(1L, 9, 1, "ARTICLE", T0, article("A b"), null), new WorkSummary(1, sici, "SICI paper",
-        1997, null, null, List.of(), 0, "ABSTRACT_ONLY", false, List.of()));
+        1997, null, null, List.of(), 0, "ABSTRACT_ONLY", false, List.of(), null, null, null));
     Mail m = composer.compose(USER, List.of(new SubscriptionHits(9, "x", List.of(p))), URL);
     String link = "https://doi.org/10.1002/(SICI)1097-4636(199706)35:4%3C477::AID-JBM8%3E3.0.CO;2-%23";
     assertThat(m.text()).contains(link + "\n");

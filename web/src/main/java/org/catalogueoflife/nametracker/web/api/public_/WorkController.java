@@ -156,7 +156,8 @@ public class WorkController {
     Map<Long, List<NameRef>> mainNames = hits.isEmpty() ? Map.of()
         : search.mainNames(hits.stream().map(WorkHit::id).toList()).stream().collect(
             Collectors.groupingBy(MainNameRow::workId, LinkedHashMap::new,
-                Collectors.mapping(r -> new NameRef(r.nameStringId(), r.name(), r.placementMethod(), r.usageId()),
+                Collectors.mapping(r -> new NameRef(r.nameStringId(), r.name(), r.placementMethod(), r.usageId(), r.kind(),
+                    r.rank(), r.usageRank(), r.actTypes()),
                     Collectors.toList())));
     return hits.stream().map(h -> summary(h, mainNames.getOrDefault(h.id(), List.of()))).toList();
   }
@@ -237,7 +238,7 @@ public class WorkController {
     return new WorkSummary(h.id(), h.doi(), h.title(), h.year(), h.publicationDate(),
         h.sourceId() == null ? null : new SourceRef(h.sourceId(), h.sourceTitle()),
         all.stream().limit(3).map(Author::name).toList(), all.size(), h.textLevel(), h.hasActs(),
-        mainNames.size() > 5 ? mainNames.subList(0, 5) : mainNames);
+        mainNames.size() > 5 ? mainNames.subList(0, 5) : mainNames, h.volume(), h.issue(), h.pages());
   }
 
   private static List<Author> authors(@Nullable String json) {

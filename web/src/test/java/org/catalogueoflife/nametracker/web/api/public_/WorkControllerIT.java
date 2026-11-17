@@ -51,6 +51,7 @@ class WorkControllerIT extends AbstractPostgresIT {
   @BeforeEach
   void clean() {
     jdbc.update("DELETE FROM work");
+    jdbc.update("DELETE FROM name_match");
     jdbc.update("DELETE FROM name_string");
   }
 
@@ -114,6 +115,29 @@ class WorkControllerIT extends AbstractPostgresIT {
     assertThat(s.path("mainNames").get(0).path("usageId").asString()).isEqualTo("U1");
     assertThat(r.path("facets").path("code").get(0).path("value").asString()).isEqualTo("ZOOLOGICAL");
     assertThat(r.path("facets").path("year").get(0).path("count").asLong()).isEqualTo(1);
+  }
+
+  @Test
+  void searchSummaryCarriesRankActsAndPages() throws Exception {
+    long w = work("10.1/rk", "Ranks");
+    jdbc.update("UPDATE work SET volume='1297', issue='3', pages='311-337' WHERE id = ?", w);
+    long ns = nameString("Abies alba");
+    jdbc.update("INSERT INTO work_name (work_id, name_string_id, mention_count, body_count, in_title, in_abstract, "
+        + "in_heading, only_reference, act_types, best_snippet, placement_method, usage_id, taxon_path, salience, "
+        + "main_subject) VALUES (?, ?, 1, 1, true, false, false, false, '{SP_NOV}', 's', 'MATCH', 'U1', '{U1,R}', "
+        + "0.9, true)", w, ns);
+    jdbc.update("INSERT INTO xr_release (key, alias, current) VALUES (1, 'x', true) ON CONFLICT DO NOTHING");
+    jdbc.update("INSERT INTO name_match (name_string_id, hint_key, release_key, match_type, usage_id, usage_rank) "
+        + "VALUES (?, '', 1, 'EXACT', 'U1', 'species')", ns);
+    JsonNode s = JSON.readTree(get("/api/works").body()).path("results").get(0);
+    assertThat(s.path("volume").asString()).isEqualTo("1297");
+    assertThat(s.path("issue").asString()).isEqualTo("3");
+    assertThat(s.path("pages").asString()).isEqualTo("311-337");
+    JsonNode n = s.path("mainNames").get(0);
+    assertThat(n.path("rank").asString()).isEqualTo("species");
+    assertThat(n.path("kind").asString()).isEqualTo("SCIENTIFIC");
+    assertThat(n.path("usageRank").asString()).isEqualTo("species");
+    assertThat(n.path("actTypes").get(0).asString()).isEqualTo("SP_NOV");
   }
 
   @Test

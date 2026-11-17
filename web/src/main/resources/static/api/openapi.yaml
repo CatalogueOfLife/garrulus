@@ -478,12 +478,16 @@ components:
         title: {type: string}
     NameRef:
       type: object
-      required: [id, name, placementMethod]
+      required: [id, name, placementMethod, actTypes]
       properties:
         id: {type: integer, format: int64}
         name: {type: string}
         placementMethod: {type: string, enum: [MATCH, GENUS, VERBATIM_CONTEXT, NONE]}
         usageId: {type: [string, "null"]}
+        kind: {type: [string, "null"]}
+        rank: {type: [string, "null"]}
+        usageRank: {type: [string, "null"]}
+        actTypes: {type: array, items: {type: string}}
     SubscriptionRequest:
       type: object
       properties:
@@ -553,6 +557,9 @@ components:
         textLevel: {type: [string, "null"], enum: [FULLTEXT, ABSTRACT_ONLY, NO_TEXT, null]}
         hasActs: {type: boolean}
         mainNames: {type: array, items: {$ref: "#/components/schemas/NameRef"}}
+        volume: {type: [string, "null"]}
+        issue: {type: [string, "null"]}
+        pages: {type: [string, "null"]}
     FacetCount:
       type: object
       required: [value, count]
