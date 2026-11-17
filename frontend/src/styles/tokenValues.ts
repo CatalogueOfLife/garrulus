@@ -1,6 +1,6 @@
 /**
  * Reads the `--gr-*` custom properties out of tokens.css: `light` from the `:root` block, `dark` from the
- * `:root[data-mantine-color-scheme='dark']` block. Keys keep their leading `--` (for example `--gr-paper`).
+ * `[data-mantine-color-scheme='dark']` block (on any element, so a nested scope can be dark; `:root[…]` is read too). Keys keep their leading `--` (for example `--gr-paper`).
  */
 export function parseTokens(css: string): { light: Record<string, string>; dark: Record<string, string> } {
   const out = { light: {} as Record<string, string>, dark: {} as Record<string, string> };
@@ -10,7 +10,7 @@ export function parseTokens(css: string): { light: Record<string, string>; dark:
     const target =
       selector === ':root'
         ? out.light
-        : /^:root\[data-mantine-color-scheme=['"]dark['"]\]$/.test(selector)
+        : /^(?::root)?\[data-mantine-color-scheme=['"]dark['"]\]$/.test(selector)
           ? out.dark
           : null;
     if (!target) continue;

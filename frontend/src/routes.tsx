@@ -15,6 +15,7 @@ import { FollowingPage } from './pages/FollowingPage';
 import { HitsPage } from './pages/HitsPage';
 import { JournalsPage } from './pages/JournalsPage';
 import { AboutPage } from './pages/AboutPage';
+import { DesignPage } from './pages/DesignPage';
 
 export function AppRoutes() {
   return (
@@ -33,6 +34,7 @@ export function AppRoutes() {
       <Route path="/journals" element={<JournalsPage />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="/hits" element={<HitsPage />} />
+      <Route path="/design" element={<DesignPage />} />
       <Route path="*" element={
         <EmptyState title="Page not found" action={<Button component={Link} to="/">Go to the search</Button>}>
           There is nothing at this address.

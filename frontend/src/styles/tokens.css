@@ -39,7 +39,7 @@
   --gr-side: 340px;
 }
 
-:root[data-mantine-color-scheme='dark'] {
+[data-mantine-color-scheme='dark'] {
   --gr-paper: #000000;
   --gr-ink: #ffffff;
   --gr-grey: #9a9a9a;
