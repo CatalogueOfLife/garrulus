@@ -11,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.catalogueoflife.nametracker.indexer.backfill.SnapshotFixtures.record;
 
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -25,8 +26,12 @@ import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.work.Work;
 import org.catalogueoflife.nametracker.store.work.WorkMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 
+@ExtendWith(OutputCaptureExtension.class)
 class BackfillIT extends AbstractBackfillIT {
 
   static final String FILE = "data/jsonl/works/updated_date=2026-10-01/part_0000.gz";
@@ -39,7 +44,7 @@ class BackfillIT extends AbstractBackfillIT {
     source("S1", "CORE");
     source("S2", "BROAD");
     source("S3", "CANDIDATE");
-    manifest(FILE);
+    manifest(file(FILE, 6));
     serve(FILE, List.of(
         record("W1", "S1", 2005, "article"),
         record("W2", "S2", 2001, "review"),
@@ -95,7 +100,7 @@ class BackfillIT extends AbstractBackfillIT {
     Instant firstSeen = Instant.now().minus(30, ChronoUnit.DAYS).truncatedTo(ChronoUnit.MILLIS);
     long live = jdbc.queryForObject("INSERT INTO work (doi, source_id, title, origin, first_seen_at) "
         + "VALUES ('10.5555/w1', ?, 'Live title', 'LIVE', ?) RETURNING id", Long.class, s1, Timestamp.from(firstSeen));
-    manifest(FILE);
+    manifest(file(FILE, 1));
     serve(FILE, List.of(record("W1", "S1", 2005, "article")));
 
     enqueueBackfill("{\"fromYear\":2000,\"toYear\":2026}");
@@ -153,11 +158,47 @@ class BackfillIT extends AbstractBackfillIT {
   }
 
   @Test
+  void repeatedBackfillResumesADeadFile() throws Exception {
+    sixRecords();
+    enqueueBackfill("{\"fromYear\":2000,\"toYear\":2026}");
+    assertThat(step()).isTrue();
+    Task dead = claim();
+    assertThat(queue.fail(dead.id(), dead.attempts(), "gave up", 1, Duration.ZERO)).isTrue();
+    assertThat(claim()).isNull();
+
+    enqueueBackfill("{\"fromYear\":2000,\"toYear\":2026}");
+    assertThat(step()).isTrue(); // the BACKFILL: same run, a new task for the file whose task is DEAD
+    long run = onlyRun();
+    assertThat(jdbc.queryForList("SELECT state FROM task WHERE type = 'BACKFILL_FILE' AND dedup_key = ? ORDER BY id",
+        String.class, "backfill:" + run + ":0")).containsExactly("DEAD", "QUEUED");
+    drain();
+    assertThat(runs.getRun(run).state()).isEqualTo("DONE");
+    assertThat(count("SELECT count(*) FROM work")).isEqualTo(2);
+  }
+
+  @Test
+  void recordCountOtherThanTheManifestsIsLogged(CapturedOutput out) throws Exception {
+    source("S1", "CORE");
+    manifest(file(FILE, 7));
+    serve(FILE, List.of(record("W1", "S1", 2005, "article"), record("W2", "S1", 2005, "article")));
+
+    enqueueBackfill("{\"fromYear\":2000,\"toYear\":2026}");
+    drain();
+
+    assertThat(out.getOut()).contains("file 0: 2 records read, the manifest says 7");
+    assertThat(runs.getRun(onlyRun()).state()).isEqualTo("DONE"); // a WARN, not a failure
+  }
+
+  @Test
   void sliceTakesOnlyGivenFiles() throws Exception {
     source("S1", "CORE");
     String[] paths = new String[4];
-    for (int i = 0; i < 4; i++) paths[i] = "data/jsonl/works/updated_date=2026-0" + (i + 1) + "-01/part_000" + i + ".gz";
-    manifest(paths);
+    SnapshotFixtures.Entry[] entries = new SnapshotFixtures.Entry[4];
+    for (int i = 0; i < 4; i++) {
+      paths[i] = "data/jsonl/works/updated_date=2026-0" + (i + 1) + "-01/part_000" + i + ".gz";
+      entries[i] = file(paths[i], 1);
+    }
+    manifest(entries);
     serve(paths[1], List.of(record("W-p1", "S1", 2020, "article")));
     serve(paths[2], List.of(record("W-p2", "S1", 2021, "review")));
 
@@ -175,6 +216,8 @@ class BackfillIT extends AbstractBackfillIT {
     assertThat(jdbc.queryForList("SELECT dedup_key FROM task WHERE type = 'BACKFILL_FILE' AND priority = ? "
         + "ORDER BY dedup_key", String.class, TaskPriority.BACKFILL.code()))
         .containsExactly("backfill:" + run + ":1", "backfill:" + run + ":2");
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'BACKFILL_FILE' AND payload = ?::jsonb",
+        "{\"runId\":" + run + ",\"idx\":1,\"records\":1}")).isEqualTo(1);
 
     assertThat(step()).isTrue();
     assertThat(runs.getRun(run).state()).isEqualTo("RUNNING"); // one file still to go
@@ -196,7 +239,7 @@ class BackfillIT extends AbstractBackfillIT {
   @Test
   void backfillWorkNeverUsesOpenAlexContent() throws Exception {
     long s1 = source("S1", "CORE");
-    manifest(FILE);
+    manifest(file(FILE, 1));
     serve(FILE, List.of(record("W1", "S1", 2005, "article", true)));
     // the free routes find nothing: Europe PMC knows neither work, so PMC has no PMCID to fetch
     stubFor(get(urlPathEqualTo("/rest/search")).willReturn(aResponse().withHeader("Content-Type", "application/json")

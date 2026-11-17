@@ -51,18 +51,29 @@ final class SnapshotFixtures {
     return record(id, source, year, type, false);
   }
 
-  /** A manifest with the given works file paths (relative to the bucket) and an authors entity besides. */
+  /** A works file of a manifest: its path in the bucket and its record count. */
+  record Entry(String path, long records) {
+  }
+
+  /** A manifest with the given works file paths (relative to the bucket), record counts 10, 11, …. */
   static String manifest(String date, String... worksPaths) {
+    Entry[] entries = new Entry[worksPaths.length];
+    for (int i = 0; i < worksPaths.length; i++) entries[i] = new Entry(worksPaths[i], 10 + i);
+    return manifest(date, entries);
+  }
+
+  /** A manifest with the given works files and an authors entity besides; content lengths 1000, 1001, …. */
+  static String manifest(String date, Entry... worksFiles) {
     StringBuilder files = new StringBuilder();
-    for (int i = 0; i < worksPaths.length; i++) {
+    for (int i = 0; i < worksFiles.length; i++) {
       if (i > 0) files.append(',');
-      files.append("{\"url\":\"s3://openalex/").append(worksPaths[i]).append("\",\"meta\":{\"content_length\":")
-          .append(1000 + i).append(",\"record_count\":").append(10 + i).append("}}");
+      files.append("{\"url\":\"s3://openalex/").append(worksFiles[i].path()).append("\",\"meta\":{\"content_length\":")
+          .append(1000 + i).append(",\"record_count\":").append(worksFiles[i].records()).append("}}");
     }
     return "{\"date\":\"" + date + "\",\"format\":\"jsonl\",\"meta\":{\"content_length\":1,\"record_count\":1},"
         + "\"entities\":[{\"entity\":\"authors\",\"record_count\":1,\"content_length\":1,\"files\":[{\"url\":"
         + "\"s3://openalex/data/jsonl/authors/updated_date=2026-01-01/part_0000.gz\",\"meta\":{\"content_length\":1,"
-        + "\"record_count\":1}}]},{\"entity\":\"works\",\"record_count\":" + worksPaths.length + ",\"content_length\":1,"
+        + "\"record_count\":1}}]},{\"entity\":\"works\",\"record_count\":" + worksFiles.length + ",\"content_length\":1,"
         + "\"files\":[" + files + "]}]}";
   }
 }

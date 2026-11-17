@@ -61,9 +61,14 @@
     SELECT * FROM backfill_file WHERE run_id = #{runId} ORDER BY idx
   </select>
 
+  <update id="addCreated">
+    UPDATE backfill_file SET works_created = COALESCE(works_created, 0) + #{n}
+    WHERE run_id = #{runId} AND idx = #{idx} AND done_at IS NULL
+  </update>
+
   <update id="finishFile">
-    UPDATE backfill_file SET records_read = #{read}, records_kept = #{kept}, works_created = #{created},
-      done_at = now()
+    UPDATE backfill_file SET records_read = #{read}, records_kept = #{kept},
+      works_created = COALESCE(works_created, 0), done_at = now()
     WHERE run_id = #{runId} AND idx = #{idx} AND done_at IS NULL
   </update>
 

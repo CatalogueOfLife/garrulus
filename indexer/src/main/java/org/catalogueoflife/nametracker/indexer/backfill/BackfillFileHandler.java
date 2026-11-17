@@ -31,7 +31,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
 
 /**
- * {@code BACKFILL_FILE}, payload {@code {"runId":r,"idx":i}}: streams one works file of the OpenAlex snapshot
+ * {@code BACKFILL_FILE}, payload {@code {"runId":r,"idx":i,"records":n}} ({@code records} optional): streams one works file of the OpenAlex snapshot
  * ({@link SnapshotClient#stream}) and keeps a record when its {@code primary_location.source.id} is an active CORE or
  * BROAD source (onboarded or not; the map is read once per task), its {@code publication_year} lies in the run's years
  * and its {@code type} is {@code article} or {@code review}. A kept record is mapped like a harvested one
@@ -40,8 +40,10 @@ import tools.jackson.databind.JsonNode;
  * at BACKFILL priority, dedup {@code content:<id>}, in the transaction of its insert. Inserts are committed in chunks
  * of {@value #CHUNK} kept records.
  *
- * <p>At the end of the file one transaction (run row locked) writes the counters (records read, kept, works created by
- * this pass) and {@code done_at}, and marks the run DONE when that was its last file. A file already done is skipped.
+ * <p>works_created grows in the transaction of each chunk, so it counts every work the file created, a pass that broke
+ * off included. At the end of the file one transaction (run row locked) writes records read and kept of this pass and
+ * {@code done_at}, and marks the run DONE when that was its last file. A read count other than the manifest's
+ * ({@code records}) is logged as a WARN. A file already done is skipped.
  * A file that cannot be fetched for a retryable reason (429, 5xx, no connection) is an outage, deferred without using an
  * attempt; a file that breaks off midway fails and is read again from the start, where the chunks committed before
  * create nothing twice.
@@ -83,6 +85,7 @@ public class BackfillFileHandler implements TaskHandler {
     JsonNode p = FinderJson.mapper().readTree(task.payload());
     long runId = p.path("runId").asLong();
     int idx = p.path("idx").asInt();
+    Long expected = p.hasNonNull("records") ? p.path("records").asLong() : null;
     BackfillRun run = backfill.getRun(runId);
     BackfillFile file = run == null ? null : backfill.getFile(runId, idx);
     if (file == null) {
@@ -98,7 +101,7 @@ public class BackfillFileHandler implements TaskHandler {
     for (Source s : sources.listBackfillable()) {
       if (s.openalexId() != null) sourceIds.put(s.openalexId(), s.id());
     }
-    Pass pass = new Pass(run.fromYear(), run.toYear(), sourceIds);
+    Pass pass = new Pass(runId, idx, run.fromYear(), run.toYear(), sourceIds);
     try {
       snapshot.stream(file.url(), pass::accept);
     } catch (RuntimeException e) {
@@ -108,18 +111,24 @@ public class BackfillFileHandler implements TaskHandler {
       throw e;
     }
     pass.flush();
+    if (expected != null && expected != pass.read) {
+      LOG.warn("Backfill run {} file {}: {} records read, the manifest says {}: {}", runId, idx, pass.read, expected,
+          file.url());
+    }
 
     boolean last = Boolean.TRUE.equals(tx.execute(status -> {
       backfill.lockRun(runId); // the last two files of a run must not both miss that the other is done
-      backfill.finishFile(runId, idx, pass.read, pass.kept, pass.created);
+      backfill.finishFile(runId, idx, pass.read, pass.kept);
       return backfill.finishRunIfComplete(runId) > 0;
     }));
-    LOG.info("Backfill run {} file {}: {} records read, {} kept, {} works created{}", runId, idx, pass.read, pass.kept,
-        pass.created, last ? "; the run is DONE" : "");
+    LOG.info("Backfill run {} file {}: {} records read, {} kept, {} works created in this pass{}", runId, idx,
+        pass.read, pass.kept, pass.created, last ? "; the run is DONE" : "");
   }
 
   /** One read of the file: the counters and the kept works not yet inserted. */
   private final class Pass {
+    final long runId;
+    final int idx;
     final int fromYear;
     final int toYear;
     final Map<String, Long> sourceIds;
@@ -128,7 +137,9 @@ public class BackfillFileHandler implements TaskHandler {
     long kept;
     long created;
 
-    Pass(int fromYear, int toYear, Map<String, Long> sourceIds) {
+    Pass(long runId, int idx, int fromYear, int toYear, Map<String, Long> sourceIds) {
+      this.runId = runId;
+      this.idx = idx;
       this.fromYear = fromYear;
       this.toYear = toYear;
       this.sourceIds = sourceIds;
@@ -162,7 +173,7 @@ public class BackfillFileHandler implements TaskHandler {
       return r.toWork(sourceId, "BACKFILL");
     }
 
-    /** Inserts the pending works and enqueues their content tasks in one transaction. */
+    /** Inserts the pending works, enqueues their content tasks and adds them to works_created in one transaction. */
     void flush() {
       if (pending.isEmpty()) return;
       Integer n = tx.execute(status -> {
@@ -174,6 +185,7 @@ public class BackfillFileHandler implements TaskHandler {
               "content:" + id.get());
           c++;
         }
+        if (c > 0) backfill.addCreated(runId, idx, c);
         return c;
       });
       created += n == null ? 0 : n;

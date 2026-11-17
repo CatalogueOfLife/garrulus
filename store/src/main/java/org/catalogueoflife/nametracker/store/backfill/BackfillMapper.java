@@ -34,9 +34,18 @@ public interface BackfillMapper {
   /** Ordered by idx. */
   List<BackfillFile> listFiles(@Param("runId") long runId);
 
-  /** Writes the counters and done_at of a file that is not done yet; 0 when it already was. */
+  /**
+   * Adds {@code n} to works_created of a file that is not done yet. Called in the transaction that inserts those works,
+   * so the count stays exact across a failed pass and its retry.
+   */
+  int addCreated(@Param("runId") long runId, @Param("idx") int idx, @Param("n") long n);
+
+  /**
+   * Writes records_read, records_kept (of the pass that finished the file) and done_at of a file that is not done yet,
+   * and works_created 0 if no work was added; 0 when it already was done.
+   */
   int finishFile(@Param("runId") long runId, @Param("idx") int idx, @Param("read") long read,
-      @Param("kept") long kept, @Param("created") long created);
+      @Param("kept") long kept);
 
   /** Marks a RUNNING run DONE when all its files are done; 1 when it did. */
   int finishRunIfComplete(@Param("id") long id);

@@ -114,11 +114,12 @@ public class HarvestConfig {
     return new ClbClient(http, baseUrl, matchBaseUrl, outage);
   }
 
-  /** The free OpenAlex snapshot: the manifest through PoliteHttp, the works files streamed by their own client. */
+  /** The free OpenAlex snapshot: the manifest through PoliteHttp, the works files streamed with a read timeout. */
   @Bean
   SnapshotClient snapshotClient(PoliteHttp http,
-      @Value("${nametracker.snapshot.base-url:https://openalex.s3.amazonaws.com}") String baseUrl) {
-    return new SnapshotClient(http, httpClient(), baseUrl);
+      @Value("${nametracker.snapshot.base-url:https://openalex.s3.amazonaws.com}") String baseUrl,
+      @Value("${nametracker.snapshot.read-timeout:5m}") Duration readTimeout) {
+    return new SnapshotClient(http, baseUrl, readTimeout);
   }
 
   @Bean

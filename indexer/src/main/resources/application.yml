@@ -66,6 +66,8 @@ nametracker:
     # the free OpenAlex snapshot (BACKFILL, BACKFILL_FILE): manifest at <base-url>/data/jsonl/manifest.json, its
     # s3://openalex/<path> file urls read as <base-url>/<path>
     base-url: ${NAMETRACKER_SNAPSHOT_BASE_URL:https://openalex.s3.amazonaws.com}
+    # a works file that delivers no byte for this long counts as broken off (the task fails and reads it again)
+    read-timeout: ${NAMETRACKER_SNAPSHOT_READ_TIMEOUT:5m}
   # per-host request spacing overrides: nametracker.http.min-interval.<host>=<duration>, e.g. api.crossref.org=500ms
   seed:
     core-min-works: ${NAMETRACKER_SEED_CORE_MIN_WORKS:20}

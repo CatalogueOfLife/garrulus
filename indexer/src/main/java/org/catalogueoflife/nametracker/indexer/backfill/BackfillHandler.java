@@ -25,12 +25,14 @@ import tools.jackson.databind.JsonNode;
  * defaults are shown, {@code toYear} is the current UTC year), started by hand through the admin task endpoint. Reads
  * the manifest of the free OpenAlex snapshot and, in one transaction, records a {@code backfill_run} with one
  * {@code backfill_file} per works file (all of them, or the slice {@code fromFile}…{@code fromFile+files-1}; idx is the
- * file's position in the manifest) and enqueues one {@code BACKFILL_FILE {"runId":r,"idx":i}} per file at BACKFILL
- * priority, dedup {@code backfill:<r>:<i>}.
+ * file's position in the manifest) and enqueues one {@code BACKFILL_FILE {"runId":r,"idx":i,"records":n}} per file at
+ * BACKFILL priority, dedup {@code backfill:<r>:<i>} ({@code records}: the manifest's record count of the file).
  *
  * <p>Idempotent: a RUNNING run with the same years, snapshot date and files is reused, and only its files not yet done
- * are enqueued again (the dedup keys keep queued ones single). A finished run is never reused, so a second BACKFILL
- * after it reads the files again and creates no work that exists. An unreachable manifest is an outage: the task waits
+ * are enqueued again. The dedup key holds only while a file task is QUEUED or RUNNING: such a task is kept, while a file
+ * whose task is DEAD gets a new QUEUED task beside the DEAD row. So repeating a BACKFILL resumes the files of its run
+ * that gave up. A finished run is never reused, so a second BACKFILL after it reads the files again and creates no work
+ * that exists. An unreachable manifest is an outage: the task waits
  * {@code nametracker.harvest.outage-delay} without using an attempt.
  */
 @Component
@@ -99,8 +101,9 @@ public class BackfillHandler implements TaskHandler {
       }
       for (BackfillFile f : backfill.listFiles(id)) {
         if (f.doneAt() != null) continue;
-        queue.enqueue(BackfillFileHandler.TYPE, "{\"runId\":" + id + ",\"idx\":" + f.idx() + "}",
-            TaskPriority.BACKFILL, "backfill:" + id + ":" + f.idx());
+        long records = f.idx() < all.size() ? all.get(f.idx()).recordCount() : 0;
+        queue.enqueue(BackfillFileHandler.TYPE, "{\"runId\":" + id + ",\"idx\":" + f.idx() + ",\"records\":" + records
+            + "}", TaskPriority.BACKFILL, "backfill:" + id + ":" + f.idx());
         enqueued[0]++;
       }
       return id;

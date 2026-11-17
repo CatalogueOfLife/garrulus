@@ -5,9 +5,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
+import java.net.HttpURLConnection;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -33,7 +32,8 @@ import tools.jackson.databind.JsonNode;
  *
  * <p>Failures: a status of 429 or 5xx or a connection that cannot be made is a retryable {@link HttpProblem}, any other
  * status a non-retryable one (an unknown host also, as in {@link PoliteHttp}). A body that breaks off (truncated
- * gzip, a reset) throws an {@link UncheckedIOException}: the file has to be read again.
+ * gzip, a reset) or stalls for longer than the read timeout ({@code nametracker.snapshot.read-timeout}) throws an
+ * {@link UncheckedIOException}: the file has to be read again.
  */
 public class SnapshotClient {
 
@@ -47,15 +47,16 @@ public class SnapshotClient {
 
   static final String S3_PREFIX = "s3://openalex/";
   private static final Logger LOG = LoggerFactory.getLogger(SnapshotClient.class);
-  private static final Duration RESPONSE_TIMEOUT = Duration.ofSeconds(60);
+  private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(60);
 
   private final PoliteHttp http;
-  private final HttpClient client;
+  private final Duration readTimeout;
   private final String base;
 
-  public SnapshotClient(PoliteHttp http, HttpClient client, String baseUrl) {
+  /** {@code readTimeout}: the longest a file body may deliver nothing before it counts as broken off. */
+  public SnapshotClient(PoliteHttp http, String baseUrl, Duration readTimeout) {
     this.http = http;
-    this.client = client;
+    this.readTimeout = readTimeout;
     String b = baseUrl.strip();
     this.base = b.endsWith("/") ? b.substring(0, b.length() - 1) : b;
   }
@@ -86,34 +87,16 @@ public class SnapshotClient {
   }
 
   /**
-   * Streams the gzip JSON lines file at {@code httpsUrl}, calling {@code each} once per record in file order. Blank
-   * lines are skipped, and so is a line that is not JSON (with a WARN). Exceptions of {@code each} pass through.
+   * Streams the gzip JSON lines file at {@code httpsUrl}, calling {@code each} once per record in file order, and returns
+   * the number of records delivered. Blank lines are skipped, and so is a line that is not JSON (with a WARN). Exceptions
+   * of {@code each} pass through. A body that delivers no byte for the read timeout counts as broken off.
    */
-  public void stream(String httpsUrl, Consumer<JsonNode> each) {
+  public long stream(String httpsUrl, Consumer<JsonNode> each) {
     URI uri = URI.create(httpsUrl);
-    HttpRequest req = HttpRequest.newBuilder(uri).GET().timeout(RESPONSE_TIMEOUT)
-        .header("User-Agent", PoliteHttp.userAgent()).build();
-    HttpResponse<InputStream> resp;
-    try {
-      resp = client.send(req, HttpResponse.BodyHandlers.ofInputStream());
-    } catch (IOException e) {
-      if (PoliteHttp.unknownHost(e)) throw new HttpProblem(uri, 0, false, "Unknown host: " + uri, e);
-      throw new HttpProblem(uri, 0, true, "I/O failure: " + uri, e);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new HttpProblem(uri, 0, false, "Interrupted: " + uri, e);
-    }
-    int s = resp.statusCode();
-    if (s != 200) {
-      try (InputStream ignored = resp.body()) {
-        // closing discards the body
-      } catch (IOException e) {
-        // nothing to keep
-      }
-      throw new HttpProblem(uri, s, s == 429 || s >= 500, "HTTP " + s + ": " + uri, null);
-    }
+    HttpURLConnection conn = open(uri);
     long lines = 0;
-    try (InputStream body = resp.body();
+    long records = 0;
+    try (InputStream body = conn.getInputStream();
         BufferedReader in = new BufferedReader(new InputStreamReader(new GZIPInputStream(body, 65536),
             StandardCharsets.UTF_8), 65536)) {
       String line;
@@ -127,11 +110,40 @@ public class SnapshotClient {
           LOG.warn("Skipping line {} of {}, not JSON: {}", lines, uri, e.getOriginalMessage());
           continue;
         }
+        records++;
         each.accept(node);
       }
     } catch (IOException e) {
       throw broken(uri, lines, e);
+    } finally {
+      conn.disconnect();
     }
+    return records;
+  }
+
+  /**
+   * Connects and checks the status. The JDK HttpClient has no timeout for reading a body, so the files are read through
+   * HttpURLConnection, whose read timeout applies to every read of the socket.
+   */
+  private HttpURLConnection open(URI uri) {
+    HttpURLConnection conn;
+    int s;
+    try {
+      conn = (HttpURLConnection) uri.toURL().openConnection();
+      conn.setConnectTimeout((int) CONNECT_TIMEOUT.toMillis());
+      conn.setReadTimeout((int) Math.min(Integer.MAX_VALUE, readTimeout.toMillis()));
+      conn.setInstanceFollowRedirects(true);
+      conn.setRequestProperty("User-Agent", PoliteHttp.userAgent());
+      s = conn.getResponseCode();
+    } catch (IOException e) {
+      if (PoliteHttp.unknownHost(e)) throw new HttpProblem(uri, 0, false, "Unknown host: " + uri, e);
+      throw new HttpProblem(uri, 0, true, "I/O failure: " + uri, e);
+    }
+    if (s != 200) {
+      conn.disconnect();
+      throw new HttpProblem(uri, s, s == 429 || s >= 500, "HTTP " + s + ": " + uri, null);
+    }
+    return conn;
   }
 
   private static String readLine(BufferedReader in, URI uri, long lines) {

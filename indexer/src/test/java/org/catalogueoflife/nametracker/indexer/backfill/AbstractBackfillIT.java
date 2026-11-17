@@ -6,7 +6,9 @@ import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 
-import com.github.tomakehurst.wiremock.junit5.WireMockTest;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import java.util.List;
 import java.util.Set;
 import org.catalogueoflife.nametracker.indexer.AbstractPostgresIT;
@@ -21,14 +23,19 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * The snapshot, the content routes and content.openalex.org are all WireMock on one port. Tasks are driven by hand (the
+ * The snapshot, the content routes and content.openalex.org are all one WireMock server. Tasks are driven by hand (the
  * dispatcher is off in ITs), one claimed task at a time.
  */
-@WireMockTest(httpPort = AbstractBackfillIT.PORT)
 abstract class AbstractBackfillIT extends AbstractPostgresIT {
 
-  static final int PORT = 18998;
-  static final String BASE = "http://localhost:" + PORT;
+  /** One server on a free port for all backfill ITs, so they share one cached Spring context. */
+  static final WireMockServer SERVER = new WireMockServer(WireMockConfiguration.options().dynamicPort());
+
+  static {
+    SERVER.start();
+  }
+
+  static final String BASE = SERVER.baseUrl();
 
   @DynamicPropertySource
   static void props(DynamicPropertyRegistry r) {
@@ -49,6 +56,8 @@ abstract class AbstractBackfillIT extends AbstractPostgresIT {
 
   @BeforeEach
   void cleanTables() {
+    SERVER.resetAll();
+    WireMock.configureFor("localhost", SERVER.port());
     jdbc.update("DELETE FROM task");
     jdbc.update("DELETE FROM backfill_run");
     jdbc.update("DELETE FROM content");
@@ -62,10 +71,14 @@ abstract class AbstractBackfillIT extends AbstractPostgresIT {
         + "RETURNING id", Long.class, openalexId, "Journal " + openalexId, tier);
   }
 
-  /** Serves the manifest with these works files (paths in the bucket). */
-  static void manifest(String... paths) {
+  /** Serves the manifest with these works files. */
+  static void manifest(SnapshotFixtures.Entry... files) {
     stubFor(get(urlPathEqualTo("/data/jsonl/manifest.json"))
-        .willReturn(okJson(SnapshotFixtures.manifest("2026-10-14", paths))));
+        .willReturn(okJson(SnapshotFixtures.manifest("2026-10-14", files))));
+  }
+
+  static SnapshotFixtures.Entry file(String path, long records) {
+    return new SnapshotFixtures.Entry(path, records);
   }
 
   static void serve(String path, byte[] body) {

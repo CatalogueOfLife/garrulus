@@ -17,21 +17,36 @@ import static org.catalogueoflife.nametracker.indexer.backfill.SnapshotFixtures.
 
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.UncheckedIOException;
-import java.net.http.HttpClient;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CountDownLatch;
+import java.net.SocketTimeoutException;
+import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import org.catalogueoflife.nametracker.indexer.content.route.RouteTestSupport;
 import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import tools.jackson.databind.JsonNode;
 
 @WireMockTest
 class SnapshotClientTest {
 
   private static SnapshotClient client(WireMockRuntimeInfo w) {
-    return new SnapshotClient(RouteTestSupport.http(), HttpClient.newHttpClient(), w.getHttpBaseUrl() + "/");
+    return client(w, Duration.ofSeconds(10));
+  }
+
+  private static SnapshotClient client(WireMockRuntimeInfo w, Duration readTimeout) {
+    return new SnapshotClient(RouteTestSupport.http(), w.getHttpBaseUrl() + "/", readTimeout);
   }
 
   @Test
@@ -59,7 +74,7 @@ class SnapshotClientTest {
             "{not json", record("W3", null, null, "dataset"))))));
 
     List<JsonNode> seen = new ArrayList<>();
-    client(w).stream(w.getHttpBaseUrl() + "/data/jsonl/works/part_0000.gz", seen::add);
+    assertThat(client(w).stream(w.getHttpBaseUrl() + "/data/jsonl/works/part_0000.gz", seen::add)).isEqualTo(3);
 
     // the blank line and the broken one are skipped; unknown fields are kept in the tree
     assertThat(seen).extracting(n -> n.path("id").asString()).containsExactly("https://openalex.org/W1",
@@ -77,6 +92,63 @@ class SnapshotClientTest {
     assertThatThrownBy(() -> client(w).stream(w.getHttpBaseUrl() + "/cut.gz", seen::add))
         .isInstanceOf(UncheckedIOException.class).hasMessageContaining("/cut.gz");
     assertThat(seen).isNotEmpty().hasSizeLessThan(400);
+  }
+
+  /**
+   * A body that stops delivering bytes counts as broken off after the read timeout, instead of blocking forever. A raw
+   * socket server sends the headers and half the gzip body, then stays silent with the connection open.
+   */
+  @Test
+  @Timeout(value = 20, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+  void stalledBodyThrowsAfterTheReadTimeout() throws Exception {
+    List<String> lines = new ArrayList<>();
+    for (int i = 0; i < 400; i++) lines.add(record("W" + i, "S1", 2005, "article"));
+    byte[] body = gzip(lines);
+    CountDownLatch done = new CountDownLatch(1);
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
+      Thread t = new Thread(() -> {
+        try (Socket c = server.accept()) {
+          BufferedReader req = new BufferedReader(new InputStreamReader(c.getInputStream(), StandardCharsets.US_ASCII));
+          String l;
+          while ((l = req.readLine()) != null && !l.isEmpty()) {
+            // the request head
+          }
+          OutputStream out = c.getOutputStream();
+          out.write(("HTTP/1.1 200 OK\r\nContent-Type: binary/octet-stream\r\nContent-Length: " + body.length
+              + "\r\n\r\n").getBytes(StandardCharsets.US_ASCII));
+          out.write(body, 0, body.length / 2);
+          out.flush();
+          done.await(); // stall, connection open
+        } catch (Exception e) {
+          // the test is over
+        }
+      });
+      t.setDaemon(true);
+      t.start();
+
+      String url = "http://127.0.0.1:" + server.getLocalPort() + "/stall.gz";
+      SnapshotClient c = new SnapshotClient(RouteTestSupport.http(), "http://127.0.0.1:9", Duration.ofMillis(500));
+      List<JsonNode> seen = new ArrayList<>();
+      long start = System.nanoTime();
+      assertThatThrownBy(() -> c.stream(url, seen::add))
+          .isInstanceOf(UncheckedIOException.class).hasMessageContaining("/stall.gz")
+          .hasRootCauseInstanceOf(SocketTimeoutException.class);
+      assertThat(Duration.ofNanos(System.nanoTime() - start)).isLessThan(Duration.ofSeconds(10));
+      assertThat(seen).isNotEmpty().hasSizeLessThan(400); // the lines before the stall were delivered
+    } finally {
+      done.countDown();
+    }
+  }
+
+  /** A response whose headers do not arrive within the read timeout is a retryable problem (an outage). */
+  @Test
+  @Timeout(value = 20, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+  void stalledHeadersAreRetryable(WireMockRuntimeInfo w) {
+    stubFor(get(urlPathEqualTo("/slow.gz")).willReturn(aResponse().withBody(gzip(List.of("{}"))).withFixedDelay(5000)));
+
+    assertThatThrownBy(() -> client(w, Duration.ofMillis(300)).stream(w.getHttpBaseUrl() + "/slow.gz", n -> { }))
+        .isInstanceOfSatisfying(HttpProblem.class, p -> assertThat(p.retryable()).isTrue())
+        .hasRootCauseInstanceOf(SocketTimeoutException.class);
   }
 
   @Test

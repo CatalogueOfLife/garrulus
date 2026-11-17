@@ -26,7 +26,7 @@ class BackfillFileIT extends AbstractBackfillIT {
 
   /** Runs the BACKFILL task and claims the one file task. */
   private Task fileTask() throws Exception {
-    manifest(FILE);
+    manifest(file(FILE, N));
     enqueueBackfill("{\"fromYear\":2000,\"toYear\":2026}");
     assertThat(step()).isTrue();
     Task t = claim();
@@ -54,6 +54,7 @@ class BackfillFileIT extends AbstractBackfillIT {
     long partial = count("SELECT count(*) FROM work");
     assertThat(partial).as("the chunks before the cut are committed").isBetween(500L, (long) N - 1);
     assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT'")).isEqualTo(partial);
+    assertThat(runs.getFile(run, 0).worksCreated()).isEqualTo(partial); // committed with the works
 
     serve(FILE, whole);
     Task retry = claim();
@@ -70,7 +71,7 @@ class BackfillFileIT extends AbstractBackfillIT {
     assertThat(f.doneAt()).isNotNull();
     assertThat(f.recordsRead()).isEqualTo(N);
     assertThat(f.recordsKept()).isEqualTo(N);
-    assertThat(f.worksCreated()).isEqualTo(N - partial); // the counters are those of the pass that finished the file
+    assertThat(f.worksCreated()).isEqualTo(N); // over both passes: the chunks of the broken pass count too
     assertThat(runs.getRun(run).state()).isEqualTo("DONE");
   }
 
