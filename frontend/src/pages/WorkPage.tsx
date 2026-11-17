@@ -1,7 +1,8 @@
+import { Fragment } from 'react';
 import { Alert, Loader } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
-import { getWork, type NameDetail, type WorkSummary } from '../api';
+import { getWork, type NameDetail, type TextBlock, type WorkSummary } from '../api';
 import { ClassificationPath } from '../components/ClassificationPath';
 import { HighlightedText } from '../components/HighlightedText';
 import { Section } from '../components/Section';
@@ -16,6 +17,19 @@ import { usePageTitle } from '../usePageTitle';
 
 /** Block types come in upper case from the API (HEADING, TITLE, PARAGRAPH …). */
 const isHeading = (type: string) => /^(heading|title)/i.test(type);
+const isTableCell = (type: string) => /^table_cell$/i.test(type);
+
+/** The blocks in order, each run of consecutive table cells gathered into one array. */
+function gatherCells(blocks: TextBlock[]): (TextBlock | TextBlock[])[] {
+  const out: (TextBlock | TextBlock[])[] = [];
+  for (const b of blocks) {
+    const last = out[out.length - 1];
+    if (!isTableCell(b.type)) out.push(b);
+    else if (Array.isArray(last)) last.push(b);
+    else out.push([b]);
+  }
+  return out;
+}
 
 function NameRow({ n, withTaxon }: { n: NameDetail; withTaxon: boolean }) {
   return (
@@ -79,10 +93,22 @@ export function WorkPage() {
           {rest.map((p, i) => <p key={i} className={classes.para}>{p}</p>)}
           {showText ? (
             <Section title="Full text">
-              {w.text!.map((b) => (
-                isHeading(b.type)
-                  ? <h3 key={b.id} className={classes.head}><HighlightedText block={b} as="span" names={info} /></h3>
-                  : <div key={b.id} className={classes.para}><HighlightedText block={b} names={info} /></div>
+              {gatherCells(w.text!).map((b) => (
+                Array.isArray(b)
+                  // a table's cells flow on in one block at the meta size instead of one paragraph per cell
+                  ? (
+                    <p key={b[0].id} className={classes.cells}>
+                      {b.map((c, i) => (
+                        <Fragment key={c.id}>
+                          {i > 0 ? ' ' : null}
+                          <span className={classes.cell}><HighlightedText block={c} as="span" names={info} /></span>
+                        </Fragment>
+                      ))}
+                    </p>
+                  )
+                  : isHeading(b.type)
+                    ? <h3 key={b.id} className={classes.head}><HighlightedText block={b} as="span" names={info} /></h3>
+                    : <div key={b.id} className={classes.para}><HighlightedText block={b} names={info} /></div>
               ))}
             </Section>
           ) : snippets.length ? (

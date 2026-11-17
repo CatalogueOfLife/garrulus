@@ -4,7 +4,7 @@ import { Route, Routes } from 'react-router-dom';
 import { WorkPage } from './WorkPage';
 import { server } from '../test/server';
 import { renderApp } from '../test/render';
-import type { NameDetail, WorkDetail } from '../api';
+import type { MentionSpan, NameDetail, WorkDetail } from '../api';
 
 const nm = (id: number, name: string, over: Partial<NameDetail> = {}): NameDetail => ({
   id, name, kind: 'SCIENTIFIC', placementMethod: 'MATCH', usageId: null, usageName: null, salience: 0.5,
@@ -84,6 +84,25 @@ describe('WorkPage', () => {
     const text = await screen.findByRole('region', { name: 'Full text' });
     expect(within(text).getByRole('link', { name: 'Carabus auratus' })).toHaveAttribute('href', '/name/1');
     expect(screen.queryByText(/SNIPPET-ONE/)).toBeNull();
+  });
+
+  it('runsConsecutiveTableCellsTogetherInOneBlock', async () => {
+    const block = (id: string, type: string, text: string, mentions: MentionSpan[] = []) =>
+      ({ id, type, level: 0, sectionPath: [], text, mentions });
+    mount({ ...base, retained: true, licence: 'CC-BY-4.0', text: [
+      block('p1', 'PARAGRAPH', 'Before the table.'),
+      block('c1', 'TABLE_CELL', 'Species'),
+      block('c2', 'TABLE_CELL', 'Carabus auratus', [{ id: 7, nameId: 1, startCp: 0, endCp: 15, verbatim: 'Carabus auratus' }]),
+      block('c3', 'TABLE_CELL', '12 mm'),
+      block('p2', 'PARAGRAPH', 'After the table.'),
+    ] });
+    const text = await screen.findByRole('region', { name: 'Full text' });
+    // one element holds the run of cells (each cell its own span); the paragraphs around it stay apart
+    const run = within(text).getByText('Species').closest('p')!;
+    expect(run).toContainElement(within(text).getByRole('link', { name: 'Carabus auratus' }));
+    expect(run).toContainElement(within(text).getByText('12 mm'));
+    expect(run).not.toContainElement(within(text).getByText('Before the table.'));
+    expect(run).not.toContainElement(within(text).getByText('After the table.'));
   });
 
   it('setsHeadingBlocksAsHeadingsWhateverTheCaseOfTheirType', async () => {

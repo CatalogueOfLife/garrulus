@@ -43,6 +43,17 @@
   overflow-wrap: anywhere;
 }
 
+/* a table's cells, run together in one block */
+.cells {
+  margin: 0 0 var(--gr-space-3);
+  font-size: var(--gr-type-meta-size);
+  line-height: var(--gr-type-meta-line);
+}
+
+.cell:not(:last-child) {
+  margin-right: var(--gr-space-2);
+}
+
 .section {
   margin-bottom: var(--gr-space-5);
 }
