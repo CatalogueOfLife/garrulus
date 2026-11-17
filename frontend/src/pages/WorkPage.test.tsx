@@ -85,4 +85,15 @@ describe('WorkPage', () => {
     expect(within(text).getByRole('link', { name: 'Carabus auratus' })).toHaveAttribute('href', '/name/1');
     expect(screen.queryByText(/SNIPPET-ONE/)).toBeNull();
   });
+
+  it('setsHeadingBlocksAsHeadingsWhateverTheCaseOfTheirType', async () => {
+    // the API sends block types in upper case (HEADING, PARAGRAPH, TITLE)
+    const block = (id: string, type: string, text: string) => ({ id, type, level: 0, sectionPath: [], text, mentions: [] });
+    mount({ ...base, retained: true, licence: 'CC-BY-4.0', text: [
+      block('b1', 'HEADING', 'Introduction'), block('b2', 'PARAGRAPH', 'Body text.'),
+    ] });
+    const text = await screen.findByRole('region', { name: 'Full text' });
+    expect(within(text).getByRole('heading', { level: 3, name: 'Introduction' })).toBeInTheDocument();
+    expect(within(text).queryByRole('heading', { name: 'Body text.' })).toBeNull();
+  });
 });

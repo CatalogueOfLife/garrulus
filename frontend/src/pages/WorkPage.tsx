@@ -14,6 +14,9 @@ import list from '../ui/list.module.css';
 import classes from '../ui/work.module.css';
 import { usePageTitle } from '../usePageTitle';
 
+/** Block types come in upper case from the API (HEADING, TITLE, PARAGRAPH …). */
+const isHeading = (type: string) => /^(heading|title)/i.test(type);
+
 function NameRow({ n, withTaxon }: { n: NameDetail; withTaxon: boolean }) {
   return (
     <li>
@@ -77,7 +80,7 @@ export function WorkPage() {
           {showText ? (
             <Section title="Full text">
               {w.text!.map((b) => (
-                b.type.startsWith('heading') || b.type === 'title'
+                isHeading(b.type)
                   ? <h3 key={b.id} className={classes.head}><HighlightedText block={b} as="span" names={info} /></h3>
                   : <div key={b.id} className={classes.para}><HighlightedText block={b} names={info} /></div>
               ))}
