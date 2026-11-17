@@ -117,6 +117,7 @@
       <arg column="keys_total" javaType="java.lang.Integer"/>
       <arg column="keys_lost" javaType="java.lang.Integer"/>
       <arg column="note" javaType="string"/>
+      <arg column="switch_gen" javaType="_int"/>
     </constructor>
   </resultMap>
 
@@ -336,7 +337,7 @@
 
   <update id="startSwitch">
     UPDATE xr_release SET state = 'PREPARING', switch_started = now(), switched_at = NULL, keys_total = NULL,
-      keys_lost = NULL, note = #{note}
+      keys_lost = NULL, note = #{note}, switch_gen = switch_gen + 1
     WHERE key = #{key}
   </update>
 
@@ -344,8 +345,8 @@
     UPDATE xr_release SET state = #{state}, note = #{note} WHERE key = #{key}
   </update>
 
-  <update id="changeReleaseState">
-    UPDATE xr_release SET state = #{to} WHERE key = #{key} AND state = #{from}
+  <update id="markPrepared">
+    UPDATE xr_release SET state = 'PREPARED' WHERE key = #{key} AND state = 'PREPARING' AND switch_gen = #{gen}
   </update>
 
   <update id="setReleaseKeys">
@@ -374,7 +375,7 @@
     FROM name_match c
     LEFT JOIN name_match n ON n.name_string_id = c.name_string_id AND n.hint_key = c.hint_key
       AND n.release_key = #{candidate}
-    WHERE c.release_key = #{current} AND c.match_type &lt;&gt; 'none'
+    WHERE c.release_key = #{current} AND c.match_type &lt;&gt; 'none' AND c.matched_at &lt; COALESCE(#{before, jdbcType=TIMESTAMP_WITH_TIMEZONE}::timestamptz, 'infinity')
   </select>
 
   <update id="setNamesFound">

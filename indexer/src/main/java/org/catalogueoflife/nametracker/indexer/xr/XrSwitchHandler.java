@@ -20,12 +20,12 @@ import tools.jackson.databind.node.ObjectNode;
 
 /**
  * {@code XR_SWITCH}, payload {@code {"key":k,"refuse":false,"force":false}} ({@code refuse} and {@code force}
- * optional), enqueued by {@code XR_CHECK} (dedup {@code xr-switch:<k>}) or by an admin, also to roll back. Starts the
- * switch to release k: records k if unknown (alias from CLB {@code GET /dataset/k}; an outage defers the task), sets it
- * {@code PREPARING} with {@code switch_started} and the options as the JSON note, and enqueues the first
- * {@code XR_PREMATCH}, all in one transaction. A switch to the current release, or to one that is already being
- * prepared, is a no-op; while another switch runs it is refused (ERROR, no-op). A switch to a {@code REFUSED} release
- * clears the refusal. {@code force} skips the gate; {@code refuse} marks the release left at the flip {@code REFUSED},
+ * optional), enqueued by {@code XR_CHECK} (with {@code "auto":true}, dedup {@code xr-switch:<k>}) or by an admin, also
+ * to roll back. Starts the switch to release k: records k if unknown (alias from CLB {@code GET /dataset/k}; an outage
+ * defers the task), sets it {@code PREPARING} with {@code switch_started}, the options as the JSON note and the next
+ * switch generation, and enqueues the first {@code XR_PREMATCH {"key":k,"gen":g}}, all in one transaction. A switch to
+ * the current release, or to one that is already being prepared, is a no-op; while another switch runs it is refused
+ * (ERROR, no-op). An admin switch to a {@code REFUSED} release clears the refusal; an automatic one skips it (INFO). {@code force} skips the gate; {@code refuse} marks the release left at the flip {@code REFUSED},
  * so that the next {@code XR_CHECK} does not switch straight back to it. All steps run at {@code REPROCESS}.
  */
 @Component
@@ -69,6 +69,7 @@ public class XrSwitchHandler implements TaskHandler {
     int key = key(p, TYPE);
     boolean refuse = p.path("refuse").asBoolean(false);
     boolean force = p.path("force").asBoolean(false);
+    boolean auto = p.path("auto").asBoolean(false);
     if (!index.releaseExists(key)) {
       ClbClient.XrInfo d = clb.dataset(key);
       try {
@@ -78,10 +79,10 @@ public class XrSwitchHandler implements TaskHandler {
         LOG.debug("XR release {} was recorded concurrently", key);
       }
     }
-    tx.executeWithoutResult(s -> start(key, refuse, force, task));
+    tx.executeWithoutResult(s -> start(key, refuse, force, auto, task));
   }
 
-  private void start(int key, boolean refuse, boolean force, Task task) {
+  private void start(int key, boolean refuse, boolean force, boolean auto, Task task) {
     index.lockReleases();
     XrRelease r = index.release(key);
     if (r == null) throw new IllegalStateException("XR release " + key + " not recorded");
@@ -99,15 +100,31 @@ public class XrSwitchHandler implements TaskHandler {
           running.state());
       return;
     }
-    if (REFUSED.equals(r.state())) LOG.info("XR release {} was refused; this switch clears the refusal", key);
+    if (REFUSED.equals(r.state())) {
+      if (auto) {
+        LOG.info("XR release {} is REFUSED: no automatic switch", key);
+        return;
+      }
+      LOG.info("XR release {} was refused; this switch clears the refusal", key);
+    }
     ObjectNode note = FinderJson.mapper().createObjectNode();
     note.put("refuse", refuse);
     note.put("force", force);
     index.startSwitch(key, FinderJson.mapper().writeValueAsString(note));
-    queue.enqueue(XrPrematchHandler.TYPE, "{\"key\":" + key + "}", TaskPriority.REPROCESS,
-        XrPrematchHandler.dedupKey(key, 0, ""), task.runAfter());
-    LOG.info("Switch to XR release {} ({}) started (refuse {}, force {}): pre-matching", key, r.alias(), refuse,
-        force);
+    int gen = index.release(key).switchGen();
+    queue.enqueue(XrPrematchHandler.TYPE, "{\"key\":" + key + ",\"gen\":" + gen + "}", TaskPriority.REPROCESS,
+        XrPrematchHandler.dedupKey(key, gen, 0, ""), task.runAfter());
+    LOG.info("Switch to XR release {} ({}) started (generation {}, refuse {}, force {}): pre-matching", key,
+        r.alias(), gen, refuse, force);
+  }
+
+  /**
+   * True if the payload belongs to the release's running switch: its {@code gen} is the release's switch generation.
+   * A payload without one (enqueued by hand) belongs to the running switch.
+   */
+  static boolean sameSwitch(JsonNode p, XrRelease r) {
+    JsonNode g = p.path("gen");
+    return !g.isNumber() || g.asInt() == r.switchGen();
   }
 
   /** The release key of the payload; a payload without one cannot succeed on retry. */

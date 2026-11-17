@@ -165,7 +165,7 @@ class XrSwitchIT extends AbstractPostgresIT {
   void checkStartsSwitchForNewKey() {
     stubXr(200);
     check.handle(task(XrCheckHandler.TYPE, "{}"));
-    assertThat(queued(XrSwitchHandler.TYPE)).containsExactly("{\"key\": 200}");
+    assertThat(queued(XrSwitchHandler.TYPE)).containsExactly("{\"key\": 200, \"auto\": true}");
     assertThat(jdbc.queryForObject("SELECT dedup_key FROM task WHERE type = 'XR_SWITCH'", String.class))
         .isEqualTo("xr-switch:200");
     assertThat(rel(200).state()).isEqualTo("SEEN");
@@ -181,7 +181,7 @@ class XrSwitchIT extends AbstractPostgresIT {
     release(50, "RETIRED", null);
     stubXr(50);
     check.handle(task(XrCheckHandler.TYPE, "{}"));
-    assertThat(queued(XrSwitchHandler.TYPE)).containsExactly("{\"key\": 50}");
+    assertThat(queued(XrSwitchHandler.TYPE)).containsExactly("{\"key\": 50, \"auto\": true}");
   }
 
   @Test
@@ -218,7 +218,8 @@ class XrSwitchIT extends AbstractPostgresIT {
     assertThat(r.state()).isEqualTo("PREPARING");
     assertThat(r.switchStarted()).isNotNull();
     assertThat(r.note()).contains("\"refuse\":false").contains("\"force\":false");
-    assertThat(queued(XrPrematchHandler.TYPE)).containsExactly("{\"key\": 200}");
+    assertThat(r.switchGen()).isEqualTo(1);
+    assertThat(queued(XrPrematchHandler.TYPE)).containsExactly("{\"gen\": 1, \"key\": 200}");
 
     // the queued first batch with the default size, replaced by one of size 2
     jdbc.update("DELETE FROM task WHERE type = 'XR_PREMATCH'");
@@ -238,7 +239,7 @@ class XrSwitchIT extends AbstractPostgresIT {
         .withQueryParam("rank", equalTo("species")));
     verify(1, getRequestedFor(urlPathEqualTo(M200)).withQueryParam("kingdom", equalTo("Animalia"))
         .withQueryParam("family", equalTo("Felidae")));
-    assertThat(queued(XrGateHandler.TYPE)).containsExactly("{\"key\": 200}");
+    assertThat(queued(XrGateHandler.TYPE)).containsExactly("{\"gen\": 1, \"key\": 200}");
     assertThat(rel(200).state()).isEqualTo("PREPARED");
     assertThat(index.currentRelease().key()).isEqualTo(100);
   }
@@ -283,7 +284,72 @@ class XrSwitchIT extends AbstractPostgresIT {
     assertThat(queued(XrPrematchHandler.TYPE)).hasSize(1);
   }
 
+  @Test
+  void staleChainOfCancelledSwitchStops() throws Exception {
+    for (int i = 0; i < 5; i++) key("Stalus species" + i, "", 100, "exact");
+    switcher.handle(task(XrSwitchHandler.TYPE, "{\"key\":200}"));
+    jdbc.update("DELETE FROM task");
+    prematch.handle(task(XrPrematchHandler.TYPE, "{\"key\":200,\"gen\":1,\"batch\":2}"));
+    String stale = queued(XrPrematchHandler.TYPE).get(0);
+    assertThat(stale).contains("\"gen\": 1");
+    verify(2, getRequestedFor(urlPathEqualTo(M200)));
+
+    // cancelled and started again (to change an option): generation 2; the generation 1 continuation is still queued
+    cancel.handle(task(XrCancelHandler.TYPE, "{\"key\":200}"));
+    switcher.handle(task(XrSwitchHandler.TYPE, "{\"key\":200,\"force\":true}"));
+    assertThat(rel(200).switchGen()).isEqualTo(2);
+    assertThat(rel(200).state()).isEqualTo("PREPARING");
+
+    prematch.handle(task(XrPrematchHandler.TYPE, stale));
+    verify(2, getRequestedFor(urlPathEqualTo(M200)));
+    assertThat(rel(200).state()).isEqualTo("PREPARING");
+    assertThat(queued(XrGateHandler.TYPE)).isEmpty();
+    assertThat(queued(XrPrematchHandler.TYPE)).containsExactly(stale, "{\"gen\": 2, \"key\": 200}");
+
+    jdbc.update("DELETE FROM task WHERE payload->>'gen' = '1'");
+    assertThat(drain(XrPrematchHandler.TYPE, prematch::handle)).isEqualTo(1);
+    assertThat(rel(200).state()).isEqualTo("PREPARED");
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM name_match WHERE release_key = 200", Integer.class))
+        .isEqualTo(5);
+    assertThat(queued(XrGateHandler.TYPE)).containsExactly("{\"gen\": 2, \"key\": 200}");
+    assertThat(jdbc.queryForObject("SELECT dedup_key FROM task WHERE type = 'XR_GATE'", String.class))
+        .isEqualTo("xr-gate:200:2");
+
+    // a gate of generation 1 changes nothing; the one of generation 2 flips
+    gate.handle(task(XrGateHandler.TYPE, "{\"key\":200,\"gen\":1}"));
+    assertThat(rel(200).state()).isEqualTo("PREPARED");
+    gate.handle(task(XrGateHandler.TYPE, "{\"key\":200,\"gen\":2}"));
+    assertThat(rel(200).state()).isEqualTo("SWITCHING");
+  }
+
+  @Test
+  void autoSwitchSkipsARefusedKey() throws Exception {
+    stubXr(200);
+    check.handle(task(XrCheckHandler.TYPE, "{}"));
+    String auto = queued(XrSwitchHandler.TYPE).get(0);
+    // refused while the automatic switch waited in the queue
+    jdbc.update("UPDATE xr_release SET state = 'REFUSED', note = '{\"refusedBy\":\"admin\"}' WHERE key = 200");
+    jdbc.update("DELETE FROM task");
+    switcher.handle(task(XrSwitchHandler.TYPE, auto));
+    assertThat(rel(200).state()).isEqualTo("REFUSED");
+    assertThat(queuedTypes()).isEmpty();
+  }
+
   // --- XR_GATE
+
+  @Test
+  void gateIgnoresKeysMatchedAfterTheSwitchStarted() throws Exception {
+    release(200, "PREPARED", "{\"refuse\":false,\"force\":false}");
+    tenKeys(0);
+    jdbc.update("UPDATE xr_release SET switch_started = clock_timestamp() WHERE key = 200");
+    // matched in 100 by a live MATCH_NAMES after the pre-match had passed it: no row in 200
+    key("Latus species", "", 100, "exact");
+    gate.handle(task(XrGateHandler.TYPE, "{\"key\":200}"));
+    XrRelease r = rel(200);
+    assertThat(r.keysTotal()).isEqualTo(10);
+    assertThat(r.keysLost()).isZero();
+    assertThat(r.state()).isEqualTo("SWITCHING");
+  }
 
   @Test
   void gateRefusesBrokenRelease() throws Exception {

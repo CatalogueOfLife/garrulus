@@ -25,13 +25,15 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ObjectNode;
 
 /**
- * {@code XR_PREMATCH}, payload {@code {"key":k,"afterName":0,"afterHint":"","batch":2000}} (all but key optional).
+ * {@code XR_PREMATCH}, payload {@code {"key":k,"gen":g,"afterName":0,"afterHint":"","batch":2000}} (all but key
+ * optional; {@code gen} is the switch generation, see {@link XrSwitchHandler}).
  * Matches the next batch of keys (name string, hint key) of the current release's {@code name_match}, in key order,
  * in release k with {@code nametracker.clb.match-parallelism} parallel calls; a key matched before costs nothing (the
  * match cache). Each query is rebuilt from the name string's name and rank and the hint key. A name CLB cannot match
  * stores nothing (counted: the gate sees it as lost); a CLB outage defers the task. A full batch enqueues the
  * continuation with this task's run_after; the last batch sets k {@code PREPARED} and enqueues {@code XR_GATE} in one
- * transaction. Stops silently when k is no longer {@code PREPARING} (cancelled, or a redelivered batch after the end).
+ * transaction. Stops silently when k is no longer {@code PREPARING} (cancelled, or a redelivered batch after the end)
+ * or the task belongs to an earlier switch generation (a chain of a cancelled switch to k, started again since).
  * Nothing visible changes. Idempotent.
  */
 @Component
@@ -63,8 +65,8 @@ public class XrPrematchHandler implements TaskHandler {
     return TYPE;
   }
 
-  static String dedupKey(int key, long afterName, String afterHint) {
-    return "xr-prematch:" + key + ":" + afterName + ":" + afterHint;
+  static String dedupKey(int key, int gen, long afterName, String afterHint) {
+    return "xr-prematch:" + key + ":" + gen + ":" + afterName + ":" + afterHint;
   }
 
   @Override
@@ -75,10 +77,12 @@ public class XrPrematchHandler implements TaskHandler {
     String afterHint = p.path("afterHint").asString("");
     int batch = Math.max(1, Math.min(MAX_BATCH, p.path("batch").asInt(DEFAULT_BATCH)));
     XrRelease r = index.release(key);
-    if (r == null || !XrSwitchHandler.PREPARING.equals(r.state())) {
-      LOG.debug("XR_PREMATCH of release {} stops: it is {}", key, r == null ? "unknown" : r.state());
+    if (r == null || !XrSwitchHandler.PREPARING.equals(r.state()) || !XrSwitchHandler.sameSwitch(p, r)) {
+      LOG.debug("XR_PREMATCH of release {} stops: it is {}, generation {}", key, r == null ? "unknown" : r.state(),
+          r == null ? "-" : r.switchGen());
       return;
     }
+    int gen = r.switchGen();
     XrRelease current = index.currentRelease();
     if (current == null) throw new IllegalStateException("No current XR release to pre-match from");
 
@@ -92,19 +96,20 @@ public class XrPrematchHandler implements TaskHandler {
       MatchKey last = keys.get(keys.size() - 1);
       ObjectNode next = FinderJson.mapper().createObjectNode();
       next.put("key", key);
+      next.put("gen", gen);
       next.put("afterName", last.nameStringId());
       next.put("afterHint", last.hintKey());
       next.put("batch", batch);
       queue.enqueue(TYPE, FinderJson.mapper().writeValueAsString(next), TaskPriority.REPROCESS,
-          dedupKey(key, last.nameStringId(), last.hintKey()), task.runAfter());
+          dedupKey(key, gen, last.nameStringId(), last.hintKey()), task.runAfter());
       LOG.info("Pre-matched {} keys of release {} in release {} (up to name string {})", keys.size(),
           current.key(), key, last.nameStringId());
       return;
     }
     Boolean done = tx.execute(s -> {
-      if (index.changeReleaseState(key, XrSwitchHandler.PREPARING, XrSwitchHandler.PREPARED) == 0) return false;
-      queue.enqueue(XrGateHandler.TYPE, "{\"key\":" + key + "}", TaskPriority.REPROCESS, "xr-gate:" + key,
-          task.runAfter());
+      if (index.markPrepared(key, gen) == 0) return false;
+      queue.enqueue(XrGateHandler.TYPE, "{\"key\":" + key + ",\"gen\":" + gen + "}", TaskPriority.REPROCESS,
+          "xr-gate:" + key + ":" + gen, task.runAfter());
       return true;
     });
     if (Boolean.TRUE.equals(done)) {

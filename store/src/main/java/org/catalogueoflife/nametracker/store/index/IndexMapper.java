@@ -153,14 +153,16 @@ public interface IndexMapper {
   /** A release in PREPARING, PREPARED or SWITCHING, the lowest key if several; null if no switch runs. */
   @Nullable XrRelease runningSwitch();
 
-  /** State PREPARING, switch_started now, the note; switched_at, keys_total and keys_lost cleared. */
+  /**
+   * State PREPARING, switch_started now, the note, switch_gen one up; switched_at, keys_total and keys_lost cleared.
+   */
   void startSwitch(@Param("key") int key, @Param("note") String note);
 
   /** Sets state and note. */
   void setReleaseState(@Param("key") int key, @Param("state") String state, @Param("note") @Nullable String note);
 
-  /** Sets the state to {@code to} only if it is {@code from}; returns the rows changed (0 or 1). */
-  int changeReleaseState(@Param("key") int key, @Param("from") String from, @Param("to") String to);
+  /** PREPARING to PREPARED, only in that switch generation; returns the rows changed (0 or 1). */
+  int markPrepared(@Param("key") int key, @Param("gen") int gen);
 
   void setReleaseKeys(@Param("key") int key, @Param("total") int total, @Param("lost") int lost);
 
@@ -174,8 +176,12 @@ public interface IndexMapper {
   List<MatchKey> matchKeys(@Param("releaseKey") int releaseKey, @Param("afterName") long afterName,
       @Param("afterHint") String afterHint, @Param("limit") int limit);
 
-  /** Keys matched in {@code current} and how many of them are lost in {@code candidate}, see {@link MatchLoss}. */
-  MatchLoss matchLoss(@Param("current") int current, @Param("candidate") int candidate);
+  /**
+   * Keys matched in {@code current} before {@code before} and how many of them are lost in {@code candidate}, see
+   * {@link MatchLoss}. Keys matched later (during a pre-match that had passed them) are left out; null: no cut-off.
+   */
+  MatchLoss matchLoss(@Param("current") int current, @Param("candidate") int candidate,
+      @Param("before") java.time.@Nullable Instant before);
 
   /** Sets current_finder_run, names_doc_sha and state NAMES_FOUND. */
   void setNamesFound(@Param("workId") long workId, @Param("finderRunId") long finderRunId,

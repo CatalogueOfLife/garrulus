@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 /**
  * {@code XR_CHECK}, payload {@code {}}, dedup key {@code xr-check:<date>}, daily. Records the XR (dataset 3LXR); a key
  * other than the current one (lower too: the alias may move back) starts the switch to it, {@code XR_SWITCH
- * {"key":k}} (dedup {@code xr-switch:<k>}), unless k is {@code REFUSED}, another switch has not ended, or matching goes
+ * {"key":k,"auto":true}} (dedup {@code xr-switch:<k>}), unless k is {@code REFUSED}, another switch has not ended, or matching goes
  * to a local bundle (then the switch is started by hand). A CLB outage defers the task.
  */
 @Component
@@ -57,7 +57,7 @@ public class XrCheckHandler implements TaskHandler {
           running.key(), running.state());
       return;
     }
-    queue.enqueue(XrSwitchHandler.TYPE, "{\"key\":" + seen.key() + "}", TaskPriority.REPROCESS,
+    queue.enqueue(XrSwitchHandler.TYPE, "{\"key\":" + seen.key() + ",\"auto\":true}", TaskPriority.REPROCESS,
         "xr-switch:" + seen.key());
     LOG.info("XR release {} ({}) differs from the current release {}: switch enqueued", seen.key(), seen.alias(),
         current.key());
