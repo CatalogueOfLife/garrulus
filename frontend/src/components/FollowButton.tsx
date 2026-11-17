@@ -134,7 +134,7 @@ function Form({ onClose, type, target, label, existing, onExists }: Omit<DialogP
       {error ? <Alert color="red">{error}</Alert> : null}
       <Group justify="space-between" mt="xs">
         {existing ? (
-          <ConfirmButton variant="subtle" color="red" question={`Stop following ${label}?`} confirmLabel="Yes, unfollow"
+          <ConfirmButton variant="outline" color="red" question={`Stop following ${label}?`} confirmLabel="Yes, unfollow"
             onConfirm={() => remove.mutate()} loading={remove.isPending}>
             Unfollow
           </ConfirmButton>

@@ -94,7 +94,7 @@ export function FollowingPage() {
                     onConfirm={() => renew.mutate(s)}>
                     New feed URL
                   </ConfirmButton>
-                  <ConfirmButton size="xs" color="red" question="Delete this follow?"
+                  <ConfirmButton size="xs" variant="outline" color="red" question="Delete this follow?"
                     confirmLabel="Yes, delete" onConfirm={() => remove.mutate(s)}>
                     Delete
                   </ConfirmButton>
