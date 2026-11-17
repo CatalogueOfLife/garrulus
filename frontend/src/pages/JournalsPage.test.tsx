@@ -12,7 +12,7 @@ const item = (id: number, title: string, over = {}) => ({
 describe('JournalsPage', () => {
   it('listsJournalsWithBadgesAndLinks', async () => {
     server.use(http.get('/api/sources', () => HttpResponse.json({
-      total: 2, limit: 50, offset: 0, results: [item(7, 'Zootaxa'), item(8, 'Nature', { tier: 'BROAD', journalType: 'GENERAL' })],
+      total: 2, limit: 50, offset: 0, results: [item(7, 'Zootaxa', { oaModel: 'DIAMOND' }), item(8, 'Nature', { tier: 'BROAD', journalType: 'GENERAL' })],
     })));
     renderApp(<JournalsPage />, '/journals');
     const link = await screen.findByRole('link', { name: 'Zootaxa' });
@@ -20,6 +20,8 @@ describe('JournalsPage', () => {
     expect(screen.getAllByText(/Broad/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/General/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/120 papers a year/)).toHaveLength(2);
+    expect(screen.getByText(/Diamond/)).toBeInTheDocument();
+    expect(screen.queryByText(/DIAMOND/)).toBeNull();
   });
 
   it('sendsTitleTierAndTypeFiltersAndPaging', async () => {

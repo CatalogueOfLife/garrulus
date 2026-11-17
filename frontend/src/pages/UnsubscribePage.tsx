@@ -13,7 +13,7 @@ export function UnsubscribePage() {
     <div className={styles.narrow}>
       <h1 className={styles.narrowTitle}>Garrulus digest emails</h1>
       {m.isSuccess ? (
-        <Alert color="green">
+        <Alert>
           Digest emails are off. Your follows are kept; you can turn digests on again in your <Link to="/account">account settings</Link>.
         </Alert>
       ) : (

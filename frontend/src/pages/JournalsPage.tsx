@@ -23,7 +23,7 @@ function Row({ s }: { s: SourceItem }) {
         <Anchor component={Link} to={`/source/${s.id}`} className={styles.rowTitle}>{s.title}</Anchor>
         {s.worksPerYear != null ? <span className={styles.rowCount}>{s.worksPerYear} papers a year</span> : null}
       </div>
-      <p className={styles.rowMeta}>{[sentence(s.tier), sentence(s.journalType), s.oaModel, s.publisher, ...facts].filter(Boolean).join(' · ')}</p>
+      <p className={styles.rowMeta}>{[sentence(s.tier), sentence(s.journalType), sentence(s.oaModel), s.publisher, ...facts].filter(Boolean).join(' · ')}</p>
     </li>
   );
 }

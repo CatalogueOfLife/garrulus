@@ -30,9 +30,9 @@ export function VerifyEmailPage() {
   return (
     <div className={styles.narrow}>
       <h1 className={styles.narrowTitle}>Confirm your email address</h1>
-      {outcome === 'SET' && <Alert color="green" title="Address confirmed">Your address is set. <Link to="/account">Go to your account.</Link></Alert>}
+      {outcome === 'SET' && <Alert title="Address confirmed">Your address is set. <Link to="/account">Go to your account.</Link></Alert>}
       {outcome === 'MERGED' && (
-        <Alert color="green" title="Your accounts were merged">The address belonged to an earlier account of yours; both are now one. <Link to="/account">Go to your account.</Link></Alert>
+        <Alert title="Your accounts were merged">The address belonged to an earlier account of yours; both are now one. <Link to="/account">Go to your account.</Link></Alert>
       )}
       {outcome === 'REFUSED_OTHER_ORCID' && (
         <Alert color="red" title="Address not added">
