@@ -10,7 +10,7 @@ records the decisions as built, including the rulings made while building. Const
 
 - A re-index, a finder rollout or an XR switch never takes a work out of the listings, and an XR switch creates zero hits.
 - No paid service: the backfill and all reprocessing use free routes only.
-- Every handler is idempotent under redelivery (the queue is at-least-once). Migrations are expand-only (V8 to V12).
+- Every handler is idempotent under redelivery (the queue is at-least-once). Migrations are expand-only (V8 to V13).
 
 M5a (lifecycle: matching, pending index, reprocessing, XR switch) and M5b (backfill) are built and tested locally. The
 full backfill runs later on the GBIF VM.
@@ -49,7 +49,7 @@ full backfill runs later on the GBIF VM.
   written against the row set they were computed from.
 - **Release check.** `WorkIndexer.index` and `replace` refuse a release that is no longer current, under a share lock
   on the current release row, so no work is placed in the old release once the flip has committed. XR_FINISH also
-  re-enqueues `XR_REPLACE` if a listed work is still unplaced.
+  re-enqueues `XR_REPLACE` if a listed work is still unplaced. Lock order is work, then release, everywhere.
 - A re-indexed document without text still replaces the old names (`NO_TEXT_SHA`, empty swap).
 
 ### Re-index hit rule (amends ADR-0006)
@@ -60,15 +60,33 @@ included, by `SubscriptionsMatchingWork`). `EVALUATE_HITS` skips a new `ARTICLE`
 one `ARTICLE` per (follow, work) and `NEW_NAMES` are as in ADR-0006. A follow made after the work was first indexed gets
 nothing from an unchanged re-index; it gets a hit only when the re-index newly matches it.
 
+- **Every `MATCH_NAMES` of a listed work** captures the previous matches, with or without a pending index: a
+  `MATCH_NAMES` that re-indexes the live rows (a plain `FIND_NAMES` of a named document, a redelivery, the sweep below)
+  sets `indexed_at` again and must not make later follows look new.
+- **Text level of the old index (V13).** `RESOLVE_CONTENT` writes the new text level of a listed work at once, while its
+  live index stays the old (abstract) one until the swap. The capture therefore judges the old index at the level it was
+  built from: `work.names_text_level` (written with the live index by `FIND_NAMES`; for a pending index into
+  `pending_text_level`, which the swap adopts). V13 fills `names_text_level` from `text_level` for named works; a null
+  falls back to `text_level`. Salience's abstract-only flag (`WorkIndexer.aggregate`) uses the same level. So a follow
+  with `include_abstract_only=false` gets its `ARTICLE` when the full text index replaces the abstract one.
+- **Placed in the release being indexed (R10).** The capture reads the live rows placed in the release the new index is
+  matched in. When the live index is still placed in an older release (a re-index placed across the flip),
+  `WorkPlacer.place` also places the live rows in the new release (`PlacedWork.live`, mostly pre-match cache hits,
+  before the transaction); under the work lock the indexer checks the live row set (`liveIndexRows`) is unchanged,
+  writes those placements into `work_name`, captures, then swaps. A changed live row set writes nothing
+  (`LIVE_CHANGED`) and `MATCH_NAMES` is enqueued again under a fresh key. Without a pending index the rows to index
+  are the live rows, placed in the new release, and serve directly. So the switch itself makes no follow look new.
+
 ### Finder reprocessing
 
 - **`FIND_NAMES` `force`** skips the "already named" no-op, so the same document runs through the current finder. For a
   listed work the result goes to the pending index. If the work is `FULLTEXT` named but its text is gone (the loader
   falls back to the abstract), nothing is written and `RESOLVE_CONTENT` is enqueued instead.
 - **`RESOLVE_CONTENT` `freeOnly` / `reprocess`.** `freeOnly` skips paid routes (`ContentRoute.paid()`; the OpenAlex TEI
-  route is paid). `reprocess` that finds no free full text writes nothing and keeps the names (INFO). A route that threw
-  is an outage (30 minutes, no attempt), not "no text". With a text found, it stores as usual and enqueues
-  `FIND_NAMES {"force":true,"refetched":true}`.
+  route is paid). `reprocess` that finds no free full text writes nothing and keeps the names (INFO). A route that is
+  down (a retryable problem, `HarvestOutage.retryable`) is an outage (30 minutes, no attempt), not "no text"; a route
+  that failed for good (a 4xx, an unreadable answer: the same failure on every try) counts as "no text", so it is never
+  deferred for ever. With a text found, it stores as usual and enqueues `FIND_NAMES {"force":true,"refetched":true}`.
 - **`refetched` guard.** A `FIND_NAMES` marked `refetched` whose text is gone again keeps the names with a WARN instead
   of asking for another re-fetch (no `FIND_NAMES` / `RESOLVE_CONTENT` loop). Only named works are re-fetched.
 - **`REPROCESS_NAMES`** walks works the finder has seen, by id, in batches (default 1000, at most 10000), with filters
@@ -85,7 +103,9 @@ nothing from an unchanged re-index; it gets a hit only when the re-index newly m
 
 One monthly release becomes current without a gap and without a hit. States of `xr_release.state` (V10): `SEEN`,
 `PREPARING`, `PREPARED`, `SWITCHING`, `CURRENT`, `RETIRED`, `REFUSED`; `current` stays the readers' flag. Every step that
-decides locks all release rows (`FOR UPDATE`), so steps are serial.
+decides locks all release rows (`FOR NO KEY UPDATE`), so steps are serial; that lock conflicts with the indexer's
+share lock (the flip waits for in-flight indexing) but not with the key share lock of a `name_match` insert, so the
+pre-match and `MATCH_NAMES` are not held up by a step.
 
 - **Detect.** `XR_CHECK` enqueues `XR_SWITCH {"key":k,"auto":true}` (dedup `xr-switch:<k>`) for a key other than the
   current one (a lower key too, a switch back) unless it is REFUSED, another switch runs, or a bundle is configured.
@@ -94,7 +114,8 @@ decides locks all release rows (`FOR UPDATE`), so steps are serial.
   silently when it differs, so the stale chain of a cancelled switch cannot mark the new one PREPARED.
 - **Pre-match.** `XR_PREMATCH` walks the current release's `name_match` keys (name, rank, hint key) and matches them
   against k with `match-parallelism` threads, filling the cache. A name CLB cannot match (probe fine) is counted, not
-  stored. The last batch sets PREPARING to PREPARED (conditional on the generation) and enqueues `XR_GATE`.
+  stored; so is a key that cannot be asked (a bad stored hint key) or whose answer cannot be read (WARN with the key),
+  so one bad key cannot stop the pre-match and leave the switch PREPARING. The last batch sets PREPARING to PREPARED (conditional on the generation) and enqueues `XR_GATE`.
 - **Gate.** Counts the current release's keys with no match in k (or unmatchable) among rows with `matched_at` before
   `switch_started` (keys matched during the pre-match are not lost). Over `nametracker.xr.max-lost-share` (0.05): the
   release is REFUSED (note `refusedBy:"gate"`, ERROR with both numbers) unless the switch was started with `force`.
@@ -114,7 +135,12 @@ decides locks all release rows (`FOR UPDATE`), so steps are serial.
   rewrites `work_name`, codes, taxgroups, `has_acts` and `placed_release` and never touches `state`, `indexed_at` or
   `first_indexed_at`; it enqueues no `EVALUATE_HITS`. A work that has a pending index is skipped (its `MATCH_NAMES`
   places it against k). A non-empty batch enqueues the next; an empty batch enqueues `XR_FINISH`.
-- **Finish.** `XR_FINISH` first checks that no listed work is unplaced (else it re-enqueues `XR_REPLACE`). Then:
+- **Finish.** `XR_FINISH` first, without a lock, logs the listed works with a pending index not yet placed in k and
+  enqueues `MATCH_NAMES` (dedup `match-pending:<id>:<run>:<sha12>`) for every listed work with a pending index and no
+  QUEUED or RUNNING `MATCH_NAMES` (its task ended DEAD, or its enqueue was swallowed by the dedup key of a
+  `MATCH_NAMES` still running that had already swapped an earlier pending index in); at most 100,000 per run. The
+  admin task `MATCH_PENDING {"limit":n}` (default 1000) runs the same sweep. Then, with the releases locked, it checks
+  that no listed work is unplaced (else it re-enqueues `XR_REPLACE`). Then:
   - **Follow check.** TAXON follows (paused too) not yet noted since the switch are checked against k. An id is proven
     present by a `name_match` row of k with it as `usage_id`, or by a `work_name` row of a work placed in k with it in
     `taxon_path`; anything else is looked up with `GET /dataset/{k}/taxon/{id}` on the CLB API (never the bundle). FOUND
@@ -137,7 +163,10 @@ decides locks all release rows (`FOR UPDATE`), so steps are serial.
   stream, checks that its release key is k (otherwise WARN, nothing written), writes `dictionary-<k>.bin` atomically to
   `nametracker.finder.dictionary-dir` and swaps the in-process finder (`ReloadableNameFinder`) if k is current. An existing
   file is swapped in without a download. Only a failed connection, a broken download stream and 5xx/429 are outages;
-  any other failure keeps the current dictionary (WARN). Without a directory, or with a remote finder service, it is a
+  any other failure keeps the current dictionary (WARN). The zip is read through `HttpURLConnection` (`StreamingGet`,
+  shared with the snapshot client) with a read timeout (`nametracker.finder.xr-zip-read-timeout`, 5m): a download that
+  stalls is a broken stream, so an outage, instead of a task kept RUNNING for ever by its heartbeats. The build runs in
+  the indexer's heap: check `-Xmx` against the dictionary build's peak before the GBIF deploy. Without a directory, or with a remote finder service, it is a
   no-op. At start the finder uses `dictionary-<currentKey>.bin`, else `FINDER_DICTIONARY`, else the newest file.
 - **Bootstrap (R8).** With a directory and no usable dictionary the finder bean is empty (not ready): `FIND_NAMES` is
   deferred 30 minutes without an attempt, and at start the indexer enqueues `BUILD_DICTIONARY` for the current release.
@@ -149,7 +178,8 @@ decides locks all release rows (`FOR UPDATE`), so steps are serial.
   file urls to the base url and streams each works file as gzip JSON lines.
 - **Streaming with read timeout.** The body is read through `HttpURLConnection` with a read timeout
   (`nametracker.snapshot.read-timeout`, 5m). A stall mid-body is the same broken-off failure as a truncated gzip: the
-  task fails, uses an attempt and reads the file again. A stalled response header is a retryable outage.
+  task fails, uses an attempt and reads the file again. A stalled response header is a retryable outage; the
+  connection is closed on every failure.
 - **`BACKFILL`** payload `{"fromYear":2000,"toYear":<this year>,"files":null,"fromFile":0}`. It inserts a `backfill_run`
   (V12), one `backfill_file` per file of the slice and one `BACKFILL_FILE {"runId","idx","records"}` task at priority
   `BACKFILL` (dedup `backfill:<r>:<i>`). Redelivery reuses a RUNNING run with the same years, snapshot date, first index
@@ -175,13 +205,17 @@ decides locks all release rows (`FOR UPDATE`), so steps are serial.
 - **R1 chain.** After an XR switch the next `REBUILD_STATS` can still cause a few hits through `RESCORE_SALIENCE`. The dev
   check counts hits after a switch and would show it.
 - **Config revert.** A to B to A of the finder config does not re-roll: A's hash is already in `finder_rollout`, so
-  nothing is enqueued; run `REPROCESS_NAMES` by hand. Overlapping rollouts double the work.
+  nothing is enqueued; run `REPROCESS_NAMES` by hand. Overlapping rollouts both run in full (the work is done twice).
 - **Baseline after bootstrap.** After a dictionary bootstrap the finder is not ready at start, so the rollout baseline is
-  only recorded at the next restart.
+  only recorded at the next restart. Restart once after the bootstrap before changing the finder config; otherwise the
+  changed config becomes the baseline and is never rolled out.
+- **Deploy during a backfill.** A restart while `BACKFILL_FILE` tasks read their files can use up their attempts (a
+  file read again from the start each time); re-run the same `BACKFILL` to revive files that ended DEAD.
 - **Shared manual continuation key.** Two simultaneous manual `REPROCESS_NAMES` runs whose batches end on the same work id
   share the dedup key `reprocess:manual:<lastId>` and the second chain is dropped.
-- **Stale rows.** A `MATCH_NAMES` that ends `DEAD` while its work has a pending index leaves that work unplaced in k
-  (logged at finish). A forced `FIND_NAMES` redelivered after it ran runs the finder again.
+- **Stale rows.** A `MATCH_NAMES` that ends `DEAD` while its work has a pending index leaves that work waiting until the
+  next `XR_FINISH` sweep or a `MATCH_PENDING` (both skip a work whose `MATCH_NAMES` is still queued or running). A forced
+  `FIND_NAMES` redelivered after it ran runs the finder again.
 - **Follow notes.** An XR note waits for the next digest that has hits; a MOVED follow with a null note shows nothing.
 - **Cost of a pre-match.** A full release is millions of unthrottled CLB calls (`match-parallelism` bounds the
   concurrency). The first one on the GBIF VM should be watched.

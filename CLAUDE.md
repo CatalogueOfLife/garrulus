@@ -94,9 +94,13 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
     of a new release there from `NAMETRACKER_XR_ZIP_URL` (default
     `https://download.checklistbank.org/col/xr_latest_coldp.zip`) and the in-process finder reloads it. With an empty
     directory the indexer builds the current release's dictionary at start (about 1.4 GB), and `FIND_NAMES` waits
-    (30 minutes, no attempt) until it is ready.
+    (30 minutes, no attempt) until it is ready. The build runs inside the indexer: check its `-Xmx` against the
+    dictionary build's peak heap before the GBIF deploy. `NAMETRACKER_XR_ZIP_READ_TIMEOUT` (5m): a zip download silent
+    that long is broken off and deferred as an outage.
   - `nametracker.finder.rollout-on-start` (true, property only): at start, a changed finder `configHash` enqueues
-    `REPROCESS_NAMES {"all":true,"rollout":hash}`; the first start only records the baseline.
+    `REPROCESS_NAMES {"all":true,"rollout":hash}`; the first start only records the baseline. After a dictionary
+    bootstrap the finder was not ready at start, so restart once before changing the finder config (else that start
+    becomes the baseline and the change is not rolled out). Two rollouts that overlap both run in full.
   - `NAMETRACKER_SNAPSHOT_BASE_URL` (`https://openalex.s3.amazonaws.com`): the free OpenAlex snapshot;
     `NAMETRACKER_SNAPSHOT_READ_TIMEOUT` (5m): a works file silent that long counts as broken off (the task fails and
     reads the file again).
@@ -149,11 +153,16 @@ curl ... -d '{"type":"HARVEST_CROSSREF","payload":{"date":"2026-11-14"},"priorit
 - Lifecycle task types (M5, ADR-0007):
   - `FIND_NAMES` also takes `"force":true` (run the finder again on the same document; a listed work goes to the pending
     index) and `"refetched":true` (set by a reprocess re-fetch: if the text is gone again, keep the names). `RESOLVE_CONTENT`
-    also takes `"freeOnly":true` (skip paid routes) and `"reprocess":true` (no free full text: keep the names, write
-    nothing).
+    also takes `"freeOnly":true` (skip paid routes) and `"reprocess":true` (no free full text, or a route that failed
+    for good: keep the names, write nothing; a route that is down defers it 30 minutes).
   - `REPROCESS_NAMES` (`{"afterId":0,"batch":1000,"all":false,"force":true,"source":null,"workIds":null,"yearFrom":null,
     "yearTo":null,"rollout":null}`, batch at most 10000): forced `FIND_NAMES` at REPROCESS for works the finder has seen,
-    continues per batch. Does nothing without a filter or `"all":true`; `force:false` enqueues plain `FIND_NAMES`.
+    continues per batch. Does nothing without a filter or `"all":true`; `force:false` enqueues plain `FIND_NAMES`, which
+    does not name an already named document again but runs its `MATCH_NAMES` again (re-placed in the current release,
+    `indexed_at` set; no `ARTICLE` for a follow that matched before).
+  - `MATCH_PENDING` (`{"limit":n}`, default 1000, admin): enqueues `MATCH_NAMES` for listed works whose pending index has
+    no QUEUED or RUNNING `MATCH_NAMES` (its task ended DEAD, or its enqueue was swallowed by a dedup key still held).
+    `XR_FINISH` runs the same sweep (up to 100,000 works).
   - `XR_SWITCH` (`{"key":k,"refuse":false,"force":false}`; `auto` is set by `XR_CHECK`): starts PREPARING for release k.
     `refuse:true` also marks the old release REFUSED (rollback hold: no automatic switch back). `force:true` skips the
     gate. A refused key is cleared by an admin switch. Refused while another switch is running (also while the last
@@ -167,10 +176,13 @@ curl ... -d '{"type":"HARVEST_CROSSREF","payload":{"date":"2026-11-14"},"priorit
     priority `BACKFILL`. Imports articles and reviews of active CORE/BROAD sources, `origin=BACKFILL`, and queues
     `RESOLVE_CONTENT`; an existing work (same OpenAlex id or DOI) is never changed. A repeated identical `BACKFILL` of a
     RUNNING run re-enqueues only the files not done (a DEAD file gets a new task); of a DONE run it starts a new run.
+    A deploy (restart) during a backfill can use up attempts of the files being read; re-run the same `BACKFILL` to
+    revive files that ended DEAD.
 - Re-indexing: a work that is `INDEXED` stays `INDEXED` and listed while a new `FIND_NAMES` result waits in
   `mention_pending` / `classification_context_pending`; `MATCH_NAMES` swaps it in one transaction, without a gap.
   A re-index gives a follow an `ARTICLE` hit only if the follow did not match the previous index (ADR-0006,
-  amendment). An XR switch never writes a hit. The first release-based match of a 5M-work index is a large CLB load.
+  amendment), judged at the text level that index was built from (`work.names_text_level`, V13) and placed in the
+  current release; this holds for any `MATCH_NAMES` of a listed work, with or without a pending index. An XR switch never writes a hit. The first release-based match of a 5M-work index is a large CLB load.
 
 ```
 # pin the XR (first key seen), then name and index every resolved work
