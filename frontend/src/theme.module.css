@@ -1,0 +1,60 @@
+.checkboxInput {
+  background: transparent;
+  border: 1px solid var(--gr-ink);
+}
+
+.checkboxInput:checked {
+  background: var(--gr-ink);
+  border-color: var(--gr-ink);
+}
+
+.checkboxIcon {
+  color: var(--gr-paper);
+}
+
+.alertRoot {
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--gr-ink);
+  border-bottom: 1px solid var(--gr-ink);
+  color: var(--gr-ink);
+}
+
+.alertTitle {
+  font-weight: 500;
+  color: var(--alert-color);
+}
+
+.skeleton {
+  background: transparent;
+  border-bottom: 1px solid var(--gr-ink);
+}
+
+.skeleton::before,
+.skeleton::after {
+  background: transparent;
+  animation: none;
+}
+
+.paginationControl {
+  background: transparent;
+  border: 0;
+  color: var(--gr-ink);
+}
+
+.paginationControl[data-active] {
+  background: transparent;
+  color: var(--gr-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--gr-red);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.badgeRoot {
+  background: transparent;
+  color: var(--gr-ink);
+  border: 1px solid var(--gr-ink);
+  text-transform: none;
+  font-weight: 400;
+}

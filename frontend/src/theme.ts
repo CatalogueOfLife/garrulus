@@ -1,14 +1,82 @@
-import { createTheme, type MantineColorsTuple } from '@mantine/core';
+import {
+  Alert,
+  Badge,
+  Button,
+  Checkbox,
+  type CSSVariablesResolver,
+  Loader,
+  Menu,
+  Modal,
+  NativeSelect,
+  Pagination,
+  Popover,
+  Radio,
+  SegmentedControl,
+  Select,
+  Skeleton,
+  TextInput,
+  createTheme,
+  type MantineColorsTuple,
+} from '@mantine/core';
+import classes from './theme.module.css';
 
-const jay: MantineColorsTuple = ['#EAF3FC', '#D3E6F8', '#A8CEF2', '#7AB4EA', '#5199E0', '#3482D3', '#2A6FBA', '#235C9B', '#1C4A7C', '#14365B'];
-const fawn: MantineColorsTuple = ['#FAF4F1', '#F2E5DF', '#E6CDC2', '#D8B3A4', '#CB9C8A', '#BC8672', '#A0705D', '#82594A', '#644337', '#462E25'];
-const ink: MantineColorsTuple = ['#C9C5C2', '#ADA8A4', '#8D8783', '#6B6662', '#4B4744', '#383533', '#2A2826', '#201E1D', '#181716', '#100F0F'];
+// Mantine needs real colours in its tuples; every other colour comes from the --gr-* tokens.
+const ink = Array(10).fill('#000000') as unknown as MantineColorsTuple;
+const red = Array(10).fill('#D2381C') as unknown as MantineColorsTuple;
+
+const fontStack = "'Schibsted Grotesk', 'Helvetica Neue', Arial, sans-serif";
 
 export const theme = createTheme({
-  primaryColor: 'jay',
-  primaryShade: { light: 6, dark: 6 },
-  colors: { jay, fawn, dark: ink },
-  black: '#100F0F',
-  defaultRadius: 'md',
-  headings: { fontFamily: "Georgia, 'Times New Roman', serif" },
+  fontFamily: fontStack,
+  headings: { fontFamily: fontStack, fontWeight: '500' },
+  primaryColor: 'ink',
+  colors: { ink, red },
+  defaultRadius: 0,
+  focusRing: 'never',
+  components: {
+    Button: Button.extend({ defaultProps: { radius: 'xl', variant: 'default' } }),
+    TextInput: TextInput.extend({ defaultProps: { radius: 'xl' } }),
+    Select: Select.extend({ defaultProps: { radius: 'xl' } }),
+    NativeSelect: NativeSelect.extend({ defaultProps: { radius: 'xl' } }),
+    SegmentedControl: SegmentedControl.extend({ defaultProps: { radius: 'xl' } }),
+    Pagination: Pagination.extend({
+      defaultProps: { radius: 'xl' },
+      classNames: { control: classes.paginationControl },
+    }),
+    Alert: Alert.extend({
+      defaultProps: { radius: 0 },
+      classNames: (_theme, props) => ({
+        root: classes.alertRoot,
+        title: props.color === 'red' ? `${classes.alertTitle} ${classes.alertTitleRed}` : classes.alertTitle,
+      }),
+    }),
+    Menu: Menu.extend({ defaultProps: { radius: 0, shadow: 'none' } }),
+    Modal: Modal.extend({ defaultProps: { radius: 0, shadow: 'none' } }),
+    Popover: Popover.extend({ defaultProps: { radius: 0, shadow: 'none' } }),
+    Checkbox: Checkbox.extend({ classNames: { input: classes.checkboxInput, icon: classes.checkboxIcon } }),
+    Radio: Radio.extend({ classNames: { radio: classes.checkboxInput, icon: classes.checkboxIcon } }),
+    Loader: Loader.extend({ defaultProps: { type: 'dots', color: 'var(--gr-ink)' } }),
+    Skeleton: Skeleton.extend({ classNames: { root: classes.skeleton } }),
+    Badge: Badge.extend({ defaultProps: { radius: 'xl' }, classNames: { root: classes.badgeRoot } }),
+  },
+});
+
+const mapped: Record<string, string> = {
+  '--mantine-color-body': 'var(--gr-paper)',
+  '--mantine-color-text': 'var(--gr-ink)',
+  '--mantine-color-dimmed': 'var(--gr-grey)',
+  '--mantine-color-default-border': 'var(--gr-ink)',
+  '--mantine-color-anchor': 'var(--gr-ink)',
+  '--mantine-color-error': 'var(--gr-red)',
+  '--mantine-primary-color-filled': 'var(--gr-ink)',
+  '--mantine-primary-color-filled-hover': 'var(--gr-ink)',
+  '--mantine-primary-color-contrast': 'var(--gr-paper)',
+};
+
+// Mantine defines these per colour scheme (higher specificity than :root), so they go in light and dark;
+// `variables` repeats them for scheme-independent lookups.
+export const cssVariablesResolver: CSSVariablesResolver = () => ({
+  variables: { ...mapped },
+  light: { ...mapped },
+  dark: { ...mapped },
 });

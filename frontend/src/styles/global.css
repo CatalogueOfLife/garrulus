@@ -1,0 +1,42 @@
+@import '@fontsource/schibsted-grotesk/400.css';
+@import '@fontsource/schibsted-grotesk/500.css';
+@import '@fontsource/schibsted-grotesk/400-italic.css';
+@import '@fontsource/schibsted-grotesk/500-italic.css';
+
+body {
+  background: var(--gr-paper);
+  color: var(--gr-ink);
+  font-family: var(--gr-font);
+  font-size: var(--gr-type-body-size);
+  line-height: var(--gr-type-body-line);
+}
+
+:focus-visible {
+  outline: 2px solid var(--gr-red);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+.gr-wrap {
+  overflow-wrap: anywhere;
+}
+
+a {
+  color: var(--gr-ink);
+  text-decoration: none;
+}
+
+a:hover,
+.gr-text a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}

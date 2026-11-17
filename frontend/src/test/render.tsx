@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { MantineProvider } from '@mantine/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import { theme } from '../theme';
+import { cssVariablesResolver, theme } from '../theme';
 
 export function LocationProbe() {
   const l = useLocation();
@@ -13,7 +13,7 @@ export function LocationProbe() {
 export function renderApp(ui: ReactElement, path = '/') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MantineProvider theme={theme}>
+    <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver}>
       <QueryClientProvider client={client}>
         <MemoryRouter initialEntries={[path]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           {ui}

@@ -1,10 +1,23 @@
-import { theme } from './theme';
+import { DEFAULT_THEME, mergeMantineTheme } from '@mantine/core';
+import { cssVariablesResolver, theme } from './theme';
+
+const full = mergeMantineTheme(DEFAULT_THEME, theme);
 
 describe('theme', () => {
-  it('uses the brand colours', () => {
-    expect(theme.primaryColor).toBe('jay');
-    expect(theme.colors!.jay![6]).toBe('#2A6FBA');
-    expect(theme.colors!.fawn![0]).toBe('#FAF4F1');
-    expect(theme.colors!.dark![7]).toBe('#201E1D');
+  it('uses Schibsted Grotesk and square corners', () => {
+    expect(theme.fontFamily).toMatch(/^'Schibsted Grotesk'/);
+    expect(theme.defaultRadius).toBe(0);
+  });
+
+  it('maps Mantine colours onto the tokens', () => {
+    const r = cssVariablesResolver(full);
+    expect(r.variables['--mantine-color-error']).toBe('var(--gr-red)');
+    expect(r.light['--mantine-color-body']).toBe('var(--gr-paper)');
+    expect(r.dark['--mantine-color-text']).toBe('var(--gr-ink)');
+  });
+
+  it('drops the old palette', () => {
+    expect(theme.colors).not.toHaveProperty('jay');
+    expect(theme.colors).not.toHaveProperty('fawn');
   });
 });

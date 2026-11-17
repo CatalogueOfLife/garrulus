@@ -1,0 +1,58 @@
+:root {
+  --gr-paper: #ffffff;
+  --gr-ink: #000000;
+  --gr-grey: #6e6e6e;
+  --gr-rule-soft: #d6d6d6;
+  --gr-red: #d2381c;
+
+  --gr-font: 'Schibsted Grotesk', 'Helvetica Neue', Arial, sans-serif;
+
+  --gr-type-display-size: 132px;
+  --gr-type-display-line: 0.9;
+  --gr-type-title-size: 40px;
+  --gr-type-title-line: 1.1;
+  --gr-type-lede-size: 22px;
+  --gr-type-lede-line: 1.3;
+  --gr-type-head-size: 22px;
+  --gr-type-head-line: 1.25;
+  --gr-type-body-size: 16px;
+  --gr-type-body-line: 1.5;
+  --gr-type-ui-size: 15px;
+  --gr-type-ui-line: 1.4;
+  --gr-type-meta-size: 14px;
+  --gr-type-meta-line: 1.4;
+  --gr-type-small-size: 13px;
+  --gr-type-small-line: 1.4;
+
+  --gr-space-1: 4px;
+  --gr-space-2: 8px;
+  --gr-space-3: 12px;
+  --gr-space-4: 16px;
+  --gr-space-5: 24px;
+  --gr-space-6: 32px;
+  --gr-space-7: 48px;
+  --gr-space-8: 64px;
+
+  --gr-width: 1240px;
+  --gr-side: 340px;
+}
+
+:root[data-mantine-color-scheme='dark'] {
+  --gr-paper: #000000;
+  --gr-ink: #ffffff;
+  --gr-grey: #9a9a9a;
+  --gr-rule-soft: #3a3a3a;
+  --gr-red: #e8553a;
+}
+
+@media (max-width: 767px) {
+  :root {
+    --gr-type-display-size: 88px;
+  }
+}
+
+@media (max-width: 479px) {
+  :root {
+    --gr-type-display-size: 56px;
+  }
+}
