@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw';
 import type { TaxGroup, WorkPage, WorkSummary } from '../api';
 
 export const work = (id: number, title: string): WorkSummary => ({
-  id, title, year: 2026, authors: ['A. Author'], authorCount: 1, hasActs: false, mainNames: [],
+  id, title, year: 2026, authors: ['A. Author'], authorCount: 1, hasActs: false, mainNames: [], titleMentions: [],
   source: { id: 7, title: 'Zootaxa' },
 });
 

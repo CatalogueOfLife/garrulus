@@ -29,6 +29,10 @@ export interface NameRef {
   name: string;
   placementMethod: 'MATCH' | 'GENUS' | 'VERBATIM_CONTEXT' | 'NONE';
   usageId?: string | null;
+  kind?: string | null;
+  rank?: string | null;
+  usageRank?: string | null;
+  actTypes?: string[];
 }
 export interface WorkSummary {
   id: number;
@@ -42,6 +46,11 @@ export interface WorkSummary {
   textLevel?: 'FULLTEXT' | 'ABSTRACT_ONLY' | 'NO_TEXT' | null;
   hasActs: boolean;
   mainNames: NameRef[];
+  volume?: string | null;
+  issue?: string | null;
+  pages?: string | null;
+  /** Offsets in Unicode code points into `title`. */
+  titleMentions?: MentionSpan[];
 }
 export interface FacetCount { value: string; count: number }
 export interface WorkPage {
@@ -110,6 +119,7 @@ export interface WorkDetail {
   volume?: string | null;
   issue?: string | null;
   pages?: string | null;
+  titleMentions?: MentionSpan[];
   language?: string | null;
   type?: string | null;
   oaStatus?: string | null;
