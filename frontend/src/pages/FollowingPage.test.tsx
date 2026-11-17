@@ -8,7 +8,7 @@ import { renderApp } from '../test/render';
 const sub = (id: number, label: string, over: object = {}) => ({
   id, type: 'TAXON', target: `T${id}`, label, mainSubjectOnly: true, newNamesOnly: false,
   includeAbstractOnly: true, includeReferences: false, filters: {}, sinceYear: null, paused: false,
-  feedUrl: `http://x/feeds/s/tok${id}.atom`, created: '2026-11-16T00:00:00Z', ...over,
+  feedUrl: `http://x/feeds/s/tok${id}.atom`, created: '2026-11-16T00:00:00Z', targetStatus: 'OK', xrNote: null, previousTarget: null, ...over,
 });
 
 describe('FollowingPage', () => {
@@ -46,6 +46,25 @@ describe('FollowingPage', () => {
     await userEvent.click(within(row2).getByRole('button', { name: 'Yes, delete' }));
     await waitFor(() => expect(deleted).toBe(2));
     await waitFor(() => expect(screen.queryByText('Zootaxa')).toBeNull());
+  });
+
+  it('shows the notes of moved and missing follows', async () => {
+    server.use(
+      http.get('/api/me', () => HttpResponse.json(meBody)),
+      http.get('/api/me/subscriptions', () => HttpResponse.json([
+        sub(1, 'Carabus', { targetStatus: 'MOVED', previousTarget: 'OLD', xrNote: 'Moved to Carabus s.str.' }),
+        sub(2, 'Gonus', { targetStatus: 'MISSING', xrNote: 'Gonus is not in the new release.' }),
+        sub(3, 'Plain'),
+      ])),
+    );
+    renderApp(<FollowingPage />, '/following');
+    const moved = (await screen.findByText('Carabus')).closest('li') as HTMLElement;
+    expect(within(moved).getByText('Moved to Carabus s.str.')).toBeInTheDocument();
+    const missing = screen.getByText('Gonus').closest('li') as HTMLElement;
+    expect(within(missing).getByText(/Gonus is not in the new release\./)).toBeInTheDocument();
+    expect(within(missing).getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+    const plain = screen.getByText('Plain').closest('li') as HTMLElement;
+    expect(within(plain).queryByRole('note')).toBeNull();
   });
 
   it('copies the feed url', async () => {

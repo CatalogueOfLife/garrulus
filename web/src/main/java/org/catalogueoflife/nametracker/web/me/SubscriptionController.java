@@ -70,7 +70,7 @@ public class SubscriptionController {
   public SubscriptionDto dto(Subscription s) {
     return new SubscriptionDto(s.id(), s.type(), s.target(), s.label(), s.mainSubjectOnly(), s.newNamesOnly(),
         s.includeAbstractOnly(), s.includeReferences(), filtersOf(s.filters()), s.sinceYear(), s.paused(),
-        feedUrl(s.feedToken()), s.created());
+        feedUrl(s.feedToken()), s.created(), s.targetStatus(), s.xrNote(), s.previousTarget());
   }
 
   public String feedUrl(String token) {

@@ -77,4 +77,17 @@
     WHERE id = #{id} AND state = 'RUNNING'
       AND NOT EXISTS (SELECT 1 FROM backfill_file f WHERE f.run_id = #{id} AND f.done_at IS NULL)
   </update>
+
+  <select id="recentSummaries" resultType="org.catalogueoflife.nametracker.store.backfill.BackfillSummary">
+    SELECT r.id, r.from_year AS fromYear, r.to_year AS toYear, r.snapshot_date AS snapshotDate,
+      r.files_total AS filesTotal, r.state,
+      count(f.done_at) AS filesDone,
+      COALESCE(sum(f.records_read), 0) AS recordsRead,
+      COALESCE(sum(f.records_kept), 0) AS recordsKept,
+      COALESCE(sum(f.works_created), 0) AS worksCreated
+    FROM (SELECT * FROM backfill_run ORDER BY id DESC LIMIT #{limit}) r
+    LEFT JOIN backfill_file f ON f.run_id = r.id
+    GROUP BY r.id, r.from_year, r.to_year, r.snapshot_date, r.files_total, r.state
+    ORDER BY r.id DESC
+  </select>
 </mapper>

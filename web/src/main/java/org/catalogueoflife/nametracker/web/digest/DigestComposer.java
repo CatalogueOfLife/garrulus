@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import org.catalogueoflife.nametracker.store.account.AppUser;
 import org.catalogueoflife.nametracker.store.account.Hit;
+import org.catalogueoflife.nametracker.store.account.Subscription;
 import org.catalogueoflife.nametracker.web.api.public_.dto.WorkSummary;
 import org.jspecify.annotations.Nullable;
 import org.springframework.web.util.HtmlUtils;
@@ -47,6 +48,22 @@ public final class DigestComposer {
   /** A work in one group: its hits merged. */
   private record Entry(WorkSummary work, boolean fresh, Instant newest, HitNames names) {}
 
+  /** A follow's XR note (a moved or missing taxon) for the footer. */
+  public record XrNote(String label, String note) {}
+
+  /**
+   * The follows whose XR note was written after {@code since} (the user's previous sent digest, else digest_since), so
+   * that a note appears in one digest only; ordered by label.
+   */
+  public static List<XrNote> newNotes(List<Subscription> subscriptions, Instant since) {
+    return subscriptions.stream()
+        .filter(s -> s.xrNote() != null && s.xrNoteAt() != null && s.xrNoteAt().isAfter(since))
+        .sorted(Comparator.comparing((Subscription s) -> String.valueOf(s.label()).toLowerCase(Locale.ROOT))
+            .thenComparing(Subscription::id))
+        .map(s -> new XrNote(s.label() == null || s.label().isBlank() ? "Follow " + s.id() : s.label(), s.xrNote()))
+        .toList();
+  }
+
   private final UnsubscribeTokens tokens;
 
   public DigestComposer(UnsubscribeTokens tokens) {
@@ -54,6 +71,10 @@ public final class DigestComposer {
   }
 
   public Mail compose(AppUser u, List<SubscriptionHits> groups, String publicUrl) {
+    return compose(u, groups, List.of(), publicUrl);
+  }
+
+  public Mail compose(AppUser u, List<SubscriptionHits> groups, List<XrNote> notes, String publicUrl) {
     String base = publicUrl.strip().replaceAll("/+$", "");
     List<SubscriptionHits> sorted = groups.stream()
         .sorted(Comparator.comparing((SubscriptionHits g) -> label(g).toLowerCase(Locale.ROOT))
@@ -97,6 +118,16 @@ public final class DigestComposer {
         text.append("\nand ").append(more).append(" more: ").append(hits).append('\n');
         html.append("<p style=\"margin:8px 0\"><a style=\"color:").append(JAY_6).append("\" href=\"")
             .append(esc(hits)).append("\">and ").append(more).append(" more</a></p>\n");
+      }
+    }
+
+    if (!notes.isEmpty()) {
+      text.append("\nChanges to what you follow:\n");
+      html.append("<p style=\"margin:24px 0 4px 0;font-weight:600\">Changes to what you follow</p>\n");
+      for (XrNote note : notes) {
+        text.append("* ").append(note.label()).append(": ").append(note.note()).append('\n');
+        html.append("<p style=\"margin:0 0 4px 0;font-size:13px;color:").append(FAWN_7).append("\"><b>")
+            .append(esc(note.label())).append("</b>: ").append(esc(note.note())).append("</p>\n");
       }
     }
 

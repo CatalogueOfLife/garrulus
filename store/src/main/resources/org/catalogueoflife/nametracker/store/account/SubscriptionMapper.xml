@@ -18,11 +18,16 @@
       <arg column="since_year" javaType="integer"/>
       <arg column="paused" javaType="_boolean"/>
       <arg column="created" javaType="java.time.Instant"/>
+      <arg column="target_status" javaType="string"/>
+      <arg column="xr_note" javaType="string"/>
+      <arg column="xr_note_at" javaType="java.time.Instant"/>
+      <arg column="previous_target" javaType="string"/>
     </constructor>
   </resultMap>
 
   <sql id="cols">id, user_id, type, target, label, main_subject_only, new_names_only, include_abstract_only,
-    include_references, filters::text AS filters, feed_token, since_year, paused, created</sql>
+    include_references, filters::text AS filters, feed_token, since_year, paused, created,
+    target_status, xr_note, xr_note_at, previous_target</sql>
 
   <select id="listByUser" resultMap="sub">
     SELECT <include refid="cols"/> FROM subscription WHERE user_id = #{userId} ORDER BY id

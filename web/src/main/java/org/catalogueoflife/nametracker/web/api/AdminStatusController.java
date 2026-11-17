@@ -1,14 +1,20 @@
 package org.catalogueoflife.nametracker.web.api;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.catalogueoflife.nametracker.store.backfill.BackfillMapper;
+import org.catalogueoflife.nametracker.store.backfill.BackfillSummary;
 import org.catalogueoflife.nametracker.store.harvest.HarvestRun;
 import org.catalogueoflife.nametracker.store.harvest.HarvestRunMapper;
+import org.catalogueoflife.nametracker.store.index.FinderRollout;
+import org.catalogueoflife.nametracker.store.index.FinderRolloutMapper;
+import org.catalogueoflife.nametracker.store.index.IndexMapper;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.TaskMapper;
 import org.catalogueoflife.nametracker.store.usage.ApiUsageMapper;
@@ -26,29 +32,44 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminStatusController {
 
   static final int RUNS = 20;
+  static final int LISTED = 20;
 
   public record Status(
       Map<String, Map<String, Long>> tasks,
       Map<String, Map<String, Long>> works,
       Map<String, Long> sources,
       List<Map<String, Object>> apiUsage,
-      List<HarvestRun> harvestRuns) {}
+      List<HarvestRun> harvestRuns,
+      List<XrReleaseStatus> xrReleases,
+      List<BackfillSummary> backfillRuns,
+      List<FinderRollout> finderRollouts) {}
+
+  /** A release with its switch progress; the raw note of the row (switch options, who refused) is not exposed. */
+  public record XrReleaseStatus(int key, String alias, String state, boolean current, @Nullable Integer keysTotal,
+      @Nullable Integer keysLost, @Nullable Instant switchStarted, @Nullable Instant switchedAt) {}
 
   private final TaskMapper tasks;
   private final WorkMapper works;
   private final SourceMapper sources;
   private final ApiUsageMapper usage;
   private final HarvestRunMapper runs;
+  private final IndexMapper index;
+  private final BackfillMapper backfill;
+  private final FinderRolloutMapper rollouts;
   private final Clock clock;
   private final AdminAuth auth;
 
   public AdminStatusController(TaskMapper tasks, WorkMapper works, SourceMapper sources, ApiUsageMapper usage,
-      HarvestRunMapper runs, Clock clock, @Value("${nametracker.admin.token}") String token) {
+      HarvestRunMapper runs, IndexMapper index, BackfillMapper backfill, FinderRolloutMapper rollouts,
+      Clock clock, @Value("${nametracker.admin.token}") String token) {
     this.tasks = tasks;
     this.works = works;
     this.sources = sources;
     this.usage = usage;
     this.runs = runs;
+    this.index = index;
+    this.backfill = backfill;
+    this.rollouts = rollouts;
     this.clock = clock;
     this.auth = new AdminAuth(token);
   }
@@ -72,7 +93,10 @@ public class AdminStatusController {
       bySource.put((String) r.get("tier"), ((Number) r.get("n")).longValue());
     }
     return new Status(nested(tasks.countByTypeAndState(), "type", "state"),
-        nested(works.countByStateAndTextLevel(), "state", "text_level"), bySource, usageRows, runs.recent(RUNS));
+        nested(works.countByStateAndTextLevel(), "state", "text_level"), bySource, usageRows, runs.recent(RUNS),
+        index.releases(LISTED).stream().map(r -> new XrReleaseStatus(r.key(), r.alias(), r.state(), r.current(),
+            r.keysTotal(), r.keysLost(), r.switchStarted(), r.switchedAt())).toList(),
+        backfill.recentSummaries(LISTED), rollouts.list(LISTED));
   }
 
   /** Rows of (outer, inner, n) to outer -> inner -> n; a null inner key is written NONE. */

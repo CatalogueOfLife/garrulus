@@ -20,4 +20,9 @@
   <update id="markEnqueued">
     UPDATE finder_rollout SET enqueued_at = now() WHERE config_hash = #{configHash} AND enqueued_at IS NULL
   </update>
+
+  <select id="list" resultType="org.catalogueoflife.nametracker.store.index.FinderRollout">
+    SELECT config_hash AS configHash, started, enqueued_at AS enqueuedAt, baseline
+    FROM finder_rollout ORDER BY started DESC, config_hash LIMIT #{limit}
+  </select>
 </mapper>

@@ -49,4 +49,7 @@ public interface BackfillMapper {
 
   /** Marks a RUNNING run DONE when all its files are done; 1 when it did. */
   int finishRunIfComplete(@Param("id") long id);
+
+  /** The newest {@code limit} runs, newest first, with the sums of their files (done files, records, works created). */
+  List<BackfillSummary> recentSummaries(@Param("limit") int limit);
 }

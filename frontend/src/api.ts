@@ -328,6 +328,10 @@ export interface Subscription {
   paused: boolean;
   feedUrl: string;
   created: string;
+  /** MOVED or MISSING after an XR switch; xrNote is the line to show, previousTarget the id before a move. */
+  targetStatus: 'OK' | 'MOVED' | 'MISSING';
+  xrNote?: string | null;
+  previousTarget?: string | null;
 }
 /** A name of a hit's snapshot. */
 export interface HitName {

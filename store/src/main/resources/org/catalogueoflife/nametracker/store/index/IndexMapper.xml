@@ -337,6 +337,10 @@
     SELECT * FROM xr_release WHERE key = #{key}
   </select>
 
+  <select id="releases" resultMap="release">
+    SELECT * FROM xr_release ORDER BY key DESC LIMIT #{limit}
+  </select>
+
   <select id="lockReleases" resultType="int" flushCache="true">
     SELECT key FROM xr_release ORDER BY key FOR UPDATE
   </select>

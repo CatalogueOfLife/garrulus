@@ -156,6 +156,9 @@ public interface IndexMapper {
 
   @Nullable XrRelease release(@Param("key") int key);
 
+  /** The releases, highest key first. */
+  List<XrRelease> releases(@Param("limit") int limit);
+
   /** Takes the row lock of every release until the end of the transaction; returns their keys. */
   List<Integer> lockReleases();
 

@@ -176,6 +176,31 @@ class SubscriptionControllerIT extends AbstractAuthIT {
   }
 
   @Test
+  void listShowsXrNote() throws Exception {
+    Browser b = newUser();
+    long moved = body(create(b, "{\"type\":\"TAXON\",\"target\":\"NEW1\",\"label\":\"moved\"}")).get("id").asLong();
+    long missing = body(create(b, "{\"type\":\"TAXON\",\"target\":\"GONE\",\"label\":\"missing\"}")).get("id").asLong();
+    body(create(b, "{\"type\":\"TAXON\",\"target\":\"FINE\",\"label\":\"fine\"}"));
+    jdbc.update("UPDATE subscription SET target_status = 'MOVED', previous_target = 'OLD1', xr_note = 'moved to NEW1', "
+        + "xr_note_at = now() WHERE id = ?", moved);
+    jdbc.update("UPDATE subscription SET target_status = 'MISSING', xr_note = 'no longer in the XR', "
+        + "xr_note_at = now() WHERE id = ?", missing);
+
+    HttpResponse<String> r = b.get("/api/me/subscriptions");
+    assertThat(r.statusCode()).isEqualTo(200);
+    JsonNode list = body(r);
+    assertThat(list.size()).isEqualTo(3);
+    assertThat(list.get(0).get("targetStatus").asString()).isEqualTo("MOVED");
+    assertThat(list.get(0).get("xrNote").asString()).isEqualTo("moved to NEW1");
+    assertThat(list.get(0).get("previousTarget").asString()).isEqualTo("OLD1");
+    assertThat(list.get(1).get("targetStatus").asString()).isEqualTo("MISSING");
+    assertThat(list.get(1).get("xrNote").asString()).isEqualTo("no longer in the XR");
+    assertThat(list.get(1).get("previousTarget").isNull()).isTrue();
+    assertThat(list.get(2).get("targetStatus").asString()).isEqualTo("OK");
+    assertThat(list.get(2).get("xrNote").isNull()).isTrue();
+  }
+
+  @Test
   void requiresSessionAndCsrf() throws Exception {
     assertThat(browser().get("/api/me/subscriptions").statusCode()).isEqualTo(401);
     Browser b = newUser();

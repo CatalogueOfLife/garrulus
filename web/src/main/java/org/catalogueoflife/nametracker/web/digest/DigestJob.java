@@ -143,6 +143,7 @@ public class DigestJob {
       return NOTHING;
     }
     Instant since = u.digestSince() != null ? u.digestSince() : u.emailVerified();
+    Instant previous = digests.lastSent(userId);
     List<Hit> rows = hits.undeliveredForDigest(userId, since, now.minus(DigestSchedule.maxAge(u)));
     Map<Long, WorkSummary> listed = summaries(rows.stream().map(Hit::workId).distinct().toList());
     // a work that is no longer listed cannot be shown: its hit stays undelivered
@@ -150,7 +151,10 @@ public class DigestJob {
     if (mailed.isEmpty()) {
       return NOTHING;
     }
-    Mail m = composer.compose(u, groups(userId, mailed, listed), publicUrl);
+    // a note counts once: those written after the previous sent digest (else after digest_since)
+    List<DigestComposer.XrNote> notes =
+        DigestComposer.newNotes(subscriptions.listByUser(userId), previous != null ? previous : since);
+    Mail m = composer.compose(u, groups(userId, mailed, listed), notes, publicUrl);
     List<Long> ids = mailed.stream().map(Hit::id).toList();
 
     beforeMark.accept(ids);

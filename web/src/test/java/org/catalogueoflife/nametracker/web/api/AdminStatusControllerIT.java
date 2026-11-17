@@ -73,6 +73,75 @@ class AdminStatusControllerIT extends AbstractPostgresIT {
   }
 
   @Test
+  void reportsXrBackfillAndRollouts() throws Exception {
+    jdbc.update("DELETE FROM backfill_run");
+    jdbc.update("DELETE FROM finder_rollout");
+    jdbc.update("INSERT INTO xr_release (key, alias, current, state, switch_started, switched_at, keys_total, keys_lost, note) "
+        + "VALUES (910001, 'XR old', false, 'RETIRED', NULL, NULL, NULL, NULL, NULL), "
+        + "(910002, 'XR new', true, 'SWITCHING', '2026-11-10T10:00:00Z', '2026-11-10T11:00:00Z', 1000, 12, "
+        + "'{\"refusedBy\":\"secret\"}')");
+    long run = jdbc.queryForObject("INSERT INTO backfill_run (from_year, to_year, snapshot_date, files_total, state) "
+        + "VALUES (2020, 2022, '2026-10-01', 3, 'RUNNING') RETURNING id", Long.class);
+    jdbc.update("INSERT INTO backfill_file (run_id, idx, url, records_read, records_kept, works_created, done_at) VALUES "
+        + "(?, 0, 'u0', 100, 40, 30, now()), (?, 1, 'u1', 50, 10, 5, now()), (?, 2, 'u2', NULL, NULL, 7, NULL)",
+        run, run, run);
+    jdbc.update("INSERT INTO finder_rollout (config_hash, started, enqueued_at, baseline) VALUES "
+        + "('h1', '2026-11-01T00:00:00Z', NULL, true), ('h2', '2026-11-12T00:00:00Z', '2026-11-12T05:00:00Z', false)");
+
+    HttpResponse<String> r = get("test-token");
+    assertThat(r.statusCode()).isEqualTo(200);
+    JsonNode s = new ObjectMapper().readTree(r.body());
+
+    JsonNode xr = null;
+    JsonNode old = null;
+    for (JsonNode n : s.path("xrReleases")) {
+      if (n.path("key").asInt() == 910002) {
+        xr = n;
+      } else if (n.path("key").asInt() == 910001) {
+        old = n;
+      }
+    }
+    assertThat(xr).isNotNull();
+    assertThat(xr.path("alias").asString()).isEqualTo("XR new");
+    assertThat(xr.path("state").asString()).isEqualTo("SWITCHING");
+    assertThat(xr.path("current").asBoolean()).isTrue();
+    assertThat(xr.path("keysTotal").asInt()).isEqualTo(1000);
+    assertThat(xr.path("keysLost").asInt()).isEqualTo(12);
+    assertThat(xr.path("switchStarted").asString()).startsWith("2026-11-10T10:00");
+    assertThat(xr.path("switchedAt").asString()).startsWith("2026-11-10T11:00");
+    assertThat(xr.has("note")).isFalse();
+    assertThat(r.body()).doesNotContain("secret");
+    assertThat(old).isNotNull();
+    assertThat(old.path("current").asBoolean()).isFalse();
+    assertThat(old.path("keysTotal").isNull()).isTrue();
+
+    assertThat(s.path("backfillRuns").size()).isEqualTo(1);
+    JsonNode b = s.path("backfillRuns").get(0);
+    assertThat(b.path("id").asLong()).isEqualTo(run);
+    assertThat(b.path("fromYear").asInt()).isEqualTo(2020);
+    assertThat(b.path("toYear").asInt()).isEqualTo(2022);
+    assertThat(b.path("snapshotDate").asString()).isEqualTo("2026-10-01");
+    assertThat(b.path("state").asString()).isEqualTo("RUNNING");
+    assertThat(b.path("filesDone").asInt()).isEqualTo(2);
+    assertThat(b.path("filesTotal").asInt()).isEqualTo(3);
+    assertThat(b.path("recordsRead").asLong()).isEqualTo(150);
+    assertThat(b.path("recordsKept").asLong()).isEqualTo(50);
+    assertThat(b.path("worksCreated").asLong()).isEqualTo(42);
+
+    assertThat(s.path("finderRollouts").size()).isEqualTo(2);
+    assertThat(s.at("/finderRollouts/0/configHash").asString()).isEqualTo("h2");
+    assertThat(s.at("/finderRollouts/0/enqueuedAt").asString()).startsWith("2026-11-12T05:00");
+    assertThat(s.at("/finderRollouts/0/baseline").asBoolean()).isFalse();
+    assertThat(s.at("/finderRollouts/1/configHash").asString()).isEqualTo("h1");
+    assertThat(s.at("/finderRollouts/1/enqueuedAt").isNull()).isTrue();
+    assertThat(s.at("/finderRollouts/1/baseline").asBoolean()).isTrue();
+
+    jdbc.update("DELETE FROM backfill_run");
+    jdbc.update("DELETE FROM finder_rollout");
+    jdbc.update("DELETE FROM xr_release WHERE key IN (910001, 910002)");
+  }
+
+  @Test
   void withoutToken401() throws Exception {
     assertThat(get(null).statusCode()).isEqualTo(401);
     assertThat(get("wrong").statusCode()).isEqualTo(401);

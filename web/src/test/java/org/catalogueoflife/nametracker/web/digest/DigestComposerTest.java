@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.catalogueoflife.nametracker.store.account.AppUser;
 import org.catalogueoflife.nametracker.store.account.Hit;
+import org.catalogueoflife.nametracker.store.account.Subscription;
 import org.catalogueoflife.nametracker.web.api.public_.dto.SourceRef;
 import org.catalogueoflife.nametracker.web.api.public_.dto.WorkSummary;
 import org.catalogueoflife.nametracker.web.digest.DigestComposer.Mail;
@@ -55,6 +56,37 @@ class DigestComposerTest {
     assertThat(m.text()).contains(URL + "/account").contains(URL + "/unsubscribe?t=" + tokens.create(5));
     assertThat(m.html()).contains(URL + "/account").contains(URL + "/unsubscribe?t=" + tokens.create(5));
     assertThat(m.text() + m.html()).doesNotContain("a@example.org");
+  }
+
+  static Subscription follow(long id, String label, String note, Instant noteAt) {
+    return new Subscription(id, 5L, "TAXON", "T" + id, label, true, false, true, false, null, "tok", null, false,
+        T0, note == null ? "OK" : "MOVED", note, noteAt, null);
+  }
+
+  @Test
+  void footerListsNewXrNotesOnce() {
+    Instant lastDigest = T0;
+    List<Subscription> follows = List.of(
+        follow(1, "Carabus", "moved to Carabus s.str.", T0.plusSeconds(60)),
+        follow(2, "Old note", "no longer in the XR", T0.minusSeconds(60)),
+        follow(3, "Plain", null, null));
+    List<DigestComposer.XrNote> notes = DigestComposer.newNotes(follows, lastDigest);
+    assertThat(notes).containsExactly(new DigestComposer.XrNote("Carabus", "moved to Carabus s.str."));
+
+    Paper p = paper(1, 9, 100, "ARTICLE", article("Carabus x"), false, "Paper");
+    List<SubscriptionHits> groups = List.of(new SubscriptionHits(9, "Carabidae", List.of(p)));
+    Mail m = composer.compose(USER, groups, notes, URL);
+    assertThat(m.text()).contains("* Carabus: moved to Carabus s.str.").doesNotContain("Old note")
+        .doesNotContain("no longer in the XR");
+    assertThat(m.text().split("moved to Carabus s.str.", -1)).hasSize(2);
+    assertThat(m.html()).contains("<b>Carabus</b>: moved to Carabus s.str.").doesNotContain("no longer in the XR");
+    // the footer sits before the unsubscribe lines
+    assertThat(m.text().indexOf("moved to Carabus")).isLessThan(m.text().indexOf("Digest settings:"));
+
+    // the next digest, after this one: the same note is not listed again
+    assertThat(DigestComposer.newNotes(follows, T0.plusSeconds(3600))).isEmpty();
+    // no notes: no footer section
+    assertThat(composer.compose(USER, groups, URL).text()).doesNotContain("Changes to what you follow");
   }
 
   @Test

@@ -18,4 +18,7 @@ public interface FinderRolloutMapper {
 
   /** Sets enqueued_at of the hash, once. */
   void markEnqueued(@Param("configHash") String configHash);
+
+  /** The rollouts, newest first. */
+  java.util.List<FinderRollout> list(@Param("limit") int limit);
 }

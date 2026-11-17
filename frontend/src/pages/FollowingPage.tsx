@@ -66,6 +66,15 @@ export function FollowingPage() {
                       <Badge variant="light" size="sm">{TYPE_LABEL[s.type]}</Badge>
                     </Group>
                     <Anchor component={Link} to={`/hits?subscription=${s.id}`} size="sm">Hits</Anchor>
+                    {s.targetStatus === 'MOVED' && s.xrNote ? (
+                      <Alert color="gray" mt="xs" role="note" title="This taxon moved">{s.xrNote}</Alert>
+                    ) : null}
+                    {s.targetStatus === 'MISSING' ? (
+                      <Alert color="yellow" mt="xs" role="note" title="This taxon is no longer in the catalogue">
+                        {s.xrNote ?? 'It is missing from the latest Catalogue of Life.'}{' '}
+                        You can remove this follow with Delete.
+                      </Alert>
+                    ) : null}
                     {renewed.has(s.id) ? (
                       <Text size="sm" c="dimmed">New feed URL: <Text span size="sm" ff="monospace">{s.feedUrl}</Text></Text>
                     ) : null}
