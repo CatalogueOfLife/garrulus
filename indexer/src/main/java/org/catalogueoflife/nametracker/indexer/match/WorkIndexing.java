@@ -1,10 +1,13 @@
 package org.catalogueoflife.nametracker.indexer.match;
 
-import java.util.Map;
-
 /** What happens to a work once its names are placed. The key is the name string id. */
 public interface WorkIndexing {
 
-  /** @param releaseKey the XR release the names were placed in */
-  void index(long workId, Map<Long, Placement> byNameStringId, int releaseKey);
+  /**
+   * Indexes the work with the placements, if the row set they were computed from is still the one to index.
+   *
+   * @param releaseKey the XR release the names were placed in
+   * @return false if the work's index changed since the placements were computed and nothing was written
+   */
+  boolean index(long workId, PlacedWork placed, int releaseKey);
 }

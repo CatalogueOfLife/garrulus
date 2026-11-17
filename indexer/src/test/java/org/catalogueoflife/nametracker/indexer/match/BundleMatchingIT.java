@@ -11,16 +11,12 @@ import java.net.http.HttpClient;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import org.catalogueoflife.nametracker.indexer.AbstractPostgresIT;
 import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
-import org.catalogueoflife.nametracker.indexer.task.NonRetryableTaskException;
 import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
-import org.catalogueoflife.nametracker.indexer.task.TaskDispatcher;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
 import org.catalogueoflife.nametracker.store.task.Task;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
@@ -53,7 +49,10 @@ class BundleMatchingIT extends AbstractPostgresIT {
     clb = bundleClient(w.getHttpBaseUrl());
     xr = new XrReleaseService(index, clb);
     indexed = new HashMap<>();
-    handler = new MatchNamesHandler(index, new MatchCache(index, clb, xr), xr, (id, m, key) -> indexed.putAll(m),
+    handler = new MatchNamesHandler(index, new MatchCache(index, clb, xr), xr, (id, m, key) -> {
+      indexed.putAll(m.placements());
+      return true;
+    },
         new HarvestOutage(Duration.ofMinutes(30), Clock.systemUTC()),
         org.mockito.Mockito.mock(org.catalogueoflife.nametracker.store.task.TaskQueue.class));
     stubFor(get("/dataset").willReturn(json("{\"key\":316691,\"alias\":\"COL26.10 XR\"}")));

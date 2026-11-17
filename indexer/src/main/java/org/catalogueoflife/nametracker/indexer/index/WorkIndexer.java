@@ -11,28 +11,34 @@ import org.catalogueoflife.nametracker.finder.salience.Salience;
 import org.catalogueoflife.nametracker.finder.salience.SalienceInputs;
 import org.catalogueoflife.nametracker.finder.salience.SalienceInputs.MentionView;
 import org.catalogueoflife.nametracker.finder.salience.SalienceProperties;
+import org.catalogueoflife.nametracker.indexer.match.PlacedWork;
 import org.catalogueoflife.nametracker.indexer.match.Placement;
 import org.catalogueoflife.nametracker.indexer.match.TaxGroups;
 import org.catalogueoflife.nametracker.indexer.match.WorkIndexing;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
+import org.catalogueoflife.nametracker.store.index.IndexRows;
 import org.catalogueoflife.nametracker.store.index.MentionRow;
 import org.catalogueoflife.nametracker.store.index.NameUbiquity;
 import org.catalogueoflife.nametracker.store.index.WorkName;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Aggregates the mentions of a work into {@code work_name} rows with salience and main-subject flag, fills the work's
  * codes, taxgroups and has_acts (acts outside the references only; {@code act_types} keeps them all) and moves it to
- * INDEXED, placed in the given release. One transaction that locks the work row first, so a redelivery
- * replaces the rows and gives identical ones. A work with a pending index (a re-index) first records the subscriptions
- * its old index matches ({@link PreviousMatches}) and swaps the pending index in, in the same transaction: readers see
- * either the old or the new index, never a gap.
+ * INDEXED, placed in the given release. One transaction that locks the work row first, so a redelivery replaces the
+ * rows and gives identical ones. Under that lock the row set the placements were computed from must still be the one
+ * to index ({@link IndexRows}); if a newer finder run or a swap came in between, nothing is written. A work with a
+ * pending index (a re-index) first records the subscriptions its old index matches ({@link PreviousMatches}) and swaps
+ * the pending index in, in the same transaction: readers see either the old or the new index, never a gap.
  */
 @Component
 public class WorkIndexer implements WorkIndexing {
 
   static final int CHUNK = 1000;
+  private static final Logger LOG = LoggerFactory.getLogger(WorkIndexer.class);
 
   private final IndexMapper index;
   private final Salience salience;
@@ -47,13 +53,19 @@ public class WorkIndexer implements WorkIndexing {
   }
 
   @Override
-  public void index(long workId, Map<Long, Placement> byNameStringId, int releaseKey) {
-    tx.executeWithoutResult(status -> doIndex(workId, byNameStringId, releaseKey));
+  public boolean index(long workId, PlacedWork placed, int releaseKey) {
+    return Boolean.TRUE.equals(tx.execute(status -> doIndex(workId, placed, releaseKey)));
   }
 
-  private void doIndex(long workId, Map<Long, Placement> placements, int releaseKey) {
+  private boolean doIndex(long workId, PlacedWork placed, int releaseKey) {
     index.lockWork(workId);
-    if (index.pendingFinderRun(workId) != null) {
+    IndexRows rows = index.indexRows(workId);
+    if (rows == null || !rows.equals(placed.rows())) {
+      LOG.debug("Work {} not indexed: placed {}, but its index is now {}", workId, placed.rows(), rows);
+      return false;
+    }
+    Map<Long, Placement> placements = placed.placements();
+    if (rows.pending()) {
       // the old index is still live here: what it matched decides which follows the new one alerts
       index.setReindexPrevSubscriptions(workId, previous.capture(workId));
       index.swapPendingIndex(workId);
@@ -64,6 +76,7 @@ public class WorkIndexer implements WorkIndexing {
       index.insertWorkNames(a.rows().subList(i, Math.min(a.rows().size(), i + CHUNK)));
     }
     index.setIndexed(workId, a.codes(), a.taxgroups(), a.hasActs(), releaseKey);
+    return true;
   }
 
   /** The work_name rows of a work and its derived work columns; codes and taxgroups are sorted. */

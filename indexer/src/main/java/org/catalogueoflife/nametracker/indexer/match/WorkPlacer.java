@@ -13,10 +13,10 @@ import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
 import org.catalogueoflife.nametracker.store.index.ContextRow;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
+import org.catalogueoflife.nametracker.store.index.IndexRows;
 import org.catalogueoflife.nametracker.store.index.MentionRow;
 import org.catalogueoflife.nametracker.store.index.NameMatch;
 import org.catalogueoflife.nametracker.store.index.NameString;
-import org.catalogueoflife.nametracker.store.task.Task;
 import org.gbif.nameparser.api.NomCode;
 import org.gbif.nameparser.api.Rank;
 import org.jspecify.annotations.Nullable;
@@ -64,6 +64,16 @@ public class WorkPlacer {
       }
       LOG.warn("{} \"{}\" ({}) left unmatched (NONE): {}", what, e.name(), nameStringId, e.getMessage());
     }
+  }
+
+  /**
+   * Places the row set of the work's index that is to be indexed: its pending index if it has one, else its live index.
+   * The row set is read before the rows, so a change in between shows as a changed {@link IndexRows} at indexing time.
+   */
+  public PlacedWork place(long workId, int releaseKey) {
+    IndexRows rows = index.indexRows(workId);
+    if (rows == null) rows = new IndexRows(false, null, null); // no such work: nothing to place, nothing to index
+    return new PlacedWork(rows, place(workId, releaseKey, rows.pending()));
   }
 
   /**

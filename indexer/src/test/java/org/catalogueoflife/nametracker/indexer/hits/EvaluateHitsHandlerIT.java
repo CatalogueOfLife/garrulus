@@ -13,6 +13,7 @@ import org.catalogueoflife.nametracker.indexer.AbstractPostgresIT;
 import org.catalogueoflife.nametracker.indexer.index.RescoreHandler;
 import org.catalogueoflife.nametracker.indexer.index.WorkIndexer;
 import org.catalogueoflife.nametracker.indexer.match.MatchNamesHandler;
+import org.catalogueoflife.nametracker.indexer.match.PlacedWork;
 import org.catalogueoflife.nametracker.indexer.match.Placement;
 import org.catalogueoflife.nametracker.store.account.Hit;
 import org.catalogueoflife.nametracker.store.account.HitMapper;
@@ -284,7 +285,7 @@ class EvaluateHitsHandlerIT extends AbstractPostgresIT {
           "ABSTRACT" + p.size(), p.size() * 20, p.size() * 20 + 10, n);
       p.put(ns, new Placement("MATCH", "u-" + n, List.of("a", "b"), "BACTERIAL", "Bacteria"));
     }
-    indexer.index(w, p, 1);
+    indexer.index(w, new PlacedWork(index.indexRows(w), p), 1);
     return w;
   }
 

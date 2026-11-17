@@ -54,8 +54,9 @@ class MatchNamesHandlerIT extends AbstractPostgresIT {
     indexed = new HashMap<>();
     indexedWorks = new ArrayList<>();
     handler = new MatchNamesHandler(index, new MatchCache(index, clb, xr), xr, (id, m, key) -> {
-      indexed.putAll(m);
+      indexed.putAll(m.placements());
       indexedWorks.add(id);
+      return true;
     }, outage, queue);
     stubFor(get(urlPathEqualTo(M)).atPriority(10).willReturn(json("match-none.json")));
     stubFor(get(urlPathEqualTo(M)).withQueryParam("scientificName", equalTo("Carabus xyzzyus"))

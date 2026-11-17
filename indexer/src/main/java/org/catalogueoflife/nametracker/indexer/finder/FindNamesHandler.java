@@ -41,7 +41,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
-import tools.jackson.databind.JsonNode;
 
 /**
  * {@code FIND_NAMES}, payload {@code {"workId":n}}. Loads the document of the work, runs the {@link NameFinder} and, in
@@ -50,10 +49,9 @@ import tools.jackson.databind.JsonNode;
  * its state and its live index instead: the result replaces the work's pending index, which {@code MATCH_NAMES} swaps
  * in, so the work never drops out of the listings. "Already named" means named into the pending index when there is
  * one. After the commit it deletes the spool file and enqueues {@code MATCH_NAMES} at this task's priority and
- * run_after. A work without text skips the
- * finder. A context's verbatim is stored capped at 200 code points. An outage of the finder defers the
- * task by 30 minutes without using an attempt. Without a configured finder this handler is not enabled and its tasks
- * wait in the queue.
+ * run_after. A work without text skips the finder (on a re-index its empty result still replaces the old names). A
+ * context's verbatim is stored capped at 200 code points. An outage of the finder defers the task by 30 minutes without
+ * using an attempt. Without a configured finder this handler is not enabled and its tasks wait in the queue.
  */
 @Component
 public class FindNamesHandler implements TaskHandler {

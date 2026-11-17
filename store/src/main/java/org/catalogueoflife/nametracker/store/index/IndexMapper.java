@@ -80,6 +80,9 @@ public interface IndexMapper {
   /** The sha of the document of the work's pending index, null if it has none. */
   @Nullable String pendingDocSha(@Param("workId") long workId);
 
+  /** The row set to place and index: the pending index if the work has one, else the live index; null if no work. */
+  @Nullable IndexRows indexRows(@Param("workId") long workId);
+
   /**
    * Replaces the live mentions and contexts of the work by its pending ones, keeping their ids (contexts first), empties
    * the pending index and makes the pending run, document sha and diagnostics the current ones. The caller holds the

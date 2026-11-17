@@ -24,8 +24,13 @@ import org.catalogueoflife.nametracker.finder.api.NameFinder;
 import org.catalogueoflife.nametracker.finder.api.NameKind;
 import org.catalogueoflife.nametracker.finder.api.RankedName;
 import org.catalogueoflife.nametracker.indexer.AbstractPostgresIT;
+import org.catalogueoflife.nametracker.indexer.finder.DocumentLoader;
 import org.catalogueoflife.nametracker.indexer.finder.FindNamesHandler;
+import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.match.MatchNamesHandler;
+import org.catalogueoflife.nametracker.indexer.match.PlacedWork;
+import org.catalogueoflife.nametracker.indexer.match.WorkPlacer;
+import org.catalogueoflife.nametracker.indexer.match.XrReleaseService;
 import org.catalogueoflife.nametracker.store.index.ContextRow;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
 import org.catalogueoflife.nametracker.store.index.MentionRow;
@@ -34,6 +39,7 @@ import org.catalogueoflife.nametracker.store.search.WorkFilter;
 import org.catalogueoflife.nametracker.store.search.WorkHit;
 import org.catalogueoflife.nametracker.store.task.Task;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
+import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.gbif.nameparser.api.Rank;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -99,6 +105,11 @@ class ReindexSwapIT extends AbstractPostgresIT {
   @Autowired StubFinder stub;
   @Autowired FindNamesHandler find;
   @Autowired MatchNamesHandler match;
+  @Autowired WorkPlacer placer;
+  @Autowired WorkIndexer indexer;
+  @Autowired XrReleaseService xr;
+  @Autowired HarvestOutage outage;
+  @Autowired TaskQueue queue;
   @Autowired IndexMapper index;
   @Autowired SearchMapper search;
   @Autowired JdbcTemplate jdbc;
@@ -320,5 +331,87 @@ class ReindexSwapIT extends AbstractPostgresIT {
     assertThat(indexed.get("reindex_prev_subscriptions")).isNull();
     assertThat(workNames(id)).containsExactly(A);
     assertThat(listed(id)).isTrue();
+  }
+
+  @Test
+  void documentWithoutBlocksSwapsToEmpty() throws Exception {
+    long id = indexedWork(A);
+    jdbc.update("UPDATE work SET title = NULL, abstract = NULL, text_level = 'NO_TEXT' WHERE id = ?", id);
+    stub.fail = true; // no text: the finder is not asked
+
+    findNames(id);
+    Map<String, Object> pending = work(id);
+    assertThat(pending.get("state")).isEqualTo("INDEXED");
+    assertThat(pending.get("pending_finder_run")).isNotNull();
+    assertThat(pending.get("pending_doc_sha")).isEqualTo(DocumentLoader.NO_TEXT_SHA);
+    assertThat(index.pendingMentions(id)).isEmpty();
+    assertThat(names(index.mentions(id))).containsExactly(A);
+
+    matchNames(id);
+    Map<String, Object> after = work(id);
+    assertThat(after.get("state")).isEqualTo("INDEXED");
+    assertThat(after.get("names_doc_sha")).isEqualTo(DocumentLoader.NO_TEXT_SHA);
+    assertThat(after.get("pending_finder_run")).isNull();
+    assertThat(index.mentions(id)).isEmpty();
+    assertThat(workNames(id)).isEmpty();
+  }
+
+  /** Placed from the live rows; a re-index is swapped in before these placements are indexed. */
+  @Test
+  void staleLivePlacementsAreNotIndexed() throws Exception {
+    long id = indexedWork(A);
+    PlacedWork old = placer.place(id, RELEASE);
+    assertThat(old.rows().pending()).isFalse();
+    newText(id, B);
+    findNames(id);
+    matchNames(id); // the newer MATCH_NAMES swaps {B} in
+    Object indexedAt = work(id).get("indexed_at");
+
+    assertThat(indexer.index(id, old, RELEASE)).isFalse();
+
+    assertThat(work(id).get("indexed_at")).isEqualTo(indexedAt);
+    assertThat(names(index.mentions(id))).containsExactly(B);
+    assertThat(workNames(id)).containsExactly(B);
+  }
+
+  /** Placed from the pending rows; another MATCH_NAMES swaps them in first. */
+  @Test
+  void stalePendingPlacementsAreNotIndexed() throws Exception {
+    long id = indexedWork(A);
+    newText(id, B);
+    findNames(id);
+    PlacedWork first = placer.place(id, RELEASE);
+    assertThat(first.rows().pending()).isTrue();
+    assertThat(first.placements()).hasSize(1);
+    matchNames(id);
+    Object indexedAt = work(id).get("indexed_at");
+
+    assertThat(indexer.index(id, first, RELEASE)).isFalse();
+
+    assertThat(work(id).get("indexed_at")).isEqualTo(indexedAt);
+    assertThat(workNames(id)).containsExactly(B);
+  }
+
+  /** A MATCH_NAMES whose work changed while its names were placed writes nothing and evaluates no hits. */
+  @Test
+  void staleMatchNamesEnqueuesNoHitEvaluation() throws Exception {
+    long id = indexedWork(A);
+    newText(id, B);
+    findNames(id);
+    jdbc.update("DELETE FROM task");
+    // a concurrent MATCH_NAMES of the same work runs between this one's placing and its indexing
+    MatchNamesHandler racing = new MatchNamesHandler(xr, placer, (w, placed, key) -> {
+      try {
+        matchNames(w);
+      } catch (Exception e) {
+        throw new IllegalStateException(e);
+      }
+      return indexer.index(w, placed, key);
+    }, outage, queue);
+
+    racing.handle(task(MatchNamesHandler.TYPE, id));
+
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'EVALUATE_HITS'")).isEqualTo(1); // the concurrent one's
+    assertThat(workNames(id)).containsExactly(B);
   }
 }

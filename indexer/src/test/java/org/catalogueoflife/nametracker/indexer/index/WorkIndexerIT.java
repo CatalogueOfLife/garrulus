@@ -6,6 +6,7 @@ import java.sql.Array;
 import java.util.List;
 import java.util.Map;
 import org.catalogueoflife.nametracker.indexer.AbstractPostgresIT;
+import org.catalogueoflife.nametracker.indexer.match.PlacedWork;
 import org.catalogueoflife.nametracker.indexer.match.Placement;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
 import org.catalogueoflife.nametracker.store.index.WorkName;
@@ -50,9 +51,9 @@ class WorkIndexerIT extends AbstractPostgresIT {
     long a = mention(w, "Carabus auratus", "TITLE", 0, "title", "sp. nov.");
     long b = mention(w, "Escherichia coli", "PARAGRAPH", 5, "para", null);
     Map<Long, Placement> p = Map.of(a, placement("ZOOLOGICAL", "Coleoptera"), b, placement("BACTERIAL", "Bacteria"));
-    indexer.index(w, p, 1);
+    indexer.index(w, new PlacedWork(index.indexRows(w), p), 1);
     List<WorkName> first = index.workNames(w);
-    indexer.index(w, p, 1);
+    indexer.index(w, new PlacedWork(index.indexRows(w), p), 1);
     assertThat(index.workNames(w)).isEqualTo(first).hasSize(2);
     assertThat(jdbc.queryForObject("SELECT state FROM work WHERE id = ?", String.class, w)).isEqualTo("INDEXED");
     assertThat(jdbc.queryForObject("SELECT indexed_at IS NOT NULL FROM work WHERE id = ?", Boolean.class, w)).isTrue();
@@ -64,7 +65,8 @@ class WorkIndexerIT extends AbstractPostgresIT {
     long a = mention(w, "Carabus auratus", "TITLE", 0, "title", "sp. nov.");
     long b = mention(w, "Escherichia coli", "ABSTRACT", 5, "para", null);
     jdbc.update("INSERT INTO name_ubiquity (name_string_id, works, share) VALUES (?, 100, 0.05)", b);
-    indexer.index(w, Map.of(a, placement("ZOOLOGICAL", "Coleoptera"), b, placement("BACTERIAL", "Bacteria")), 1);
+    indexer.index(w, new PlacedWork(index.indexRows(w),
+        Map.of(a, placement("ZOOLOGICAL", "Coleoptera"), b, placement("BACTERIAL", "Bacteria"))), 1);
     Map<Long, WorkName> by = new java.util.HashMap<>();
     for (WorkName n : index.workNames(w)) by.put(n.nameStringId(), n);
     assertThat(by.get(a).mainSubject()).isTrue();
@@ -81,7 +83,7 @@ class WorkIndexerIT extends AbstractPostgresIT {
   void referenceOnlyNameKeepsRowButIsNotMain() {
     long w = work("FULLTEXT");
     long a = mention(w, "Carabus auratus", "REFERENCE", 0, "ref", null);
-    indexer.index(w, Map.of(a, placement("ZOOLOGICAL", "Coleoptera")), 1);
+    indexer.index(w, new PlacedWork(index.indexRows(w), Map.of(a, placement("ZOOLOGICAL", "Coleoptera"))), 1);
     WorkName n = index.workNames(w).get(0);
     assertThat(n.onlyReference()).isTrue();
     assertThat(n.bodyCount()).isZero();
@@ -99,7 +101,7 @@ class WorkIndexerIT extends AbstractPostgresIT {
     mention(w, "Bembidion lampros", "PARAGRAPH", 80, "body", null);
     long c = mention(w, "Poecilus cupreus", "CAPTION", 100, "cap1", null);
     mention(w, "Poecilus cupreus", "PARAGRAPH", 120, "par2", null);
-    indexer.index(w, Map.of(), 1);
+    indexer.index(w, new PlacedWork(index.indexRows(w), Map.of()), 1);
     Map<Long, String> snip = new java.util.HashMap<>();
     for (WorkName n : index.workNames(w)) snip.put(n.nameStringId(), n.bestSnippet());
     assertThat(snip.get(t)).isEqualTo("ttl");
@@ -111,7 +113,7 @@ class WorkIndexerIT extends AbstractPostgresIT {
   void abstractOnlyWorkCountsBodyMentionsAsAbstract() {
     long w = work("ABSTRACT_ONLY");
     long a = mention(w, "Carabus auratus", "PARAGRAPH", 0, "p", null);
-    indexer.index(w, Map.of(a, placement(null, null)), 1);
+    indexer.index(w, new PlacedWork(index.indexRows(w), Map.of(a, placement(null, null))), 1);
     assertThat(index.workNames(w).get(0).inAbstract()).isTrue();
   }
 
@@ -120,7 +122,7 @@ class WorkIndexerIT extends AbstractPostgresIT {
     long w = work("FULLTEXT");
     long a = mention(w, "Carabus auratus", "PARAGRAPH", 0, "body", null);
     mention(w, "Carabus auratus", "REFERENCE", 20, "ref", "sp. nov.");
-    indexer.index(w, Map.of(), 1);
+    indexer.index(w, new PlacedWork(index.indexRows(w), Map.of()), 1);
     WorkName n = index.workNames(w).get(0);
     assertThat(n.nameStringId()).isEqualTo(a);
     assertThat(n.actTypes()).containsExactly("sp. nov.");
@@ -134,7 +136,7 @@ class WorkIndexerIT extends AbstractPostgresIT {
   @Test
   void workWithoutMentionsEndsIndexedEmpty() throws Exception {
     long w = work("NO_TEXT");
-    indexer.index(w, Map.of(), 1);
+    indexer.index(w, new PlacedWork(index.indexRows(w), Map.of()), 1);
     assertThat(index.workNames(w)).isEmpty();
     Map<String, Object> row = jdbc.queryForMap("SELECT state, codes, taxgroups, has_acts FROM work WHERE id = ?", w);
     assertThat(row.get("state")).isEqualTo("INDEXED");

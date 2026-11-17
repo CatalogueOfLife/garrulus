@@ -205,6 +205,21 @@
 
   <select id="pendingDocSha" resultType="string">SELECT pending_doc_sha FROM work WHERE id = #{workId}</select>
 
+  <resultMap id="indexRows" type="org.catalogueoflife.nametracker.store.index.IndexRows">
+    <constructor>
+      <arg column="pending" javaType="_boolean"/>
+      <arg column="finder_run" javaType="java.lang.Long"/>
+      <arg column="doc_sha" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <select id="indexRows" resultMap="indexRows" flushCache="true">
+    SELECT pending_finder_run IS NOT NULL AS pending,
+      CASE WHEN pending_finder_run IS NOT NULL THEN pending_finder_run ELSE current_finder_run END AS finder_run,
+      CASE WHEN pending_finder_run IS NOT NULL THEN pending_doc_sha ELSE names_doc_sha END AS doc_sha
+    FROM work WHERE id = #{workId}
+  </select>
+
   <!-- ids are kept, so a mention still points at its context -->
   <insert id="movePendingContexts">
     INSERT INTO classification_context (id, <include refid="contextColumns"/>)
