@@ -18,6 +18,9 @@ export const taxGroups: TaxGroup[] = [
 export const xrHandler = http.get('/api/xr', () => HttpResponse.json({ key: 316691, alias: 'COL26.10 XR' }));
 export const taxGroupHandler = http.get('/api/vocab/taxgroup', () => HttpResponse.json(taxGroups));
 
+export const sourcesHandler = (total = 312) =>
+  http.get('/api/sources', () => HttpResponse.json({ total, limit: 1, offset: 0, results: [] }));
+
 export const authConfigHandler = (orcid: boolean) =>
   http.get('/api/auth/config', () => HttpResponse.json({ orcid }));
 export const signedOut = http.get('/api/me', () => new HttpResponse(null, { status: 401 }));

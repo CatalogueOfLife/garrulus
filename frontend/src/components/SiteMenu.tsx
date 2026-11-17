@@ -16,7 +16,7 @@ export function SiteMenu() {
   const { pathname } = useLocation();
   return (
     <>
-      <Group component="nav" aria-label="Site" gap="md" ml="xl" visibleFrom="sm" wrap="nowrap">
+      <Group component="nav" aria-label="Site" gap="md" visibleFrom="sm" wrap="nowrap">
         {SITE_LINKS.map((l) => (
           <NavLink key={l.to} to={l.to} end={l.to === '/'}
             style={({ isActive: a }) => ({ color: 'inherit',

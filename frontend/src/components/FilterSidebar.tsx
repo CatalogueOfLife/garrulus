@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Checkbox, Group, NativeSelect, Radio, Stack, Text, TextInput } from '@mantine/core';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Group, NativeSelect, Stack, TextInput } from '@mantine/core';
 import type { FacetCount, FacetName, TaxGroup, WorkFilter } from '../api';
 import { TaxGroupIcon } from './TaxGroupIcon';
 import { TaxonPicker } from './TaxonPicker';
 import { subfieldOptions } from '../subfields';
+import { FacetGroup } from '../ui/FacetGroup';
+import { Rule } from '../ui/Rule';
+import classes from '../ui/list.module.css';
 
 interface Props {
   filter: WorkFilter;
@@ -67,6 +70,17 @@ export function orderGroups(groups: TaxGroup[]): { group: TaxGroup; depth: numbe
   return out;
 }
 
+/** A titled block under a rule, for the controls that are not a list of values. */
+function Field({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className={classes.field}>
+      <Rule />
+      <h3 className={classes.fieldTitle}>{title}</h3>
+      {children}
+    </section>
+  );
+}
+
 export function FilterSidebar({ filter, taxonLabel, facets, taxGroups, onChange }: Props) {
   const codeCounts = counts(facets.code);
   const groupCounts = counts(facets.taxgroup);
@@ -74,84 +88,69 @@ export function FilterSidebar({ filter, taxonLabel, facets, taxGroups, onChange 
   const actCounts = counts(facets.hasActs);
   const groups = useMemo(() => orderGroups(taxGroups), [taxGroups]);
   const codes = Array.from(new Set([...CODES, ...codeCounts.keys()]));
-  const withCount = (label: string, c?: number) => (c === undefined ? label : `${label} (${c})`);
+  const set = (key: keyof WorkFilter) => (v?: string) => onChange({ [key]: v, offset: undefined });
 
   return (
-    <Stack gap="lg" component="aside" aria-label="Filters">
-      <Stack gap={4}>
-        <Text fw={600} size="sm">Taxon</Text>
+    <Stack gap={0} component="div" role="group" aria-label="Filters">
+      <Field title="Taxon">
         <TaxonPicker
           label={filter.taxon ? (taxonLabel ?? filter.taxon) : undefined}
           onPick={(id, label) => onChange({ taxon: id, offset: undefined }, { taxonLabel: label })}
           onClear={() => onChange({ taxon: undefined, offset: undefined }, { taxonLabel: null })}
         />
-      </Stack>
+      </Field>
 
-      <Radio.Group label="Nomenclatural code" value={filter.code ?? ''} onChange={(v) => onChange({ code: v || undefined, offset: undefined })}>
-        <Stack gap={4} mt={4}>
-          <Radio value="" label="Any" />
-          {codes.map((c) => (
-            <Radio key={c} value={c} label={withCount(pretty(c), codeCounts.get(c))} />
-          ))}
-        </Stack>
-      </Radio.Group>
+      <FacetGroup title="Taxonomic group" current={filter.taxgroup} onSelect={set('taxgroup')}
+        items={groups.map(({ group, depth }) => ({
+          value: group.name,
+          count: groupCounts.get(group.name),
+          label: (
+            <span className={classes.label} style={{ marginLeft: depth * 16 }}>
+              <TaxGroupIcon group={group} />
+              <span>{group.name}</span>
+            </span>
+          ),
+        }))} />
 
-      <Radio.Group label="Taxonomic group" value={filter.taxgroup ?? ''} onChange={(v) => onChange({ taxgroup: v || undefined, offset: undefined })}>
-        <Stack gap={4} mt={4}>
-          <Radio value="" label="Any" />
-          {groups.map(({ group, depth }) => (
-            <Radio
-              key={group.name}
-              value={group.name}
-              ml={depth * 16}
-              label={
-                <Group gap={6} wrap="nowrap">
-                  <TaxGroupIcon group={group} />
-                  <span>{withCount(group.name, groupCounts.get(group.name))}</span>
-                </Group>
-              }
-            />
-          ))}
-        </Stack>
-      </Radio.Group>
+      <FacetGroup title="Nomenclatural code" current={filter.code} onSelect={set('code')}
+        items={codes.map((c) => ({ value: c, label: pretty(c), count: codeCounts.get(c) }))} />
 
-      <Radio.Group label="Journal type" value={filter.journalType ?? ''} onChange={(v) => onChange({ journalType: v || undefined, offset: undefined })}>
-        <Stack gap={4} mt={4}>
-          <Radio value="" label="Any" />
-          {['TAXONOMIC', 'GENERAL'].map((t) => (
-            <Radio key={t} value={t} label={withCount(pretty(t), typeCounts.get(t))} />
-          ))}
-        </Stack>
-      </Radio.Group>
+      <FacetGroup title="Journal type" current={filter.journalType} onSelect={set('journalType')}
+        items={['TAXONOMIC', 'GENERAL'].map((t) => ({ value: t, label: pretty(t), count: typeCounts.get(t) }))} />
 
-      <NativeSelect label="Subfield" value={filter.subfield ?? ''} onChange={(e) => onChange({ subfield: e.currentTarget.value || undefined, offset: undefined })}>
-        {subfieldOptions(filter.subfield).map((o) => <option key={o.value} value={o.value} title={o.value || undefined}>{o.label}</option>)}
-      </NativeSelect>
+      <FacetGroup title="Acts" current={filter.hasActs === 'true' ? 'true' : undefined} onSelect={set('hasActs')}
+        items={[{ value: 'true', label: 'Has nomenclatural acts', count: actCounts.get('true') }]} />
 
-      <NativeSelect
-        label="Journal tier"
-        value={filter.tier ?? ''}
-        data={[{ value: '', label: 'Any' }, { value: 'CORE', label: 'Core' }, { value: 'BROAD', label: 'Broad' }]}
-        onChange={(e) => onChange({ tier: e.currentTarget.value || undefined, offset: undefined })}
-      />
+      <Field title="Subfield">
+        <NativeSelect aria-label="Subfield" value={filter.subfield ?? ''} onChange={(e) => onChange({ subfield: e.currentTarget.value || undefined, offset: undefined })}>
+          {subfieldOptions(filter.subfield).map((o) => <option key={o.value} value={o.value} title={o.value || undefined}>{o.label}</option>)}
+        </NativeSelect>
+      </Field>
 
-      <NativeSelect
-        label="Open access"
-        value={filter.oa ?? ''}
-        data={[{ value: '', label: 'Any' }, ...['DIAMOND', 'GOLD', 'HYBRID', 'CLOSED'].map((v) => ({ value: v, label: pretty(v) }))]}
-        onChange={(e) => onChange({ oa: e.currentTarget.value || undefined, offset: undefined })}
-      />
+      <Field title="Journal tier">
+        <NativeSelect
+          aria-label="Journal tier"
+          value={filter.tier ?? ''}
+          data={[{ value: '', label: 'Any' }, { value: 'CORE', label: 'Core' }, { value: 'BROAD', label: 'Broad' }]}
+          onChange={(e) => onChange({ tier: e.currentTarget.value || undefined, offset: undefined })}
+        />
+      </Field>
 
-      <Group grow align="flex-end">
-        <CommitInput label="Year from" digits value={filter.yearFrom ?? ''} onCommit={(v) => onChange({ yearFrom: v || undefined, offset: undefined })} />
-        <CommitInput label="Year to" digits value={filter.yearTo ?? ''} onCommit={(v) => onChange({ yearTo: v || undefined, offset: undefined })} />
-      </Group>
+      <Field title="Open access">
+        <NativeSelect
+          aria-label="Open access"
+          value={filter.oa ?? ''}
+          data={[{ value: '', label: 'Any' }, ...['DIAMOND', 'GOLD', 'HYBRID', 'CLOSED'].map((v) => ({ value: v, label: pretty(v) }))]}
+          onChange={(e) => onChange({ oa: e.currentTarget.value || undefined, offset: undefined })}
+        />
+      </Field>
 
-      <Checkbox
-        label={withCount('Has nomenclatural acts', actCounts.get('true'))}
-        checked={filter.hasActs === 'true'}
-        onChange={(e) => onChange({ hasActs: e.currentTarget.checked ? 'true' : undefined, offset: undefined })}
-      />
+      <Field title="Years">
+        <Group grow align="flex-end">
+          <CommitInput label="Year from" digits value={filter.yearFrom ?? ''} onCommit={(v) => onChange({ yearFrom: v || undefined, offset: undefined })} />
+          <CommitInput label="Year to" digits value={filter.yearTo ?? ''} onCommit={(v) => onChange({ yearTo: v || undefined, offset: undefined })} />
+        </Group>
+      </Field>
     </Stack>
   );
 }

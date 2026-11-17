@@ -1,11 +1,16 @@
-import { Alert, Box, Group, Pagination, Skeleton, Stack, Text, TextInput } from '@mantine/core';
+import { useState } from 'react';
+import { Alert, Button, Pagination, Skeleton, TextInput } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { ApiError, filterFromParams, filterToParams, getTaxGroups, searchWorks, type FacetName, type WorkFilter } from '../api';
+import { ApiError, filterFromParams, filterToParams, getTaxGroups, listSources, searchWorks, type FacetName, type WorkFilter } from '../api';
 import { FeedLink } from '../components/FeedLink';
 import { FollowButton } from '../components/FollowButton';
 import { FilterSidebar } from '../components/FilterSidebar';
 import { WorkList } from '../components/WorkList';
+import { PageHeader } from '../ui/PageHeader';
+import { SideColumn } from '../ui/SideColumn';
+import frame from '../ui/frame.module.css';
+import classes from '../ui/list.module.css';
 import { usePageTitle } from '../usePageTitle';
 
 const FACETS: FacetName[] = ['code', 'taxgroup', 'journalType', 'hasActs'];
@@ -14,6 +19,7 @@ const PAGE_SIZE = 20;
 export function SearchPage() {
   usePageTitle('Search');
   const [params, setParams] = useSearchParams();
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const filter = filterFromParams(params);
   const taxonLabel = params.get('taxonLabel') ?? undefined;
   const apiFilter: WorkFilter = { ...filter, limit: String(PAGE_SIZE) };
@@ -24,6 +30,7 @@ export function SearchPage() {
     placeholderData: (prev) => prev,
   });
   const groups = useQuery({ queryKey: ['taxgroups'], queryFn: getTaxGroups, staleTime: Infinity });
+  const sources = useQuery({ queryKey: ['sources-total'], queryFn: () => listSources({ limit: 1 }), staleTime: 3600_000 });
 
   const update = (patch: WorkFilter, extra?: { taxonLabel?: string | null }) => {
     const next = filterToParams({ ...filter, ...patch });
@@ -38,56 +45,77 @@ export function SearchPage() {
   const offset = Number(filter.offset ?? 0);
   const page = Math.floor(offset / PAGE_SIZE) + 1;
   const data = works.data;
+  const total = sources.data?.total;
+  const lede = total === undefined
+    ? 'Garrulus reads journals of biodiversity science every day and lists the scientific names it finds, placed in the Catalogue of Life.'
+    : `Garrulus reads ${total.toLocaleString('en')} journals of biodiversity science every day and lists the scientific names it finds, placed in the Catalogue of Life.`;
+
+  const search = (
+    <TextInput
+      aria-label="Search text"
+      placeholder="Search titles and abstracts"
+      radius="xl"
+      key={filter.q ?? ''}
+      defaultValue={filter.q ?? ''}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') update({ q: e.currentTarget.value || undefined, offset: undefined });
+      }}
+    />
+  );
 
   return (
-    <Group align="flex-start" wrap="nowrap" gap="xl">
-      <Box w={280} style={{ flex: '0 0 280px' }}>
-        <FilterSidebar
-          filter={filter}
-          taxonLabel={taxonLabel}
-          facets={data?.facets ?? {}}
-          taxGroups={groups.data ?? []}
-          onChange={update}
-        />
-      </Box>
-      <Stack style={{ flex: 1, minWidth: 0 }}>
-        {onlyGroup ? (
-          <Group gap="xs">
-            <FollowButton type="TAXGROUP" target={onlyGroup} label={onlyGroup} />
-            <FeedLink href={`/feeds/taxgroup/${encodeURIComponent(onlyGroup)}.atom`} />
-          </Group>
-        ) : null}
-        <TextInput
-          aria-label="Search text"
-          placeholder="Search titles and abstracts…"
-          key={filter.q ?? ''}
-          defaultValue={filter.q ?? ''}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') update({ q: e.currentTarget.value || undefined, offset: undefined });
-          }}
-        />
-        {works.isError ? (
-          <Alert color="red" title="Search failed">
-            {works.error instanceof ApiError ? works.error.message : 'The search is unavailable. Try again later.'}
-          </Alert>
-        ) : !data ? (
-          <Skeleton height={120} />
-        ) : data.results.length === 0 ? (
-          <Text c="dimmed">No works match these filters. Remove a filter or widen the year range to see more.</Text>
-        ) : (
-          <>
-            <Text size="sm" c="dimmed">{data.total.toLocaleString('en')} works</Text>
-            <WorkList works={data.results} />
-            {data.total > PAGE_SIZE ? (
-              <Pagination
-                total={Math.ceil(Math.min(data.total, 10020) / PAGE_SIZE)}
-                value={page}
-                onChange={(p) => update({ offset: p > 1 ? String((p - 1) * PAGE_SIZE) : undefined })}
+    <>
+      <PageHeader variant="big" searchSlot={search} />
+      <div className={frame.main}>
+        <Button variant="default" radius="xl" size="xs" className={classes.filtersToggle}
+          aria-expanded={filtersOpen} aria-controls="search-side" onClick={() => setFiltersOpen((o) => !o)}>
+          Filters
+        </Button>
+        <div className={classes.page}>
+          <div id="search-side" className={classes.sideWrap} data-open={filtersOpen}>
+            <SideColumn lede={lede}>
+              {onlyGroup ? (
+                <div className={classes.sideBody}>
+                  <FollowButton type="TAXGROUP" target={onlyGroup} label={onlyGroup} />
+                  <FeedLink href={`/feeds/taxgroup/${encodeURIComponent(onlyGroup)}.atom`} />
+                </div>
+              ) : null}
+              <FilterSidebar
+                filter={filter}
+                taxonLabel={taxonLabel}
+                facets={data?.facets ?? {}}
+                taxGroups={groups.data ?? []}
+                onChange={update}
               />
-            ) : null}
-          </>
-        )}
-      </Stack>
-    </Group>
+            </SideColumn>
+          </div>
+          <div className={classes.mainCol}>
+            {works.isError ? (
+              <Alert color="red" title="Search failed">
+                {works.error instanceof ApiError ? works.error.message : 'The search is unavailable. Try again later.'}
+              </Alert>
+            ) : !data ? (
+              <Skeleton height={120} />
+            ) : data.results.length === 0 ? (
+              <p>No works match these filters. Remove a filter or widen the year range to see more.</p>
+            ) : (
+              <>
+                <p className={classes.count14}>{data.total.toLocaleString('en')} works</p>
+                <WorkList works={data.results} />
+                {data.total > PAGE_SIZE ? (
+                  <div className={classes.pager}>
+                    <Pagination
+                      total={Math.ceil(Math.min(data.total, 10020) / PAGE_SIZE)}
+                      value={page}
+                      onChange={(p) => update({ offset: p > 1 ? String((p - 1) * PAGE_SIZE) : undefined })}
+                    />
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

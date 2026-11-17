@@ -18,8 +18,10 @@ export function PageHeader({ variant, searchSlot }: { variant: 'big' | 'compact'
             <Mark size={38} />
             <span className={styles.wordmarkCompact}>Garrulus</span>
           </Link>
-          <SiteMenu />
-          <AccountMenu />
+          <div className={styles.compactRight}>
+            <SiteMenu />
+            <AccountMenu />
+          </div>
         </div>
         <Rule />
       </header>

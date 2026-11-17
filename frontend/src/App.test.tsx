@@ -1,12 +1,12 @@
 import { screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { App } from './App';
-import { server, emptyPage, meBody, signedOut, taxGroupHandler, xrHandler } from './test/server';
+import { server, emptyPage, meBody, signedOut, taxGroupHandler, xrHandler, sourcesHandler } from './test/server';
 import { renderApp } from './test/render';
 
 describe('App', () => {
   it('shows the brand and the search page, titled Garrulus', async () => {
-    server.use(signedOut, xrHandler, http.get('/api/works', () => HttpResponse.json(emptyPage)), taxGroupHandler);
+    server.use(signedOut, xrHandler, sourcesHandler(), http.get('/api/works', () => HttpResponse.json(emptyPage)), taxGroupHandler);
     renderApp(<App />);
     expect(screen.getByRole('heading', { name: 'Garrulus' })).toBeInTheDocument();
     expect(await screen.findByText(/No works match/)).toBeInTheDocument();
