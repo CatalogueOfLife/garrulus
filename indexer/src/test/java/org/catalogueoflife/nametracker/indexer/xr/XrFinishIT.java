@@ -10,6 +10,7 @@ import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import java.util.List;
 import java.util.Map;
 import org.catalogueoflife.nametracker.indexer.AbstractPostgresIT;
+import org.catalogueoflife.nametracker.indexer.match.MatchPendingHandler;
 import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
 import org.catalogueoflife.nametracker.store.account.SubscriptionMapper;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
@@ -54,7 +55,7 @@ class XrFinishIT extends AbstractPostgresIT {
         + "true, 'SWITCHING', now() - interval '1 hour', '{\"refuse\":false,\"force\":false,\"previous\":100}')");
     user = jdbc.queryForObject("INSERT INTO app_user (email) VALUES ('f@example.org') RETURNING id", Long.class);
     FollowCheck check = new FollowCheck(subscriptions, XrSwitchIT.client(w.getHttpBaseUrl(), null));
-    finish = new XrFinishHandler(index, check, queue, tx);
+    finish = new XrFinishHandler(index, check, queue, tx, new MatchPendingHandler(index, queue));
     stubFor(get("/dataset/200").willReturn(okJson("{\"key\":200,\"alias\":\"COL XR 200\"}")));
   }
 
@@ -263,30 +264,89 @@ class XrFinishIT extends AbstractPostgresIT {
   void finishWaitsForStragglers() throws Exception {
     long w = jdbc.queryForObject("INSERT INTO work (doi, title, license, origin, state, placed_release) VALUES "
         + "('10.1/late', 't', 'cc-by', 'LIVE', 'INDEXED', 100) RETURNING id", Long.class);
-    // a work with a pending re-index is left to its MATCH_NAMES (only counted in the log)
-    long run = jdbc.queryForObject("INSERT INTO finder_run (name, version, config_hash) VALUES ('stub', '2', 'p') "
-        + "ON CONFLICT (name, version, config_hash, dictionary_key) DO UPDATE SET name = EXCLUDED.name RETURNING id",
-        Long.class);
-    long pending = jdbc.queryForObject("INSERT INTO work (doi, title, license, origin, state, placed_release, "
-        + "pending_finder_run) VALUES ('10.1/pending', 't', 'cc-by', 'LIVE', 'INDEXED', 100, ?) RETURNING id",
-        Long.class, run);
+    // a work with a pending re-index is left to its MATCH_NAMES (counted in the log), queued here as it had none
+    long run = finderRun();
+    long pending = pendingWork("10.1/pending", run, 100);
 
     finish.handle(task());
 
     assertThat(state()).isEqualTo("SWITCHING");
     assertThat(jdbc.queryForList("SELECT payload::text || ' ' || dedup_key FROM task WHERE type = 'XR_REPLACE' "
         + "AND state = 'QUEUED'", String.class)).containsExactly("{\"key\": 200} xr-replace:200:t7");
-    assertThat(queuedTypes()).containsExactly("XR_REPLACE");
+    assertThat(queuedTypes()).containsExactly("MATCH_NAMES", "XR_REPLACE");
     assertThat(jdbc.queryForObject("SELECT placed_release FROM work WHERE id = ?", Integer.class, w)).isEqualTo(100);
 
-    // once XR_REPLACE has placed it, the next XR_FINISH ends the switch
+    // once XR_REPLACE has placed it, the next XR_FINISH ends the switch; the queued MATCH_NAMES is not doubled
     jdbc.update("UPDATE work SET placed_release = 200 WHERE id = ?", w);
-    jdbc.update("DELETE FROM task");
+    jdbc.update("DELETE FROM task WHERE type <> 'MATCH_NAMES'");
     finish.handle(task());
+    assertThat(queuedTypes()).containsExactly("MATCH_NAMES", "REBUILD_STATS");
+    jdbc.update("DELETE FROM task WHERE type = 'MATCH_NAMES'");
     assertFinished();
     assertThat(index.countPendingUnplaced(200)).isEqualTo(1);
     assertThat(jdbc.queryForObject("SELECT placed_release FROM work WHERE id = ?", Integer.class, pending))
         .isEqualTo(100);
+  }
+
+  private long finderRun() {
+    return jdbc.queryForObject("INSERT INTO finder_run (name, version, config_hash) VALUES ('stub', '2', 'p') "
+        + "ON CONFLICT (name, version, config_hash, dictionary_key) DO UPDATE SET name = EXCLUDED.name RETURNING id",
+        Long.class);
+  }
+
+  private long pendingWork(String doi, long run, int placedRelease) {
+    return jdbc.queryForObject("INSERT INTO work (doi, title, license, origin, state, placed_release, "
+        + "pending_finder_run, pending_doc_sha) VALUES (?, 't', 'cc-by', 'LIVE', 'INDEXED', ?, ?, "
+        + "'abcdef0123456789') RETURNING id", Long.class, doi, placedRelease, run);
+  }
+
+  /**
+   * A listed work whose pending index has no live MATCH_NAMES (its task ended DEAD, or its enqueue was swallowed by a
+   * dedup key still held) gets one at XR_FINISH, under its own key; one with a queued MATCH_NAMES does not.
+   */
+  @Test
+  void pendingWorksWithoutMatchNamesGetOne() throws Exception {
+    long run = finderRun();
+    long dead = pendingWork("10.1/dead", run, 200);
+    long queued = pendingWork("10.1/queued", run, 100);
+    long plain = jdbc.queryForObject("INSERT INTO work (doi, title, license, origin, state, placed_release) VALUES "
+        + "('10.1/plain', 't', 'cc-by', 'LIVE', 'INDEXED', 200) RETURNING id", Long.class);
+    String key = "match:" + dead + ":" + run + ":abcdef012345";
+    jdbc.update("INSERT INTO task (type, payload, priority, dedup_key, state) VALUES ('MATCH_NAMES', ?::jsonb, 1, ?, "
+        + "'DEAD')", "{\"workId\":" + dead + "}", key);
+    queue.enqueue("MATCH_NAMES", "{\"workId\":" + queued + "}", TaskPriority.LIVE,
+        "match:" + queued + ":" + run + ":abcdef012345");
+
+    finish.handle(task());
+
+    assertThat(jdbc.queryForList("SELECT payload->>'workId' || ' ' || dedup_key FROM task WHERE type = 'MATCH_NAMES' "
+        + "AND state = 'QUEUED' ORDER BY id", String.class)).containsExactly(
+        queued + " match:" + queued + ":" + run + ":abcdef012345",
+        dead + " match-pending:" + dead + ":" + run + ":abcdef012345");
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM task WHERE payload->>'workId' = ?", Integer.class,
+        String.valueOf(plain))).isZero();
+
+    // a redelivery queues nothing twice
+    jdbc.update("UPDATE xr_release SET state = 'SWITCHING' WHERE key = 200");
+    finish.handle(task());
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM task WHERE type = 'MATCH_NAMES' AND state = 'QUEUED'",
+        Integer.class)).isEqualTo(2);
+  }
+
+  @Test
+  void matchPendingTaskHonoursItsLimit() throws Exception {
+    long run = finderRun();
+    long a = pendingWork("10.1/a", run, 200);
+    long b = pendingWork("10.1/b", run, 200);
+    MatchPendingHandler h = new MatchPendingHandler(index, queue);
+    h.handle(new Task(9, MatchPendingHandler.TYPE, "{\"limit\":1}", TaskPriority.REPROCESS, null, 1, null, null, null,
+        null, null, null));
+    assertThat(jdbc.queryForList("SELECT payload->>'workId' FROM task WHERE type = 'MATCH_NAMES'", String.class))
+        .containsExactly(String.valueOf(a));
+    h.handle(new Task(10, MatchPendingHandler.TYPE, "{}", TaskPriority.REPROCESS, null, 1, null, null, null, null, null,
+        null));
+    assertThat(jdbc.queryForList("SELECT payload->>'workId' FROM task WHERE type = 'MATCH_NAMES' ORDER BY id",
+        String.class)).containsExactly(String.valueOf(a), String.valueOf(b));
   }
 
   @Test

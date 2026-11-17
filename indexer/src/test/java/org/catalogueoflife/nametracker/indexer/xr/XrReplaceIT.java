@@ -318,4 +318,33 @@ class XrReplaceIT extends AbstractPostgresIT {
     assertThat(index.currentRelease().key()).isEqualTo(200);
     assertThat(indexer.index(w, placed, 100)).isEqualTo(Outcome.RELEASE_CHANGED);
   }
+
+  /**
+   * The release lock of a switch step (FOR NO KEY UPDATE) does not block the foreign key check of a name_match insert
+   * (KEY SHARE on the release row): a pre-match or MATCH_NAMES goes on while a step holds it.
+   */
+  @Test
+  void releaseLockDoesNotBlockMatchInserts() throws Exception {
+    long id = index.nameStringId("Gatus zeta", "BINOMIAL", "SPECIES");
+    CountDownLatch locked = new CountDownLatch(1);
+    CountDownLatch release = new CountDownLatch(1);
+    CompletableFuture<Void> step = CompletableFuture.runAsync(() -> tx.executeWithoutResult(s -> {
+      index.lockReleases();
+      locked.countDown();
+      try {
+        release.await(10, TimeUnit.SECONDS);
+      } catch (InterruptedException e) {
+        throw new IllegalStateException(e);
+      }
+    }));
+    try {
+      assertThat(locked.await(10, TimeUnit.SECONDS)).isTrue();
+      CompletableFuture<Void> insert = CompletableFuture.runAsync(() -> index.putMatch(match(id, 200, "UZ", "FAM")));
+      insert.get(5, TimeUnit.SECONDS); // would wait for the step's commit under FOR UPDATE
+      assertThat(index.match(id, "", 200)).isNotNull();
+    } finally {
+      release.countDown();
+      step.get(10, TimeUnit.SECONDS);
+    }
+  }
 }
