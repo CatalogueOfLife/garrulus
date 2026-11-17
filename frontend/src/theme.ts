@@ -73,7 +73,7 @@ export const theme = createTheme({
       defaultProps: { radius: 0, shadow: 'none' },
       classNames: { dropdown: classes.dropdown, item: classes.menuItem, divider: classes.menuDivider },
     }),
-    Modal: Modal.extend({ defaultProps: { radius: 0, shadow: 'none' }, classNames: { content: classes.modalContent } }),
+    Modal: Modal.extend({ defaultProps: { radius: 0, shadow: 'none' }, classNames: { content: classes.modalContent, overlay: classes.modalOverlay } }),
     Popover: Popover.extend({ defaultProps: { radius: 0, shadow: 'none' }, classNames: { dropdown: classes.dropdown } }),
     Divider: Divider.extend({ classNames: { root: classes.divider } }),
     Switch: Switch.extend({ classNames: { input: classes.switchInput, track: classes.switchTrack, thumb: classes.switchThumb } }),

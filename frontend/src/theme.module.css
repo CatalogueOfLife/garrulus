@@ -132,6 +132,14 @@
 /* a modal is square like a menu and edged in ink like one; without the edge it vanishes into the dimmed page in dark mode */
 .modalContent {
   border: 1px solid var(--gr-ink);
+  /* shadow: 'none' is no theme shadow, so Mantine kept its xl shadow */
+  box-shadow: none;
+}
+
+/* the page behind a modal fades towards the paper instead of greying under Mantine's black scrim */
+.modalOverlay {
+  background: color-mix(in srgb, var(--gr-paper) 85%, transparent);
+  backdrop-filter: none;
 }
 
 .menuDivider {
