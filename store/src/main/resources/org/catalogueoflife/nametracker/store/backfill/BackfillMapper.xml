@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.nametracker.store.backfill.BackfillMapper">
+
+  <resultMap id="run" type="org.catalogueoflife.nametracker.store.backfill.BackfillRun">
+    <constructor>
+      <idArg column="id" javaType="long"/>
+      <arg column="from_year" javaType="short"/>
+      <arg column="to_year" javaType="short"/>
+      <arg column="snapshot_date" javaType="java.time.LocalDate"/>
+      <arg column="files_total" javaType="int"/>
+      <arg column="state" javaType="string"/>
+      <arg column="created" javaType="java.time.Instant"/>
+      <arg column="finished" javaType="java.time.Instant"/>
+    </constructor>
+  </resultMap>
+
+  <resultMap id="file" type="org.catalogueoflife.nametracker.store.backfill.BackfillFile">
+    <constructor>
+      <idArg column="run_id" javaType="long"/>
+      <idArg column="idx" javaType="int"/>
+      <arg column="url" javaType="string"/>
+      <arg column="records_read" javaType="long"/>
+      <arg column="records_kept" javaType="long"/>
+      <arg column="works_created" javaType="long"/>
+      <arg column="done_at" javaType="java.time.Instant"/>
+    </constructor>
+  </resultMap>
+
+  <select id="insertRun" resultType="long" flushCache="true">
+    INSERT INTO backfill_run (from_year, to_year, snapshot_date, files_total, state)
+    VALUES (#{fromYear}, #{toYear}, #{snapshotDate}, #{filesTotal}, 'RUNNING')
+    RETURNING id
+  </select>
+
+  <insert id="insertFile">
+    INSERT INTO backfill_file (run_id, idx, url) VALUES (#{runId}, #{idx}, #{url})
+  </insert>
+
+  <select id="findRunning" resultType="long">
+    SELECT r.id FROM backfill_run r
+    WHERE r.state = 'RUNNING' AND r.from_year = #{fromYear} AND r.to_year = #{toYear}
+      AND r.snapshot_date = #{snapshotDate} AND r.files_total = #{filesTotal}
+      AND (SELECT min(f.idx) FROM backfill_file f WHERE f.run_id = r.id) = #{firstIdx}
+    ORDER BY r.id LIMIT 1
+  </select>
+
+  <select id="getRun" resultMap="run">
+    SELECT * FROM backfill_run WHERE id = #{id}
+  </select>
+
+  <select id="lockRun" resultMap="run" flushCache="true" useCache="false">
+    SELECT * FROM backfill_run WHERE id = #{id} FOR UPDATE
+  </select>
+
+  <select id="getFile" resultMap="file">
+    SELECT * FROM backfill_file WHERE run_id = #{runId} AND idx = #{idx}
+  </select>
+
+  <select id="listFiles" resultMap="file">
+    SELECT * FROM backfill_file WHERE run_id = #{runId} ORDER BY idx
+  </select>
+
+  <update id="finishFile">
+    UPDATE backfill_file SET records_read = #{read}, records_kept = #{kept}, works_created = #{created},
+      done_at = now()
+    WHERE run_id = #{runId} AND idx = #{idx} AND done_at IS NULL
+  </update>
+
+  <update id="finishRunIfComplete">
+    UPDATE backfill_run SET state = 'DONE', finished = now()
+    WHERE id = #{id} AND state = 'RUNNING'
+      AND NOT EXISTS (SELECT 1 FROM backfill_file f WHERE f.run_id = #{id} AND f.done_at IS NULL)
+  </update>
+</mapper>

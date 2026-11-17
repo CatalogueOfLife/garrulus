@@ -1,6 +1,7 @@
 package org.catalogueoflife.nametracker.store.work;
 
 import java.util.Locale;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -64,6 +65,19 @@ public class WorkUpsert {
       return new UpsertResult(existing.id(), false, jatsAdded);
     }
     throw new IllegalStateException("Could not upsert work " + incoming.openalexId() + " / " + incoming.doi());
+  }
+
+  /**
+   * Inserts the work only when no row has its openalex_id or its (normalised) DOI, and returns the new id; an existing
+   * work is never touched. Losing a race against a concurrent insert of the same work also returns empty.
+   */
+  public Optional<Long> insertIfNew(Work in) {
+    Work incoming = normalized(in);
+    if (incoming.openalexId() == null && incoming.doi() == null) {
+      throw new IllegalArgumentException("A work needs an openalex id or a doi");
+    }
+    if (find(incoming) != null) return Optional.empty();
+    return Optional.ofNullable(mapper.insertIfAbsent(incoming));
   }
 
   private @Nullable Work find(Work w) {

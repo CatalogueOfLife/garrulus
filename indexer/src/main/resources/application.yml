@@ -62,6 +62,10 @@ nametracker:
       base-url: ${NAMETRACKER_OPENALEX_CONTENT_BASE_URL:https://content.openalex.org}
       enabled: ${NAMETRACKER_OPENALEX_CONTENT_ENABLED:true}
       reserve-usd: ${NAMETRACKER_OPENALEX_CONTENT_RESERVE_USD:0.30}
+  snapshot:
+    # the free OpenAlex snapshot (BACKFILL, BACKFILL_FILE): manifest at <base-url>/data/jsonl/manifest.json, its
+    # s3://openalex/<path> file urls read as <base-url>/<path>
+    base-url: ${NAMETRACKER_SNAPSHOT_BASE_URL:https://openalex.s3.amazonaws.com}
   # per-host request spacing overrides: nametracker.http.min-interval.<host>=<duration>, e.g. api.crossref.org=500ms
   seed:
     core-min-works: ${NAMETRACKER_SEED_CORE_MIN_WORKS:20}

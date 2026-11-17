@@ -73,7 +73,7 @@ public final class OpenAlexWorks {
   }
 
   /** The trailing segment of an OpenAlex id URL, e.g. {@code W123}. */
-  static @Nullable String shortId(@Nullable String id) {
+  public static @Nullable String shortId(@Nullable String id) {
     if (id == null) return null;
     return id.startsWith(ID_PREFIX) ? id.substring(ID_PREFIX.length()) : id;
   }

@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.catalogueoflife.nametracker.store.blob.BlobStore;
 import org.catalogueoflife.nametracker.store.blob.FileBlobStore;
+import org.catalogueoflife.nametracker.indexer.backfill.SnapshotClient;
 import org.catalogueoflife.nametracker.indexer.content.LicencePolicy;
 import org.catalogueoflife.nametracker.indexer.cost.OpenAlexBudget;
 import org.catalogueoflife.nametracker.indexer.crossref.CrossrefClient;
@@ -39,8 +40,8 @@ import org.springframework.core.env.Environment;
 /**
  * The one place that creates and binds the harvest beans. Properties (all optional, env names in
  * {@code application.yml}): {@code nametracker.openalex.*}, {@code nametracker.seed.*}, {@code nametracker.http.*},
- * {@code nametracker.content.*} and {@code nametracker.crossref.*}. The content and Crossref properties are read by
- * the content tasks.
+ * {@code nametracker.content.*}, {@code nametracker.crossref.*} and {@code nametracker.snapshot.*}. The content and
+ * Crossref properties are read by the content tasks.
  */
 @Configuration
 public class HarvestConfig {
@@ -111,6 +112,13 @@ public class HarvestConfig {
       @Value("${nametracker.clb.base-url:https://api.checklistbank.org}") String baseUrl,
       @Value("${nametracker.clb.match-base-url:}") String matchBaseUrl) {
     return new ClbClient(http, baseUrl, matchBaseUrl, outage);
+  }
+
+  /** The free OpenAlex snapshot: the manifest through PoliteHttp, the works files streamed by their own client. */
+  @Bean
+  SnapshotClient snapshotClient(PoliteHttp http,
+      @Value("${nametracker.snapshot.base-url:https://openalex.s3.amazonaws.com}") String baseUrl) {
+    return new SnapshotClient(http, httpClient(), baseUrl);
   }
 
   @Bean

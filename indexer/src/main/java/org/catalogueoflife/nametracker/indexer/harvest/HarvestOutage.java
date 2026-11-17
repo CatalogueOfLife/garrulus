@@ -29,9 +29,12 @@ public class HarvestOutage {
     this.clock = clock;
   }
 
-  /** The hosts of the fixed APIs: a name that does not resolve for one of them is an outage (DNS), not a typo. */
+  /**
+   * The hosts of the fixed APIs and of the OpenAlex snapshot: a name that does not resolve for one of them is an outage
+   * (DNS), not a typo.
+   */
   static final Set<String> API_HOSTS = Set.of("api.openalex.org", "content.openalex.org", "api.crossref.org",
-      "api.checklistbank.org");
+      "api.checklistbank.org", "openalex.s3.amazonaws.com");
 
   /**
    * The retryable HttpProblem that is the exception or one of its causes, else null. A name that does not resolve

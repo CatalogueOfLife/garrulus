@@ -23,6 +23,9 @@ public interface SourceMapper {
   /** Active CORE/BROAD sources that have been onboarded, ordered by id. */
   List<Source> listHarvestable();
 
+  /** Active CORE/BROAD sources, onboarded or not, ordered by id: the journals the backfill imports. */
+  List<Source> listBackfillable();
+
   /** Active CORE/BROAD sources not yet onboarded, ordered by id. */
   List<Source> listToOnboard();
 

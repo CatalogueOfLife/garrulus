@@ -99,6 +99,10 @@
     SELECT * FROM source WHERE active AND tier IN ('CORE','BROAD') AND onboarded_at IS NOT NULL ORDER BY id
   </select>
 
+  <select id="listBackfillable" resultMap="result">
+    SELECT * FROM source WHERE active AND tier IN ('CORE','BROAD') ORDER BY id
+  </select>
+
   <select id="listToOnboard" resultMap="result">
     SELECT * FROM source WHERE active AND tier IN ('CORE','BROAD') AND onboarded_at IS NULL ORDER BY id
   </select>

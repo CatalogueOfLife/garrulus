@@ -25,6 +25,30 @@ class WorkUpsertIT extends AbstractPostgresIT {
   }
 
   @Test
+  void insertIfNewInsertsOnlyUnknownWorksAndNeverTouchesExistingOnes() {
+    WorkUpsert upsert = new WorkUpsert(works);
+    long live = upsert.upsert(work("W-live", "10.1/live", "Live title", "LIVE")).id();
+    Instant firstSeen = works.get(live).firstSeenAt();
+
+    // same DOI (other spelling), other OpenAlex id; then same OpenAlex id, no DOI
+    assertThat(upsert.insertIfNew(work("W-other", "https://doi.org/10.1/LIVE", "Snapshot title", "BACKFILL"))).isEmpty();
+    assertThat(upsert.insertIfNew(work("W-live", null, "Snapshot title", "BACKFILL"))).isEmpty();
+    Work kept = works.get(live);
+    assertThat(kept.title()).isEqualTo("Live title");
+    assertThat(kept.origin()).isEqualTo("LIVE");
+    assertThat(kept.firstSeenAt()).isEqualTo(firstSeen);
+    assertThat(works.findByOpenalexId("W-other")).isNull();
+
+    var created = upsert.insertIfNew(work("W-new", "DOI:10.1/New", "A &amp; <i>B</i>", "BACKFILL"));
+    assertThat(created).isPresent();
+    Work w = works.get(created.get());
+    assertThat(w.doi()).isEqualTo("10.1/new");
+    assertThat(w.title()).isEqualTo("A & B");
+    assertThat(w.origin()).isEqualTo("BACKFILL");
+    assertThat(upsert.insertIfNew(work("W-new", "10.1/new", "Again", "BACKFILL"))).isEmpty();
+  }
+
+  @Test
   void setPmcidWritesOnlyWhenEmpty() {
     long id = new WorkUpsert(works).upsert(work(null, "10.1/pmcid", "T", "LIVE")).id();
     assertThat(works.setPmcid(id, "PMC1")).isEqualTo(1);
