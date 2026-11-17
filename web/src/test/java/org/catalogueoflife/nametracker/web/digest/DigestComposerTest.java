@@ -167,6 +167,18 @@ class DigestComposerTest {
   }
 
   @Test
+  void htmlUsesBrandColoursAndNameRule() {
+    String names = "[{\"nameStringId\":1,\"name\":\"Abies alba\",\"actTypes\":[\"SP_NOV\"]},"
+        + "{\"nameStringId\":2,\"name\":\"Pinaceae\",\"actTypes\":[]}]";
+    Paper p = paper(1, 9, 1, "ARTICLE", names, true, "Conifers");
+    Mail m = composer.compose(USER, List.of(new SubscriptionHits(9, "Pinaceae", List.of(p))), URL);
+    assertThat(m.html()).contains("<i>Abies alba</i>").contains("Pinaceae").doesNotContain("<i>Pinaceae</i>")
+        .containsPattern("#D2381C[^>]*>sp\\. nov\\.")
+        .doesNotContain("#2A6FBA").doesNotContain("#FAF4F1").doesNotContain("#E6CDC2").doesNotContain("#82594A")
+        .doesNotContain("Georgia");
+  }
+
+  @Test
   void htmlEscapesTitles() {
     Paper p = paper(1, 9, 1, "ARTICLE", article("Aus <b>bus</b>"), false, "A <script>alert(1)</script> & \"co\"");
     Mail m = composer.compose(USER, List.of(new SubscriptionHits(9, "<i>label</i>", List.of(p))), URL);

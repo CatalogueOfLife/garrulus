@@ -19,7 +19,7 @@ import org.springframework.web.util.HtmlUtils;
 import org.springframework.web.util.UriUtils;
 
 /**
- * The digest mail, plain text and simple HTML (inline styles, brand colours of docs/brand). Pure: the same input gives
+ * The digest mail, plain text and simple HTML (inline styles, black, white and red). Pure: the same input gives
  * the same mail. Groups are ordered by subscription label; within a group the hits of one work become one paper,
  * papers with new names (a NEW_NAMES hit) or acts come first, then the newest hit first; at most 20 papers per group,
  * then "and N more" linking to the user's hits of that subscription. Names come from the hits' snapshots, composed by
@@ -30,12 +30,12 @@ public final class DigestComposer {
 
   static final int MAX_PER_SUBSCRIPTION = 20;
 
-  // docs/brand/README.md
-  private static final String INK_9 = "#100F0F";
-  private static final String JAY_6 = "#2A6FBA";
-  private static final String FAWN_0 = "#FAF4F1";
-  private static final String FAWN_2 = "#E6CDC2";
-  private static final String FAWN_7 = "#82594A";
+  // black, white and one red; mail clients load no web fonts
+  private static final String INK = "#000000";
+  private static final String GREY = "#6E6E6E";
+  private static final String RULE = "#D6D6D6";
+  private static final String RED = "#D2381C";
+  private static final String FONT = "'Helvetica Neue',Arial,sans-serif";
 
   public record Mail(String subject, String text, String html) {}
 
@@ -91,11 +91,12 @@ public final class DigestComposer {
     StringBuilder html = new StringBuilder();
     text.append(n).append(n == 1 ? " new paper" : " new papers").append(" for the names, taxa and journals you follow")
         .append(" on Garrulus.\n");
-    html.append("<!doctype html>\n<html><body style=\"margin:0;padding:0;background:#FFFFFF;color:").append(INK_9)
-        .append(";font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5\">\n")
+    html.append("<!doctype html>\n<html><body style=\"margin:0;padding:0;background:#FFFFFF;color:").append(INK)
+        .append(";font-family:").append(FONT).append(";font-size:15px;line-height:1.5\">\n")
         .append("<div style=\"max-width:640px;margin:0 auto;padding:16px\">\n")
-        .append("<p style=\"margin:0 0 4px 0;font-family:Georgia,'Times New Roman',serif;font-style:italic;")
-        .append("font-weight:600;font-size:24px;color:").append(JAY_6).append("\">Garrulus</p>\n")
+        .append("<p style=\"margin:0 0 4px 0;font-family:").append(FONT)
+        .append(";font-weight:500;font-size:24px;letter-spacing:-0.02em;color:").append(INK)
+        .append("\">Garrulus</p>\n")
         .append("<p style=\"margin:0 0 16px 0\">").append(n).append(n == 1 ? " new paper" : " new papers")
         .append(" for the names, taxa and journals you follow.</p>\n");
 
@@ -106,9 +107,9 @@ public final class DigestComposer {
       }
       String label = label(g);
       text.append("\n== ").append(label).append(" (").append(entries.size()).append(") ==\n");
-      html.append("<h2 style=\"margin:24px 0 8px 0;font-family:Georgia,'Times New Roman',serif;font-size:19px;color:")
-          .append(INK_9).append("\">").append(esc(label)).append(" <span style=\"font-weight:normal;color:")
-          .append(FAWN_7).append("\">(").append(entries.size()).append(")</span></h2>\n");
+      html.append("<h2 style=\"margin:24px 0 8px 0;font-family:").append(FONT).append(";font-weight:500;font-size:19px;color:")
+          .append(INK).append("\">").append(esc(label)).append(" <span style=\"font-weight:normal;color:")
+          .append(GREY).append("\">(").append(entries.size()).append(")</span></h2>\n");
       for (Entry e : entries.subList(0, Math.min(MAX_PER_SUBSCRIPTION, entries.size()))) {
         paper(e, base, text, html);
       }
@@ -116,7 +117,7 @@ public final class DigestComposer {
       if (more > 0) {
         String hits = base + "/hits?subscription=" + g.subscriptionId();
         text.append("\nand ").append(more).append(" more: ").append(hits).append('\n');
-        html.append("<p style=\"margin:8px 0\"><a style=\"color:").append(JAY_6).append("\" href=\"")
+        html.append("<p style=\"margin:8px 0\"><a style=\"color:").append(INK).append(";text-decoration:underline\" href=\"")
             .append(esc(hits)).append("\">and ").append(more).append(" more</a></p>\n");
       }
     }
@@ -126,7 +127,7 @@ public final class DigestComposer {
       html.append("<p style=\"margin:24px 0 4px 0;font-weight:600\">Changes to what you follow</p>\n");
       for (XrNote note : notes) {
         text.append("* ").append(note.label()).append(": ").append(note.note()).append('\n');
-        html.append("<p style=\"margin:0 0 4px 0;font-size:13px;color:").append(FAWN_7).append("\"><b>")
+        html.append("<p style=\"margin:0 0 4px 0;font-size:13px;color:").append(GREY).append("\"><b>")
             .append(esc(note.label())).append("</b>: ").append(esc(note.note())).append("</p>\n");
       }
     }
@@ -134,11 +135,11 @@ public final class DigestComposer {
     text.append("\n-- \nYou get this email because you follow names, taxa or journals on Garrulus.\n")
         .append("Digest settings: ").append(settings).append('\n')
         .append("Unsubscribe from these emails: ").append(unsubscribe).append('\n');
-    html.append("<hr style=\"border:none;border-top:1px solid ").append(FAWN_2).append(";margin:24px 0 12px 0\">\n")
-        .append("<p style=\"margin:0;font-size:13px;color:").append(FAWN_7)
+    html.append("<hr style=\"border:none;border-top:1px solid ").append(RULE).append(";margin:24px 0 12px 0\">\n")
+        .append("<p style=\"margin:0;font-size:13px;color:").append(GREY)
         .append("\">You get this email because you follow names, taxa or journals on Garrulus. ")
-        .append("<a style=\"color:").append(JAY_6).append("\" href=\"").append(esc(settings))
-        .append("\">Digest settings</a> &middot; <a style=\"color:").append(JAY_6).append("\" href=\"")
+        .append("<a style=\"color:").append(INK).append(";text-decoration:underline\" href=\"").append(esc(settings))
+        .append("\">Digest settings</a> &middot; <a style=\"color:").append(INK).append(";text-decoration:underline\" href=\"")
         .append(esc(unsubscribe)).append("\">Unsubscribe</a></p>\n</div>\n</body></html>\n");
     return new Mail(subject, text.toString(), html.toString());
   }
@@ -197,34 +198,34 @@ public final class DigestComposer {
       text.append("  ").append(doi).append('\n');
     }
 
-    html.append("<div style=\"margin:0 0 10px 0;padding:10px 12px;background:").append(FAWN_0)
-        .append(";border:1px solid ").append(FAWN_2).append(";border-radius:6px\">\n")
-        .append("<a style=\"color:").append(JAY_6).append(";font-weight:600;text-decoration:none\" href=\"")
+    html.append("<div style=\"margin:0 0 10px 0;padding:10px 0 0 0;border-top:1px solid ").append(RULE)
+        .append("\">\n")
+        .append("<a style=\"color:").append(INK).append(";font-weight:600;text-decoration:underline\" href=\"")
         .append(esc(page)).append("\">").append(esc(title)).append("</a>\n");
     if (!meta.isEmpty()) {
-      html.append("<div style=\"font-size:13px;color:").append(FAWN_7).append("\">")
+      html.append("<div style=\"font-size:13px;color:").append(GREY).append("\">")
           .append(esc(String.join(", ", meta))).append("</div>\n");
     }
     if (!names.isEmpty()) {
       html.append("<div style=\"margin-top:4px\">");
       boolean first = true;
       for (HitNames.Name n : names.names()) {
-        html.append(first ? "" : ", ").append("<i>").append(esc(n.name())).append("</i>");
+        String name = esc(n.name());
+        html.append(first ? "" : ", ").append(SciNames.italicByShape(n.name()) ? "<i>" + name + "</i>" : name);
         for (String act : n.acts()) {
-          html.append(" <span style=\"background:").append(FAWN_7).append(";color:#FFFFFF;font-size:11px;")
-              .append("padding:1px 5px;border-radius:4px\">").append(esc(act)).append("</span>");
+          html.append(" <span style=\"color:").append(RED).append("\">").append(esc(act)).append("</span>");
         }
         first = false;
       }
       if (names.more() > 0) {
-        html.append(", <span style=\"color:").append(FAWN_7).append("\">+").append(names.more())
+        html.append(", <span style=\"color:").append(GREY).append("\">+").append(names.more())
             .append(" more</span>");
       }
       html.append("</div>\n");
     }
     if (doi != null) {
-      html.append("<div style=\"font-size:13px;margin-top:4px\"><a style=\"color:").append(JAY_6)
-          .append("\" href=\"").append(esc(doi)).append("\">").append(esc(doi)).append("</a></div>\n");
+      html.append("<div style=\"font-size:13px;margin-top:4px\"><a style=\"color:").append(INK)
+          .append(";text-decoration:underline\" href=\"").append(esc(doi)).append("\">").append(esc(doi)).append("</a></div>\n");
     }
     html.append("</div>\n");
   }
