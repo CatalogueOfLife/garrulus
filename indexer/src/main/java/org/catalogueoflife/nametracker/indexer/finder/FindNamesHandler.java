@@ -99,6 +99,8 @@ public class FindNamesHandler implements TaskHandler {
     if (this.finder == null) {
       LOG.warn("No name finder configured (set NAMETRACKER_FINDER_URL or FINDER_DICTIONARY): "
           + "FIND_NAMES tasks wait in the queue");
+    } else if (this.finder instanceof ReloadableNameFinder r && !r.ready()) {
+      LOG.warn("The name finder has no dictionary yet (BUILD_DICTIONARY builds it): FIND_NAMES tasks are deferred");
     }
   }
 
@@ -116,6 +118,9 @@ public class FindNamesHandler implements TaskHandler {
   public void handle(Task task) throws Exception {
     JsonNode payload = FinderJson.mapper().readTree(task.payload());
     long workId = payload.path("workId").asLong();
+    if (finder instanceof ReloadableNameFinder r && !r.ready()) {
+      throw new ServiceOutageException("finder", clock.instant().plus(OUTAGE_DELAY));
+    }
     boolean force = payload.path("force").asBoolean(false);
     Work work = works.get(workId);
     if (work == null) {

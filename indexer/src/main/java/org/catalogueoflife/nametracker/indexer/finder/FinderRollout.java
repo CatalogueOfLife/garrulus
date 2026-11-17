@@ -53,6 +53,10 @@ public class FinderRollout {
   /** Records the finder's configHash and enqueues its rollout if it is new; see the class comment. */
   public void check() {
     if (finder == null) return;
+    if (finder instanceof ReloadableNameFinder r && !r.ready()) {
+      LOG.info("Finder rollout check skipped: no dictionary has been built yet");
+      return;
+    }
     String hash;
     try {
       hash = finder.info().configHash();

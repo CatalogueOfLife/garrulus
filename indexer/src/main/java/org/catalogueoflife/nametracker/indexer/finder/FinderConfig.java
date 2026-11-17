@@ -6,7 +6,8 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Comparator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.catalogueoflife.nametracker.finder.api.NameFinder;
 import org.catalogueoflife.nametracker.finder.pipeline.PipelineFactory;
@@ -27,9 +28,10 @@ import org.springframework.core.type.AnnotatedTypeMetadata;
 
 /**
  * Chooses the {@link NameFinder}: a remote finder service when {@code nametracker.finder.url}
- * ({@code NAMETRACKER_FINDER_URL}) is set; else the in-process pipeline (reloadable per XR release when {@code dictionary-dir} is set) when {@code nametracker.finder.dictionary}
- * ({@code FINDER_DICTIONARY}) is set, with {@code GNFINDER_URL} and the optional {@code FINDER_CONFIG} file of
- * overrides; else none, and {@code FIND_NAMES} tasks wait in the queue (see {@link FindNamesHandler}).
+ * ({@code NAMETRACKER_FINDER_URL}) is set; else the in-process pipeline when {@code nametracker.finder.dictionary}
+ * ({@code FINDER_DICTIONARY}) or {@code nametracker.finder.dictionary-dir} is set, with {@code GNFINDER_URL} and the
+ * optional {@code FINDER_CONFIG} file of overrides; else none, and {@code FIND_NAMES} tasks wait in the queue (see
+ * {@link FindNamesHandler}).
  */
 @Configuration
 public class FinderConfig {
@@ -47,14 +49,14 @@ public class FinderConfig {
   }
 
   /**
-   * With {@code dictionary-dir}: the in-process pipeline wrapped in a {@link ReloadableNameFinder}, on
+   * With {@code dictionary-dir} the in-process pipeline is always wrapped in a {@link ReloadableNameFinder}, on
    * {@code dictionary-<currentKey>.bin} if present, else {@code FINDER_DICTIONARY}, else the newest
-   * {@code dictionary-*.bin} of the directory; none of them (WARN, no finder until a restart after a
-   * {@code BUILD_DICTIONARY}) gives no bean. A remote finder is never wrapped.
+   * {@code dictionary-*.bin} of the directory. With none of them the wrapper is empty (not ready, WARN) until
+   * {@code BUILD_DICTIONARY} swaps a dictionary in. A remote finder is never wrapped.
    */
   @Bean
   @Conditional(Configured.class)
-  @Nullable NameFinder nameFinder(@Value("${nametracker.finder.url:}") String url,
+  NameFinder nameFinder(@Value("${nametracker.finder.url:}") String url,
       @Value("${nametracker.finder.dictionary:}") String dictionary,
       @Value("${nametracker.finder.dictionary-dir:}") String dictionaryDir,
       @Value("${nametracker.finder.gnfinder-url:}") String gnfinderUrl,
@@ -62,8 +64,8 @@ public class FinderConfig {
     if (notBlank(url)) return new RemoteNameFinder(URI.create(url.strip()));
     if (!notBlank(dictionaryDir)) return pipeline(Path.of(dictionary.strip()), gnfinderUrl, configFile);
     Path dir = Path.of(dictionaryDir.strip());
-    Path file = null;
     Integer key = currentKey(index);
+    Path file;
     if (key != null && Files.isRegularFile(BuildDictionaryHandler.file(dir, key))) {
       file = BuildDictionaryHandler.file(dir, key);
     } else if (notBlank(dictionary)) {
@@ -72,9 +74,9 @@ public class FinderConfig {
       file = newest(dir);
     }
     if (file == null) {
-      LOG.warn("No dictionary in {} and FINDER_DICTIONARY is not set: no name finder until BUILD_DICTIONARY has built one "
-          + "and the indexer is restarted", dir);
-      return null;
+      LOG.warn("No dictionary in {} and FINDER_DICTIONARY is not set: no name finder until BUILD_DICTIONARY has built one",
+          dir);
+      return new ReloadableNameFinder(null);
     }
     LOG.info("Name finder on dictionary {}", file);
     return new ReloadableNameFinder(pipeline(file, gnfinderUrl, configFile));
@@ -105,16 +107,24 @@ public class FinderConfig {
     }
   }
 
+  private static final Pattern DICTIONARY_FILE = Pattern.compile("dictionary-(\\d+)\\.bin");
+
   private static @Nullable Path newest(Path dir) {
     if (!Files.isDirectory(dir)) return null;
+    Path best = null;
+    int bestKey = -1;
     try (Stream<Path> s = Files.list(dir)) {
-      return s.filter(p -> p.getFileName().toString().matches("dictionary-\\d+\\.bin"))
-          .max(Comparator.comparingInt(p -> Integer.parseInt(
-              p.getFileName().toString().replaceAll("\\D", ""))))
-          .orElse(null);
+      for (Path p : (Iterable<Path>) s::iterator) {
+        Matcher m = DICTIONARY_FILE.matcher(p.getFileName().toString());
+        if (m.matches() && Integer.parseInt(m.group(1)) > bestKey) {
+          bestKey = Integer.parseInt(m.group(1));
+          best = p;
+        }
+      }
     } catch (IOException e) {
       throw new UncheckedIOException("Cannot list " + dir, e);
     }
+    return best;
   }
 
   private static boolean notBlank(String s) {
