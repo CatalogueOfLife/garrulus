@@ -84,6 +84,8 @@ nametracker:
     # xr-zip-url and the in-process finder reloads it; blank = no per-release dictionaries
     dictionary-dir: ${NAMETRACKER_DICTIONARY_DIR:}
     xr-zip-url: ${NAMETRACKER_XR_ZIP_URL:https://download.checklistbank.org/col/xr_latest_coldp.zip}
+    # a zip download that delivers no byte for this long is broken off: BUILD_DICTIONARY is deferred as an outage
+    xr-zip-read-timeout: ${NAMETRACKER_XR_ZIP_READ_TIMEOUT:5m}
     gnfinder-url: ${GNFINDER_URL:}
     # optional file with a JSON object of pipeline overrides
     config: ${FINDER_CONFIG:}

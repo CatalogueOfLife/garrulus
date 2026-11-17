@@ -19,6 +19,7 @@ import java.util.zip.GZIPInputStream;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
+import org.catalogueoflife.nametracker.indexer.http.StreamingGet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.jackson.core.JacksonException;
@@ -123,27 +124,17 @@ public class SnapshotClient {
 
   /**
    * Connects and checks the status. The JDK HttpClient has no timeout for reading a body, so the files are read through
-   * HttpURLConnection, whose read timeout applies to every read of the socket.
+   * HttpURLConnection ({@link StreamingGet}), whose read timeout applies to every read of the socket. The connection is
+   * closed on any failure here.
    */
   private HttpURLConnection open(URI uri) {
-    HttpURLConnection conn;
-    int s;
-    try {
-      conn = (HttpURLConnection) uri.toURL().openConnection();
-      conn.setConnectTimeout((int) CONNECT_TIMEOUT.toMillis());
-      conn.setReadTimeout((int) Math.min(Integer.MAX_VALUE, readTimeout.toMillis()));
-      conn.setInstanceFollowRedirects(true);
-      conn.setRequestProperty("User-Agent", PoliteHttp.userAgent());
-      s = conn.getResponseCode();
-    } catch (IOException e) {
-      if (PoliteHttp.unknownHost(e)) throw new HttpProblem(uri, 0, false, "Unknown host: " + uri, e);
-      throw new HttpProblem(uri, 0, true, "I/O failure: " + uri, e);
-    }
+    StreamingGet.Opened o = StreamingGet.open(uri, CONNECT_TIMEOUT, readTimeout);
+    int s = o.status();
     if (s != 200) {
-      conn.disconnect();
+      o.connection().disconnect();
       throw new HttpProblem(uri, s, s == 429 || s >= 500, "HTTP " + s + ": " + uri, null);
     }
-    return conn;
+    return o.connection();
   }
 
   private static String readLine(BufferedReader in, URI uri, long lines) {

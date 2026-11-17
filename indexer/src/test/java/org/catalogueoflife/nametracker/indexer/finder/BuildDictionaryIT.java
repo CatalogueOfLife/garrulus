@@ -8,7 +8,18 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.time.Duration;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.Timeout;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -182,7 +193,8 @@ class BuildDictionaryIT extends AbstractPostgresIT {
     assertThat(empty.ready()).isFalse();
     assertThatThrownBy(empty::info).isInstanceOf(FinderUnavailableException.class);
     ObjectProvider<NameFinder> provider = provider(empty);
-    var h = new BuildDictionaryHandler(provider, index, outage, queue, "", DIR.toString(), ZIP.baseUrl() + "/xr.zip", "", "");
+    var h = new BuildDictionaryHandler(provider, index, outage, queue, "", DIR.toString(), ZIP.baseUrl() + "/xr.zip", "", "",
+        Duration.ofMinutes(5));
     h.bootstrap();
     assertThat(jdbc.queryForObject("SELECT count(*) FROM task WHERE type = 'BUILD_DICTIONARY' AND dedup_key = 'build-dictionary:200'",
         Integer.class)).isEqualTo(1);
@@ -209,6 +221,50 @@ class BuildDictionaryIT extends AbstractPostgresIT {
     assertThat(DIR.resolve("dictionary-200.bin")).doesNotExist();
   }
 
+  /**
+   * A download that stops delivering bytes is broken off after the read timeout and deferred as an outage, instead of
+   * blocking the task (kept RUNNING by its heartbeats) for ever. A raw socket server sends the headers and half the zip,
+   * then stays silent with the connection open.
+   */
+  @Test
+  @Timeout(value = 30, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+  void stalledDownloadIsAnOutage() throws Exception {
+    byte[] body = zip(200);
+    CountDownLatch done = new CountDownLatch(1);
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
+      Thread t = new Thread(() -> {
+        try (Socket c = server.accept()) {
+          BufferedReader req = new BufferedReader(new InputStreamReader(c.getInputStream(), StandardCharsets.US_ASCII));
+          String l;
+          while ((l = req.readLine()) != null && !l.isEmpty()) {
+            // the request head
+          }
+          OutputStream out = c.getOutputStream();
+          out.write(("HTTP/1.1 200 OK\r\nContent-Type: application/zip\r\nContent-Length: " + body.length
+              + "\r\n\r\n").getBytes(StandardCharsets.US_ASCII));
+          out.write(body, 0, body.length / 2);
+          out.flush();
+          done.await(); // stall, connection open
+        } catch (Exception e) {
+          // the test is over
+        }
+      });
+      t.setDaemon(true);
+      t.start();
+
+      var h = new BuildDictionaryHandler(provider(finder), index, outage, queue, "", DIR.toString(),
+          "http://127.0.0.1:" + server.getLocalPort() + "/xr.zip", "", "", Duration.ofMillis(500));
+      long start = System.nanoTime();
+      assertThatThrownBy(() -> h.handle(task(200))).isInstanceOf(ServiceOutageException.class)
+          .hasRootCauseInstanceOf(SocketTimeoutException.class);
+      assertThat(Duration.ofNanos(System.nanoTime() - start)).isLessThan(Duration.ofSeconds(10));
+      assertThat(DIR.resolve("dictionary-200.bin")).doesNotExist();
+      assertThat(finder.info().dictionaryKey()).isEqualTo("0");
+    } finally {
+      done.countDown();
+    }
+  }
+
   private static ObjectProvider<NameFinder> provider(NameFinder f) {
     return new ObjectProvider<>() {
       @Override
@@ -225,7 +281,8 @@ class BuildDictionaryIT extends AbstractPostgresIT {
 
   @Test
   void noDirIsNoop() throws Exception {
-    var h = new BuildDictionaryHandler(provider(finder), index, outage, queue, "", "", ZIP.baseUrl() + "/xr.zip", "", "");
+    var h = new BuildDictionaryHandler(provider(finder), index, outage, queue, "", "", ZIP.baseUrl() + "/xr.zip", "", "",
+        Duration.ofMinutes(5));
     h.handle(task(200));
     assertThat(ZIP.getAllServeEvents()).isEmpty();
     assertThat(finder.info().dictionaryKey()).isEqualTo("0");

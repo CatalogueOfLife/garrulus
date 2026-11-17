@@ -3,10 +3,8 @@ package org.catalogueoflife.nametracker.indexer.finder;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.HttpURLConnection;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -18,7 +16,8 @@ import org.catalogueoflife.nametracker.finder.dict.ColDictionaryBuilder;
 import org.catalogueoflife.nametracker.finder.dict.ColDictionaryIO;
 import org.catalogueoflife.nametracker.finder.dict.CommonWords;
 import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
-import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
+import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
+import org.catalogueoflife.nametracker.indexer.http.StreamingGet;
 import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
@@ -42,7 +41,9 @@ import org.springframework.stereotype.Component;
  * the file (temp file, atomic rename). Another release key means the latest zip is not k yet: WARN and keep the
  * current dictionary. If k is the current release, the in-process finder is then swapped to a pipeline on that file.
  * A failed build (bad zip) is a WARN and keeps the current dictionary; only a failed connection or download is an
- * outage. A fresh deployment without any dictionary enqueues the build for the current release at start. Redelivery is harmless: the file is replaced by an equal one and the swap repeats. A dictionary change is no finder
+ * outage, and so is a download that delivers nothing for {@code nametracker.finder.xr-zip-read-timeout} (5m): it is
+ * read through HttpURLConnection, whose read timeout applies to every read (heartbeats would otherwise keep a stalled
+ * task RUNNING for ever). The build runs in the indexer's heap. A fresh deployment without any dictionary enqueues the build for the current release at start. Redelivery is harmless: the file is replaced by an equal one and the swap repeats. A dictionary change is no finder
  * upgrade ({@link FinderRollout} looks at the configHash alone).
  */
 @Component
@@ -62,15 +63,17 @@ public class BuildDictionaryHandler implements TaskHandler {
   private final String zipUrl;
   private final String gnfinderUrl;
   private final String configFile;
-  private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(30))
-      .followRedirects(HttpClient.Redirect.NORMAL).build();
+  private final Duration readTimeout;
+  static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(30);
 
+  /** {@code readTimeout}: the longest the zip download may deliver nothing before it counts as broken off. */
   public BuildDictionaryHandler(ObjectProvider<NameFinder> finder, IndexMapper index, HarvestOutage outage,
       TaskQueue queue, @Value("${nametracker.finder.url:}") String finderUrl,
       @Value("${nametracker.finder.dictionary-dir:}") String dictionaryDir,
       @Value("${nametracker.finder.xr-zip-url:https://download.checklistbank.org/col/xr_latest_coldp.zip}") String zipUrl,
       @Value("${nametracker.finder.gnfinder-url:}") String gnfinderUrl,
-      @Value("${nametracker.finder.config:}") String configFile) {
+      @Value("${nametracker.finder.config:}") String configFile,
+      @Value("${nametracker.finder.xr-zip-read-timeout:5m}") Duration readTimeout) {
     this.finder = finder;
     this.index = index;
     this.outage = outage;
@@ -80,6 +83,7 @@ public class BuildDictionaryHandler implements TaskHandler {
     this.zipUrl = zipUrl.strip();
     this.gnfinderUrl = gnfinderUrl;
     this.configFile = configFile;
+    this.readTimeout = readTimeout;
   }
 
   @Override
@@ -139,20 +143,17 @@ public class BuildDictionaryHandler implements TaskHandler {
 
   /** Builds and writes the dictionary of release {@code key}; false if the latest zip is another release. */
   private boolean build(int key, Path target) throws IOException {
-    HttpRequest req = HttpRequest.newBuilder(URI.create(zipUrl)).header("User-Agent", PoliteHttp.userAgent()).GET()
-        .build();
     ColDictionary d;
-    HttpResponse<InputStream> resp;
+    StreamingGet.Opened resp;
     try {
-      resp = http.send(req, HttpResponse.BodyHandlers.ofInputStream());
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new IOException("interrupted while downloading " + zipUrl, e);
-    } catch (IOException e) {
+      // HttpURLConnection: its read timeout also bounds a download that stalls (the JDK HttpClient has none for a body)
+      resp = StreamingGet.open(URI.create(zipUrl), CONNECT_TIMEOUT, readTimeout);
+    } catch (HttpProblem e) {
       throw new ServiceOutageException("xr-zip", outage.retryAt(), e);
     }
-    try (InputStream raw = resp.body()) {
-      int status = resp.statusCode();
+    HttpURLConnection conn = resp.connection();
+    try {
+      int status = resp.status();
       if (status >= 500 || status == 429) {
         throw new ServiceOutageException("xr-zip", outage.retryAt(), new IOException("HTTP " + status + " for " + zipUrl));
       }
@@ -160,14 +161,22 @@ public class BuildDictionaryHandler implements TaskHandler {
         LOG.error("BUILD_DICTIONARY {}: HTTP {} for {}; no dictionary built", key, status, zipUrl);
         return false;
       }
-      TransportWatch in = new TransportWatch(raw);
+      TransportWatch in;
       try {
+        in = new TransportWatch(conn.getInputStream());
+      } catch (IOException e) {
+        throw new ServiceOutageException("xr-zip", outage.retryAt(), e);
+      }
+      try (in) {
         d = ColDictionaryBuilder.fromXrZip(in, CommonWords.load(CommonWords.DEFAULT_LANGS));
       } catch (IOException | RuntimeException e) {
+        // a read that failed or timed out is the download's fault (an outage), anything else the zip's
         if (in.failure != null) throw new ServiceOutageException("xr-zip", outage.retryAt(), in.failure);
         LOG.warn("Dictionary build for {} failed; keeping the current dictionary: {}", key, e.toString());
         return false;
       }
+    } finally {
+      conn.disconnect();
     }
     if (!String.valueOf(key).equals(d.releaseKey())) {
       LOG.warn("BUILD_DICTIONARY: latest XR zip is {}, not {}; keeping the current dictionary", d.releaseKey(), key);
