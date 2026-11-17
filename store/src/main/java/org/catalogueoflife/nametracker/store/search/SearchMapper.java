@@ -48,6 +48,9 @@ public interface SearchMapper {
   /** At most 5 main-subject names per work, most salient first. */
   List<MainNameRow> mainNames(@Param("ids") Collection<Long> workIds);
 
+  /** Mentions in the title block of each work, ordered by work, stored start, longest first. */
+  List<TitleMentionRow> titleMentions(@Param("ids") Collection<Long> workIds);
+
   /** True when the work is listed and passes the filter: the search {@code from}/{@code where} restricted to the work. */
   boolean workMatches(@Param("workId") long workId, @Param("f") WorkFilter f);
 

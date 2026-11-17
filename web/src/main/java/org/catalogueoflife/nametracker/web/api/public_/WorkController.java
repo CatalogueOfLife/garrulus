@@ -21,6 +21,7 @@ import org.catalogueoflife.nametracker.store.search.FacetCount;
 import org.catalogueoflife.nametracker.store.search.MainNameRow;
 import org.catalogueoflife.nametracker.store.search.SearchMapper;
 import org.catalogueoflife.nametracker.store.search.WorkFilter;
+import org.catalogueoflife.nametracker.store.search.TitleMentionRow;
 import org.catalogueoflife.nametracker.store.search.WorkHit;
 import org.catalogueoflife.nametracker.store.search.WorkNameRow;
 import org.catalogueoflife.nametracker.store.source.Source;
@@ -159,7 +160,11 @@ public class WorkController {
                 Collectors.mapping(r -> new NameRef(r.nameStringId(), r.name(), r.placementMethod(), r.usageId(), r.kind(),
                     r.rank(), r.usageRank(), r.actTypes()),
                     Collectors.toList())));
-    return hits.stream().map(h -> summary(h, mainNames.getOrDefault(h.id(), List.of()))).toList();
+    Map<Long, List<TitleMentionRow>> titles = hits.isEmpty() ? Map.of()
+        : search.titleMentions(hits.stream().map(WorkHit::id).toList()).stream().collect(
+            Collectors.groupingBy(TitleMentionRow::workId));
+    return hits.stream().map(h -> summary(h, mainNames.getOrDefault(h.id(), List.of()),
+        TitleSpans.locate(h.title(), titles.getOrDefault(h.id(), List.of())))).toList();
   }
 
   @GetMapping("/api/works/{id}")
@@ -182,7 +187,8 @@ public class WorkController {
         src == null ? null : new SourceRef(src.id(), src.title()), authors(w.authors()), w.volume(), w.issue(),
         w.pages(), w.language(), w.type(), w.oaStatus(), w.bestOaUrl(), w.abstractText(), licence, retained,
         w.textLevel(), Boolean.TRUE.equals(w.hasActs()), w.codes() == null ? List.of() : w.codes(),
-        w.taxgroups() == null ? List.of() : w.taxgroups(), names, contexts, text);
+        w.taxgroups() == null ? List.of() : w.taxgroups(), names, contexts, text,
+        TitleSpans.locate(w.title(), search.titleMentions(List.of(id))));
   }
 
   /** The blocks of the retained document with their mention spans, or null if the blob is gone or unreadable, or if it is not the document the names were found in (names_doc_sha). */
@@ -233,12 +239,13 @@ public class WorkController {
     return new ContextDto(c.localId(), c.verbatim(), ranks, c.scope(), c.blockId(), c.untilBlockId());
   }
 
-  private static WorkSummary summary(WorkHit h, List<NameRef> mainNames) {
+  private static WorkSummary summary(WorkHit h, List<NameRef> mainNames, List<MentionSpan> titleMentions) {
     List<Author> all = authors(h.authors());
     return new WorkSummary(h.id(), h.doi(), h.title(), h.year(), h.publicationDate(),
         h.sourceId() == null ? null : new SourceRef(h.sourceId(), h.sourceTitle()),
         all.stream().limit(3).map(Author::name).toList(), all.size(), h.textLevel(), h.hasActs(),
-        mainNames.size() > 5 ? mainNames.subList(0, 5) : mainNames, h.volume(), h.issue(), h.pages());
+        mainNames.size() > 5 ? mainNames.subList(0, 5) : mainNames, h.volume(), h.issue(), h.pages(),
+        titleMentions);
   }
 
   private static List<Author> authors(@Nullable String json) {

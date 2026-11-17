@@ -11,4 +11,5 @@ public record WorkDetail(long id, @Nullable String doi, @Nullable String title, 
     @Nullable String issue, @Nullable String pages, @Nullable String language, @Nullable String type,
     @Nullable String oaStatus, @Nullable String bestOaUrl, @JsonProperty("abstract") @Nullable String abstractText,
     @Nullable String licence, boolean retained, @Nullable String textLevel, boolean hasActs, List<String> codes,
-    List<String> taxgroups, List<NameDetail> names, List<ContextDto> contexts, @Nullable List<TextBlock> text) {}
+    List<String> taxgroups, List<NameDetail> names, List<ContextDto> contexts, @Nullable List<TextBlock> text,
+    List<MentionSpan> titleMentions) {}

@@ -177,6 +177,24 @@ class WorkControllerIT extends AbstractPostgresIT {
   }
 
   @Test
+  void titleMentionsServedForClosedWork() throws Exception {
+    long w = work("10.1/closed", "Revision of Syntelia");
+    long ns = nameString("Syntelia");
+    jdbc.update("INSERT INTO mention (work_id, name_string_id, block_id, block_type, start_cp, end_cp, verbatim, "
+        + "confidence, snippet) VALUES (?, ?, 't', 'TITLE', 12, 20, 'Syntelia', 0.9, 's')", w, ns);
+    JsonNode s = JSON.readTree(get("/api/works").body()).path("results").get(0);
+    JsonNode tm = s.path("titleMentions").get(0);
+    assertThat(tm.path("startCp").asInt()).isEqualTo(12);
+    assertThat(tm.path("endCp").asInt()).isEqualTo(20);
+    assertThat(tm.path("nameId").asLong()).isEqualTo(ns);
+    JsonNode d = JSON.readTree(get("/api/works/" + w).body());
+    assertThat(d.path("titleMentions").get(0).path("startCp").asInt()).isEqualTo(12);
+    assertThat(d.path("titleMentions").get(0).path("endCp").asInt()).isEqualTo(20);
+    assertThat(d.path("titleMentions").get(0).path("nameId").asLong()).isEqualTo(ns);
+    assertThat(d.path("text").isNull()).isTrue();
+  }
+
+  @Test
   void openWorkTextSpansMatchMentions() throws Exception {
     long w = work("10.1/open", "Open");
     String text = "Fig. 𝔄 shows Abies alba (L.) Mill. in the field";

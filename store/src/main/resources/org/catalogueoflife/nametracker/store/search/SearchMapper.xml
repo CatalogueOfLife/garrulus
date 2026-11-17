@@ -27,6 +27,17 @@
     </constructor>
   </resultMap>
 
+  <resultMap id="titleMention" type="org.catalogueoflife.nametracker.store.search.TitleMentionRow">
+    <constructor>
+      <arg column="work_id" javaType="_long"/>
+      <arg column="id" javaType="_long"/>
+      <arg column="name_string_id" javaType="_long"/>
+      <arg column="start_cp" javaType="_int"/>
+      <arg column="end_cp" javaType="_int"/>
+      <arg column="verbatim" javaType="string"/>
+      <arg column="act_type" javaType="string"/>
+    </constructor>
+  </resultMap>
   <resultMap id="mainName" type="org.catalogueoflife.nametracker.store.search.MainNameRow">
     <constructor>
       <arg column="work_id" javaType="_long"/>
@@ -208,6 +219,13 @@
     ) t
     <![CDATA[ WHERE rn <= 5 ]]>
     ORDER BY work_id, rn
+  </select>
+
+  <select id="titleMentions" resultMap="titleMention">
+    SELECT work_id, id, name_string_id, start_cp, end_cp, verbatim, act_type FROM mention
+    WHERE block_type = 'TITLE' AND work_id IN
+      <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+    ORDER BY work_id, start_cp, end_cp DESC, id
   </select>
 
   <select id="workMatches" resultType="boolean">
