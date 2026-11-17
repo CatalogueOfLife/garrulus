@@ -1,6 +1,6 @@
 import { screen } from '@testing-library/react';
 import { renderApp } from '../test/render';
-import { SciName } from './SciName.tsx';
+import { SciName } from './SciName';
 import { SciTitle } from './SciTitle';
 
 const span = (id: number, startCp: number, endCp: number) => ({ id, nameId: id, startCp, endCp, verbatim: '' });

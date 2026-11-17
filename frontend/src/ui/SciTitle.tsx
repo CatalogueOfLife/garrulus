@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { MentionSpan } from '../api';
-import { isItalicName, type NameInfo } from './sciName';
+import { isItalicName, type NameInfo } from './nameStyle';
 
 export function SciTitle({ title, mentions, names }: { title: string; mentions: MentionSpan[]; names?: Map<number, NameInfo> }) {
   const cps = Array.from(title);

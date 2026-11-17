@@ -1,4 +1,4 @@
-import { isItalicName } from './sciName';
+import { isItalicName } from './nameStyle';
 
 describe('isItalicName', () => {
   it.each([
