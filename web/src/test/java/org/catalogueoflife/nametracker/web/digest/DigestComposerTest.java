@@ -179,6 +179,14 @@ class DigestComposerTest {
   }
 
   @Test
+  void htmlSetsRankMarkersRoman() {
+    String names = "[{\"nameStringId\":1,\"name\":\"Poa annua var. supina\",\"actTypes\":[]}]";
+    Paper p = paper(1, 9, 1, "ARTICLE", names, false, "Grasses");
+    Mail m = composer.compose(USER, List.of(new SubscriptionHits(9, "Poa", List.of(p))), URL);
+    assertThat(m.html()).contains("<i>Poa annua</i> var. <i>supina</i>");
+  }
+
+  @Test
   void htmlEscapesTitles() {
     Paper p = paper(1, 9, 1, "ARTICLE", article("Aus <b>bus</b>"), false, "A <script>alert(1)</script> & \"co\"");
     Mail m = composer.compose(USER, List.of(new SubscriptionHits(9, "<i>label</i>", List.of(p))), URL);

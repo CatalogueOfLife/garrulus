@@ -210,8 +210,7 @@ public final class DigestComposer {
       html.append("<div style=\"margin-top:4px\">");
       boolean first = true;
       for (HitNames.Name n : names.names()) {
-        String name = esc(n.name());
-        html.append(first ? "" : ", ").append(SciNames.italicByShape(n.name()) ? "<i>" + name + "</i>" : name);
+        html.append(first ? "" : ", ").append(SciNames.html(n.name()));
         for (String act : n.acts()) {
           html.append(" <span style=\"color:").append(RED).append("\">").append(esc(act)).append("</span>");
         }
