@@ -70,7 +70,8 @@ A region never runs across a blank line.
 ### Authorship
 
 When an authorship is printed right after a name, tag it as a separate `Authorship` region (hotkey u). It belongs to the
-`Name` that ends directly before it; only spaces or a comma may lie in between. No relation is needed.
+`Name` that ends directly before it. Only spaces, commas, footnote marks (`*`, `**`, `+`), the label line mark `\` and
+`Act` regions may lie in between ("Bacillidae* subcl. n. Cavalier-Smith"). No relation is needed.
 
 | Printed | `Name` | `Authorship` |
 |---|---|---|

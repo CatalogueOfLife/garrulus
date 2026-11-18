@@ -38,7 +38,9 @@ class LabelStudioInferenceTest {
       "Nitrospinaceae: Opheliidae, Zzzzzzz",               // b5
       "Aphididae: Hemiptera",                              // b6
       "Aus bus sp. nov. and cl. n. and nom. rest.",        // b7
-      "Nitrospinaceae: Nitrospina");                       // b8
+      "Nitrospinaceae: Nitrospina",                        // b8
+      "Synergistetes** subphyl. n. Cavalier-Smith and Clostridiia+ cl. n. Cavalier-Smith", // b9
+      "Telephorus aenescens \\ Frm., n. sp.");             // b10
   private static final Document DOC;
   private static final FlatText FLAT;
 
@@ -91,6 +93,32 @@ class LabelStudioInferenceTest {
 
   private static LabelStudioImporter.Options inferring() {
     return LabelStudioImporter.Options.inferring(null);
+  }
+
+  @Test
+  void authorshipFollowsItsNameAcrossActsAndFootnoteMarks() throws Exception {
+    // b9: "Synergistetes** subphyl. n. Cavalier-Smith and Clostridiia+ cl. n. Cavalier-Smith"
+    Path p = export(region("n1", 9, "Synergistetes", "Name"), region("a1", 9, "subphyl. n.", "Act"), link("a1", "n1"),
+        region("u1", 9, "Cavalier-Smith", "Authorship"),
+        region("n2", 9, "Clostridiia", "Name"), region("a2", 9, "cl. n.", "Act"), link("a2", "n2"),
+        region("u2", 9, "Cavalier-Smith", "Authorship", 30));
+    GoldDocument g = LabelStudioImporter.read(p, inferring()).get(0);
+    assertThat(g.names()).extracting(n -> n.text() + "|" + n.authorship())
+        .containsExactly("Synergistetes|Cavalier-Smith", "Clostridiia|Cavalier-Smith");
+  }
+
+  @Test
+  void authorshipFollowsItsNameAcrossALabelLineMark() throws Exception {
+    // b10: "Telephorus aenescens \ Frm., n. sp.", a transcribed specimen label
+    Path p = export(region("n1", 10, "Telephorus aenescens", "Name"), region("u1", 10, "Frm.", "Authorship"));
+    assertThat(LabelStudioImporter.read(p, inferring()).get(0).names().get(0).authorship()).isEqualTo("Frm.");
+  }
+
+  @Test
+  void markerTextWithoutAnActRegionStillBlocksTheAuthorship() throws Exception {
+    // b9 without the Act region: "subphyl. n." is plain text between the name and the authorship
+    Path p = export(region("n1", 9, "Synergistetes", "Name"), region("u1", 9, "Cavalier-Smith", "Authorship"));
+    assertThatThrownBy(() -> LabelStudioImporter.read(p, inferring())).hasMessageContaining("does not follow a Name region");
   }
 
   @Test

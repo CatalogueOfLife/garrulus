@@ -37,7 +37,9 @@ import java.util.regex.Pattern;
  * {@code act_of} relation become {@link GoldAct}s (type from the region's act_type choice), Context regions become
  * {@link GoldContext}s, and {@code main_subject=yes} on a Name adds its text to the main subject names. An Authorship region
  * becomes the {@link GoldName#authorship()} of the Name region that ends right before it in the same block, with nothing but
- * spaces and commas in between; an Authorship without such a Name, or a second one on the same Name, fails. A task with
+ * spaces, commas, footnote marks ({@code * +}), the label line mark {@code \} and resolved Act regions in between ("Aus bus
+ * sp. nov. Smith", "Bacillidae* subcl. n. Cavalier-Smith"); an Authorship without such a Name, or a second one on the same
+ * Name, fails. A task with
  * {@code doc=bad_text} is dropped. Documents whose licence forbids storing the text come back without text
  * ({@code textRetained=false}), ready to be written.
  *
@@ -253,7 +255,7 @@ public final class LabelStudioImporter {
         throw fail(docId, "unknown label '" + label + "'");
       }
     }
-    attachAuthorships(docId, doc, names, authorships, opts);
+    attachAuthorships(docId, doc, names, authorships, acts, opts);
     List<GoldContext> ctx = contexts.entrySet().stream().map(e -> new GoldContext(e.getKey(), e.getValue())).toList();
     String license = data.path("license").asString("unknown");
     GoldDocument g = new GoldDocument(docId, "curated", data.path("split").asString("test"), license, true,
@@ -261,10 +263,15 @@ public final class LabelStudioImporter {
     return data.path("textRetained").asBoolean(true) ? g : g.withoutText();
   }
 
-  private static final java.util.regex.Pattern AUTHORSHIP_GAP = java.util.regex.Pattern.compile("[\\s,]*");
+  /** What may lie between a name and its authorship once the act markers are blanked: spaces, commas, * + and \. */
+  private static final java.util.regex.Pattern AUTHORSHIP_GAP = java.util.regex.Pattern.compile("[\\s,*+\\\\]*");
 
-  /** Sets each authorship (held as a span) on the name that ends closest before it in its block, across spaces and commas only. */
-  private static void attachAuthorships(String docId, Document doc, List<GoldName> names, Map<String, GoldName> authorships, Options opts) {
+  /**
+   * Sets each authorship (held as a span) on the name that ends closest before it in its block, across spaces, commas,
+   * footnote marks, the label line mark and the resolved acts only.
+   */
+  private static void attachAuthorships(String docId, Document doc, List<GoldName> names, Map<String, GoldName> authorships,
+                                        List<GoldAct> acts, Options opts) {
     Map<String, String> texts = new LinkedHashMap<>();
     for (Block b : doc.blocks()) texts.put(b.id(), b.text());
     for (var ae : authorships.entrySet()) {
@@ -275,10 +282,11 @@ public final class LabelStudioImporter {
         GoldName n = names.get(i);
         if (!n.blockId().equals(a.blockId()) || n.end() > a.start()) continue;
         if (best >= 0 && names.get(best).end() >= n.end()) continue;
-        if (AUTHORSHIP_GAP.matcher(CodePoints.slice(texts.get(a.blockId()), n.end(), a.start())).matches()) best = i;
+        if (AUTHORSHIP_GAP.matcher(gapWithoutActs(texts.get(a.blockId()), n, a, acts)).matches()) best = i;
       }
       if (best < 0) {
-        throw fail(docId, "the Authorship region '" + a.text() + "' does not follow a Name region (only spaces or a comma may lie between)");
+        throw fail(docId, "the Authorship region '" + a.text() + "' does not follow a Name region (only spaces, commas, * + \\ "
+            + "and Act regions may lie between)");
       }
       GoldName n = names.get(best);
       if (n.authorship() != null) {
@@ -290,6 +298,16 @@ public final class LabelStudioImporter {
         opts.removed.add(new Removed(docId, ae.getKey(), "Authorship", a.text(), ex.getMessage()));
       }
     }
+  }
+
+  /** The text between a name and an authorship of the same block, with the code points of the acts in it set to spaces. */
+  private static String gapWithoutActs(String blockText, GoldName n, GoldName a, List<GoldAct> acts) {
+    int[] cps = CodePoints.slice(blockText, n.end(), a.start()).codePoints().toArray();
+    for (GoldAct act : acts) {
+      if (!act.blockId().equals(a.blockId())) continue;
+      for (int i = Math.max(act.start(), n.end()); i < Math.min(act.end(), a.start()); i++) cps[i - n.end()] = ' ';
+    }
+    return new String(cps, 0, cps.length);
   }
 
   private interface Make<T> {

@@ -11,8 +11,14 @@ docker compose up -d gnfinder                                          # needed 
 
 ## 1. Fix the gold in Label Studio
 
+**Status 2026-11-18:** the 53 regions below are resolved. Every Act now has an explicit `act_of` link (37 added by
+script in the Cavalier-Smith task, the replacement name below among them, 32 in 20 other tasks, and the Azaptilia link by
+hand as one Act over "gen. nov. et sp. nov."), and the importer lets an Authorship
+follow its Name across linked Act regions, `*`, `+` and `\`. An export of 2026-11-18 imports without errors (111
+documents, 860 names, 109 acts). Still open: more main-subject marks, then the re-export below.
+
 Source: the importer inference report and the `ls-provisional` run. On `eval/work/ls-export-curated.json` the importer
-cannot resolve 53 regions:
+could not resolve 53 regions:
 
 - **2 act links** (add `act_of`):
   - `pensoft:zookeys.1285.182943`: Act `sp. nov.` (region qpthsInf03) to the Name *Azaptilia azapensis* (the Act

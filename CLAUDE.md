@@ -279,7 +279,8 @@ on any command lists its options.
     "rank: Name" pairs, else names split on ":" or "," ranked by the COL dictionary (`--dictionary` or `FINDER_DICTIONARY`),
     then suffix rules, else UNRANKED. Every inferred value is listed in `eval/work/ls-import-inferred.tsv` (docId, region id,
     kind, region text, value, gap); check it after each import. Failures of all tasks are reported together.
-  - The curated gold also has authorships: an `Authorship` region belongs to the `Name` right before it. Reports on the
+  - The curated gold also has authorships: an `Authorship` region belongs to the `Name` right before it (spaces,
+    commas, `*`, `+`, `\` and linked `Act` regions may lie between, "Bacillidae* subcl. n. Cavalier-Smith"). Reports on the
     curated corpus add an `authorship` row (matched spans only, whitespace ignored); other corpora have none.
 - **Runs:** `run --finder italics|gnfinder|pipeline|remote:<url> --corpus eval/corpus/pensoft --split dev|test --mode A|B`
   (`--match STRICT|OVERLAP`, `--doc-level`).
