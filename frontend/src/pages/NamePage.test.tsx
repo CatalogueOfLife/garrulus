@@ -48,6 +48,23 @@ describe('NamePage', () => {
     expect(screen.getByRole('link', { name: 'What is this?' })).toHaveAttribute('data-underline', 'always');
   });
 
+  it('showsRanksAndStatusesAsWords', async () => {
+    server.use(
+      http.get('/api/names/5', () => HttpResponse.json({
+        id: 5, name: 'Abies sect. Abies', kind: 'SCIENTIFIC', rank: 'SECTION_BOTANY',
+        match: { usageId: 'S1', usageName: 'Abies sect. Abies', rank: 'section_botany', status: 'provisionally_accepted', classification: [] },
+        timeline: [], firstAppearance: null,
+      })),
+      worksHandler,
+    );
+    renderName('5');
+    expect(await screen.findByText('section botany')).toBeInTheDocument();
+    const match = screen.getByRole('region', { name: 'Match in COL' });
+    expect(within(match).getByText('(section botany)', { exact: false })).toBeInTheDocument();
+    expect(within(match).getByText(/provisionally accepted/)).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/_/);
+  });
+
   it('unmatchedNameSaysSo', async () => {
     server.use(
       http.get('/api/names/5', () => HttpResponse.json({ id: 5, name: 'Foo bar', kind: 'SCIENTIFIC', match: null, timeline: [], firstAppearance: null })),

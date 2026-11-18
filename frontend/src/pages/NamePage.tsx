@@ -13,6 +13,7 @@ import { formatDate } from '../ui/MetaLine';
 import { NotFound, isNotFound } from '../ui/NotFound';
 import { SciName } from '../ui/SciName';
 import { SideColumn } from '../ui/SideColumn';
+import { words } from '../ui/sentence';
 import list from '../ui/list.module.css';
 import classes from '../ui/detail.module.css';
 import { usePageTitle } from '../usePageTitle';
@@ -38,7 +39,7 @@ export function NamePage() {
     <article>
       <DetailHead
         title={<SciName name={n.name} rank={n.rank} kind={n.kind} />}
-        parts={[n.rank?.toLowerCase(), n.kind === 'OTU' ? n.kind : n.kind?.toLowerCase()]}
+        parts={[words(n.rank), n.kind === 'OTU' ? n.kind : words(n.kind)]}
       />
 
       <div className={`${list.page} ${classes.body}`}>
@@ -48,8 +49,8 @@ export function NamePage() {
               <div>
                 <Text>
                   <SciName name={m.usageName || m.usageId} rank={m.rank} to={`/taxon/${m.usageId}`} />
-                  {m.rank ? <span className={classes.muted}> ({m.rank})</span> : null}
-                  {m.status ? <span className={classes.muted}> · {m.status}</span> : null}
+                  {m.rank ? <span className={classes.muted}> ({words(m.rank)})</span> : null}
+                  {m.status ? <span className={classes.muted}> · {words(m.status)}</span> : null}
                 </Text>
                 {synonym ? (
                   <Text size="sm">

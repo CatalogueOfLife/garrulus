@@ -6,6 +6,7 @@ import { TaxonPicker } from './TaxonPicker';
 import { subfieldOptions } from '../subfields';
 import { FacetGroup } from '../ui/FacetGroup';
 import { Rule } from '../ui/Rule';
+import { sentence } from '../ui/sentence';
 import classes from '../ui/list.module.css';
 
 interface Props {
@@ -26,10 +27,6 @@ export function activeFilterCount(f: WorkFilter): number {
 
 function counts(list?: FacetCount[]): Map<string, number> {
   return new Map((list ?? []).map((f) => [f.value, f.count]));
-}
-
-function pretty(v: string): string {
-  return v.charAt(0) + v.slice(1).toLowerCase().replace(/_/g, ' ');
 }
 
 /** A text input that keeps its own state while typing and commits on blur or Enter only. */
@@ -121,10 +118,10 @@ export function FilterSidebar({ filter, taxonLabel, facets, taxGroups, onChange 
         }))} />
 
       <FacetGroup title="Nomenclatural code" current={filter.code} onSelect={set('code')}
-        items={codes.map((c) => ({ value: c, label: pretty(c), count: codeCounts.get(c) }))} />
+        items={codes.map((c) => ({ value: c, label: sentence(c), count: codeCounts.get(c) }))} />
 
       <FacetGroup title="Journal type" current={filter.journalType} onSelect={set('journalType')}
-        items={['TAXONOMIC', 'GENERAL'].map((t) => ({ value: t, label: pretty(t), count: typeCounts.get(t) }))} />
+        items={['TAXONOMIC', 'GENERAL'].map((t) => ({ value: t, label: sentence(t), count: typeCounts.get(t) }))} />
 
       <FacetGroup title="Acts" current={filter.hasActs === 'true' ? 'true' : undefined} onSelect={set('hasActs')}
         items={[{ value: 'true', label: 'Has nomenclatural acts', count: actCounts.get('true') }]} />
@@ -148,7 +145,7 @@ export function FilterSidebar({ filter, taxonLabel, facets, taxGroups, onChange 
         <NativeSelect
           aria-label="Open access"
           value={filter.oa ?? ''}
-          data={[{ value: '', label: 'Any' }, ...['DIAMOND', 'GOLD', 'HYBRID', 'CLOSED'].map((v) => ({ value: v, label: pretty(v) }))]}
+          data={[{ value: '', label: 'Any' }, ...['DIAMOND', 'GOLD', 'HYBRID', 'CLOSED'].map((v) => ({ value: v, label: sentence(v) }))]}
           onChange={(e) => onChange({ oa: e.currentTarget.value || undefined, offset: undefined })}
         />
       </Field>

@@ -11,6 +11,7 @@ import { NotFound, isNotFound } from '../ui/NotFound';
 import { SciName } from '../ui/SciName';
 import { SciTitle } from '../ui/SciTitle';
 import { SideColumn } from '../ui/SideColumn';
+import { words } from '../ui/sentence';
 import type { NameInfo } from '../ui/nameStyle';
 import list from '../ui/list.module.css';
 import classes from '../ui/work.module.css';
@@ -40,7 +41,7 @@ function NameRow({ n, withTaxon }: { n: NameDetail; withTaxon: boolean }) {
         <>
           {' → '}
           <SciName name={n.usageName || n.usageId} rank={n.usageRank} to={`/taxon/${n.usageId}`} />
-          {n.usageRank ? <span className={classes.note}> ({n.usageRank})</span> : null}
+          {n.usageRank ? <span className={classes.note}> ({words(n.usageRank)})</span> : null}
         </>
       ) : null}
       {n.mainSubject ? <span className={classes.note}> main subject</span> : null}

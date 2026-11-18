@@ -70,6 +70,12 @@ describe('WorkPage', () => {
     expect(path.textContent).toBe('Carabidae›Carabus'); // root first
   });
 
+  it('showsTheUsageRankAsWords', async () => {
+    mount({ ...base, names: [nm(1, 'Abies', { usageId: 'T1', usageName: 'Abies', usageRank: 'section_botany' })] });
+    const col = await screen.findByRole('region', { name: 'Placed in COL' });
+    expect(within(col).getByText(/\(section botany\)/)).toBeInTheDocument();
+  });
+
   it('closedWorkShowsNoTextOnlySnippets', async () => {
     mount(base);
     expect(await screen.findByText(/SNIPPET-ONE/)).toBeInTheDocument();

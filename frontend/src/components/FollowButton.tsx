@@ -9,10 +9,10 @@ import {
 import { useMe } from '../auth/useMe';
 import { ConfirmButton } from './ConfirmButton';
 import { subfieldOptions } from '../subfields';
+import { sentence } from '../ui/sentence';
 
 const MIN_YEAR = 1750;
 const CODES = ['ZOOLOGICAL', 'BOTANICAL', 'BACTERIAL', 'VIRUS'];
-const pretty = (v: string) => v.charAt(0) + v.slice(1).toLowerCase().replace(/_/g, ' ');
 
 /** An empty string is the rolling window; else an integer MIN_YEAR..now, or null when invalid. */
 export function parseSinceYear(text: string): number | null | undefined {
@@ -118,7 +118,7 @@ function Form({ onClose, type, target, label, existing, onExists }: Omit<DialogP
       <Collapse in={open}>
         <Stack gap="xs">
           <NativeSelect label="Nomenclatural code" value={narrow.code ?? ''}
-            data={[{ value: '', label: 'Any' }, ...CODES.map((c) => ({ value: c, label: pretty(c) }))]}
+            data={[{ value: '', label: 'Any' }, ...CODES.map((c) => ({ value: c, label: sentence(c) }))]}
             onChange={(e) => set('code', e.currentTarget.value)} />
           <NativeSelect label="Taxonomic group" value={narrow.taxgroup ?? ''}
             data={[{ value: '', label: 'Any' }, ...(groups.data ?? []).map((g) => ({ value: g.name, label: g.name }))]}

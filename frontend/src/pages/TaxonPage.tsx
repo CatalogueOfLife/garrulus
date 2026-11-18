@@ -13,6 +13,7 @@ import { DetailHead } from '../ui/DetailHead';
 import { NotFound, isNotFound } from '../ui/NotFound';
 import { SciName } from '../ui/SciName';
 import { SideColumn } from '../ui/SideColumn';
+import { words } from '../ui/sentence';
 import { StatRows } from '../ui/StatRows';
 import list from '../ui/list.module.css';
 import classes from '../ui/detail.module.css';
@@ -68,7 +69,7 @@ export function TaxonPage() {
       {name ? (
         <DetailHead
           title={<SciName name={name} rank={rank} />}
-          parts={[rank, taxon.data?.status]}
+          parts={[words(rank), words(taxon.data?.status)]}
         />
       ) : <Loader size="sm" />}
       {classification.data?.length ? <ClassificationPath items={classification.data} order="root-first" /> : null}
