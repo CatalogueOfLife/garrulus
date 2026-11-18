@@ -198,7 +198,8 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) var(--gr-side);
     gap: 56px;
-    padding-top: 6px;
+    /* a detail page's body sets --page-top (detail.module.css .body): a variable, so the stylesheet order never decides */
+    padding-top: var(--page-top, 6px);
     align-items: start;
   }
 

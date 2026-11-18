@@ -17,7 +17,7 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--gr-space-2) var(--gr-space-4);
+  gap: var(--gr-space-2);
   min-height: calc(var(--gr-type-title-size) * var(--gr-type-title-line));
 }
 

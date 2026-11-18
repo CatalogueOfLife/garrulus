@@ -116,7 +116,7 @@ The digest mail and the Hits page have no ranks and go by the shape (step 3).
   result count.
 - Below that row, the two columns both start with a rule at the same height. Nothing stands above the first rule of
   either column.
-- The page actions (Atom feed, then the Follow pill) sit in that first row, flush right over the side column, under
+- The page actions (the Atom feed as a round outline button with the feed glyph, then the Follow pill) sit in that first row, flush right over the side column, under
   the header's account menu. Every page that can be followed puts them there (`ui/HeadRow.tsx`,
   `components/FollowActions.tsx`). Below 1024 px they follow the title.
 

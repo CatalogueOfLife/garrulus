@@ -19,8 +19,10 @@
   margin-right: var(--gr-space-2);
 }
 
+/* the space between the page head and the two columns; also read by the wide grid (list.module.css .page) */
 .body {
-  padding-top: var(--gr-space-5);
+  --page-top: var(--gr-space-5);
+  padding-top: var(--page-top);
 }
 
 .stats {
@@ -42,14 +44,6 @@
 .statValue {
   color: var(--gr-grey);
   text-align: right;
-}
-
-.feed {
-  color: var(--gr-ink);
-  font-size: var(--gr-type-ui-size);
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
 }
 
 .plain {
