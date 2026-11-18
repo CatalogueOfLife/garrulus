@@ -6,6 +6,7 @@ import { useMe } from '../auth/useMe';
 import { WorkList } from '../components/WorkList';
 import { shownHitNames } from '../hitNames';
 import { EmptyState } from '../ui/EmptyState';
+import { formatDate } from '../ui/MetaLine';
 import { SciName } from '../ui/SciName';
 import styles from '../ui/pages.module.css';
 import { usePageTitle } from '../usePageTitle';
@@ -66,7 +67,7 @@ export function HitsPage() {
               <li key={h.id}>
                 <p className={styles.rowMeta}>
                   {h.kind === 'NEW_NAMES' ? <><span className={styles.newNames}>New names</span> · </> : null}
-                  {h.created.slice(0, 10)}
+                  {formatDate(h.created)}
                   {h.subscriptionLabel ? <> · <Anchor component={Link} to={`/hits?subscription=${h.subscriptionId}`} inherit>{h.subscriptionLabel}</Anchor></> : null}
                 </p>
                 <HitNames names={h.names ?? []} />

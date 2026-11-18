@@ -23,6 +23,9 @@ describe('HitsPage', () => {
     expect(seen[0].get('subscription')).toBe('3');
     expect(screen.getByText('New names')).toBeInTheDocument();
     expect(screen.getAllByText('New names')).toHaveLength(1);
+    // the hit's date as every date on the site, not an ISO date
+    expect(screen.getByText(/16 Nov 2026/)).toBeInTheDocument();
+    expect(screen.queryByText(/2026-11-16/)).toBeNull();
     expect(screen.getByText(/no longer listed/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Show all hits' })).toHaveAttribute('href', '/hits');
     // the works are the page's sections: their titles come right under the page title (h1)
