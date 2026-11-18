@@ -1,0 +1,42 @@
+/* The same tracks as the two-column body (list.module.css .page), so the actions sit over the side column and their
+   right edge meets the header's account menu. */
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--gr-side);
+  gap: 0 56px;
+  align-items: start;
+}
+
+.main {
+  min-width: 0;
+}
+
+/* centred on the title's first line */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--gr-space-2) var(--gr-space-4);
+  min-height: calc(var(--gr-type-title-size) * var(--gr-type-title-line));
+}
+
+.compact {
+  align-items: center;
+}
+
+.compact .actions {
+  min-height: 0;
+}
+
+@media (max-width: 1023px) {
+  .row {
+    display: block;
+  }
+
+  .actions {
+    justify-content: flex-start;
+    min-height: 0;
+    margin: var(--gr-space-3) 0 0;
+  }
+}

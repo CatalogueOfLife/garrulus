@@ -2,8 +2,7 @@ import { Alert, Anchor, Loader, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { getName, searchWorks } from '../api';
-import { FeedLink } from '../components/FeedLink';
-import { FollowButton } from '../components/FollowButton';
+import { FollowActions } from '../components/FollowActions';
 import { Section } from '../components/Section';
 import { ClassificationPath } from '../components/ClassificationPath';
 import { WorkList } from '../components/WorkList';
@@ -40,6 +39,7 @@ export function NamePage() {
       <DetailHead
         title={<SciName name={n.name} rank={n.rank} kind={n.kind} />}
         parts={[words(n.rank), n.kind === 'OTU' ? n.kind : words(n.kind)]}
+        actions={<FollowActions type="NAME" target={String(n.id)} label={n.name} feed={`/feeds/name/${n.id}.atom`} />}
       />
 
       <div className={`${list.page} ${classes.body}`}>
@@ -87,10 +87,6 @@ export function NamePage() {
           A name as written in papers.{' '}
           <Anchor component={Link} to="/about#names" inherit>What is this?</Anchor>
         </>}>
-          <div className={classes.actions}>
-            <FollowButton type="NAME" target={String(n.id)} label={n.name} />
-            <FeedLink href={`/feeds/name/${n.id}.atom`} />
-          </div>
           <Section title="Papers per year">
             <YearBars years={n.timeline} />
           </Section>

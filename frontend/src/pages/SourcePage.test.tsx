@@ -59,8 +59,14 @@ describe('SourcePage', () => {
     server.use(taxGroupHandler, http.get('/api/sources/7', () => HttpResponse.json(detail('CORE'))));
     const core = renderApp(<Routes><Route path="/source/:id" element={<SourcePage />} /></Routes>, '/source/7');
     expect(await screen.findByRole('heading', { name: 'Zootaxa' })).toBeInTheDocument();
-    expect(await screen.findByRole('link', { name: 'Follow' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Atom feed' })).toHaveAttribute('href', '/feeds/source/7.atom');
+    const follow = await screen.findByRole('link', { name: 'Follow' });
+    const feed = screen.getByRole('link', { name: 'Atom feed' });
+    expect(feed).toHaveAttribute('href', '/feeds/source/7.atom');
+    // the page actions sit in the first row with the title, as on every page, not at the top of the side column
+    const head = screen.getByRole('heading', { name: 'Zootaxa' }).closest('div')!.parentElement!;
+    expect(head).toContainElement(follow);
+    expect(head).toContainElement(feed);
+    expect(document.querySelector('aside')).not.toContainElement(follow);
     core.unmount();
 
     server.use(http.get('/api/sources/7', () => HttpResponse.json(detail('CANDIDATE'))));

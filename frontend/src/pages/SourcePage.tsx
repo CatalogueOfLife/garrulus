@@ -2,8 +2,7 @@ import { Alert, Loader, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { getSource, getTaxGroups } from '../api';
-import { FeedLink } from '../components/FeedLink';
-import { FollowButton } from '../components/FollowButton';
+import { FollowActions } from '../components/FollowActions';
 import { Section } from '../components/Section';
 import { TaxGroupIcon } from '../components/TaxGroupIcon';
 import { YearBars } from '../components/YearBars';
@@ -57,6 +56,9 @@ export function SourcePage() {
       <DetailHead
         title={s.title}
         parts={[sentence(s.tier), s.publisher, s.issnL && `ISSN-L ${s.issnL}`]}
+        actions={served
+          ? <FollowActions type="SOURCE" target={String(s.id)} label={s.title} feed={`/feeds/source/${s.id}.atom`} />
+          : undefined}
       />
 
       <div className={`${list.page} ${classes.body}`}>
@@ -70,13 +72,6 @@ export function SourcePage() {
         </div>
 
         <SideColumn>
-          {served ? (
-            <div className={classes.actions}>
-              <FollowButton type="SOURCE" target={String(s.id)} label={s.title} />
-              <FeedLink href={`/feeds/source/${s.id}.atom`} />
-            </div>
-          ) : null}
-
           <Section title="Taxonomic groups">
             {shown.length ? (
               <ul className={classes.plain}>

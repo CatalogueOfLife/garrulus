@@ -44,14 +44,6 @@
   text-align: right;
 }
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--gr-space-3);
-  padding: var(--gr-space-3) 0 var(--gr-space-4);
-}
-
 .feed {
   color: var(--gr-ink);
   font-size: var(--gr-type-ui-size);

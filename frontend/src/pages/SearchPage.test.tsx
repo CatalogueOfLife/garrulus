@@ -36,6 +36,18 @@ describe('SearchPage', () => {
     expect(screen.getByTestId('location').textContent).toContain('code=ZOOLOGICAL');
   });
 
+  it('a lone taxonomic group puts its feed and Follow in the first row with the count, not in the side column', async () => {
+    server.use(xrHandler, taxGroupHandler, sourcesHandler(), http.get('/api/works', () =>
+      HttpResponse.json({ ...emptyPage, total: 1234, results: [work(1, 'Carabid revision')] })));
+    renderApp(<SearchPage />, '/?taxgroup=Insects');
+    const count = await screen.findByText('1,234 works');
+    const feed = screen.getByRole('link', { name: 'Atom feed' });
+    expect(feed).toHaveAttribute('href', '/feeds/taxgroup/Insects.atom');
+    const row = count.parentElement!.parentElement!;
+    expect(row).toContainElement(feed);
+    expect(document.querySelector('aside')).not.toContainElement(feed);
+  });
+
   it('emptyResultShowsHint', async () => {
     server.use(xrHandler, taxGroupHandler, sourcesHandler(), http.get('/api/works', () => HttpResponse.json(emptyPage)));
     renderApp(<SearchPage />, '/?q=zzz');

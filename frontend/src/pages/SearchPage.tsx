@@ -3,10 +3,10 @@ import { Alert, Button, Pagination, Skeleton, TextInput } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { ApiError, filterFromParams, filterToParams, getTaxGroups, listSources, searchWorks, type FacetName, type WorkFilter } from '../api';
-import { FeedLink } from '../components/FeedLink';
-import { FollowButton } from '../components/FollowButton';
+import { FollowActions } from '../components/FollowActions';
 import { FilterSidebar, activeFilterCount } from '../components/FilterSidebar';
 import { WorkList } from '../components/WorkList';
+import { HeadRow } from '../ui/HeadRow';
 import { PageHeader } from '../ui/PageHeader';
 import { SideColumn } from '../ui/SideColumn';
 import frame from '../ui/frame.module.css';
@@ -78,16 +78,19 @@ export function SearchPage() {
         }}>
           Skip to results
         </a>
+        {/* the first row: the result count, and the Follow of a lone taxonomic group where every page has its actions */}
+        <HeadRow compact actions={onlyGroup
+          ? <FollowActions type="TAXGROUP" target={onlyGroup} label={onlyGroup}
+              feed={`/feeds/taxgroup/${encodeURIComponent(onlyGroup)}.atom`} />
+          : undefined}>
+          <p className={classes.count14}>
+            {data && data.results.length ? `${data.total.toLocaleString('en')} works` : '\u00a0'}
+          </p>
+        </HeadRow>
         <div className={classes.page}>
           <div className={classes.sideWrap}>
             <SideColumn lede={lede}>
-              {onlyGroup ? (
-                <div className={classes.sideBody}>
-                  <FollowButton type="TAXGROUP" target={onlyGroup} label={onlyGroup} />
-                  <FeedLink href={`/feeds/taxgroup/${encodeURIComponent(onlyGroup)}.atom`} />
-                </div>
-              ) : null}
-              {/* below 1024 px only the facet groups fold away behind the pill; the lede and Follow stay */}
+              {/* below 1024 px only the facet groups fold away behind the pill; the lede stays */}
               <Button variant="default" radius="xl" size="xs" className={classes.filtersToggle}
                 aria-expanded={filtersOpen} aria-controls="search-filters" onClick={() => setFiltersOpen((o) => !o)}>
                 {activeFilters ? `Filters (${activeFilters})` : 'Filters'}
@@ -116,7 +119,6 @@ export function SearchPage() {
               <p>No works match these filters. Remove a filter or widen the year range to see more.</p>
             ) : (
               <>
-                <p className={classes.count14}>{data.total.toLocaleString('en')} works</p>
                 <WorkList works={data.results} />
                 {data.total > PAGE_SIZE ? (
                   <div className={classes.pager}>

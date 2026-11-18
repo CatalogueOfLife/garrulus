@@ -6,8 +6,7 @@ import type { Context } from '../api';
 import { ClassificationPath } from '../components/ClassificationPath';
 import { WorkList } from '../components/WorkList';
 import { YearBars } from '../components/YearBars';
-import { FeedLink } from '../components/FeedLink';
-import { FollowButton } from '../components/FollowButton';
+import { FollowActions } from '../components/FollowActions';
 import { Section } from '../components/Section';
 import { DetailHead } from '../ui/DetailHead';
 import { NotFound, isNotFound } from '../ui/NotFound';
@@ -70,6 +69,8 @@ export function TaxonPage() {
         <DetailHead
           title={<SciName name={name} rank={rank} />}
           parts={[words(rank), words(taxon.data?.status)]}
+          actions={<FollowActions type="TAXON" target={id} label={name}
+            feed={`/feeds/taxon/${encodeURIComponent(id)}.atom`} />}
         />
       ) : <Loader size="sm" />}
       {classification.data?.length ? <ClassificationPath items={classification.data} order="root-first" /> : null}
@@ -107,12 +108,6 @@ export function TaxonPage() {
           A taxon in the Catalogue of Life, with everything below it.{' '}
           <Anchor component={Link} to="/about#taxa" inherit>What is this?</Anchor>
         </>}>
-          {name ? (
-            <div className={classes.actions}>
-              <FollowButton type="TAXON" target={id} label={name} />
-              <FeedLink href={`/feeds/taxon/${encodeURIComponent(id)}.atom`} />
-            </div>
-          ) : null}
           {stats.data ? (
             <Section title="Papers">
               <StatRows rows={[
