@@ -15,7 +15,11 @@ class TextSpansTest {
   }
 
   static TitleMentionRow row(String block, int start, String verbatim) {
-    return new TitleMentionRow(1, 1, 7, block, start, start + verbatim.length(), verbatim, null);
+    return row(block, start, verbatim, null);
+  }
+
+  static TitleMentionRow row(String block, int start, String verbatim, String actType) {
+    return new TitleMentionRow(1, 1, 7, block, start, start + verbatim.length(), verbatim, actType);
   }
 
   @Test
@@ -83,5 +87,67 @@ class TextSpansTest {
     List<MentionSpan> s = TextSpans.locate("Abies alba and Carabus",
         List.of(row("b1", 0, "Abies alba"), row("b2", 0, "Carabus")));
     assertThat(s).extracting(MentionSpan::startCp, MentionSpan::endCp).containsExactly(tuple(0, 10), tuple(15, 22));
+  }
+
+  @Test
+  void laterBlockNamesBehindTheCursorAreFound() {
+    // a full-text document with a simple summary (b1) before its abstract (b2): b1's names carry the cursor to the end
+    // of the displayed abstract, b2's own names before that point are found in a second pass, spans in text order
+    String text = "Ahasverus advena (Coleoptera: Silvanidae) is a pest. A. advena larvae feed on mould.";
+    List<MentionSpan> s = TextSpans.locate(text, List.of(
+        row("b1", 0, "Ahasverus advena"), row("b1", 40, "A. advena"),
+        row("b2", 0, "Ahasverus advena"), row("b2", 18, "Coleoptera"), row("b2", 30, "Silvanidae")));
+    assertThat(s).extracting(MentionSpan::verbatim, MentionSpan::startCp).containsExactly(
+        tuple("Ahasverus advena", 0), tuple("Coleoptera", 18), tuple("Silvanidae", 30), tuple("A. advena", 53));
+  }
+
+  @Test
+  void secondPassTakesOnlyFreeOccurrences() {
+    List<MentionSpan> s = TextSpans.locate("Abies and Abies",
+        List.of(row("b1", 0, "Abies"), row("b1", 10, "Abies"), row("b2", 0, "Abies")));
+    assertThat(s).extracting(MentionSpan::startCp).containsExactly(0, 10);
+  }
+
+  @Test
+  void secondPassSkipsMentionsCoveredInTheirOwnBlock() {
+    // "Abies" inside the stored "Abies alba" is covered by it, so it is not placed on another "Abies"
+    List<MentionSpan> s = TextSpans.locate("Abies alba and Abies",
+        List.of(row("b1", 0, "Abies alba"), row("b1", 0, "Abies")));
+    assertThat(s).extracting(MentionSpan::startCp, MentionSpan::endCp).containsExactly(tuple(0, 10));
+  }
+
+  @Test
+  void secondPassPutsAnActBeforeItsMarker() {
+    String text = "Aus bus lives with Aus bus sp. nov. near Cus dus.";
+    List<MentionSpan> s = TextSpans.locate(text,
+        List.of(row("b1", 0, "Cus dus"), row("b2", 0, "Aus bus", "SP_NOV")));
+    assertThat(s).extracting(MentionSpan::verbatim, MentionSpan::startCp, MentionSpan::actType)
+        .containsExactly(tuple("Aus bus", 19, "SP_NOV"), tuple("Cus dus", 41, null));
+  }
+
+  @Test
+  void secondPassPlacesActsBeforePlainMentions() {
+    // the plain mention comes first in its block, but must not take the occurrence before the marker
+    String text = "Aus bus sp. nov. and Aus bus near Cus dus.";
+    List<MentionSpan> s = TextSpans.locate(text, List.of(row("b1", 0, "Cus dus"),
+        row("b2", 0, "Aus bus"), row("b2", 30, "Aus bus", "SP_NOV")));
+    assertThat(s).extracting(MentionSpan::verbatim, MentionSpan::startCp, MentionSpan::actType).containsExactly(
+        tuple("Aus bus", 0, "SP_NOV"), tuple("Aus bus", 21, null), tuple("Cus dus", 34, null));
+  }
+
+  @Test
+  void secondPassPutsAnActWithoutMarkerOnTheFirstFreeOccurrence() {
+    List<MentionSpan> s = TextSpans.locate("Aus bus lives with Aus bus near Cus dus.",
+        List.of(row("b1", 0, "Cus dus"), row("b2", 0, "Aus bus", "SP_NOV")));
+    assertThat(s).extracting(MentionSpan::verbatim, MentionSpan::startCp)
+        .containsExactly(tuple("Aus bus", 0), tuple("Cus dus", 32));
+  }
+
+  @Test
+  void secondPassCountsCodePoints() {
+    List<MentionSpan> s = TextSpans.locate("𝔄 Abies near Carabus",
+        List.of(row("b1", 0, "Carabus"), row("b2", 0, "Abies")));
+    assertThat(s).extracting(MentionSpan::verbatim, MentionSpan::startCp, MentionSpan::endCp)
+        .containsExactly(tuple("Abies", 2, 7), tuple("Carabus", 13, 20));
   }
 }
