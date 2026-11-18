@@ -70,6 +70,12 @@
   text-underline-offset: 4px;
 }
 
+/* Links: a 1px ink underline below the descenders, as on plain links on hover. */
+.anchor[data-underline] {
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
 /* Buttons and action icons on the ui type size; the font ships 400 and 500 only, Mantine's 600 would be faux bold. */
 .button {
   font-size: var(--gr-type-ui-size);

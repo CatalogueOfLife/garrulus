@@ -1,4 +1,4 @@
-import { Alert, Button, Text } from '@mantine/core';
+import { Alert, Anchor, Button, Text } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { getAuthConfig, signInWithToken } from '../api';
@@ -27,7 +27,7 @@ export function SignInVerifyPage() {
       <h1 className={styles.narrowTitle}>Sign in to Garrulus</h1>
       {m.isError ? (
         <Alert color="red" title="Link not accepted">
-          This sign-in link is invalid or has expired. <Link to="/signin">Request a new one.</Link>
+          This sign-in link is invalid or has expired. <Anchor component={Link} to="/signin">Request a new one.</Anchor>
         </Alert>
       ) : (
         <>

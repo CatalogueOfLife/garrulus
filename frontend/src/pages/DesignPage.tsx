@@ -118,7 +118,7 @@ function Swatches({ scheme }: { scheme: 'light' | 'dark' }) {
         </div>
       ))}
       <p style={{ margin: '16px 0 0' }}>
-        A link <a href="#colour" style={{ color: t['--gr-ink'] }}>in ink</a>, a new name{' '}
+        A link <Anchor href="#colour" style={{ color: t['--gr-ink'] }}>in ink</Anchor>, a new name{' '}
         <span style={{ color: t['--gr-red'] }}>sp. nov.</span>
       </p>
     </div>

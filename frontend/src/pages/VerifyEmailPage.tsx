@@ -1,4 +1,4 @@
-import { Alert, Button, Text } from '@mantine/core';
+import { Alert, Anchor, Button, Text } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate, useLocation, useSearchParams } from 'react-router-dom';
 import { ApiError, getAuthConfig, verifyEmail } from '../api';
@@ -30,9 +30,9 @@ export function VerifyEmailPage() {
   return (
     <div className={styles.narrow}>
       <h1 className={styles.narrowTitle}>Confirm your email address</h1>
-      {outcome === 'SET' && <Alert title="Address confirmed">Your address is set. <Link to="/account">Go to your account.</Link></Alert>}
+      {outcome === 'SET' && <Alert title="Address confirmed">Your address is set. <Anchor component={Link} to="/account">Go to your account.</Anchor></Alert>}
       {outcome === 'MERGED' && (
-        <Alert title="Your accounts were merged">The address belonged to an earlier account of yours; both are now one. <Link to="/account">Go to your account.</Link></Alert>
+        <Alert title="Your accounts were merged">The address belonged to an earlier account of yours; both are now one. <Anchor component={Link} to="/account">Go to your account.</Anchor></Alert>
       )}
       {outcome === 'REFUSED_OTHER_ORCID' && (
         <Alert color="red" title="Address not added">
@@ -44,8 +44,8 @@ export function VerifyEmailPage() {
           {m.error instanceof ApiError && m.error.status === 403
             ? <>Something went wrong with the request. Please reload the page and try again.</>
             : m.error instanceof ApiError && m.error.status === 401
-            ? <>You are signed in as another account. <Link to="/signin">Sign in again</Link> with the account that asked for this address.</>
-            : <>This link is invalid or has expired. Request a new one from your <Link to="/account">account page</Link>.</>}
+            ? <>You are signed in as another account. <Anchor component={Link} to="/signin">Sign in again</Anchor> with the account that asked for this address.</>
+            : <>This link is invalid or has expired. Request a new one from your <Anchor component={Link} to="/account">account page</Anchor>.</>}
         </Alert>
       )}
       {!outcome && !m.isError && (

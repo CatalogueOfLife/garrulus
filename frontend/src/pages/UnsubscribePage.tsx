@@ -1,4 +1,4 @@
-import { Alert, Button, Text } from '@mantine/core';
+import { Alert, Anchor, Button, Text } from '@mantine/core';
 import { useMutation } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { unsubscribe } from '../api';
@@ -14,7 +14,7 @@ export function UnsubscribePage() {
       <h1 className={styles.narrowTitle}>Garrulus digest emails</h1>
       {m.isSuccess ? (
         <Alert>
-          Digest emails are off. Your follows are kept; you can turn digests on again in your <Link to="/account">account settings</Link>.
+          Digest emails are off. Your follows are kept; you can turn digests on again in your <Anchor component={Link} to="/account">account settings</Anchor>.
         </Alert>
       ) : (
         <>

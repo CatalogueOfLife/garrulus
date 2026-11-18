@@ -1,6 +1,7 @@
 import {
   ActionIcon,
   Alert,
+  Anchor,
   Badge,
   Button,
   Checkbox,
@@ -54,6 +55,8 @@ export const theme = createTheme({
       // filled (the default) sets its glyph in white, which is the ink in dark mode; ActionIcon has no data-variant to style
       vars: (_theme, props) => ({ root: { '--ai-color': !props.variant || props.variant === 'filled' ? 'var(--gr-paper)' : undefined } }),
     }),
+    // a link in a sentence is underlined; titles of list rows opt out with underline="hover"
+    Anchor: Anchor.extend({ defaultProps: { underline: 'always' }, classNames: { root: classes.anchor } }),
     CloseButton: CloseButton.extend({ classNames: { root: classes.closeButton } }),
     Input: Input.extend({ classNames: { wrapper: classes.inputWrapper, input: classes.input } }),
     Combobox: Combobox.extend({ classNames: { dropdown: classes.dropdown, option: classes.option } }),

@@ -67,7 +67,7 @@ export function FollowingPage() {
               <li key={s.id}>
                 <div className={styles.rowLine}>
                   <div>
-                    <Anchor component={Link} to={targetPath(s)} className={styles.rowTitle}>{s.label}</Anchor>
+                    <Anchor component={Link} to={targetPath(s)} underline="hover" className={styles.rowTitle}>{s.label}</Anchor>
                     <p className={styles.rowMeta}>
                       <span>{TYPE_LABEL[s.type]}</span> · <Anchor component={Link} to={`/hits?subscription=${s.id}`} inherit>Hits</Anchor>
                     </p>

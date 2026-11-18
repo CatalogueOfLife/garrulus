@@ -44,6 +44,8 @@ describe('NamePage', () => {
     const works = screen.getByRole('region', { name: 'Papers naming this name' });
     expect(await within(works).findByText('Carabid revision')).toBeInTheDocument();
     expect(document.title).toBe('Garrulus — Carabus nemoralis');
+    // a link inside a sentence is underlined, not only on hover
+    expect(screen.getByRole('link', { name: 'What is this?' })).toHaveAttribute('data-underline', 'always');
   });
 
   it('unmatchedNameSaysSo', async () => {

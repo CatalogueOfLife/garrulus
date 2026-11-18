@@ -33,6 +33,9 @@ describe('VerifyEmailPage', () => {
     await waitFor(() => expect(button).toBeEnabled());
     await userEvent.click(button);
     expect(await screen.findByText(text)).toBeInTheDocument();
+    if (outcome !== 'REFUSED_OTHER_ORCID') {
+      expect(screen.getByRole('link', { name: 'Go to your account.' })).toHaveAttribute('data-underline', 'always');
+    }
     expect(calls).toBe(1);
     expect(xsrf).toBe('vx1');
   });

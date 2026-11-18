@@ -20,7 +20,7 @@ function Row({ s }: { s: SourceItem }) {
   return (
     <li>
       <div className={styles.rowLine}>
-        <Anchor component={Link} to={`/source/${s.id}`} className={styles.rowTitle}>{s.title}</Anchor>
+        <Anchor component={Link} to={`/source/${s.id}`} underline="hover" className={styles.rowTitle}>{s.title}</Anchor>
         {s.worksPerYear != null ? <span className={styles.rowCount}>{s.worksPerYear} papers a year</span> : null}
       </div>
       <p className={styles.rowMeta}>{[sentence(s.tier), sentence(s.journalType), sentence(s.oaModel), s.publisher, ...facts].filter(Boolean).join(' · ')}</p>
