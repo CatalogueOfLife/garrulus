@@ -141,7 +141,7 @@ function Form({ onClose, type, target, label, existing, onExists }: Omit<DialogP
         ) : <span />}
         <Group gap="xs">
           <Button variant="default" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} loading={save.isPending}>Save</Button>
+          <Button variant="filled" onClick={submit} loading={save.isPending}>Save</Button>
         </Group>
       </Group>
     </Stack>

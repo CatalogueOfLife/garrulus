@@ -33,6 +33,9 @@ describe('FollowButton', () => {
     renderApp(<FollowButton type="TAXON" target="T1" label="Carabus" />);
     await userEvent.click(await screen.findByRole('button', { name: 'Follow' }));
     expect(await screen.findByLabelText('Only main subject')).toBeChecked();
+    // the dialog's one primary action is the filled pill; Cancel stays an outline pill
+    expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute('data-variant', 'filled');
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveAttribute('data-variant', 'default');
     await userEvent.click(screen.getByLabelText('Only new names'));
     await userEvent.click(screen.getByLabelText('Since year'));
     const year = screen.getByLabelText('Year');
