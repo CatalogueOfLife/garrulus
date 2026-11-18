@@ -40,6 +40,7 @@ const SCALE = [
   { token: '--gr-type-title', key: 'title', weight: 500, tracking: 'var(--gr-type-title-tracking)', text: 'Names in the literature' },
   { token: '--gr-type-lede', key: 'lede', weight: 400, tracking: '-0.01em', text: 'Garrulus follows the journals of biodiversity science and finds the names in them.' },
   { token: '--gr-type-head', key: 'head', weight: 500, tracking: '-0.01em', text: <>A new species of <i>Hemiphyllodactylus</i> from northern Vietnam</> },
+  { token: '--gr-type-item', key: 'item', weight: 500, tracking: '-0.005em', text: <>Integrative taxonomy of <i>Tenumembrana</i> Luo &amp; Wang, 2025 (Blattodea, Blattidae)</> },
   { token: '--gr-type-body', key: 'body', weight: 400, tracking: 'normal', text: 'Running text, such as the full text of an open-access article.' },
   { token: '--gr-type-ui', key: 'ui', weight: 400, tracking: 'normal', text: 'Navigation, filters, names lists and buttons.' },
   { token: '--gr-type-meta', key: 'meta', weight: 400, tracking: 'normal', text: 'Dinh, Nishikawa, Luu et al. ZooKeys 1297: 311–337 16 Nov 2026' },

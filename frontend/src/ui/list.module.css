@@ -1,24 +1,25 @@
 .item {
-  padding: 18px 0 22px;
+  padding: var(--gr-space-3) 0 14px;
 }
 
+/* a step below the lede and the section headings, so a list reads apart from them and more of it fits */
 .title {
-  margin: 0 0 var(--gr-space-1);
-  font-size: var(--gr-type-head-size);
-  line-height: var(--gr-type-head-line);
+  margin: 0 0 2px;
+  font-size: var(--gr-type-item-size);
+  line-height: var(--gr-type-item-line);
   font-weight: 500;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.005em;
 }
 
 .names {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--gr-space-1) 18px;
-  margin: var(--gr-space-2) 0 0;
+  gap: 2px 14px;
+  margin: 6px 0 0;
   padding: 0;
   list-style: none;
-  font-size: var(--gr-type-ui-size);
-  line-height: var(--gr-type-ui-line);
+  font-size: var(--gr-type-meta-size);
+  line-height: var(--gr-type-meta-line);
 }
 
 .newNames {

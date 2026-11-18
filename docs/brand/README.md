@@ -91,10 +91,11 @@ labels and no letter-spaced capitals.
 | `--gr-type-display` | 132 (88 below 768 px, 56 below 480 px) | 0.9 | 500 | −0.045em | The big wordmark on the search page |
 | `--gr-type-title` | 40 | 1.1 | 500 | −0.02em | Page title (taxon, name, work, journal) |
 | `--gr-type-lede` | 22 | 1.3 | 400 | −0.01em | Intro text in the side column, the abstract's first lines |
-| `--gr-type-head` | 22 | 1.25 | 500 | −0.01em | List item titles, section headings |
+| `--gr-type-head` | 22 | 1.25 | 500 | −0.01em | Section headings |
+| `--gr-type-item` | 18 | 1.3 | 500 | −0.005em | Work titles in lists (search results, a taxon's papers) |
 | `--gr-type-body` | 16 | 1.5 | 400 | | Running text, article full text |
 | `--gr-type-ui` | 15 | 1.4 | 400 | | Nav, filters, names lists, buttons |
-| `--gr-type-meta` | 14 | 1.4 | 400 | | Authors, journal, date, text level (grey) |
+| `--gr-type-meta` | 14 | 1.4 | 400 | | Authors, journal, date, text level (grey); the main names under a listed work (ink) |
 | `--gr-type-small` | 13 | 1.4 | 400 or 500 | | Facet group headings, footnotes, the header's top line |
 
 Each token is a `-size` and a `-line` variable in `tokens.css`.
