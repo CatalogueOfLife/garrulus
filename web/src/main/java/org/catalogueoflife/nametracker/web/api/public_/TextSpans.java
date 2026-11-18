@@ -7,18 +7,22 @@ import org.catalogueoflife.nametracker.store.search.TitleMentionRow;
 import org.catalogueoflife.nametracker.web.api.public_.dto.MentionSpan;
 import org.jspecify.annotations.Nullable;
 
-/** Places stored title mentions in {@code work.title}, which may differ from the text the finder saw. */
-final class TitleSpans {
+/**
+ * Places stored mentions in a text shown to the reader that may differ from the text the finder saw: the title in
+ * {@code work.title}, the abstract as served, or a snippet.
+ */
+final class TextSpans {
 
-  private TitleSpans() {}
+  private TextSpans() {}
 
   /**
    * Rows must be ordered by block, then stored startCp, then longest first. Stored offsets (per block) only order the
    * rows and detect overlaps within their block; the spans are found by searching the verbatim as a whole word in the
-   * title, left to right, and are code-point offsets into it.
+   * text, left to right across the blocks, and are code-point offsets into it. A row whose verbatim is not found is
+   * dropped.
    */
-  static List<MentionSpan> locate(@Nullable String title, List<TitleMentionRow> rows) {
-    if (title == null || rows.isEmpty()) {
+  static List<MentionSpan> locate(@Nullable String text, List<TitleMentionRow> rows) {
+    if (text == null || rows.isEmpty()) {
       return List.of();
     }
     List<MentionSpan> out = new ArrayList<>();
@@ -33,12 +37,12 @@ final class TitleSpans {
       if (r.startCp() < lastEnd || r.verbatim().isEmpty()) {
         continue;
       }
-      int at = find(title, r.verbatim(), cursor);
+      int at = find(text, r.verbatim(), cursor);
       if (at < 0) {
         continue;
       }
       int end = at + r.verbatim().length();
-      out.add(new MentionSpan(r.id(), r.nameStringId(), title.codePointCount(0, at), title.codePointCount(0, end),
+      out.add(new MentionSpan(r.id(), r.nameStringId(), text.codePointCount(0, at), text.codePointCount(0, end),
           r.verbatim(), r.actType()));
       cursor = end;
       lastEnd = r.endCp();
@@ -47,11 +51,11 @@ final class TitleSpans {
   }
 
   /** The first index from {@code from} where {@code word} stands as a whole word: no letter or digit on either side. */
-  private static int find(String title, String word, int from) {
-    for (int at = title.indexOf(word, from); at >= 0; at = title.indexOf(word, at + 1)) {
+  private static int find(String text, String word, int from) {
+    for (int at = text.indexOf(word, from); at >= 0; at = text.indexOf(word, at + 1)) {
       int end = at + word.length();
-      boolean before = at == 0 || !Character.isLetterOrDigit(title.codePointBefore(at));
-      boolean after = end == title.length() || !Character.isLetterOrDigit(title.codePointAt(end));
+      boolean before = at == 0 || !Character.isLetterOrDigit(text.codePointBefore(at));
+      boolean after = end == text.length() || !Character.isLetterOrDigit(text.codePointAt(end));
       if (before && after) {
         return at;
       }

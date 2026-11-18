@@ -655,8 +655,8 @@ components:
         untilBlockId: {type: [string, "null"]}
     WorkDetail:
       type: object
-      description: text is null unless the work has a retained full-text document.
-      required: [id, authors, retained, hasActs, codes, taxgroups, names, contexts, titleMentions]
+      description: text is null unless the work has a retained full-text document; snippets is empty when text is served.
+      required: [id, authors, retained, hasActs, codes, taxgroups, names, contexts, titleMentions, abstractMentions, snippets]
       properties:
         id: {type: integer, format: int64}
         doi: {type: [string, "null"]}
@@ -672,7 +672,7 @@ components:
         type: {type: [string, "null"]}
         oaStatus: {type: [string, "null"]}
         bestOaUrl: {type: [string, "null"]}
-        abstract: {type: [string, "null"], description: "The OpenAlex abstract, else the Crossref JATS abstract as plain text; paragraphs are separated by a blank line."}
+        abstract: {type: [string, "null"], description: "The Crossref JATS abstract as plain text, else the OpenAlex abstract; paragraphs are separated by a blank line."}
         licence: {type: [string, "null"]}
         retained: {type: boolean}
         textLevel: {type: [string, "null"]}
@@ -688,6 +688,25 @@ components:
           type: array
           description: Name spans in title, as code-point offsets into it.
           items: {$ref: "#/components/schemas/MentionSpan"}
+        abstractMentions:
+          type: array
+          description: Name spans in abstract, as code-point offsets into it (mentions not found in it are left out).
+          items: {$ref: "#/components/schemas/MentionSpan"}
+        snippets:
+          type: array
+          description: >-
+            One bit of the body text per name that occurs there (never the title, abstract or references), in the order of
+            names; empty when text is served.
+          items: {$ref: "#/components/schemas/Snippet"}
+    Snippet:
+      type: object
+      description: The text around the first body mention of a name; mentions mark it, as code-point offsets into text.
+      required: [nameId, blockType, text, mentions]
+      properties:
+        nameId: {type: integer, format: int64}
+        blockType: {type: string}
+        text: {type: string}
+        mentions: {type: array, items: {$ref: "#/components/schemas/MentionSpan"}}
     NameHit:
       type: object
       required: [id, name, kind, works]

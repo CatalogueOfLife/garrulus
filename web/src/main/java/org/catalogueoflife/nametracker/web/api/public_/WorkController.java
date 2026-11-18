@@ -164,7 +164,7 @@ public class WorkController {
         : search.titleMentions(hits.stream().map(WorkHit::id).toList()).stream().collect(
             Collectors.groupingBy(TitleMentionRow::workId));
     return hits.stream().map(h -> summary(h, mainNames.getOrDefault(h.id(), List.of()),
-        TitleSpans.locate(h.title(), titles.getOrDefault(h.id(), List.of())))).toList();
+        TextSpans.locate(h.title(), titles.getOrDefault(h.id(), List.of())))).toList();
   }
 
   @GetMapping("/api/works/{id}")
@@ -182,18 +182,25 @@ public class WorkController {
     List<MentionRow> mentions = index.mentions(id);
     List<ContextDto> contexts = index.contexts(id).stream().map(WorkController::context).toList();
     List<TextBlock> text = retained ? text(id, full.get(), mentions) : null;
+    String abstractText = abstractOf(w);
 
     return new WorkDetail(w.id(), w.doi(), w.title(), w.year() == null ? null : (int) w.year(), w.publicationDate(),
         src == null ? null : new SourceRef(src.id(), src.title()), authors(w.authors()), w.volume(), w.issue(),
-        w.pages(), w.language(), w.type(), w.oaStatus(), w.bestOaUrl(), abstractOf(w), licence, retained,
+        w.pages(), w.language(), w.type(), w.oaStatus(), w.bestOaUrl(), abstractText, licence, retained,
         w.textLevel(), Boolean.TRUE.equals(w.hasActs()), w.codes() == null ? List.of() : w.codes(),
         w.taxgroups() == null ? List.of() : w.taxgroups(), names, contexts, text,
-        TitleSpans.locate(w.title(), search.titleMentions(List.of(id))));
+        TextSpans.locate(w.title(), search.titleMentions(List.of(id))),
+        TextSpans.locate(abstractText, WorkMentions.inBlocks(mentions, "ABSTRACT")),
+        text == null ? WorkMentions.bodySnippets(names, mentions) : List.of());
   }
 
-  /** The OpenAlex abstract, else the Crossref JATS abstract as plain paragraphs (a work harvested from Crossref alone has only that). */
+  /**
+   * The Crossref JATS abstract as plain paragraphs, else the OpenAlex abstract: the finder reads them in that order too,
+   * so the abstract mentions are found in the text they came from, and JATS keeps the paragraphs.
+   */
   private static @Nullable String abstractOf(Work w) {
-    return w.abstractText() != null && !w.abstractText().isBlank() ? w.abstractText() : JatsAbstract.plain(w.abstractJats());
+    String jats = JatsAbstract.plain(w.abstractJats());
+    return jats != null ? jats : w.abstractText() != null && !w.abstractText().isBlank() ? w.abstractText() : null;
   }
 
   /** The blocks of the retained document with their mention spans, or null if the blob is gone or unreadable, or if it is not the document the names were found in (names_doc_sha). */

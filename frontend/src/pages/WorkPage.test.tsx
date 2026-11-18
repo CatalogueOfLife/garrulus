@@ -76,10 +76,38 @@ describe('WorkPage', () => {
     expect(within(col).getByText(/\(section botany\)/)).toBeInTheDocument();
   });
 
-  it('closedWorkShowsNoTextOnlySnippets', async () => {
-    mount(base);
-    expect(await screen.findByText(/SNIPPET-ONE/)).toBeInTheDocument();
+  it('closedWorkShowsNoTextOnlyBodySnippetsWithTheNameLinked', async () => {
+    mount({ ...base, snippets: [{ nameId: 1, blockType: 'PARAGRAPH', text: 'We found Carabus auratus here.',
+      mentions: [{ id: 9, nameId: 1, startCp: 9, endCp: 24, verbatim: 'Carabus auratus' }] }] });
+    const snippets = await screen.findByRole('region', { name: 'Snippets' });
+    expect(snippets.textContent).toContain('We found Carabus auratus here.');
+    expect(within(snippets).getByRole('link', { name: 'Carabus auratus' })).toHaveAttribute('href', '/name/1');
     expect(screen.queryByRole('region', { name: 'Full text' })).toBeNull();
+    // the name's best snippet (often the title) is not a body snippet
+    expect(screen.queryByText(/SNIPPET-ONE/)).toBeNull();
+  });
+
+  it('showsNoSnippetsForAWorkWithoutBodySnippets', async () => {
+    mount({ ...base, abstract: 'An abstract.', snippets: [] });
+    expect(await screen.findByText('An abstract.')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Snippets' })).toBeNull();
+  });
+
+  it('marksAndLinksTheNamesInTheAbstractParagraphs', async () => {
+    mount({ ...base, abstract: 'Carabus auratus is common.\n\nIn 😀 Carabidae too.', abstractMentions: [
+      { id: 1, nameId: 1, startCp: 0, endCp: 15, verbatim: 'Carabus auratus' },
+      { id: 2, nameId: 5, startCp: 33, endCp: 42, verbatim: 'Carabidae', actType: 'FAM_NOV' },
+    ], names: [nm(1, 'Carabus auratus', { rank: 'species' }), nm(5, 'Carabidae', { rank: 'family' })] });
+    const lede = (await screen.findByText(/is common\./)).closest('p')!;
+    const species = within(lede).getByRole('link', { name: 'Carabus auratus' });
+    expect(species).toHaveAttribute('href', '/name/1');
+    expect(species.querySelector('i')).not.toBeNull();
+    const second = screen.getByText(/too\./).closest('p')!;
+    expect(second).not.toBe(lede);
+    const family = within(second).getByRole('link', { name: 'Carabidae' });
+    expect(family).toHaveAttribute('href', '/name/5');
+    expect(family.querySelector('i')).toBeNull();
+    expect(family.className).toContain('gr-mark-act');
   });
 
   it('openWorkShowsHighlightedText', async () => {

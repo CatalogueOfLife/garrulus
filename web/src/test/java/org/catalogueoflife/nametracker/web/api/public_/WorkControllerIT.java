@@ -177,16 +177,68 @@ class WorkControllerIT extends AbstractPostgresIT {
   }
 
   @Test
-  void crossrefJatsAbstractServedWhenThereIsNoOpenAlexAbstract() throws Exception {
+  void crossrefJatsAbstractWinsOverTheOpenAlexAbstract() throws Exception {
     long w = work("10.1/jats", "Crossref only");
     jdbc.update("UPDATE work SET abstract = NULL, abstract_jats = ? WHERE id = ?",
         "<jats:title>Abstract</jats:title><jats:p>Two species of <jats:italic>Kalanchoe</jats:italic>.</jats:p>"
             + "<jats:p>Second.</jats:p>", w);
     assertThat(JSON.readTree(get("/api/works/" + w).body()).path("abstract").asString())
         .isEqualTo("Two species of Kalanchoe.\n\nSecond.");
-    // the OpenAlex abstract still wins when there is one
+    // the JATS abstract wins, as in the finder; the OpenAlex one only stands in for a missing or empty JATS abstract
     jdbc.update("UPDATE work SET abstract = 'From OpenAlex' WHERE id = ?", w);
+    assertThat(JSON.readTree(get("/api/works/" + w).body()).path("abstract").asString())
+        .isEqualTo("Two species of Kalanchoe.\n\nSecond.");
+    jdbc.update("UPDATE work SET abstract_jats = '<jats:p> </jats:p>' WHERE id = ?", w);
     assertThat(JSON.readTree(get("/api/works/" + w).body()).path("abstract").asString()).isEqualTo("From OpenAlex");
+  }
+
+  void mention(long work, long nameString, String block, String type, int start, String verbatim, String snippet) {
+    jdbc.update("INSERT INTO mention (work_id, name_string_id, block_id, block_type, start_cp, end_cp, verbatim, "
+        + "confidence, snippet) VALUES (?, ?, ?, ?, ?, ?, ?, 0.9, ?)",
+        work, nameString, block, type, start, start + verbatim.codePointCount(0, verbatim.length()), verbatim, snippet);
+  }
+
+  void workName(long work, long nameString, float salience) {
+    jdbc.update("INSERT INTO work_name (work_id, name_string_id, mention_count, body_count, in_title, in_abstract, "
+        + "in_heading, only_reference, best_snippet, placement_method, salience, main_subject) "
+        + "VALUES (?, ?, 1, 1, false, false, false, false, 'best', 'NONE', ?, false)", work, nameString, salience);
+  }
+
+  @Test
+  void abstractMentionsAndBodySnippetsForAClosedWork() throws Exception {
+    long w = work("10.1/abs", "Closed with abstract");
+    jdbc.update("UPDATE work SET abstract = 'Abies alba and Picea abies grow here. Abies alba again.' WHERE id = ?", w);
+    long abies = nameString("Abies alba");
+    long picea = nameString("Picea abies");
+    long pinus = nameString("Pinus nigra");
+    workName(w, abies, 0.9f);
+    workName(w, picea, 0.5f);
+    workName(w, pinus, 0.2f);
+    // the abstract in two blocks of the finder's document: b10 comes after b2
+    mention(w, abies, "b10", "ABSTRACT", 0, "Abies alba", "x");
+    mention(w, abies, "b2", "ABSTRACT", 0, "Abies alba", "x");
+    mention(w, picea, "b2", "ABSTRACT", 15, "Picea abies", "x");
+    // body: a table cell before a paragraph, a reference only for Pinus
+    mention(w, abies, "b20", "TABLE_CELL", 0, "Abies alba", "Abies alba 12");
+    mention(w, abies, "b30", "PARAGRAPH", 4, "Abies alba", "The Abies alba stands were sampled.");
+    mention(w, pinus, "b90", "REFERENCE", 0, "Pinus nigra", "Smith (2001) Pinus nigra.");
+
+    JsonNode d = JSON.readTree(get("/api/works/" + w).body());
+    JsonNode am = d.path("abstractMentions");
+    assertThat(am).hasSize(3);
+    assertThat(am.get(0).path("startCp").asInt()).isEqualTo(0);
+    assertThat(am.get(0).path("nameId").asLong()).isEqualTo(abies);
+    assertThat(am.get(1).path("startCp").asInt()).isEqualTo(15);
+    assertThat(am.get(1).path("nameId").asLong()).isEqualTo(picea);
+    assertThat(am.get(2).path("startCp").asInt()).isEqualTo(38);
+
+    JsonNode sn = d.path("snippets");
+    assertThat(sn).hasSize(1);
+    assertThat(sn.get(0).path("nameId").asLong()).isEqualTo(abies);
+    assertThat(sn.get(0).path("blockType").asString()).isEqualTo("PARAGRAPH");
+    assertThat(sn.get(0).path("text").asString()).isEqualTo("The Abies alba stands were sampled.");
+    assertThat(sn.get(0).path("mentions").get(0).path("startCp").asInt()).isEqualTo(4);
+    assertThat(sn.get(0).path("mentions").get(0).path("endCp").asInt()).isEqualTo(14);
   }
 
   @Test

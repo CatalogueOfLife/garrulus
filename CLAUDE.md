@@ -221,7 +221,9 @@ curl ... -d '{"type":"BACKFILL","payload":{"fromYear":2020,"toYear":2024,"files"
 `facet`), `/api/works/{id}`, `/api/names?q=`, `/api/names/{id}`, `/api/taxa/{colId}/works` (`mainSubjectOnly` defaults
 to true), `/api/taxa/{colId}/stats`, `/api/sources`, `/api/sources/{id}`, `/api/xr`, `/api/vocab/taxgroup`. Only
 `INDEXED` works are listed; taxon filters ignore names that occur only in references. The full text of a work is served
-only when its content is retained (open licence). Against a manual run on 18080, start Vite with a scratch config whose
+only when its content is retained (open licence). `/api/works/{id}` sends the abstract (the Crossref JATS one as plain
+paragraphs, else OpenAlex's) with `abstractMentions` (stored mentions located by verbatim, like `titleMentions`) and,
+when no text is served, one body `snippets` entry per name (never title, abstract or references). Against a manual run on 18080, start Vite with a scratch config whose
 proxy targets `http://localhost:18080` on another port (never edit `vite.config.ts` for it).
 
 ## Accounts and alerts (M4, `web`)

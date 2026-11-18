@@ -2,12 +2,13 @@ import { Fragment } from 'react';
 import { Alert, Loader } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
-import { getWork, type NameDetail, type TextBlock, type WorkSummary } from '../api';
+import { getWork, type NameDetail, type Snippet, type TextBlock, type WorkSummary } from '../api';
 import { ClassificationPath } from '../components/ClassificationPath';
 import { HighlightedText } from '../components/HighlightedText';
 import { Section } from '../components/Section';
 import { MetaLine } from '../ui/MetaLine';
 import { NotFound, isNotFound } from '../ui/NotFound';
+import { paragraphs } from '../ui/paragraphs';
 import { SciName } from '../ui/SciName';
 import { SciTitle } from '../ui/SciTitle';
 import { SideColumn } from '../ui/SideColumn';
@@ -32,6 +33,10 @@ function gatherCells(blocks: TextBlock[]): (TextBlock | TextBlock[])[] {
   }
   return out;
 }
+
+/** A snippet as a block, so its name is marked and linked like a name in the full text. */
+const snippetBlock = (s: Snippet): TextBlock =>
+  ({ id: `s${s.nameId}`, type: s.blockType, level: 0, sectionPath: [], text: s.text, mentions: s.mentions });
 
 function NameRow({ n, withTaxon }: { n: NameDetail; withTaxon: boolean }) {
   return (
@@ -72,8 +77,9 @@ export function WorkPage() {
     </ul>
   );
   const showText = w.retained && w.text && w.text.length > 0;
-  const snippets = w.names.filter((n) => n.bestSnippet);
-  const [first, ...rest] = (w.abstract ?? '').split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  // bits of the body text only: title and abstract are on the page already, with their names marked
+  const snippets = w.snippets ?? [];
+  const [first, ...rest] = paragraphs(w.abstract ?? '', w.abstractMentions ?? [], 'ABSTRACT');
   const authors = w.authors.map((a) => a.name);
 
   return (
@@ -95,8 +101,8 @@ export function WorkPage() {
 
       <div className={`${list.page} ${classes.body}`}>
         <div className={`${list.mainCol} ${classes.text}`}>
-          {first ? <p className={classes.lede}>{first}</p> : null}
-          {rest.map((p, i) => <p key={i} className={classes.para}>{p}</p>)}
+          {first ? <p className={classes.lede}><HighlightedText block={first} as="span" names={info} /></p> : null}
+          {rest.map((b) => <p key={b.id} className={classes.para}><HighlightedText block={b} as="span" names={info} /></p>)}
           {showText ? (
             <Section title="Full text">
               {gatherCells(w.text!).map((b) => (
@@ -120,7 +126,9 @@ export function WorkPage() {
           ) : snippets.length ? (
             <Section title="Snippets">
               <ul className={classes.names}>
-                {snippets.map((n) => <li key={n.id}>{n.bestSnippet}</li>)}
+                {snippets.map((s) => (
+                  <li key={s.nameId}><HighlightedText block={snippetBlock(s)} as="span" names={info} /></li>
+                ))}
               </ul>
             </Section>
           ) : null}

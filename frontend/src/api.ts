@@ -97,6 +97,13 @@ export interface TextBlock {
   text: string;
   mentions: MentionSpan[];
 }
+/** A bit of the body text around the first mention of a name; mentions mark it (code points into text). */
+export interface Snippet {
+  nameId: number;
+  blockType: string;
+  text: string;
+  mentions: MentionSpan[];
+}
 /** One ranked name of a verbatim classification; rank is upper case (ORDER, FAMILY, ...). */
 export interface RankedName { rank: string; name: string }
 export interface Context {
@@ -124,7 +131,10 @@ export interface WorkDetail {
   type?: string | null;
   oaStatus?: string | null;
   bestOaUrl?: string | null;
+  /** Paragraphs separated by a blank line. */
   abstract?: string | null;
+  /** Code points into abstract. */
+  abstractMentions?: MentionSpan[];
   licence?: string | null;
   retained: boolean;
   textLevel?: string | null;
@@ -134,6 +144,8 @@ export interface WorkDetail {
   names: NameDetail[];
   contexts: Context[];
   text?: TextBlock[] | null;
+  /** One per name found in the body text, never the title or abstract; empty when text is served. */
+  snippets?: Snippet[];
 }
 export interface NameHit { id: number; name: string; kind: string; rank?: string | null; works: number }
 export interface NameMatch {
