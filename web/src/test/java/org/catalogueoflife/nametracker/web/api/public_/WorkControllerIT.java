@@ -242,6 +242,23 @@ class WorkControllerIT extends AbstractPostgresIT {
   }
 
   @Test
+  void searchCoversAnAbstractThatIsOnlyCrossrefJats() throws Exception {
+    long w = work("10.1/fts", "Crossref only");
+    jdbc.update("UPDATE work SET abstract = NULL, abstract_jats = ? WHERE id = ?",
+        "<jats:title>Abstract</jats:title><jats:p>Named for <jats:italic>humbertii</jats:italic> under "
+            + "CO<jats:sub>2</jats:sub> &amp; light.</jats:p><jats:p>Second</jats:p>", w);
+    work("10.1/other", "Other");
+    for (String q : List.of("humbertii", "CO2", "light second")) {
+      JsonNode page = JSON.readTree(get("/api/works?q=" + java.net.URLEncoder.encode(q, java.nio.charset.StandardCharsets.UTF_8)).body());
+      assertThat(page.path("total").asInt()).as(q).isEqualTo(1);
+      assertThat(page.path("results").get(0).path("id").asLong()).as(q).isEqualTo(w);
+    }
+    // markup and entity names are not words of the abstract
+    assertThat(JSON.readTree(get("/api/works?q=italic").body()).path("total").asInt()).isZero();
+    assertThat(JSON.readTree(get("/api/works?q=amp").body()).path("total").asInt()).isZero();
+  }
+
+  @Test
   void titleMentionsServedForClosedWork() throws Exception {
     long w = work("10.1/closed", "Revision of Syntelia");
     long ns = nameString("Syntelia");
