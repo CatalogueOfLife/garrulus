@@ -70,6 +70,12 @@
   text-underline-offset: 4px;
 }
 
+/* Buttons and action icons on the ui type size; the font ships 400 and 500 only, Mantine's 600 would be faux bold. */
+.button {
+  font-size: var(--gr-type-ui-size);
+  font-weight: 400;
+}
+
 /* Buttons and action icons: the outline pill inverts on hover; disabled is grey on paper, never a grey fill. */
 .button[data-variant='default']:where(:not(:disabled, [data-disabled], [data-loading])):hover {
   background: var(--gr-ink);

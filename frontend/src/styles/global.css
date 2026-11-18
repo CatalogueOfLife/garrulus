@@ -28,6 +28,12 @@ body {
   }
 }
 
+/* The font ships 400 and 500 only: bold is 500, never a faux bold. */
+b,
+strong {
+  font-weight: 500;
+}
+
 .gr-wrap {
   overflow-wrap: anywhere;
 }

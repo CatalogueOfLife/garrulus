@@ -35,6 +35,14 @@ const fontStack = "'Schibsted Grotesk', 'Helvetica Neue', Arial, sans-serif";
 export const theme = createTheme({
   fontFamily: fontStack,
   headings: { fontFamily: fontStack, fontWeight: '500' },
+  // Mantine's size steps on the type scale (13, 14, 15, 16, 22 px), so size props stay on it
+  fontSizes: {
+    xs: 'var(--gr-type-small-size)',
+    sm: 'var(--gr-type-meta-size)',
+    md: 'var(--gr-type-ui-size)',
+    lg: 'var(--gr-type-body-size)',
+    xl: 'var(--gr-type-lede-size)',
+  },
   primaryColor: 'ink',
   colors: { ink, red },
   defaultRadius: 0,

@@ -41,6 +41,16 @@ describe('theme', () => {
     expect(r.dark['--mantine-color-dark-3']).toBe('var(--gr-grey)');
   });
 
+  it('maps the Mantine font sizes onto the type scale', () => {
+    expect(full.fontSizes).toMatchObject({
+      xs: 'var(--gr-type-small-size)',
+      sm: 'var(--gr-type-meta-size)',
+      md: 'var(--gr-type-ui-size)',
+      lg: 'var(--gr-type-body-size)',
+      xl: 'var(--gr-type-lede-size)',
+    });
+  });
+
   it('drops the old palette', () => {
     expect(theme.colors).not.toHaveProperty('jay');
     expect(theme.colors).not.toHaveProperty('fawn');

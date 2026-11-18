@@ -113,7 +113,7 @@ function Form({ onClose, type, target, label, existing, onExists }: Omit<DialogP
         />
       ) : null}
       <UnstyledButton onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-        <Text size="sm" fw={600}>{open ? '▾' : '▸'} Narrow down</Text>
+        <Text size="sm" fw={500}>{open ? '▾' : '▸'} Narrow down</Text>
       </UnstyledButton>
       <Collapse in={open}>
         <Stack gap="xs">
