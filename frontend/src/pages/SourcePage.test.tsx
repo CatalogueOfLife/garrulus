@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { Route, Routes } from 'react-router-dom';
 import { SourcePage } from './SourcePage';
@@ -30,7 +30,9 @@ describe('SourcePage', () => {
     const groups = screen.getByRole('region', { name: 'Taxonomic groups' });
     expect(await within(groups).findByText('62%')).toBeInTheDocument();
     expect(within(groups).getByText('12%')).toBeInTheDocument();
-    expect(await within(groups).findByRole('img', { name: 'Insects' })).toHaveAttribute('src', 'https://icons.example/insects.svg');
+    // the icon is decoration next to the visible name
+    await waitFor(() => expect(groups.querySelector('img[src="https://icons.example/insects.svg"]')).toHaveAttribute('alt', ''));
+    expect(within(groups).queryByRole('img')).toBeNull();
     const cat = screen.getByRole('region', { name: 'Categorisation' });
     expect(within(cat).getByText('Zoological')).toBeInTheDocument();
     expect(within(cat).getByText('Taxonomic')).toBeInTheDocument();

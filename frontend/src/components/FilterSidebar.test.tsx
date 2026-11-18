@@ -29,14 +29,18 @@ describe('FilterSidebar', () => {
 
   it('taxgroupOptionsShowIcons', () => {
     server.use(xrHandler);
-    renderApp(<FilterSidebar filter={{}} taxGroups={[...taxGroups].reverse()} onChange={noop} facets={{ taxgroup: [{ value: 'Insects', count: 5 }] }} />);
-    const img = screen.getByAltText('Insects');
-    expect(img).toHaveAttribute('src', 'https://icons.example/insects.svg');
-    expect(screen.getByAltText('Animals')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Insects.*5/ })).toBeInTheDocument();
+    const { container } = renderApp(
+      <FilterSidebar filter={{}} taxGroups={[...taxGroups].reverse()} onChange={noop} facets={{ taxgroup: [{ value: 'Insects', count: 5 }] }} />,
+    );
+    // the icon is decoration next to the visible label: the row is named once
+    const insects = screen.getByRole('button', { name: 'Insects 5' });
+    expect(insects.querySelector('img')).toHaveAttribute('src', 'https://icons.example/insects.svg');
+    expect(insects.querySelector('img')).toHaveAttribute('alt', '');
+    expect(screen.getByRole('button', { name: 'Animals' })).toBeInTheDocument();
+    expect(container.querySelectorAll('img:not([alt=""])')).toHaveLength(0);
     // hierarchical: the parent comes before its child whatever the input order
-    const names = screen.getAllByAltText(/Animals|Insects/).map((i) => i.getAttribute('alt'));
-    expect(names.indexOf('Animals')).toBeLessThan(names.indexOf('Insects'));
+    const rows = screen.getAllByRole('button', { name: /^(Animals|Insects)/ }).map((b) => b.textContent);
+    expect(rows.findIndex((t) => t?.startsWith('Animals'))).toBeLessThan(rows.findIndex((t) => t?.startsWith('Insects')));
   });
 
   it('subfieldIsChosenByName', async () => {
