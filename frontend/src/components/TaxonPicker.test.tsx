@@ -69,4 +69,18 @@ describe('TaxonPicker', () => {
     expect(italic.parentElement).toHaveTextContent('Abies alba Mill.');
     expect(italic).not.toHaveTextContent('Mill.');
   });
+
+  it('sets rank markers roman inside the italic name of a suggestion', async () => {
+    server.use(
+      xrHandler,
+      http.get('https://api.checklistbank.org/dataset/:key/nameusage/suggest', () => HttpResponse.json([
+        { match: 'Fusarium oxysporum f. sp. lycopersici', usageId: 'X2', rank: 'forma_specialis',
+          suggestion: 'Fusarium oxysporum f. sp. lycopersici W.C. Snyder & H.N. Hansen' },
+      ])),
+    );
+    renderApp(<TaxonPicker onPick={() => {}} onClear={() => {}} />);
+    await userEvent.type(screen.getByLabelText('Taxon'), 'Fusarium');
+    const option = await screen.findByRole('option');
+    expect(option.innerHTML).toBe('<i>Fusarium oxysporum</i> f. sp. <i>lycopersici</i> W.C. Snyder &amp; H.N. Hansen');
+  });
 });

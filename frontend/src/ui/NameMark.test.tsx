@@ -19,6 +19,12 @@ describe('NameMark', () => {
     expect(screen.getByRole('link', { name: 'Carabidae' }).querySelector('i')).toBeNull();
   });
 
+  it('setsARankMarkerRoman', () => {
+    renderApp(<NameMark span={span()} name={{ rank: 'subspecies' }}>Abies alba subsp. nebrodensis</NameMark>);
+    expect(screen.getByRole('link', { name: 'Abies alba subsp. nebrodensis' }).innerHTML)
+      .toBe('<i>Abies alba</i> subsp. <i>nebrodensis</i>');
+  });
+
   it('marksAnActSpan', () => {
     renderApp(<NameMark span={span({ actType: 'SP_NOV' })} name={{ rank: 'species' }}>Carabus novus</NameMark>);
     expect(screen.getByRole('link', { name: 'Carabus novus' })).toHaveClass('gr-mark-act');
