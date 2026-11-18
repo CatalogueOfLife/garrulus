@@ -8,8 +8,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
 import { cssVariablesResolver, theme } from './theme';
+import { retryUnlessNotFound } from './ui/NotFound';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: retryUnlessNotFound } } });
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

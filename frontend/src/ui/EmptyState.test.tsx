@@ -1,5 +1,7 @@
 import { screen } from '@testing-library/react';
+import { ApiError } from '../api';
 import { EmptyState } from './EmptyState';
+import { retryUnlessNotFound } from './NotFound';
 import { renderApp } from '../test/render';
 
 describe('EmptyState', () => {
@@ -21,5 +23,14 @@ describe('EmptyState', () => {
   it('works without text and action', () => {
     renderApp(<EmptyState title="Empty" />);
     expect(screen.getByRole('heading', { name: 'Empty' })).toBeInTheDocument();
+  });
+});
+
+describe('retryUnlessNotFound', () => {
+  it('gives up on a 404 at once and retries other errors three times', () => {
+    expect(retryUnlessNotFound(0, new ApiError(404, 'nope'))).toBe(false);
+    expect(retryUnlessNotFound(0, new ApiError(500, 'down'))).toBe(true);
+    expect(retryUnlessNotFound(2, new Error('network'))).toBe(true);
+    expect(retryUnlessNotFound(3, new Error('network'))).toBe(false);
   });
 });
