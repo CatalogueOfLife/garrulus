@@ -13,11 +13,8 @@
 }
 
 .pageTitle {
-  margin: 0 0 var(--gr-space-4);
-  font-size: var(--gr-type-title-size);
-  line-height: var(--gr-type-title-line);
-  font-weight: 500;
-  letter-spacing: -0.015em;
+  composes: pageTitle from './title.module.css';
+  margin-bottom: var(--gr-space-4);
 }
 
 .narrowTitle {

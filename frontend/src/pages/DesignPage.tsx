@@ -21,6 +21,7 @@ import { SideColumn } from '../ui/SideColumn';
 import { StatRows } from '../ui/StatRows';
 import { WorkItem } from '../ui/WorkItem';
 import frame from '../ui/frame.module.css';
+import title from '../ui/title.module.css';
 import { usePageTitle } from '../usePageTitle';
 import styles from './design.module.css';
 
@@ -36,7 +37,7 @@ const COLOUR_USE: Record<string, string> = {
 
 const SCALE = [
   { token: '--gr-type-display', key: 'display', weight: 500, tracking: 'var(--gr-type-display-tracking)', text: 'Garrulus' },
-  { token: '--gr-type-title', key: 'title', weight: 500, tracking: '-0.02em', text: 'Names in the literature' },
+  { token: '--gr-type-title', key: 'title', weight: 500, tracking: 'var(--gr-type-title-tracking)', text: 'Names in the literature' },
   { token: '--gr-type-lede', key: 'lede', weight: 400, tracking: '-0.01em', text: 'Garrulus follows the journals of biodiversity science and finds the names in them.' },
   { token: '--gr-type-head', key: 'head', weight: 500, tracking: '-0.01em', text: <>A new species of <i>Hemiphyllodactylus</i> from northern Vietnam</> },
   { token: '--gr-type-body', key: 'body', weight: 400, tracking: 'normal', text: 'Running text, such as the full text of an open-access article.' },
@@ -286,9 +287,7 @@ export function DesignPage() {
   usePageTitle('Design');
   return (
     <div className={styles.page}>
-      <h1 style={{ margin: 0, fontSize: 'var(--gr-type-title-size)', lineHeight: 'var(--gr-type-title-line)', fontWeight: 500, letterSpacing: '-0.02em' }}>
-        Design specimen
-      </h1>
+      <h1 className={title.pageTitle}>Design specimen</h1>
       <p className={styles.note}>The colours, type, logo and components of Garrulus in one place. Sample data, no API calls.</p>
 
       <section id="colour">

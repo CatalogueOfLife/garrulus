@@ -1,0 +1,10 @@
+/* The page title (taxon, name, work, journal and the other pages), once. A page composes it and sets only the gap
+   below it; no margin-bottom here, since the bundle may put this rule after the composing one. */
+.pageTitle {
+  margin-top: 0;
+  font-size: var(--gr-type-title-size);
+  line-height: var(--gr-type-title-line);
+  font-weight: var(--gr-type-title-weight);
+  letter-spacing: var(--gr-type-title-tracking);
+  overflow-wrap: anywhere;
+}
