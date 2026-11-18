@@ -28,7 +28,10 @@ import org.springframework.stereotype.Component;
 
 /**
  * Polls the task queue and runs the claimed tasks of all registered {@link TaskHandler}s on virtual threads,
- * at most {@code nametracker.indexer.workers} at a time. There is a single indexer instance, so every RUNNING
+ * at most {@code nametracker.indexer.workers} at a time. Every finished task claims again at once from its own thread,
+ * so short tasks do not leave workers idle until the next scheduled poll; that poll remains the fallback for tasks
+ * enqueued elsewhere and for {@code run_after} becoming due. A claim made this way never triggers another one, so an
+ * empty queue costs at most one claim per finished task, never a busy loop. There is a single indexer instance, so every RUNNING
  * task found at startup belongs to a dead process and is requeued (or set DEAD when it already used all its
  * attempts). While a handler runs, a heartbeat refreshes the task's lock time, so the periodic stale requeue only
  * catches tasks whose process stopped heartbeating. A {@link BudgetExhaustedException} or {@link ServiceOutageException} (also as a cause) is not a
@@ -93,6 +96,7 @@ public class TaskDispatcher implements DisposableBean {
     ready = true;
   }
 
+  /** Claims tasks for the free workers; also called by every finished task (see {@link #refill()}). */
   @Scheduled(fixedDelayString = "${nametracker.indexer.poll-interval:2s}")
   synchronized void poll() {
     if (!ready || stopped) {
@@ -164,6 +168,20 @@ public class TaskDispatcher implements DisposableBean {
     } finally {
       running.remove(task.id());
       inFlight.decrementAndGet();
+      refill();
+    }
+  }
+
+  /**
+   * Fills the slot a task just freed without waiting for the next scheduled poll. It runs on the worker's own thread
+   * after the handler returned, so it holds no lock but the dispatcher's own monitor, and a refill never leads to
+   * another refill: an empty queue falls back to the scheduled poll. After {@link #destroy()} it claims nothing.
+   */
+  private void refill() {
+    try {
+      poll();
+    } catch (Throwable e) {
+      LOG.warn("Could not claim tasks after a task finished; the next scheduled poll tries again", e);
     }
   }
 
