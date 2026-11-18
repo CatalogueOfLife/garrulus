@@ -74,6 +74,7 @@ describe('SourcePage', () => {
   it('unknownSourceIsFriendly', async () => {
     server.use(taxGroupHandler, http.get('/api/sources/7', () => HttpResponse.json({ error: 'nope' }, { status: 404 })));
     renderSource();
-    expect(await screen.findByText(/journal was not found/i)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Journal not found' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Go to the search' })).toHaveAttribute('href', '/');
   });
 });

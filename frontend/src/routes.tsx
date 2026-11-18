@@ -1,6 +1,5 @@
-import { Button } from '@mantine/core';
-import { Link, Route, Routes } from 'react-router-dom';
-import { EmptyState } from './ui/EmptyState';
+import { Route, Routes } from 'react-router-dom';
+import { NotFound } from './ui/NotFound';
 import { SearchPage } from './pages/SearchPage';
 import { NamePage } from './pages/NamePage';
 import { SourcePage } from './pages/SourcePage';
@@ -35,11 +34,7 @@ export function AppRoutes() {
       <Route path="/about" element={<AboutPage />} />
       <Route path="/hits" element={<HitsPage />} />
       <Route path="/design" element={<DesignPage />} />
-      <Route path="*" element={
-        <EmptyState title="Page not found" action={<Button component={Link} to="/">Go to the search</Button>}>
-          There is nothing at this address.
-        </EmptyState>
-      } />
+      <Route path="*" element={<NotFound title="Page not found">There is nothing at this address.</NotFound>} />
     </Routes>
   );
 }

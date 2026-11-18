@@ -10,6 +10,7 @@ import { FeedLink } from '../components/FeedLink';
 import { FollowButton } from '../components/FollowButton';
 import { Section } from '../components/Section';
 import { DetailHead } from '../ui/DetailHead';
+import { NotFound, isNotFound } from '../ui/NotFound';
 import { SciName } from '../ui/SciName';
 import { SideColumn } from '../ui/SideColumn';
 import { StatRows } from '../ui/StatRows';
@@ -54,7 +55,11 @@ export function TaxonPage() {
     [name, ...(classification.data ?? []).map((c) => c.name)]);
 
   usePageTitle(name ?? `Taxon ${id}`);
-  if (taxon.isError) return <Alert color="red">{(taxon.error as Error).message}</Alert>;
+  if (taxon.isError) {
+    return isNotFound(taxon.error)
+      ? <NotFound title="Taxon not found">This taxon is not in the current Catalogue of Life release.</NotFound>
+      : <Alert color="red">{(taxon.error as Error).message}</Alert>;
+  }
 
   const rank = taxon.data?.name.rank;
   const total = recent.data?.total;

@@ -10,6 +10,14 @@ describe('EmptyState', () => {
     expect(screen.getByRole('link', { name: 'Go on' })).toBeInTheDocument();
   });
 
+  it('is a second-level heading by default and a page title when asked', () => {
+    const { unmount } = renderApp(<EmptyState title="Empty" />);
+    expect(screen.getByRole('heading', { level: 2, name: 'Empty' })).toBeInTheDocument();
+    unmount();
+    renderApp(<EmptyState title="Gone" headingLevel={1} />);
+    expect(screen.getByRole('heading', { level: 1, name: 'Gone' })).toBeInTheDocument();
+  });
+
   it('works without text and action', () => {
     renderApp(<EmptyState title="Empty" />);
     expect(screen.getByRole('heading', { name: 'Empty' })).toBeInTheDocument();

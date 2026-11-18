@@ -7,6 +7,7 @@ import { ClassificationPath } from '../components/ClassificationPath';
 import { HighlightedText } from '../components/HighlightedText';
 import { Section } from '../components/Section';
 import { MetaLine } from '../ui/MetaLine';
+import { NotFound, isNotFound } from '../ui/NotFound';
 import { SciName } from '../ui/SciName';
 import { SciTitle } from '../ui/SciTitle';
 import { SideColumn } from '../ui/SideColumn';
@@ -53,7 +54,11 @@ export function WorkPage() {
   const q = useQuery({ queryKey: ['work', id], queryFn: () => getWork(id) });
   const w = q.data;
   usePageTitle(w?.title || `Work ${id}`);
-  if (q.isError) return <Alert color="red">{(q.error as Error).message}</Alert>;
+  if (q.isError) {
+    return isNotFound(q.error)
+      ? <NotFound title="Paper not found">There is no paper at this address.</NotFound>
+      : <Alert color="red">{(q.error as Error).message}</Alert>;
+  }
   if (!w) return <Loader />;
 
   const info = new Map<number, NameInfo>(w.names.map((n) => [n.id, { rank: n.rank, usageRank: n.usageRank, kind: n.kind }]));

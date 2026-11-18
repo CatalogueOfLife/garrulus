@@ -60,6 +60,14 @@ describe('NamePage', () => {
   it('unknownNameIsFriendly', async () => {
     server.use(http.get('/api/names/5', () => HttpResponse.json({ error: 'nope' }, { status: 404 })), worksHandler);
     renderName('5');
-    expect(await screen.findByText(/name was not found/i)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Name not found' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Go to the search' })).toHaveAttribute('href', '/');
+  });
+
+  it('otherErrorsStayAnAlert', async () => {
+    server.use(http.get('/api/names/5', () => HttpResponse.json({ error: 'database down' }, { status: 500 })), worksHandler);
+    renderName('5');
+    expect(await screen.findByText('database down')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Name not found' })).toBeNull();
   });
 });

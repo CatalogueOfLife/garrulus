@@ -62,4 +62,17 @@ describe('TaxonPage', () => {
     expect(relevantVerbatim(contexts, ['Carabidae', 'B', undefined])).toEqual(['A: B', 'a: b']);
     expect(relevantVerbatim(contexts, [undefined])).toEqual([]);
   });
+
+  it('unknownTaxonShowsTheNotFoundState', async () => {
+    server.use(
+      xrHandler,
+      http.get('https://api.checklistbank.org/dataset/316691/taxon/T404', () => HttpResponse.json({ message: 'nope' }, { status: 404 })),
+      http.get('https://api.checklistbank.org/dataset/316691/taxon/T404/classification', () => HttpResponse.json({ message: 'nope' }, { status: 404 })),
+      http.get('/api/taxa/T404/stats', () => HttpResponse.json({ taxonId: 'T404', total: 0, mainSubjectTotal: 0, years: [] })),
+      http.get('/api/works', () => HttpResponse.json(emptyPage)),
+    );
+    renderApp(<Routes><Route path="/taxon/:id" element={<TaxonPage />} /></Routes>, '/taxon/T404');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Taxon not found' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Go to the search' })).toHaveAttribute('href', '/');
+  });
 });

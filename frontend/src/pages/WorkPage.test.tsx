@@ -115,4 +115,18 @@ describe('WorkPage', () => {
     expect(within(text).getByRole('heading', { level: 3, name: 'Introduction' })).toBeInTheDocument();
     expect(within(text).queryByRole('heading', { name: 'Body text.' })).toBeNull();
   });
+
+  it('unknownWorkShowsTheNotFoundState', async () => {
+    server.use(http.get('/api/works/5', () => HttpResponse.json({ error: 'nope' }, { status: 404 })));
+    renderApp(<Routes><Route path="/work/:id" element={<WorkPage />} /></Routes>, '/work/5');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Paper not found' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Go to the search' })).toHaveAttribute('href', '/');
+  });
+
+  it('otherErrorsStayAnAlert', async () => {
+    server.use(http.get('/api/works/5', () => HttpResponse.json({ error: 'database down' }, { status: 500 })));
+    renderApp(<Routes><Route path="/work/:id" element={<WorkPage />} /></Routes>, '/work/5');
+    expect(await screen.findByText('database down')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Paper not found' })).toBeNull();
+  });
 });

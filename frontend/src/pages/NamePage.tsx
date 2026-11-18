@@ -1,7 +1,7 @@
 import { Alert, Anchor, Loader, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { ApiError, getName, searchWorks } from '../api';
+import { getName, searchWorks } from '../api';
 import { FeedLink } from '../components/FeedLink';
 import { FollowButton } from '../components/FollowButton';
 import { Section } from '../components/Section';
@@ -10,6 +10,7 @@ import { WorkList } from '../components/WorkList';
 import { YearBars } from '../components/YearBars';
 import { DetailHead } from '../ui/DetailHead';
 import { formatDate } from '../ui/MetaLine';
+import { NotFound, isNotFound } from '../ui/NotFound';
 import { SciName } from '../ui/SciName';
 import { SideColumn } from '../ui/SideColumn';
 import list from '../ui/list.module.css';
@@ -24,8 +25,9 @@ export function NamePage() {
   usePageTitle(n?.name ?? `Name ${id}`);
 
   if (name.isError) {
-    const notFound = name.error instanceof ApiError && name.error.status === 404;
-    return <Alert color={notFound ? 'gray' : 'red'}>{notFound ? 'This name was not found.' : (name.error as Error).message}</Alert>;
+    return isNotFound(name.error)
+      ? <NotFound title="Name not found">There is no name at this address.</NotFound>
+      : <Alert color="red">{(name.error as Error).message}</Alert>;
   }
   if (!n) return <Loader size="sm" />;
   const m = n.match;

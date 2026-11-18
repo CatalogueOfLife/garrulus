@@ -1,7 +1,7 @@
 import { Alert, Loader, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { ApiError, getSource, getTaxGroups } from '../api';
+import { getSource, getTaxGroups } from '../api';
 import { FeedLink } from '../components/FeedLink';
 import { FollowButton } from '../components/FollowButton';
 import { Section } from '../components/Section';
@@ -9,6 +9,7 @@ import { TaxGroupIcon } from '../components/TaxGroupIcon';
 import { YearBars } from '../components/YearBars';
 import { WorkList } from '../components/WorkList';
 import { DetailHead } from '../ui/DetailHead';
+import { NotFound, isNotFound } from '../ui/NotFound';
 import { SideColumn } from '../ui/SideColumn';
 import { StatRows, type StatRow } from '../ui/StatRows';
 import { sentence } from '../ui/sentence';
@@ -28,8 +29,9 @@ export function SourcePage() {
   usePageTitle(s?.title ?? `Journal ${id}`);
 
   if (source.isError) {
-    const notFound = source.error instanceof ApiError && source.error.status === 404;
-    return <Alert color={notFound ? 'gray' : 'red'}>{notFound ? 'This journal was not found.' : (source.error as Error).message}</Alert>;
+    return isNotFound(source.error)
+      ? <NotFound title="Journal not found">There is no journal at this address.</NotFound>
+      : <Alert color="red">{(source.error as Error).message}</Alert>;
   }
   if (!s) return <Loader size="sm" />;
 

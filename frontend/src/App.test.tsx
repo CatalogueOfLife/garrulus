@@ -39,7 +39,7 @@ describe('App', () => {
   it('shows the not-found page for an unknown path', async () => {
     server.use(signedOut);
     renderApp(<App />, '/no/such/page');
-    expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Page not found' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Go to the search' })).toHaveAttribute('href', '/');
   });
 });
