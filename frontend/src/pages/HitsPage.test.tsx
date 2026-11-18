@@ -25,6 +25,8 @@ describe('HitsPage', () => {
     expect(screen.getAllByText('New names')).toHaveLength(1);
     expect(screen.getByText(/no longer listed/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Show all hits' })).toHaveAttribute('href', '/hits');
+    // the works are the page's sections: their titles come right under the page title (h1)
+    expect(screen.getByRole('heading', { level: 2, name: 'A carabid paper' })).toBeInTheDocument();
   });
 
   it('labels names with their acts, acts and main subjects first, at most ten', async () => {

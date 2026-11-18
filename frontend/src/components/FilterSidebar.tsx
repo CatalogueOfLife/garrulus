@@ -91,7 +91,9 @@ export function FilterSidebar({ filter, taxonLabel, facets, taxGroups, onChange 
   const set = (key: keyof WorkFilter) => (v?: string) => onChange({ [key]: v, offset: undefined });
 
   return (
-    <Stack gap={0} component="div" role="group" aria-label="Filters">
+    <Stack gap={0} component="div" role="group" aria-labelledby="filters-heading">
+      {/* the outline's level 2 above the facet group headings (h3) */}
+      <h2 id="filters-heading" className={classes.srOnly}>Filters</h2>
       <Field title="Taxon">
         <TaxonPicker
           label={filter.taxon ? (taxonLabel ?? filter.taxon) : undefined}

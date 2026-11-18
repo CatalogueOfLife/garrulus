@@ -69,7 +69,7 @@ export function SearchPage() {
   return (
     <>
       <PageHeader variant="big" searchSlot={search} />
-      <div className={frame.main}>
+      <main className={frame.main}>
         {/* the filters come first in the DOM (above the list on narrow screens): keyboard users can jump past them */}
         <a href="#results" className={classes.skip} onClick={(e) => {
           e.preventDefault();
@@ -100,6 +100,8 @@ export function SearchPage() {
             </SideColumn>
           </div>
           <div id="results" tabIndex={-1} role="region" aria-label="Results" className={`${classes.mainCol} ${classes.results}`}>
+            {/* the outline's level 2 between the wordmark (h1) and the work titles (h3) */}
+            <h2 className={classes.srOnly}>Results</h2>
             {works.isError ? (
               <Alert color="red" title="Search failed">
                 {works.error instanceof ApiError ? works.error.message : 'The search is unavailable. Try again later.'}
@@ -125,7 +127,7 @@ export function SearchPage() {
             )}
           </div>
         </div>
-      </div>
+      </main>
     </>
   );
 }

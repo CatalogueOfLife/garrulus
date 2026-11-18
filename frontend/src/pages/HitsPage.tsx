@@ -70,7 +70,7 @@ export function HitsPage() {
                   {h.subscriptionLabel ? <> · <Anchor component={Link} to={`/hits?subscription=${h.subscriptionId}`} inherit>{h.subscriptionLabel}</Anchor></> : null}
                 </p>
                 <HitNames names={h.names ?? []} />
-                {h.work ? <WorkList works={[h.work]} /> : <Text size="sm" c="dimmed">This paper is no longer listed.</Text>}
+                {h.work ? <WorkList works={[h.work]} headingLevel={2} /> : <Text size="sm" c="dimmed">This paper is no longer listed.</Text>}
               </li>
             ))}
           </ul>
