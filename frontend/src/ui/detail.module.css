@@ -80,6 +80,14 @@
   font-weight: 500;
 }
 
+/* a label over a plain list inside a section, like a stat row's label */
+.listLabel {
+  margin: var(--gr-space-3) 0 0;
+  padding: 3px 0;
+  font-size: var(--gr-type-ui-size);
+  line-height: var(--gr-type-ui-line);
+}
+
 .group {
   display: inline-flex;
   align-items: center;

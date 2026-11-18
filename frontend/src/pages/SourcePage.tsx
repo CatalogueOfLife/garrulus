@@ -94,14 +94,17 @@ export function SourcePage() {
           <Section title="Categorisation">
             <StatRows rows={cat} />
             {s.subfields.length ? (
-              <ul className={classes.plain} aria-label="Subfields">
-                {s.subfields.map((f) => (
-                  <li key={f} title={f} className={f === s.primarySubfield ? classes.primary : undefined}
-                    data-primary={f === s.primarySubfield ? 'true' : undefined}>
-                    {subfieldLabel(f)}
-                  </li>
-                ))}
-              </ul>
+              <>
+                <p id="source-subfields" className={classes.listLabel}>Subfields</p>
+                <ul className={classes.plain} aria-labelledby="source-subfields">
+                  {s.subfields.map((f) => (
+                    <li key={f} title={f} className={f === s.primarySubfield ? classes.primary : undefined}>
+                      {subfieldLabel(f)}
+                      {f === s.primarySubfield ? <span className={classes.muted}> (primary)</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              </>
             ) : null}
           </Section>
 

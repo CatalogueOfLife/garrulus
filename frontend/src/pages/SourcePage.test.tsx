@@ -37,12 +37,13 @@ describe('SourcePage', () => {
     expect(within(cat).getByText('Zoological')).toBeInTheDocument();
     expect(within(cat).getByText('Taxonomic')).toBeInTheDocument();
     expect(within(cat).getByText('4.2')).toBeInTheDocument();
-    const insects = within(cat).getByText('Insect Science');
+    // the subfields under a visible label, the primary one said in words, not only set in 500
+    expect(within(cat).getByText('Subfields')).toBeVisible();
+    const [insects, eco, other] = within(within(cat).getByRole('list', { name: 'Subfields' })).getAllByRole('listitem');
+    expect(insects).toHaveTextContent(/^Insect Science \(primary\)$/);
     expect(insects).toHaveAttribute('title', '1109');
-    expect(insects).toHaveAttribute('data-primary', 'true');
-    const eco = within(cat).getByText('Ecology, Evolution, Behavior and Systematics');
-    expect(eco).not.toHaveAttribute('data-primary');
-    expect(within(cat).getByText('4242')).toBeInTheDocument();
+    expect(eco).toHaveTextContent(/^Ecology, Evolution, Behavior and Systematics$/);
+    expect(other).toHaveTextContent(/^4242$/);
     expect(within(cat).getByText('Hybrid')).toBeInTheDocument();
     expect(within(cat).getByText('NZ')).toBeInTheDocument();
     const perYear = screen.getByRole('region', { name: 'Papers per year' });
