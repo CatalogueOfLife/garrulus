@@ -8,7 +8,7 @@ import org.catalogueoflife.nametracker.finder.api.FinderOptions;
 import org.catalogueoflife.nametracker.finder.api.FinderResult;
 import org.catalogueoflife.nametracker.finder.api.Mention;
 import org.catalogueoflife.nametracker.finder.api.NameFinder;
-import org.catalogueoflife.nametracker.finder.pipeline.ActPatterns;
+import org.catalogueoflife.nametracker.finder.api.ActPatterns;
 
 import java.util.ArrayList;
 import java.util.HashMap;

@@ -1,6 +1,5 @@
-package org.catalogueoflife.nametracker.finder.pipeline;
+package org.catalogueoflife.nametracker.finder.api;
 
-import org.catalogueoflife.nametracker.finder.api.ActType;
 
 import java.util.ArrayList;
 import java.util.Comparator;

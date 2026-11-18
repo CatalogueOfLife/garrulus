@@ -36,7 +36,7 @@ function gatherCells(blocks: TextBlock[]): (TextBlock | TextBlock[])[] {
 
 /** A snippet as a block, so its name is marked and linked like a name in the full text. */
 const snippetBlock = (s: Snippet): TextBlock =>
-  ({ id: `s${s.nameId}`, type: s.blockType, level: 0, sectionPath: [], text: s.text, mentions: s.mentions });
+  ({ id: `s${s.nameId}`, type: s.blockType, level: 0, sectionPath: [], text: s.text, mentions: s.mentions, acts: s.acts });
 
 function NameRow({ n, withTaxon }: { n: NameDetail; withTaxon: boolean }) {
   return (
@@ -79,7 +79,7 @@ export function WorkPage() {
   const showText = w.retained && w.text && w.text.length > 0;
   // bits of the body text only: title and abstract are on the page already, with their names marked
   const snippets = w.snippets ?? [];
-  const [first, ...rest] = paragraphs(w.abstract ?? '', w.abstractMentions ?? [], 'ABSTRACT');
+  const [first, ...rest] = paragraphs(w.abstract ?? '', w.abstractMentions ?? [], 'ABSTRACT', w.abstractActs ?? []);
   const authors = w.authors.map((a) => a.name);
 
   return (

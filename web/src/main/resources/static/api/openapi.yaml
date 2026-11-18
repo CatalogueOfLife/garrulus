@@ -625,7 +625,7 @@ components:
         actType: {type: [string, "null"]}
     TextBlock:
       type: object
-      required: [id, type, level, sectionPath, text, mentions]
+      required: [id, type, level, sectionPath, text, mentions, acts]
       properties:
         id: {type: string}
         type: {type: string}
@@ -633,6 +633,18 @@ components:
         sectionPath: {type: array, items: {type: string}}
         text: {type: string}
         mentions: {type: array, items: {$ref: "#/components/schemas/MentionSpan"}}
+        acts: {type: array, items: {$ref: "#/components/schemas/ActSpan"}}
+    ActSpan:
+      type: object
+      description: >-
+        A nomenclatural act marker ("sp. nov.") in a text, belonging to the name span mentionId; startCp and endCp
+        (exclusive) are code-point offsets into the same text as that span.
+      required: [mentionId, startCp, endCp, actType]
+      properties:
+        mentionId: {type: integer, format: int64}
+        startCp: {type: integer}
+        endCp: {type: integer}
+        actType: {type: string}
     Context:
       type: object
       description: >-
@@ -656,7 +668,7 @@ components:
     WorkDetail:
       type: object
       description: text is null unless the work has a retained full-text document; snippets is empty when text is served.
-      required: [id, authors, retained, hasActs, codes, taxgroups, names, contexts, titleMentions, abstractMentions, snippets]
+      required: [id, authors, retained, hasActs, codes, taxgroups, names, contexts, titleMentions, abstractMentions, abstractActs, snippets]
       properties:
         id: {type: integer, format: int64}
         doi: {type: [string, "null"]}
@@ -692,6 +704,10 @@ components:
           type: array
           description: Name spans in abstract, as code-point offsets into it (mentions not found in it are left out).
           items: {$ref: "#/components/schemas/MentionSpan"}
+        abstractActs:
+          type: array
+          description: The act markers of abstractMentions, as code-point offsets into abstract.
+          items: {$ref: "#/components/schemas/ActSpan"}
         snippets:
           type: array
           description: >-
@@ -701,12 +717,13 @@ components:
     Snippet:
       type: object
       description: The text around the first body mention of a name; mentions mark it, as code-point offsets into text.
-      required: [nameId, blockType, text, mentions]
+      required: [nameId, blockType, text, mentions, acts]
       properties:
         nameId: {type: integer, format: int64}
         blockType: {type: string}
         text: {type: string}
         mentions: {type: array, items: {$ref: "#/components/schemas/MentionSpan"}}
+        acts: {type: array, items: {$ref: "#/components/schemas/ActSpan"}}
     NameHit:
       type: object
       required: [id, name, kind, works]

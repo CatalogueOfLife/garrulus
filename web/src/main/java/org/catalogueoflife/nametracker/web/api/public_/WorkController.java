@@ -183,6 +183,7 @@ public class WorkController {
     List<ContextDto> contexts = index.contexts(id).stream().map(WorkController::context).toList();
     List<TextBlock> text = retained ? text(id, full.get(), mentions) : null;
     String abstractText = abstractOf(w);
+    List<MentionSpan> abstractMentions = TextSpans.locate(abstractText, WorkMentions.inBlocks(mentions, "ABSTRACT"));
 
     return new WorkDetail(w.id(), w.doi(), w.title(), w.year() == null ? null : (int) w.year(), w.publicationDate(),
         src == null ? null : new SourceRef(src.id(), src.title()), authors(w.authors()), w.volume(), w.issue(),
@@ -190,7 +191,7 @@ public class WorkController {
         w.textLevel(), Boolean.TRUE.equals(w.hasActs()), w.codes() == null ? List.of() : w.codes(),
         w.taxgroups() == null ? List.of() : w.taxgroups(), names, contexts, text,
         TextSpans.locate(w.title(), search.titleMentions(List.of(id))),
-        TextSpans.locate(abstractText, WorkMentions.inBlocks(mentions, "ABSTRACT")),
+        abstractMentions, ActSpans.locate(abstractText, abstractMentions),
         text == null ? WorkMentions.bodySnippets(names, mentions) : List.of());
   }
 
@@ -229,7 +230,8 @@ public class WorkController {
     for (Block b : doc.blocks()) {
       List<MentionSpan> spans = byBlock.getOrDefault(b.id(), List.of()).stream()
           .sorted(java.util.Comparator.comparingInt(MentionSpan::startCp).thenComparingInt(MentionSpan::endCp)).toList();
-      out.add(new TextBlock(b.id(), b.type().name(), b.level(), b.sectionPath(), b.text(), spans));
+      out.add(new TextBlock(b.id(), b.type().name(), b.level(), b.sectionPath(), b.text(), spans,
+          ActSpans.locate(b.text(), spans)));
     }
     return out;
   }

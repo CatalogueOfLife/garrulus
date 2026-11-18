@@ -9,6 +9,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.catalogueoflife.nametracker.store.index.MentionRow;
 import org.catalogueoflife.nametracker.store.search.TitleMentionRow;
+import org.catalogueoflife.nametracker.web.api.public_.dto.MentionSpan;
 import org.catalogueoflife.nametracker.web.api.public_.dto.NameDetail;
 import org.catalogueoflife.nametracker.web.api.public_.dto.Snippet;
 
@@ -37,7 +38,7 @@ final class WorkMentions {
   /**
    * One snippet per name that occurs in the body, in the order of the names: the snippet of its first mention in a
    * paragraph, else of its first mention in any other body block (caption, table cell, heading, footnote), with the
-   * name marked in it. Names only in the title, abstract or references get none.
+   * name and its act marker marked in it. Names only in the title, abstract or references get none.
    */
   static List<Snippet> bodySnippets(List<NameDetail> names, List<MentionRow> mentions) {
     Map<Long, MentionRow> first = new HashMap<>();
@@ -45,7 +46,10 @@ final class WorkMentions {
         .sorted(Comparator.comparing((MentionRow m) -> !"PARAGRAPH".equals(m.blockType())).thenComparing(READING_ORDER))
         .forEach(m -> first.putIfAbsent(m.nameStringId(), m));
     return names.stream().map(n -> first.get(n.id())).filter(m -> m != null)
-        .map(m -> new Snippet(m.nameStringId(), m.blockType(), m.snippet(), TextSpans.locate(m.snippet(), List.of(row(m)))))
+        .map(m -> {
+          List<MentionSpan> spans = TextSpans.locate(m.snippet(), List.of(row(m)));
+          return new Snippet(m.nameStringId(), m.blockType(), m.snippet(), spans, ActSpans.locate(m.snippet(), spans));
+        })
         .toList();
   }
 

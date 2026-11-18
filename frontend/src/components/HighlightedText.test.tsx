@@ -26,6 +26,23 @@ describe('HighlightedText', () => {
     expect(a.closest('p')?.textContent).toBe(text);
   });
 
+  it('setsTheActMarkerInRedAfterTheName', () => {
+    const text = 'Here 😀 Diploneis langebertalotii Van de Vijver, sp. nov. is new.';
+    const start = Array.from(text.slice(0, text.indexOf('Diploneis'))).length;
+    const act = Array.from(text.slice(0, text.indexOf('sp. nov.'))).length;
+    const block: TextBlock = {
+      id: 'b9', type: 'ABSTRACT', level: 0, sectionPath: [], text,
+      mentions: [{ id: 1, nameId: 7, startCp: start, endCp: start + 25, verbatim: 'Diploneis langebertalotii', actType: 'SP_NOV' }],
+      acts: [{ mentionId: 1, startCp: act, endCp: act + 8, actType: 'SP_NOV' }],
+    };
+    renderApp(<HighlightedText block={block} />);
+    const marker = screen.getByText('sp. nov.');
+    expect(marker).toHaveClass('gr-act-mark');
+    expect(marker.closest('a')).toBeNull();
+    expect(screen.getByRole('link', { name: 'Diploneis langebertalotii' })).toHaveClass('gr-mark-act');
+    expect(marker.closest('p')?.textContent).toBe(text);
+  });
+
   it('doesNotItaliciseAFamilyMention', () => {
     const block: TextBlock = {
       id: 'b2', type: 'paragraph', level: 0, sectionPath: [], text: 'Carabidae are beetles.',

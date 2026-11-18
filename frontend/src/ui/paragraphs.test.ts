@@ -18,6 +18,13 @@ describe('paragraphs', () => {
     expect(paragraphs('')).toEqual([]);
   });
 
+  it('movesTheActMarkersToTheirParagraph', () => {
+    const p = paragraphs('One.\n\nAus bus sp. nov.', [], 'ABSTRACT', [{ mentionId: 1, startCp: 14, endCp: 22, actType: 'SP_NOV' }]);
+    expect(p[0].acts).toEqual([]);
+    expect(p[1].acts).toEqual([{ mentionId: 1, startCp: 8, endCp: 16, actType: 'SP_NOV' }]);
+    expect(Array.from(p[1].text).slice(8, 16).join('')).toBe('sp. nov.');
+  });
+
   it('dropsASpanAcrossABreak', () => {
     expect(paragraphs('ab\n\ncd', [span(1, 1, 5)]).flatMap((b) => b.mentions)).toEqual([]);
   });

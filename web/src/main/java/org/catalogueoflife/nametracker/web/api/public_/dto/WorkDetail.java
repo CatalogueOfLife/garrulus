@@ -7,7 +7,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * text is null unless the work has a retained full-text document; snippets is empty when text is served.
- * abstractMentions are code-point offsets into the abstract, titleMentions into the title.
+ * abstractMentions and abstractActs are code-point offsets into the abstract, titleMentions into the title.
  */
 public record WorkDetail(long id, @Nullable String doi, @Nullable String title, @Nullable Integer year,
     @Nullable LocalDate publicationDate, @Nullable SourceRef source, List<Author> authors, @Nullable String volume,
@@ -15,4 +15,5 @@ public record WorkDetail(long id, @Nullable String doi, @Nullable String title, 
     @Nullable String oaStatus, @Nullable String bestOaUrl, @JsonProperty("abstract") @Nullable String abstractText,
     @Nullable String licence, boolean retained, @Nullable String textLevel, boolean hasActs, List<String> codes,
     List<String> taxgroups, List<NameDetail> names, List<ContextDto> contexts, @Nullable List<TextBlock> text,
-    List<MentionSpan> titleMentions, List<MentionSpan> abstractMentions, List<Snippet> snippets) {}
+    List<MentionSpan> titleMentions, List<MentionSpan> abstractMentions, List<ActSpan> abstractActs,
+    List<Snippet> snippets) {}

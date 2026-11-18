@@ -12,7 +12,7 @@ import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.finder.api.RankedName;
 import org.catalogueoflife.nametracker.finder.dict.ColDictionary;
 import org.catalogueoflife.nametracker.finder.doc.FlatText;
-import org.catalogueoflife.nametracker.finder.pipeline.ActPatterns;
+import org.catalogueoflife.nametracker.finder.api.ActPatterns;
 import org.catalogueoflife.nametracker.finder.pipeline.SuffixRules;
 import org.gbif.nameparser.api.Rank;
 import tools.jackson.databind.JsonNode;

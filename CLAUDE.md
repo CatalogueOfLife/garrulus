@@ -43,7 +43,9 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
 
 **Configuration** (environment variables; defaults in each `application.yml`):
 - Both apps: `NAMETRACKER_DB_URL` (default `jdbc:postgresql://localhost:5434/nametracker`), `NAMETRACKER_DB_USER` and
-  `NAMETRACKER_DB_PASSWORD` (both default `nametracker`).
+  `NAMETRACKER_DB_PASSWORD` (both default `nametracker`). `NAMETRACKER_BLOBS_DIR` (`./data/blobs`) is relative to the
+  working directory, and `mvn -pl <app> spring-boot:run` runs in the module directory: give both apps the same
+  absolute path, or `web` finds no blobs and serves no full text.
 - `web`: `ADMIN_TOKEN` enables the admin endpoints (`/api/admin/tasks`, `/sources`, `/status`; send it in the
   `X-Admin-Token` header). If blank, none of them is mapped (404). `NAMETRACKER_WEB_ADDRESS` is the bind address
   (default `127.0.0.1`, loopback only like the indexer; `0.0.0.0` to serve other hosts).
@@ -223,7 +225,10 @@ to true), `/api/taxa/{colId}/stats`, `/api/sources`, `/api/sources/{id}`, `/api/
 `INDEXED` works are listed; taxon filters ignore names that occur only in references. The full text of a work is served
 only when its content is retained (open licence). `/api/works/{id}` sends the abstract (the Crossref JATS one as plain
 paragraphs, else OpenAlex's) with `abstractMentions` (stored mentions located by verbatim, like `titleMentions`) and,
-when no text is served, one body `snippets` entry per name (never title, abstract or references). Against a manual run on 18080, start Vite with a scratch config whose
+when no text is served, one body `snippets` entry per name (never title, abstract or references). The act markers
+("sp. nov.") are not stored: `abstractActs` and the `acts` of text blocks and snippets find them again with
+`ActPatterns` (in `finder-api`), each going to the nearest name before it with that act, as `ActTagger` does. `q`
+searches the title and the same abstract, JATS first (`work.fts`, V15). Against a manual run on 18080, start Vite with a scratch config whose
 proxy targets `http://localhost:18080` on another port (never edit `vite.config.ts` for it).
 
 ## Accounts and alerts (M4, `web`)
@@ -308,7 +313,8 @@ on any command lists its options.
 
 ## Modules
 
-- `finder-api`: `NameFinder` SPI, the document model and its JSON contract `finder-api.yaml`.
+- `finder-api`: `NameFinder` SPI, the document model and its JSON contract `finder-api.yaml`, and the act marker
+  table `ActPatterns` (also used by `web`).
 - `finder-core`: `PipelineNameFinder` (built by `PipelineFactory`), the generators (gnfinder client, COL dictionary,
   suffix, markup), the stages, the judge SPI, the JATS/TEI converters and `RemoteNameFinder`. `OtuIdentifierGenerator`
   emits BOLD BINs and UNITE SH codes as certain `NameKind.OTU` mentions (`hints.scheme`) that bypass merge, parser and judge;

@@ -89,6 +89,13 @@ export interface MentionSpan {
   verbatim: string;
   actType?: string | null;
 }
+/** A nomenclatural act marker ("sp. nov.") in a text, belonging to the name span mentionId (code points). */
+export interface ActSpan {
+  mentionId: number;
+  startCp: number;
+  endCp: number;
+  actType: string;
+}
 export interface TextBlock {
   id: string;
   type: string;
@@ -96,6 +103,7 @@ export interface TextBlock {
   sectionPath: string[];
   text: string;
   mentions: MentionSpan[];
+  acts?: ActSpan[];
 }
 /** A bit of the body text around the first mention of a name; mentions mark it (code points into text). */
 export interface Snippet {
@@ -103,6 +111,7 @@ export interface Snippet {
   blockType: string;
   text: string;
   mentions: MentionSpan[];
+  acts?: ActSpan[];
 }
 /** One ranked name of a verbatim classification; rank is upper case (ORDER, FAMILY, ...). */
 export interface RankedName { rank: string; name: string }
@@ -135,6 +144,8 @@ export interface WorkDetail {
   abstract?: string | null;
   /** Code points into abstract. */
   abstractMentions?: MentionSpan[];
+  /** The act markers of abstractMentions, code points into abstract. */
+  abstractActs?: ActSpan[];
   licence?: string | null;
   retained: boolean;
   textLevel?: string | null;

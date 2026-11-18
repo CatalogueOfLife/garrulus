@@ -1,5 +1,7 @@
 package org.catalogueoflife.nametracker.finder.pipeline;
 
+import org.catalogueoflife.nametracker.finder.api.ActPatterns;
+
 import org.catalogueoflife.nametracker.finder.api.Act;
 import org.catalogueoflife.nametracker.finder.api.ActType;
 import org.catalogueoflife.nametracker.finder.api.Block;
@@ -21,7 +23,7 @@ import org.catalogueoflife.nametracker.finder.dict.DictHit;
 import org.catalogueoflife.nametracker.finder.doc.FlatText;
 import org.catalogueoflife.nametracker.finder.gnfinder.GnfinderClient;
 import org.catalogueoflife.nametracker.finder.gnfinder.GnfinderGenerator;
-import org.catalogueoflife.nametracker.finder.pipeline.ActPatterns.ActMatch;
+import org.catalogueoflife.nametracker.finder.api.ActPatterns.ActMatch;
 import org.gbif.nameparser.api.NameParser;
 import org.jspecify.annotations.Nullable;
 

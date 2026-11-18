@@ -13,7 +13,7 @@ import org.catalogueoflife.nametracker.finder.doc.JatsOptions;
 import org.catalogueoflife.nametracker.finder.doc.NamePart;
 import org.catalogueoflife.nametracker.finder.doc.StatusMarkup;
 import org.catalogueoflife.nametracker.finder.doc.TaxonMarkup;
-import org.catalogueoflife.nametracker.finder.pipeline.ActPatterns;
+import org.catalogueoflife.nametracker.finder.api.ActPatterns;
 import org.gbif.nameparser.api.Rank;
 import org.jspecify.annotations.Nullable;
 

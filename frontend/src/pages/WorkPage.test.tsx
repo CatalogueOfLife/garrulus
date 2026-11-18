@@ -110,6 +110,15 @@ describe('WorkPage', () => {
     expect(family.className).toContain('gr-mark-act');
   });
 
+  it('setsTheActMarkersOfTheAbstractInRed', async () => {
+    mount({ ...base, abstract: 'Intro.\n\nCarabus novus sp. nov. is described.', abstractMentions: [
+      { id: 1, nameId: 2, startCp: 8, endCp: 21, verbatim: 'Carabus novus', actType: 'SP_NOV' },
+    ], abstractActs: [{ mentionId: 1, startCp: 22, endCp: 30, actType: 'SP_NOV' }] });
+    const marker = await screen.findByText('sp. nov.');
+    expect(marker).toHaveClass('gr-act-mark');
+    expect(marker.closest('p')!.textContent).toBe('Carabus novus sp. nov. is described.');
+  });
+
   it('openWorkShowsHighlightedText', async () => {
     mount({ ...base, retained: true, licence: 'CC-BY-4.0', text: [{
       id: 'b1', type: 'paragraph', level: 0, sectionPath: [], text: '😀 Carabus auratus.',

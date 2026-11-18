@@ -7,7 +7,7 @@ import org.catalogueoflife.nametracker.finder.api.Block;
 import org.catalogueoflife.nametracker.finder.api.BlockType;
 import org.catalogueoflife.nametracker.finder.api.CodePoints;
 import org.catalogueoflife.nametracker.finder.api.Document;
-import org.catalogueoflife.nametracker.finder.pipeline.ActPatterns;
+import org.catalogueoflife.nametracker.finder.api.ActPatterns;
 import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.JsonNode;
 

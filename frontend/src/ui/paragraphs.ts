@@ -1,10 +1,11 @@
-import type { MentionSpan, TextBlock } from '../api';
+import type { ActSpan, MentionSpan, TextBlock } from '../api';
 
 /**
- * A text split at blank lines into paragraphs, each trimmed and carrying the spans that lie inside it, moved to its own
- * offsets. Offsets are Unicode code points, never UTF-16 indices; a span across a break or out of range is dropped.
+ * A text split at blank lines into paragraphs, each trimmed and carrying the name spans and act markers that lie inside
+ * it, moved to its own offsets. Offsets are Unicode code points, never UTF-16 indices; a span across a break or out of
+ * range is dropped.
  */
-export function paragraphs(text: string, mentions: MentionSpan[] = [], type = 'PARAGRAPH'): TextBlock[] {
+export function paragraphs(text: string, mentions: MentionSpan[] = [], type = 'PARAGRAPH', acts: ActSpan[] = []): TextBlock[] {
   const cps = Array.from(text);
   const out: TextBlock[] = [];
   const flush = (from: number, to: number) => {
@@ -18,6 +19,9 @@ export function paragraphs(text: string, mentions: MentionSpan[] = [], type = 'P
       mentions: mentions
         .filter((m) => m.startCp >= s && m.endCp <= e && m.endCp > m.startCp)
         .map((m) => ({ ...m, startCp: m.startCp - s, endCp: m.endCp - s })),
+      acts: acts
+        .filter((a) => a.startCp >= s && a.endCp <= e && a.endCp > a.startCp)
+        .map((a) => ({ ...a, startCp: a.startCp - s, endCp: a.endCp - s })),
     });
   };
   let start = 0;

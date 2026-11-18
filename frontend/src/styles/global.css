@@ -54,6 +54,11 @@ a:hover {
   margin-left: 0.25em;
 }
 
+/* an act marker inside running text ("Aus bus sp. nov."): red, in place, no gap of its own */
+.gr-act-mark {
+  color: var(--gr-red);
+}
+
 a.gr-mark {
   text-decoration: underline;
   text-decoration-color: var(--gr-ink);

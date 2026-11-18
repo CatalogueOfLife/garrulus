@@ -1,5 +1,7 @@
 package org.catalogueoflife.nametracker.finder.pipeline;
 
+import org.catalogueoflife.nametracker.finder.api.ActPatterns;
+
 import org.catalogueoflife.nametracker.finder.api.ActType;
 import org.catalogueoflife.nametracker.finder.api.Block;
 import org.catalogueoflife.nametracker.finder.api.Style;

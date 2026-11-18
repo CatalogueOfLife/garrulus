@@ -207,7 +207,7 @@ class WorkControllerIT extends AbstractPostgresIT {
   @Test
   void abstractMentionsAndBodySnippetsForAClosedWork() throws Exception {
     long w = work("10.1/abs", "Closed with abstract");
-    jdbc.update("UPDATE work SET abstract = 'Abies alba and Picea abies grow here. Abies alba again.' WHERE id = ?", w);
+    jdbc.update("UPDATE work SET abstract = 'Abies alba and Picea abies sp. nov. grow here. Abies alba again.' WHERE id = ?", w);
     long abies = nameString("Abies alba");
     long picea = nameString("Picea abies");
     long pinus = nameString("Pinus nigra");
@@ -218,6 +218,7 @@ class WorkControllerIT extends AbstractPostgresIT {
     mention(w, abies, "b10", "ABSTRACT", 0, "Abies alba", "x");
     mention(w, abies, "b2", "ABSTRACT", 0, "Abies alba", "x");
     mention(w, picea, "b2", "ABSTRACT", 15, "Picea abies", "x");
+    jdbc.update("UPDATE mention SET act_type = 'SP_NOV' WHERE name_string_id = ?", picea);
     // body: a table cell before a paragraph, a reference only for Pinus
     mention(w, abies, "b20", "TABLE_CELL", 0, "Abies alba", "Abies alba 12");
     mention(w, abies, "b30", "PARAGRAPH", 4, "Abies alba", "The Abies alba stands were sampled.");
@@ -230,7 +231,13 @@ class WorkControllerIT extends AbstractPostgresIT {
     assertThat(am.get(0).path("nameId").asLong()).isEqualTo(abies);
     assertThat(am.get(1).path("startCp").asInt()).isEqualTo(15);
     assertThat(am.get(1).path("nameId").asLong()).isEqualTo(picea);
-    assertThat(am.get(2).path("startCp").asInt()).isEqualTo(38);
+    assertThat(am.get(2).path("startCp").asInt()).isEqualTo(47);
+    JsonNode acts = d.path("abstractActs");
+    assertThat(acts).hasSize(1);
+    assertThat(acts.get(0).path("startCp").asInt()).isEqualTo(27);
+    assertThat(acts.get(0).path("endCp").asInt()).isEqualTo(35);
+    assertThat(acts.get(0).path("actType").asString()).isEqualTo("SP_NOV");
+    assertThat(acts.get(0).path("mentionId").asLong()).isEqualTo(am.get(1).path("id").asLong());
 
     JsonNode sn = d.path("snippets");
     assertThat(sn).hasSize(1);

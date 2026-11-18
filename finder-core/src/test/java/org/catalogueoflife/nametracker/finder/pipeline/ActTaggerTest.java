@@ -1,12 +1,14 @@
 package org.catalogueoflife.nametracker.finder.pipeline;
 
+import org.catalogueoflife.nametracker.finder.api.ActPatterns;
+
 import org.catalogueoflife.nametracker.finder.api.ActType;
 import org.catalogueoflife.nametracker.finder.api.Block;
 import org.catalogueoflife.nametracker.finder.api.BlockType;
 import org.catalogueoflife.nametracker.finder.api.Document;
 import org.catalogueoflife.nametracker.finder.api.Generator;
 import org.catalogueoflife.nametracker.finder.api.NameKind;
-import org.catalogueoflife.nametracker.finder.pipeline.ActPatterns.ActMatch;
+import org.catalogueoflife.nametracker.finder.api.ActPatterns.ActMatch;
 import org.gbif.nameparser.api.Rank;
 import org.junit.jupiter.api.Test;
 

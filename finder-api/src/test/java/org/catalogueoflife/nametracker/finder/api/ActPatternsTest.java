@@ -1,7 +1,5 @@
-package org.catalogueoflife.nametracker.finder.pipeline;
+package org.catalogueoflife.nametracker.finder.api;
 
-import org.catalogueoflife.nametracker.finder.api.ActType;
-import org.catalogueoflife.nametracker.finder.api.CodePoints;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
