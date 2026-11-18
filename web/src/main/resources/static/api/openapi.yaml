@@ -672,7 +672,7 @@ components:
         type: {type: [string, "null"]}
         oaStatus: {type: [string, "null"]}
         bestOaUrl: {type: [string, "null"]}
-        abstract: {type: [string, "null"]}
+        abstract: {type: [string, "null"], description: "The OpenAlex abstract, else the Crossref JATS abstract as plain text; paragraphs are separated by a blank line."}
         licence: {type: [string, "null"]}
         retained: {type: boolean}
         textLevel: {type: [string, "null"]}

@@ -177,6 +177,19 @@ class WorkControllerIT extends AbstractPostgresIT {
   }
 
   @Test
+  void crossrefJatsAbstractServedWhenThereIsNoOpenAlexAbstract() throws Exception {
+    long w = work("10.1/jats", "Crossref only");
+    jdbc.update("UPDATE work SET abstract = NULL, abstract_jats = ? WHERE id = ?",
+        "<jats:title>Abstract</jats:title><jats:p>Two species of <jats:italic>Kalanchoe</jats:italic>.</jats:p>"
+            + "<jats:p>Second.</jats:p>", w);
+    assertThat(JSON.readTree(get("/api/works/" + w).body()).path("abstract").asString())
+        .isEqualTo("Two species of Kalanchoe.\n\nSecond.");
+    // the OpenAlex abstract still wins when there is one
+    jdbc.update("UPDATE work SET abstract = 'From OpenAlex' WHERE id = ?", w);
+    assertThat(JSON.readTree(get("/api/works/" + w).body()).path("abstract").asString()).isEqualTo("From OpenAlex");
+  }
+
+  @Test
   void titleMentionsServedForClosedWork() throws Exception {
     long w = work("10.1/closed", "Revision of Syntelia");
     long ns = nameString("Syntelia");

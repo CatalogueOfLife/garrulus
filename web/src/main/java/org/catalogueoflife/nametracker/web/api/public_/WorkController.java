@@ -185,10 +185,15 @@ public class WorkController {
 
     return new WorkDetail(w.id(), w.doi(), w.title(), w.year() == null ? null : (int) w.year(), w.publicationDate(),
         src == null ? null : new SourceRef(src.id(), src.title()), authors(w.authors()), w.volume(), w.issue(),
-        w.pages(), w.language(), w.type(), w.oaStatus(), w.bestOaUrl(), w.abstractText(), licence, retained,
+        w.pages(), w.language(), w.type(), w.oaStatus(), w.bestOaUrl(), abstractOf(w), licence, retained,
         w.textLevel(), Boolean.TRUE.equals(w.hasActs()), w.codes() == null ? List.of() : w.codes(),
         w.taxgroups() == null ? List.of() : w.taxgroups(), names, contexts, text,
         TitleSpans.locate(w.title(), search.titleMentions(List.of(id))));
+  }
+
+  /** The OpenAlex abstract, else the Crossref JATS abstract as plain paragraphs (a work harvested from Crossref alone has only that). */
+  private static @Nullable String abstractOf(Work w) {
+    return w.abstractText() != null && !w.abstractText().isBlank() ? w.abstractText() : JatsAbstract.plain(w.abstractJats());
   }
 
   /** The blocks of the retained document with their mention spans, or null if the blob is gone or unreadable, or if it is not the document the names were found in (names_doc_sha). */
