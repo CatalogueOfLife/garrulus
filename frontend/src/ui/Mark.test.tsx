@@ -1,5 +1,9 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { render, screen } from '@testing-library/react';
 import { Mark } from './Mark';
+
+const squash = (d: string) => d.replace(/\s+/g, ' ').trim();
 
 describe('Mark', () => {
   it('is an image named by its title', () => {
@@ -48,5 +52,13 @@ describe('Mark', () => {
     );
     expect(container.querySelectorAll('svg')).toHaveLength(2);
     expect(container.querySelectorAll('[id]')).toHaveLength(0);
+  });
+
+  it('draws the same path as the brand file docs/brand/garrulus-mark.svg', () => {
+    const svg = readFileSync(resolve(__dirname, '../../../docs/brand/garrulus-mark.svg'), 'utf8');
+    const brand = /<path[^>]*\sd="([^"]+)"/.exec(svg)?.[1];
+    expect(brand).toBeDefined();
+    const { container } = render(<Mark />);
+    expect(squash(container.querySelector('path')!.getAttribute('d')!)).toBe(squash(brand!));
   });
 });
