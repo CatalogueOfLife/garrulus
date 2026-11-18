@@ -261,8 +261,9 @@ on any command lists its options.
   --out eval/work` writes `eval/work/dictionary-<releaseKey>.bin` (format v2, about 46 MB).
   Rebuild it for a new XR and after a format change; an old format fails with a message saying so.
 - **Corpora** (committed): `eval/corpus/pensoft` is the silver set (300 CC-BY articles, 100 dev / 200 test, rebuilt by
-  `rebuild-pensoft`). `eval/corpus/curated` holds only the manifest until it is annotated; then `ls-import --out
-  eval/corpus/curated/gold.jsonl.gz`.
+  `rebuild-pensoft`). `eval/corpus/curated` holds the manifest and the hand-fixed gold `gold.jsonl.gz` (imported
+  2026-11-18 by `ls-import --out eval/corpus/curated/gold.jsonl.gz` from the Label Studio project "Garrulus curated": 111
+  documents, 860 names, 109 acts, 21 main-subject names).
   - `ls-export` writes the Label Studio tasks (`eval/work/curated-tasks.json`, not committed). Its pre-tags are the union
     of italics, gnfinder and pipeline, rejected pipeline candidates included, each region scored (judge score, else
     1.0). It needs gnfinder and the dictionary.

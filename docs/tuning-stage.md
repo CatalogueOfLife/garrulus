@@ -36,6 +36,13 @@ Then re-export the project to `eval/work/ls-export-curated.json`.
 
 ## 2. Import the gold
 
+**Status 2026-11-18:** done. The export of 2026-11-18 (`eval/work/ls-export-curated.json`; the 2026-11-15 one is kept as
+`ls-export-curated-2026-11-15.json`) imported without errors: 111 documents, 860 names, 109 acts, 44 context ranks, 21
+main-subject names. Inferred: 64 act types (all from their markers, checked), 0 act links, 24 context ranks (the
+"also a genus" conflicts all resolved to the higher rank: Hemiptera, Diptera, Siluriformes as ORDER, Ischnocera as
+PARVORDER; Teleostei CLASS and Phthiraptera INFRAORDER follow the pinned COL dictionary). The main-subject marks were not
+extended, so salience tuning (§5) still rests on 21 labels.
+
 ```
 mvn -q -pl eval exec:java -Dexec.args="ls-import --export eval/work/ls-export-curated.json --dictionary $FINDER_DICTIONARY --out eval/corpus/curated/gold.jsonl.gz"
 ```
