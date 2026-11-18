@@ -2,6 +2,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { SearchPage } from './SearchPage';
+import { activeFilterCount } from '../components/FilterSidebar';
 import { server, work, emptyPage, taxGroupHandler, xrHandler, sourcesHandler } from '../test/server';
 import { renderApp } from '../test/render';
 
@@ -96,6 +97,24 @@ describe('SearchPage', () => {
     expect(pill).toHaveAttribute('aria-expanded', 'false');
     await userEvent.click(pill);
     expect(pill).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('filtersPillCountsTheActiveFiltersAndHidesOnlyTheFacets', async () => {
+    server.use(xrHandler, taxGroupHandler, sourcesHandler(1234), http.get('/api/works', () => HttpResponse.json(emptyPage)));
+    renderApp(<SearchPage />, '/?q=carabus&code=ZOOLOGICAL&yearFrom=2020&yearTo=2022&offset=20');
+    // the text search is not a filter, and a year range counts once
+    const pill = screen.getByRole('button', { name: 'Filters (2)' });
+    const panel = document.getElementById(pill.getAttribute('aria-controls')!)!;
+    // the lede stays out of the panel the pill opens and closes; the facet groups are in it
+    expect(panel).not.toContainElement(await screen.findByText(/Garrulus reads 1,234 journals/));
+    expect(panel).toContainElement(screen.getByRole('button', { name: /Zoological/ }));
+  });
+
+  it('activeFilterCountCountsTheSidebarFilters', () => {
+    expect(activeFilterCount({})).toBe(0);
+    expect(activeFilterCount({ q: 'x', offset: '20', limit: '20' })).toBe(0);
+    expect(activeFilterCount({ taxon: 'T1', taxgroup: 'Insects', code: 'ZOOLOGICAL', journalType: 'TAXONOMIC', hasActs: 'true',
+      subfield: '1109', tier: 'CORE', oa: 'GOLD', yearFrom: '2000', yearTo: '2010' })).toBe(9);
   });
 
   it('offersASkipLinkPastTheFiltersAsTheFirstStopAfterTheHeader', async () => {

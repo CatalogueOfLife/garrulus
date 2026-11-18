@@ -130,16 +130,19 @@
 
 .filtersToggle {
   display: none;
-  margin-bottom: var(--gr-space-3);
 }
 
+/* below 1024 px the side column sits above the results: lede and Follow always, the facet groups behind the pill */
 .sideWrap {
+  margin-bottom: var(--gr-space-5);
+}
+
+.filtersWrap {
   display: none;
 }
 
-.sideWrap[data-open='true'] {
+.filtersWrap[data-open='true'] {
   display: block;
-  margin-bottom: var(--gr-space-5);
 }
 
 .pager {
@@ -194,6 +197,7 @@
 @media (max-width: 1023px) {
   .filtersToggle {
     display: inline-flex;
+    margin-top: var(--gr-space-2);
   }
 }
 
@@ -207,9 +211,13 @@
   }
 
   .sideWrap {
-    display: block;
     grid-column: 2;
     grid-row: 1;
+    margin-bottom: 0;
+  }
+
+  .filtersWrap {
+    display: block;
   }
 
   .mainCol {

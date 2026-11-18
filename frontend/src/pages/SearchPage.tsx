@@ -5,7 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 import { ApiError, filterFromParams, filterToParams, getTaxGroups, listSources, searchWorks, type FacetName, type WorkFilter } from '../api';
 import { FeedLink } from '../components/FeedLink';
 import { FollowButton } from '../components/FollowButton';
-import { FilterSidebar } from '../components/FilterSidebar';
+import { FilterSidebar, activeFilterCount } from '../components/FilterSidebar';
 import { WorkList } from '../components/WorkList';
 import { PageHeader } from '../ui/PageHeader';
 import { SideColumn } from '../ui/SideColumn';
@@ -45,6 +45,7 @@ export function SearchPage() {
 
   // a Follow is offered when the taxgroup is the only filter
   const onlyGroup = Object.entries(filter).every(([k, v]) => !v || k === 'taxgroup' || k === 'offset') ? filter.taxgroup : undefined;
+  const activeFilters = activeFilterCount(filter);
   const offset = Number(filter.offset ?? 0);
   const page = Math.floor(offset / PAGE_SIZE) + 1;
   const data = works.data;
@@ -77,12 +78,8 @@ export function SearchPage() {
         }}>
           Skip to results
         </a>
-        <Button variant="default" radius="xl" size="xs" className={classes.filtersToggle}
-          aria-expanded={filtersOpen} aria-controls="search-side" onClick={() => setFiltersOpen((o) => !o)}>
-          Filters
-        </Button>
         <div className={classes.page}>
-          <div id="search-side" className={classes.sideWrap} data-open={filtersOpen}>
+          <div className={classes.sideWrap}>
             <SideColumn lede={lede}>
               {onlyGroup ? (
                 <div className={classes.sideBody}>
@@ -90,13 +87,20 @@ export function SearchPage() {
                   <FeedLink href={`/feeds/taxgroup/${encodeURIComponent(onlyGroup)}.atom`} />
                 </div>
               ) : null}
-              <FilterSidebar
-                filter={filter}
-                taxonLabel={taxonLabel}
-                facets={data?.facets ?? {}}
-                taxGroups={groups.data ?? []}
-                onChange={update}
-              />
+              {/* below 1024 px only the facet groups fold away behind the pill; the lede and Follow stay */}
+              <Button variant="default" radius="xl" size="xs" className={classes.filtersToggle}
+                aria-expanded={filtersOpen} aria-controls="search-filters" onClick={() => setFiltersOpen((o) => !o)}>
+                {activeFilters ? `Filters (${activeFilters})` : 'Filters'}
+              </Button>
+              <div id="search-filters" className={classes.filtersWrap} data-open={filtersOpen}>
+                <FilterSidebar
+                  filter={filter}
+                  taxonLabel={taxonLabel}
+                  facets={data?.facets ?? {}}
+                  taxGroups={groups.data ?? []}
+                  onChange={update}
+                />
+              </div>
             </SideColumn>
           </div>
           <div id="results" tabIndex={-1} role="region" aria-label="Results" className={`${classes.mainCol} ${classes.results}`}>

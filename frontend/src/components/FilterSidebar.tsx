@@ -18,6 +18,12 @@ interface Props {
 
 const CODES = ['ZOOLOGICAL', 'BOTANICAL', 'BACTERIAL', 'VIRUS'];
 
+/** The filters the sidebar sets that are on; a year range counts once, the text search is no filter. */
+export function activeFilterCount(f: WorkFilter): number {
+  const on = [f.taxon, f.taxgroup, f.code, f.journalType, f.hasActs, f.subfield, f.tier, f.oa, f.yearFrom || f.yearTo];
+  return on.filter(Boolean).length;
+}
+
 function counts(list?: FacetCount[]): Map<string, number> {
   return new Map((list ?? []).map((f) => [f.value, f.count]));
 }
