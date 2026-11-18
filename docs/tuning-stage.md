@@ -55,6 +55,19 @@ also a genus; the higher rank wins) and at the `gen. nov.` link in zookeys.1285 
 
 ## 3. Curated baselines (before tuning)
 
+**Status 2026-11-18:** done on the imported gold, mode A, STRICT (`eval/reports/2026-11-18-{gnfinder,pipeline}-curated-{dev,test}-A-STRICT.*`):
+
+| F1 | gnfinder dev | gnfinder test | pipeline dev | pipeline test |
+|---|---|---|---|---|
+| names | .645 | .664 | .907 | .870 |
+| acts | .600 | .435 | 1.000 | .695 (R .544, 55 markers unattached) |
+| contexts | 0 | 0 | .364 | .441 |
+| mainSubject (title+act heuristic, not salience) | .216 | .104 | .308 | .133 |
+| authorship (pipeline, matched spans) | | | | .593 (P .797, R .472) |
+
+Where the pipeline loses on test: 57 of its 77 missed names are in captions, uninomials carry 89 of its 94 false positives,
+and acts recall is the weakest score.
+
 Convention: STRICT is the committed default; OVERLAP reports go to `eval/reports/OVERLAP/` and are not committed.
 
 ```

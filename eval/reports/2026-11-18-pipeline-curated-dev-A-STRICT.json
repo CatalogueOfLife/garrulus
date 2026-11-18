@@ -1,0 +1,450 @@
+{
+  "finder" : "pipeline",
+  "info" : {
+    "name" : "pipeline",
+    "version" : "0.1.0-SNAPSHOT",
+    "configHash" : "f40ea7de5c5fe60938dc0db79cbcd9eb91aa0479b28ea95db4bf138f1e185192",
+    "dictionaryKey" : "316691"
+  },
+  "corpus" : "curated",
+  "split" : "dev",
+  "mode" : "A",
+  "documents" : 31,
+  "names" : {
+    "tp" : 190,
+    "fp" : 17,
+    "fn" : 22
+  },
+  "byCategory" : {
+    "block:ABSTRACT" : {
+      "tp" : 57,
+      "fp" : 4,
+      "fn" : 5
+    },
+    "block:CAPTION" : {
+      "tp" : 21,
+      "fp" : 1,
+      "fn" : 10
+    },
+    "block:HEADING" : {
+      "tp" : 7,
+      "fp" : 0,
+      "fn" : 2
+    },
+    "block:PARAGRAPH" : {
+      "tp" : 95,
+      "fp" : 8,
+      "fn" : 2
+    },
+    "block:TABLE_CELL" : {
+      "tp" : 2,
+      "fp" : 0,
+      "fn" : 0
+    },
+    "block:TITLE" : {
+      "tp" : 8,
+      "fp" : 4,
+      "fn" : 3
+    },
+    "kind:ABBREVIATED" : {
+      "tp" : 66,
+      "fp" : 1,
+      "fn" : 11
+    },
+    "kind:BINOMIAL" : {
+      "tp" : 77,
+      "fp" : 1,
+      "fn" : 6
+    },
+    "kind:UNINOMIAL" : {
+      "tp" : 47,
+      "fp" : 15,
+      "fn" : 5
+    },
+    "lang:en" : {
+      "tp" : 131,
+      "fp" : 17,
+      "fn" : 22
+    },
+    "lang:es" : {
+      "tp" : 3,
+      "fp" : 0,
+      "fn" : 0
+    },
+    "lang:fr" : {
+      "tp" : 19,
+      "fp" : 0,
+      "fn" : 0
+    },
+    "lang:und" : {
+      "tp" : 37,
+      "fp" : 0,
+      "fn" : 0
+    },
+    "stratum:ACTS" : {
+      "tp" : 5,
+      "fp" : 6,
+      "fn" : 1
+    },
+    "stratum:BROAD_EN" : {
+      "tp" : 38,
+      "fp" : 2,
+      "fn" : 7
+    },
+    "stratum:NON_EN" : {
+      "tp" : 22,
+      "fp" : 0,
+      "fn" : 0
+    },
+    "stratum:PENSOFT" : {
+      "tp" : 125,
+      "fp" : 9,
+      "fn" : 14
+    }
+  },
+  "nameCorrect" : {
+    "correct" : 0,
+    "matched" : 0,
+    "rate" : 0.0
+  },
+  "nameCorrectByKind" : { },
+  "acts" : {
+    "tp" : 6,
+    "fp" : 0,
+    "fn" : 0
+  },
+  "contexts" : {
+    "tp" : 2,
+    "fp" : 7,
+    "fn" : 0
+  },
+  "mainSubject" : {
+    "tp" : 4,
+    "fp" : 13,
+    "fn" : 5
+  },
+  "falsePositives" : [ {
+    "docId" : "openalex:W7114795836",
+    "blockId" : "b2",
+    "start" : 1018,
+    "end" : 1032,
+    "text" : "L. delbrueckii",
+    "category" : "ABBREVIATED",
+    "context" : "probiotic candidates L. acidophilus and «L. delbrueckii» spp. bulgaricus, along with assessments"
+  }, {
+    "docId" : "openalex:W4413897306",
+    "blockId" : "b2",
+    "start" : 890,
+    "end" : 897,
+    "text" : "Candida",
+    "category" : "UNINOMIAL",
+    "context" : "Gram negatif bakterilerden, %2,6'sı ise «Candida» türlerinden oluşmuştur.En sık tespit ed"
+  }, {
+    "docId" : "pensoft:zookeys.1260.128800",
+    "blockId" : "b270",
+    "start" : 569,
+    "end" : 575,
+    "text" : "Zamora",
+    "category" : "UNINOMIAL",
+    "context" : " than the head and body (Reid and Gόmez «Zamora» 2022 and literature therein)."
+  }, {
+    "docId" : "pensoft:zookeys.1253.163155",
+    "blockId" : "b272",
+    "start" : 0,
+    "end" : 8,
+    "text" : "Mesosoma",
+    "category" : "UNINOMIAL",
+    "context" : "«Mesosoma» with area surrounding median line black"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b133",
+    "start" : 12,
+    "end" : 18,
+    "text" : "Tauria",
+    "category" : "UNINOMIAL",
+    "context" : "Crimea. “Ex «Tauria»”, P.S. Pallas in Herb. Bieberstein (lec"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b327",
+    "start" : 523,
+    "end" : 532,
+    "text" : "Ogasawara",
+    "category" : "UNINOMIAL",
+    "context" : " 2 females (11.4 × 9.6, 11.0 × 9.1 mm); «Ogasawara» Islands, Chichi-jima Island, Futami, Ki"
+  }, {
+    "docId" : "openalex:W4405013555",
+    "blockId" : "b1",
+    "start" : 50,
+    "end" : 61,
+    "text" : "Culiciomyia",
+    "category" : "UNINOMIAL",
+    "context" : "angensis, a new species of the subgenus «Culiciomyia» Theobald of the genus Culex Linnaeus (D"
+  }, {
+    "docId" : "pensoft:zookeys.1253.163155",
+    "blockId" : "b275",
+    "start" : 120,
+    "end" : 128,
+    "text" : "Mesosoma",
+    "category" : "UNINOMIAL",
+    "context" : "ratype, male, habitus, lateral view; 3. «Mesosoma», dorsal view; 4. Antenna, lateral view;"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b133",
+    "start" : 26,
+    "end" : 32,
+    "text" : "Pallas",
+    "category" : "UNINOMIAL",
+    "context" : "Crimea. “Ex Tauria”, P.S. «Pallas» in Herb. Bieberstein (lectotype LE01043"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b327",
+    "start" : 1338,
+    "end" : 1358,
+    "text" : "Ptychognathus lipkei",
+    "category" : "BINOMIAL",
+    "context" : "ng, Dasi; 16 Aug. 2016; NCHUZOOL 16034. «Ptychognathus lipkei» NK Ng, 2010: Philippines • 4 males (par"
+  }, {
+    "docId" : "openalex:W4405013555",
+    "blockId" : "b1",
+    "start" : 90,
+    "end" : 98,
+    "text" : "Linnaeus",
+    "category" : "UNINOMIAL",
+    "context" : "Culiciomyia Theobald of the genus Culex «Linnaeus» (Diptera: Culicidae) from Bhutan"
+  }, {
+    "docId" : "pensoft:zookeys.1253.163155",
+    "blockId" : "b277",
+    "start" : 0,
+    "end" : 8,
+    "text" : "Mesosoma",
+    "category" : "UNINOMIAL",
+    "context" : "«Mesosoma» (Figs 1, 3) 1.3–1.5 × (1.4×) as long as"
+  }, {
+    "docId" : "openalex:W4405013555",
+    "blockId" : "b1",
+    "start" : 100,
+    "end" : 107,
+    "text" : "Diptera",
+    "category" : "UNINOMIAL",
+    "context" : "a Theobald of the genus Culex Linnaeus («Diptera»: Culicidae) from Bhutan"
+  }, {
+    "docId" : "pensoft:zookeys.1253.163155",
+    "blockId" : "b277",
+    "start" : 239,
+    "end" : 248,
+    "text" : "Scutellum",
+    "category" : "UNINOMIAL",
+    "context" : " on each side, each row with 5–6 setae. «Scutellum» 1.4 × as broad as long, anterior pair o"
+  }, {
+    "docId" : "openalex:W4405013555",
+    "blockId" : "b1",
+    "start" : 109,
+    "end" : 118,
+    "text" : "Culicidae",
+    "category" : "UNINOMIAL",
+    "context" : "d of the genus Culex Linnaeus (Diptera: «Culicidae») from Bhutan"
+  }, {
+    "docId" : "openalex:W4405013555",
+    "blockId" : "b2",
+    "start" : 70,
+    "end" : 78,
+    "text" : "Linnaeus",
+    "category" : "UNINOMIAL",
+    "context" : "Culiciomyia Theobald of the genus Culex «Linnaeus» is described from larvae found in a str"
+  }, {
+    "docId" : "openalex:W4405013555",
+    "blockId" : "b2",
+    "start" : 410,
+    "end" : 418,
+    "text" : "Fragilis",
+    "category" : "UNINOMIAL",
+    "context" : "sp. nov. The species is a member of the «Fragilis» Group. The fourth-instar larva is descr"
+  } ],
+  "falseNegatives" : [ {
+    "docId" : "openalex:W7114795836",
+    "blockId" : "b2",
+    "start" : 1018,
+    "end" : 1048,
+    "text" : "L. delbrueckii spp. bulgaricus",
+    "category" : "ABBREVIATED",
+    "context" : "probiotic candidates L. acidophilus and «L. delbrueckii spp. bulgaricus», along with assessments of the prebioti"
+  }, {
+    "docId" : "openalex:W4414865928",
+    "blockId" : "b2",
+    "start" : 714,
+    "end" : 728,
+    "text" : "Echinococcosis",
+    "category" : "UNINOMIAL",
+    "context" : "the WHO-IWGE (Informal Working Group on «Echinococcosis») CE1-CE3 hydatid cysts. Differentials i"
+  }, {
+    "docId" : "openalex:W4408298287",
+    "blockId" : "b1",
+    "start" : 14,
+    "end" : 23,
+    "text" : "BESNOITIA",
+    "category" : "UNINOMIAL",
+    "context" : "ANTIBODIES TO «BESNOITIA» SPP. IN THREE SPECIES OF FREERANGING OP"
+  }, {
+    "docId" : "openalex:W4413897306",
+    "blockId" : "b2",
+    "start" : 969,
+    "end" : 975,
+    "text" : "E.coli",
+    "category" : "UNINOMIAL",
+    "context" : "espit edilen etkenler Escherichia coli («E.coli») (%35,7), koagülaz negatif stafilokokla"
+  }, {
+    "docId" : "pensoft:zookeys.1260.128800",
+    "blockId" : "b257",
+    "start" : 6,
+    "end" : 20,
+    "text" : "Didelphimorpha",
+    "category" : "UNINOMIAL",
+    "context" : "Order «Didelphimorpha» Gill, 1872"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b119",
+    "start" : 58,
+    "end" : 74,
+    "text" : "C. borysthenicus",
+    "category" : "ABBREVIATED",
+    "context" : "ces in the Cytisus ratisbonensis group A«C. borysthenicus»BC. cinereusCC. kreczetovicziiDC. lithua"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b325",
+    "start" : 309,
+    "end" : 329,
+    "text" : "Cognatus benokiensis",
+    "category" : "BINOMIAL",
+    "context" : "7 Jul. 1990; ZRC 2008.0035 (labeled as “«Cognatus benokiensis»” in NK Ng 2006’s dissertation). Taiwan "
+  }, {
+    "docId" : "openalex:W4405013555",
+    "blockId" : "b1",
+    "start" : 41,
+    "end" : 61,
+    "text" : "subgenus Culiciomyia",
+    "category" : "BINOMIAL",
+    "context" : "ulex sarpangensis, a new species of the «subgenus Culiciomyia» Theobald of the genus Culex Linnaeus (D"
+  }, {
+    "docId" : "openalex:W4408298287",
+    "blockId" : "b1",
+    "start" : 70,
+    "end" : 79,
+    "text" : "DIDELPHIS",
+    "category" : "UNINOMIAL",
+    "context" : "N THREE SPECIES OF FREERANGING OPOSSUM («DIDELPHIS» SPP.) IN FLORIDA, USA, AND BRAZIL"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b119",
+    "start" : 75,
+    "end" : 86,
+    "text" : "C. cinereus",
+    "category" : "ABBREVIATED",
+    "context" : "s ratisbonensis group AC. borysthenicusB«C. cinereus»CC. kreczetovicziiDC. lithuanicusEC. pol"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b321",
+    "start" : 0,
+    "end" : 19,
+    "text" : "Ptychognathus dajie",
+    "category" : "BINOMIAL",
+    "context" : "«Ptychognathus dajie» sp. nov."
+  }, {
+    "docId" : "openalex:W4408298287",
+    "blockId" : "b2",
+    "start" : 395,
+    "end" : 411,
+    "text" : "Virginia opossum",
+    "category" : "BINOMIAL",
+    "context" : "om three opossum species, including the «Virginia opossum» (Didelphis virginiana, n = 33) from urb"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b119",
+    "start" : 87,
+    "end" : 104,
+    "text" : "C. kreczetoviczii",
+    "category" : "ABBREVIATED",
+    "context" : "sis group AC. borysthenicusBC. cinereusC«C. kreczetoviczii»DC. lithuanicusEC. polonicusFC. ratisbon"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b327",
+    "start" : 1338,
+    "end" : 1359,
+    "text" : "Ptychognathus lipkei ",
+    "category" : "BINOMIAL",
+    "context" : "ng, Dasi; 16 Aug. 2016; NCHUZOOL 16034. «Ptychognathus lipkei »NK Ng, 2010: Philippines • 4 males (para"
+  }, {
+    "docId" : "openalex:W4408298287",
+    "blockId" : "b2",
+    "start" : 870,
+    "end" : 886,
+    "text" : "Virginia opossum",
+    "category" : "BINOMIAL",
+    "context" : "ibodies. While 3/33 (9.1%) samples from «Virginia opossum» showed positive reactivity by both meth"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b119",
+    "start" : 105,
+    "end" : 119,
+    "text" : "C. lithuanicus",
+    "category" : "ABBREVIATED",
+    "context" : "sthenicusBC. cinereusCC. kreczetovicziiD«C. lithuanicus»EC. polonicusFC. ratisbonensisGC. ruthen"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b119",
+    "start" : 120,
+    "end" : 132,
+    "text" : "C. polonicus",
+    "category" : "ABBREVIATED",
+    "context" : "nereusCC. kreczetovicziiDC. lithuanicusE«C. polonicus»FC. ratisbonensisGC. ruthenicusHC. semer"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b119",
+    "start" : 133,
+    "end" : 149,
+    "text" : "C. ratisbonensis",
+    "category" : "ABBREVIATED",
+    "context" : "czetovicziiDC. lithuanicusEC. polonicusF«C. ratisbonensis»GC. ruthenicusHC. semerenkoanusIC. elong"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b119",
+    "start" : 150,
+    "end" : 163,
+    "text" : "C. ruthenicus",
+    "category" : "ABBREVIATED",
+    "context" : "thuanicusEC. polonicusFC. ratisbonensisG«C. ruthenicus»HC. semerenkoanusIC. elongatusJC. wulffi"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b119",
+    "start" : 164,
+    "end" : 180,
+    "text" : "C. semerenkoanus",
+    "category" : "ABBREVIATED",
+    "context" : "olonicusFC. ratisbonensisGC. ruthenicusH«C. semerenkoanus»IC. elongatusJC. wulffii. Scale bars: 1 "
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b119",
+    "start" : 181,
+    "end" : 193,
+    "text" : "C. elongatus",
+    "category" : "ABBREVIATED",
+    "context" : "bonensisGC. ruthenicusHC. semerenkoanusI«C. elongatus»JC. wulffii. Scale bars: 1 mm."
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b119",
+    "start" : 194,
+    "end" : 204,
+    "text" : "C. wulffii",
+    "category" : "ABBREVIATED",
+    "context" : "uthenicusHC. semerenkoanusIC. elongatusJ«C. wulffii». Scale bars: 1 mm."
+  } ],
+  "matchMode" : "STRICT",
+  "documentLevel" : false,
+  "notes" : [ ],
+  "otuMentions" : 0,
+  "otuByScheme" : { },
+  "authorship" : {
+    "tp" : 15,
+    "fp" : 6,
+    "fn" : 9
+  }
+}
