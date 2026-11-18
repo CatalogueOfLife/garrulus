@@ -69,7 +69,7 @@ export function SearchPage() {
 
   return (
     <>
-      <PageHeader variant="big" searchSlot={search} />
+      <PageHeader variant="big" searchSlot={search} intro={lede} />
       <main className={frame.main}>
         {/* the filters come first in the DOM (above the list on narrow screens): keyboard users can jump past them */}
         <a href="#results" className={classes.skip} onClick={(e) => {
@@ -89,8 +89,8 @@ export function SearchPage() {
         </HeadRow>
         <div className={classes.page}>
           <div className={classes.sideWrap}>
-            <SideColumn lede={lede}>
-              {/* below 1024 px only the facet groups fold away behind the pill; the lede stays */}
+            <SideColumn>
+              {/* below 1024 px the facet groups fold away behind the pill */}
               <Button variant="default" radius="xl" size="xs" className={classes.filtersToggle}
                 aria-expanded={filtersOpen} aria-controls="search-filters" onClick={() => setFiltersOpen((o) => !o)}>
                 {activeFilters ? `Filters (${activeFilters})` : 'Filters'}

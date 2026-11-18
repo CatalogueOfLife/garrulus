@@ -6,11 +6,13 @@ import { renderApp } from '../test/render';
 
 describe('PageHeader', () => {
   beforeEach(() => server.use(signedOut));
-  it('bigShowsHeadingTaglineAndSearchSlot', () => {
-    renderApp(<PageHeader variant="big" searchSlot={<input aria-label="slot" />} />, '/');
+  it('bigShowsHeadingTaglineMenuIntroAndSearchSlot', () => {
+    renderApp(<PageHeader variant="big" searchSlot={<input aria-label="slot" />} intro="Garrulus reads journals." />, '/');
     expect(screen.getByRole('heading', { name: 'Garrulus' })).toBeInTheDocument();
-    expect(screen.getByText('Names in the literature of biodiversity science')).toBeInTheDocument();
-    expect(screen.getByLabelText('slot')).toBeInTheDocument();
+    const tagline = screen.getByText('Names in the literature of biodiversity science');
+    // the site menu sits in the tagline's row, as in the compact header, not below the wordmark
+    expect(tagline.parentElement).toContainElement(screen.getByRole('navigation', { name: 'Site' }));
+    expect(screen.getByText('Garrulus reads journals.').parentElement).toContainElement(screen.getByLabelText('slot'));
   });
   it('compactHasWordmarkLinkAndNoTagline', () => {
     renderApp(<PageHeader variant="compact" />, '/about');

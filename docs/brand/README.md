@@ -41,7 +41,9 @@ the mark to its left.
   the type size. `garrulus-lockup.svg` is this lockup as approved in the mockup: a third of the type size between
   them, centred on each other, letter-spacing −0.03em.
 - **Big** (the search page): mark 96 px beside the display wordmark (`--gr-type-display`: 132 px, 88 px below 768 px,
-  56 px below 480 px; letter-spacing −0.045em), bottoms aligned.
+  56 px below 480 px; letter-spacing −0.045em), bottoms aligned. Above it, the tagline on the left and the site menu
+  and account on the right, at the same place as in the compact header but with no rule under them. Below it, a rule,
+  then the intro text ("Garrulus reads … journals …") left of the search field, with no rule under that row.
 - **Large mark alone:** empty states and error pages use the mark at 120 px instead of an illustration.
 - **Small sizes:** the crest cuts, the eye and the moustache read from 32 px up. At 16 px the cuts blur and the
   moustache disappears; what remains is the silhouette with the eye, which is what the favicon shows.

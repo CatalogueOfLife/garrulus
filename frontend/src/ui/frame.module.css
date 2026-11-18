@@ -47,11 +47,17 @@
   line-height: 1;
 }
 
+/* the compact header's box (padding, a mark-high row), so the menu and account sit where they do on every page */
 .topLine {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding-top: var(--gr-space-3);
+  gap: var(--gr-space-5);
+  min-height: calc(38px + var(--gr-space-4));
+  padding: var(--gr-space-4) 0 0;
+}
+
+.tagline {
+  min-width: 0;
   font-size: var(--gr-type-small-size);
   line-height: var(--gr-type-small-line);
 }
@@ -75,17 +81,30 @@
   text-decoration: none;
 }
 
-.navBar {
-  display: flex;
+/* the intro and the search field, in the tracks of the two columns below (list.module.css .page) */
+.introBar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--gr-side);
+  gap: var(--gr-space-4) 56px;
   align-items: center;
-  padding: 11px 0;
-  font-size: 16px;
+  padding-top: var(--gr-space-5);
+}
+
+.intro {
+  margin: 0;
+  max-width: 34em;
+  font-size: var(--gr-type-lede-size);
+  line-height: var(--gr-type-lede-line);
 }
 
 .searchSlot {
-  margin-left: auto;
-  width: var(--gr-side);
-  max-width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 1023px) {
+  .introBar {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .footer {
@@ -141,12 +160,4 @@
     padding-right: 16px;
   }
 
-  .navBar {
-    flex-wrap: wrap;
-    gap: var(--gr-space-2);
-  }
-
-  .searchSlot {
-    width: 100%;
-  }
 }

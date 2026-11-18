@@ -101,6 +101,11 @@
   margin-top: 30px;
 }
 
+/* the side column's first rule meets the main column's first rule */
+.field:first-of-type {
+  margin-top: 0;
+}
+
 .fieldTitle {
   margin: 0;
   padding: var(--gr-space-2) 0;

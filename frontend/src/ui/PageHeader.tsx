@@ -8,8 +8,17 @@ import styles from './frame.module.css';
 
 const TAGLINE = 'Names in the literature of biodiversity science';
 
-/** Big on the search page (tagline, display wordmark, nav between rules, search slot), compact elsewhere. */
-export function PageHeader({ variant, searchSlot }: { variant: 'big' | 'compact'; searchSlot?: ReactNode }) {
+/**
+ * Compact on every page but search: wordmark left, menu and account right, a rule under it. Big on the search page:
+ * the same menu and account at the same place, beside the tagline and with no rule under them, then the display
+ * wordmark, a rule, and a row of the intro text and the search field.
+ */
+export function PageHeader({ variant, searchSlot, intro }: {
+  variant: 'big' | 'compact';
+  searchSlot?: ReactNode;
+  /** The big header's intro text, left of the search field. */
+  intro?: ReactNode;
+}) {
   if (variant === 'compact') {
     return (
       <header className={styles.header}>
@@ -30,8 +39,11 @@ export function PageHeader({ variant, searchSlot }: { variant: 'big' | 'compact'
   return (
     <header className={styles.header}>
       <div className={styles.topLine}>
-        <span>{TAGLINE}</span>
-        <AccountMenu />
+        <span className={styles.tagline}>{TAGLINE}</span>
+        <div className={styles.compactRight}>
+          <SiteMenu />
+          <AccountMenu />
+        </div>
       </div>
       <div className={styles.brandBig}>
         <Mark size={96} />
@@ -40,11 +52,10 @@ export function PageHeader({ variant, searchSlot }: { variant: 'big' | 'compact'
         </h1>
       </div>
       <Rule />
-      <div className={styles.navBar}>
-        <SiteMenu />
+      <div className={styles.introBar}>
+        {intro ? <p className={styles.intro}>{intro}</p> : <span />}
         {searchSlot && <div className={styles.searchSlot}>{searchSlot}</div>}
       </div>
-      <Rule />
     </header>
   );
 }
