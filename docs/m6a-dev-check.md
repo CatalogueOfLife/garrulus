@@ -3,6 +3,12 @@
 The dev check of M6a (ADR-0008) on the dev-run database of `docs/m2-dev-run.md`. Steps 1 and the baseline are done;
 the two-night numbers (step 2) and the OpenAlex block (step 3) need real nights and are filled in later.
 
+**Where steps 2 and 3 run (2026-11-19).** The dev run lives on a travelling laptop that is often offline or shut down,
+and nothing restarts it (no launchd locally). Missed crons and the laptop's own outages would read as layer failures,
+so its nights are a best-effort smoke run only. Steps 2 and 3 count on the GBIF VM, the first always-on installation:
+run them there after the deployment, in the same order (two normal nights, then two with OpenAlex blocked), with the
+queries and commands below (paths relative to the VM's run directory).
+
 ## Step 1: deploy (2026-11-19, 14:58 UTC)
 
 - Jars from `main` at `10e2e85` (`mvn -B -DskipTests install`), copied to `data/run/`; the previous indexer jar is kept
@@ -37,7 +43,7 @@ after two nights: no such group gains a work without a DOI, and identifier dupli
 connection while the probe passed, so those names were placed `NONE` (ADR-0005, ADR-0008 "known limits"). A
 `REPROCESS_NAMES` with `"force":false` for the affected works re-places them once the connection is good.
 
-## Step 2: two nights (pending; nights of 19/20 and 20/21 Nov)
+## Step 2: two nights (pending; on the GBIF VM)
 
 Record per layer, from `harvest_run`, `work_sighting`, `source_route`, `layer_health` and the log:
 
@@ -56,7 +62,7 @@ data/run/psql.sh -c "select count(*) from (select 1 from work where title is not
 Expected: all 19 routes `ACTIVE` after the first night's onboarding passes, OAI runs `DONE` each night, works first
 found by OAI for journals OpenAlex indexes late, `MERGE_WORKS` rare and never `DEAD`, both duplicate counts 0.
 
-## Step 3: two nights with OpenAlex blocked (pending; after the M2 check of 22 Nov)
+## Step 3: two nights with OpenAlex blocked (pending; on the GBIF VM, after step 2)
 
 Blocking OpenAlex breaks the M2 success criterion (7 consecutive `OPENALEX_LIVE` runs), so it starts after the M2 check
 on 22 Nov, for the nights of 22/23 and 23/24 Nov:
