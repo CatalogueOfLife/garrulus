@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.nametracker.store.ident.WorkSightingMapper">
+
+  <insert id="sight">
+    INSERT INTO work_sighting (work_id, layer, source_id) VALUES (#{workId}, #{layer}, #{sourceId})
+    ON CONFLICT DO NOTHING
+  </insert>
+
+  <select id="moveAll" resultType="int" flushCache="true">
+    WITH moved AS (
+      INSERT INTO work_sighting (work_id, layer, source_id, first_seen)
+      SELECT #{toWork}, layer, source_id, first_seen FROM work_sighting WHERE work_id = #{fromWork}
+      ON CONFLICT DO NOTHING
+      RETURNING 1
+    ), dropped AS (
+      DELETE FROM work_sighting WHERE work_id = #{fromWork}
+    )
+    SELECT count(*)::int FROM moved
+  </select>
+
+</mapper>

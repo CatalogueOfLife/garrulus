@@ -13,9 +13,21 @@ class SchemaIT extends AbstractPostgresIT {
   @Autowired JdbcTemplate jdbc;
 
   @Test
-  void workNeedsOpenAlexIdOrDoi() {
-    assertThatThrownBy(() -> jdbc.update("INSERT INTO work (origin) VALUES ('LIVE')"))
+  void workMayHaveNeitherOpenAlexIdNorDoi() {
+    // V16: identity lives in work_identifier, so a work known by other identifiers only is valid
+    long id = jdbc.queryForObject("INSERT INTO work (origin) VALUES ('LIVE') RETURNING id", Long.class);
+    jdbc.update("DELETE FROM work WHERE id = ?", id);
+  }
+
+  @Test
+  void abstractSourceAcceptsNewLayers() {
+    assertThatThrownBy(() -> jdbc.update("INSERT INTO work (origin, abstract_source) VALUES ('LIVE', 'NOPE')"))
         .isInstanceOf(DataIntegrityViolationException.class);
+    for (String s : new String[] {"EUROPEPMC", "OAI", "MAGTECH"}) {
+      long id = jdbc.queryForObject(
+          "INSERT INTO work (origin, abstract_source) VALUES ('LIVE', ?) RETURNING id", Long.class, s);
+      jdbc.update("DELETE FROM work WHERE id = ?", id);
+    }
   }
 
   @Test

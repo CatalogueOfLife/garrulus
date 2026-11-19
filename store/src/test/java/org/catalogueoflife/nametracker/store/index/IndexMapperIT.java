@@ -23,7 +23,7 @@ class IndexMapperIT extends AbstractPostgresIT {
   private long newWork() {
     String doi = "10.1/idx" + SEQ.incrementAndGet();
     return new org.catalogueoflife.nametracker.store.work.WorkUpsert(works).upsert(new Work(null, null, doi, null, "T", null, null, null, null, null, null, null, null, null,
-        null, null, null, null, "LIVE", null, null, null, null, null, null, null, null, null, null, null)).id();
+        null, null, null, null, "LIVE", null, null, null, null, null, null, null, null, null, null, null, null, null)).id();
   }
 
   @Test

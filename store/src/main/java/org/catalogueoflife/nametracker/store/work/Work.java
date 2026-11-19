@@ -35,5 +35,7 @@ public record Work(
     String abstractJats,
     String pmcid,
     Boolean openalexHasTei,
-    Instant openalexCheckedAt) {
+    Instant openalexCheckedAt,
+    String metaLayer,
+    String abstractJatsSource) {
 }

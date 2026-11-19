@@ -31,6 +31,6 @@ public final class RouteTestSupport {
 
   public static Work work(Long id, String doi, String pmcid) {
     return new Work(id, null, doi, null, "T", null, null, null, null, null, null, null, null, null, null, null, null,
-        null, "LIVE", null, null, null, null, null, null, null, null, pmcid, null, null);
+        null, "LIVE", null, null, null, null, null, null, null, null, pmcid, null, null, null, null);
   }
 }

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.nametracker.store.layer.LayerHealthMapper">
+
+  <resultMap id="result" type="org.catalogueoflife.nametracker.store.layer.LayerHealth">
+    <constructor>
+      <arg column="layer" javaType="string"/>
+      <arg column="day" javaType="java.time.LocalDate"/>
+      <arg column="state" javaType="string"/>
+      <arg column="failed_runs" javaType="_int"/>
+      <arg column="yield" javaType="_int"/>
+      <arg column="median" javaType="_double"/>
+      <arg column="miss_share" javaType="_double"/>
+    </constructor>
+  </resultMap>
+
+  <insert id="upsert">
+    INSERT INTO layer_health (layer, day, state, failed_runs, yield, median, miss_share)
+    VALUES (#{o.layer}, #{o.day}, #{o.state}, #{o.failedRuns}, #{o.yield}, #{o.median}, #{o.missShare})
+    ON CONFLICT (layer, day) DO UPDATE SET state = EXCLUDED.state, failed_runs = EXCLUDED.failed_runs,
+      yield = EXCLUDED.yield, median = EXCLUDED.median, miss_share = EXCLUDED.miss_share
+  </insert>
+
+  <select id="latest" resultMap="result">
+    SELECT * FROM layer_health WHERE day &gt; current_date - #{days}::int ORDER BY layer, day DESC
+  </select>
+
+  <insert id="upsertCoverage">
+    INSERT INTO source_layer_coverage (source_id, layer, sightings_28d, misses)
+    VALUES (#{sourceId}, #{layer}, #{sightings28d}, #{misses})
+    ON CONFLICT (source_id, layer) DO UPDATE SET sightings_28d = EXCLUDED.sightings_28d, misses = EXCLUDED.misses,
+      updated = now()
+  </insert>
+
+</mapper>

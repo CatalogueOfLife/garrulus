@@ -17,7 +17,7 @@ class ContentMapperIT extends AbstractPostgresIT {
   void upsertReplacesSameRoute() {
     long workId = works.insert(new Work(null, "W-content", null, null, "t", null, null, null, null, null, "[]", null,
         null, null, null, null, null, null, "LIVE", "DISCOVERED", null, java.util.List.of(), java.util.List.of(),
-        false, null, null, null, null, false, null));
+        false, null, null, null, null, false, null, null, null));
     long first = contents.upsert(
         new Content(null, workId, "PMC", "JATS", "cc-by", true, "raw1", "doc1", "https://a", null));
     long second = contents.upsert(

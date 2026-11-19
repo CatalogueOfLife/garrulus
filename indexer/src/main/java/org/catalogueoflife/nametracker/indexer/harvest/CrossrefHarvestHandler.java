@@ -248,7 +248,7 @@ public class CrossrefHarvestHandler implements TaskHandler {
 
   static Work jatsOnly(String doi, String jats) {
     return new Work(null, null, doi, null, null, null, null, null, null, null, null, null, null, null, null, null,
-        null, null, null, null, null, null, null, null, null, null, jats, null, null, null);
+        null, null, null, null, null, null, null, null, null, null, jats, null, null, null, null, null);
   }
 
   private void continuation(Task task, LocalDate date, int batch, @Nullable String cursor, List<String> ids,
