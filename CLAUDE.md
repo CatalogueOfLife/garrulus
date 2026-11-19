@@ -105,15 +105,23 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
     (`0 30 0 * * *`) with `NAMETRACKER_LAYERS_ROLLOUT_PER_NIGHT` (20). A cron enqueues one `LIVE` job per ACTIVE route
     of a harvestable source (none while that route's LIVE job is still queued or running), from 3 days before the
     route's last good run (120 days back if it never ran; Europe PMC always 14 days back); BLR one job from the end of
-    its last DONE run (2 days back without one). The monthly `PROBE_EUROPEPMC` (`0 0 1 1 * *`) needs the harvest and
-    the Europe PMC switch; its new route is VERIFIED for a journal without an OpenAlex id (the rollout onboards it),
-    else ACTIVE.
+    its last DONE run (2 days back without one; a window past 9,000 records is cut by day, Zenodo pages no further than
+    10,000). The monthly `PROBE_EUROPEPMC` (`0 0 1 1 * *`) needs the harvest and the Europe PMC switch (the handler
+    itself is off with the Europe PMC switch); its new route is VERIFIED for a journal without an OpenAlex id (the
+    rollout onboards it), else ACTIVE. A route job that fails writes the route's `last_error`; the attempt that makes
+    its task DEAD marks the route BROKEN (no more nightly jobs until `VERIFY_ROUTE` or an admin revives it). Page
+    continuations keep their task's `run_after` (depth first). A second lost OAI resumption token marks a route BROKEN
+    in a LIVE job only; an ONBOARDING or BACKFILL pass starts again a day later. A set-less OAI route with `issns` keeps
+    only records that carry one of them. OAI requests have their own per-host spacing (2 s), apart from the host's
+    other traffic.
   - Coverage monitor (M6): `NAMETRACKER_LAYERS_COVERAGE_CRON` (`nametracker.layers.coverage-cron`, `0 30 6 * * *` UTC, not
     behind the harvest switch) enqueues `COVERAGE_CHECK {"day":"<yesterday>"}` (key `coverage-check:<day>`; admin may
     enqueue any day, a rerun overwrites that day). It writes `layer_health` (OK/DEGRADED/FAILING per layer and day) and
-    `source_layer_coverage` (28-day sightings and misses per journal). A miss is a work first sighted 3 to 17 days
-    before the day by another layer, in a journal the layer serves (OpenAlex, Crossref: harvestable sources; OAI,
-    Magtech, Europe PMC: sources with an ACTIVE route of it; BLR none), that the layer never saw. A layer turning
+    `source_layer_coverage` (28-day sightings and misses per journal). Yield and misses count LIVE-origin works only
+    (no V16 seed, snapshot backfill or onboarding). A miss is a LIVE work another layer created 3 to 17 days before the
+    day (`work.first_seen_at`), in a journal the layer serves (OpenAlex: harvestable sources with an OpenAlex id;
+    Crossref: harvestable sources with an ISSN; OAI, Magtech, Europe PMC: sources with an ACTIVE route of it; BLR none),
+    that the layer never saw; a work the layer created itself is no candidate. A layer turning
     FAILING logs a WARN (no mail yet). Thresholds `nametracker.coverage.{fail-days=2, yield-ratio=0.5, miss-share=0.30,
     miss-baseline=0.10}` (env `NAMETRACKER_COVERAGE_FAIL_DAYS`, `_YIELD_RATIO`, `_MISS_SHARE`, `_MISS_BASELINE`).
     `GET /api/admin/status` adds `layers` (last 7 days), `routes` (layer, status, count) and the 28-day `contribution`
@@ -270,7 +278,8 @@ curl ... -d '{"type":"BACKFILL","payload":{"fromYear":2020,"toYear":2024,"files"
     them is cut and noted on the run's error.
   - The nightly rollout (`nametracker.layers.rollout-cron`, `0 30 0 * * *` UTC, behind the harvest switch) starts the
     `ONBOARDING` pass (120 days, `REPROCESS`) of up to `nametracker.layers.rollout-per-night` (20) VERIFIED routes of
-    active CORE/BROAD journals. The pass's last page makes the route ACTIVE; for a journal without an OpenAlex id it
+    active CORE/BROAD journals (not one whose onboarding pass went DEAD since its last verification). The pass's last
+    page makes the route ACTIVE; for a journal without an OpenAlex id it
     also onboards the journal (then `PROBE_EUROPEPMC`) and starts its route backfill. An OAI backfill reads the whole
     repository (no `from`), a Europe PMC backfill asks by `FIRST_PDATE`.
 - `GET /api/admin/status`: task counts by type and state, work counts by state and text level, today's (UTC) `api_usage`

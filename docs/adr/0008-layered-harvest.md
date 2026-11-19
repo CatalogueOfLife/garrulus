@@ -39,18 +39,35 @@ routes of harvestable sources, one `LIVE` job per route, and sit behind the mast
   from the several spellings repositories use (host-anchored `doi.org`). `dc:rights` maps **only Creative Commons and
   CC0 URLs** to licence codes; any other URL gives null, because `work.license` holds codes and only open-licence codes
   drive full-text retention. A non-CC open licence therefore counts as closed until it is mapped.
-- **Restart cap.** A `badResumptionToken` restarts the job from its first page once (payload flag `restarted`). A second
-  one in the same job sets the route `BROKEN` ("resumption tokens rejected twice") and ends the task `DONE`, so a flaky
-  repository cannot loop; `VERIFY_ROUTE` revives it.
+- **Restart cap.** A `badResumptionToken` restarts the job from its first page once (position marker `R:`). A second
+  one in the same `LIVE` job sets the route `BROKEN` ("resumption tokens rejected twice") and ends the task `DONE`, so a
+  flaky repository cannot loop; `VERIFY_ROUTE` revives it. An `ONBOARDING` or `BACKFILL` pass is long and may simply
+  have outlived its tokens in a busy queue: it starts again a day later, with the reason in the route's `last_error`
+  and its status kept (at most one restart a day).
+- **Queue place.** A continuation page (and an OAI restart) is enqueued with its task's own `run_after`, like the
+  content chain, so a job runs depth first and is not queued behind everything enqueued since it started (a route
+  backfill behind the 5M-work snapshot backfill would lose every token).
+- **Failing routes.** A route job's failure other than an outage is written to the route's `last_error`; the attempt
+  that ends the task `DEAD` marks the route `BROKEN`. The nightly schedule then stops reading it (a route that never ran
+  would re-read 120 days a night) and the rollout skips a VERIFIED route whose onboarding pass went `DEAD` since its
+  last verification. `VERIFY_ROUTE`, or the admin `PATCH` to ACTIVE (an override that skips verification), revives it.
+- **ISSN filter.** A set-less OAI route with `issns` in its config keeps only records that carry one of them
+  (`dc:source`/`dc:identifier` in `oai_dc`, `issn` in JATS, check digit verified), so a publisher-wide endpoint whose
+  sets are not journals (MDPI) is not filed under one journal. The seeded single-journal OJS endpoints all carry their
+  ISSNs. OAI requests are spaced 2 s per host on their own limiter channel, apart from the host's other traffic
+  (Pensoft content fetches keep their 1 s on `*.pensoft.net`).
 - **Magtech RSS** for Chinese journals on the Beijing Magtech platform (no OAI, DOIs often not in Crossref). Identity by
   scheme `MAGTECH` plus the DOI read from the article page. Abstracts are paired with their items, block tags become
   spaces (so names are not glued), entities are decoded with the decoder of `TitleText`. A missing optional feed never
   breaks the route.
 - **Europe PMC** by ISSN and `FIRST_IDATE` (14-day window), PMID and PMCID as identifiers. `PROBE_EUROPEPMC` finds the
-  journals Europe PMC holds and creates the route.
+  journals Europe PMC holds and creates the route; it defers on an outage, logs and skips a source that fails
+  otherwise, and is off with the Europe PMC switch.
 - **Plazi BLR** from the Zenodo community `biosyslit`, by `created` since the last run. It is a signal for taxonomic
   DOIs: a work is created only for an onboarded journal; Zenodo's own 10.5281 DOIs are ignored; a DOI of an unknown
-  journal is kept in `layer_unmatched` for M6b's discovery.
+  journal is kept in `layer_unmatched` for M6b's discovery. A known DOI whose BLR id another work holds enqueues
+  `MERGE_WORKS`. A window past 9,000 records is cut at the day of the oldest record read and paged again from page 1,
+  so a catch-up never reaches Zenodo's 10,000-record paging ceiling.
 - **Crossref** keeps `from-index-date` by ISSN and adds a history read (below).
 - **Age rule.** `LayerWriter` skips any record published before 2000 and sets the origin: `ONBOARDING` and `BACKFILL`
   by mode; `LIVE` mode gives `LIVE` for a work published within the live window or without a date, else `BACKFILL`.
@@ -67,7 +84,10 @@ routes of harvestable sources, one `LIVE` job per route, and sit behind the mast
 - **Matching order** in `WorkUpsert`, first hit wins: `DOI`, then `OPENALEX`, then the other identifiers of the incoming
   record, then a **title key**: same source, same year, same normalised title and, when both have authors, the same
   first author family name. The title match works in both directions (a DOI-less record joining a work with a DOI and
-  the reverse), and not for titles under four words or generic ones (erratum, editorial, book review, obituary, ...).
+  the reverse), and not for titles under four words or generic ones (erratum, editorial, book review, obituary, ...):
+  a title of at most six words starting with a generic term, one whose part before the colon is one ("Book review:
+  ..."), or a correction term with a connector ("Corrigendum to ..."). A longer title that merely starts with such a
+  word ("Correction of the type locality of ...", "Index to the genera of ...") keeps its key.
 - **Ambiguity rule.** If a title key finds candidates with different DOIs, nothing is joined and a new work is made.
   Without it `MERGE_WORKS` would have joined two distinct papers through a third record.
 - **Advisory lock.** Upserts that need a title match take a transaction advisory lock on the title key, so two
@@ -76,7 +96,12 @@ routes of harvestable sources, one `LIVE` job per route, and sit behind the mast
   backfill depends on it.
 - **Late duplicates.** An identifier that already belongs to another work enqueues `MERGE_WORKS` (older work survives:
   identifiers, contents and hits move, the younger is deleted). **It refuses two works with different non-null DOIs**:
-  it logs and leaves both. The survivor gets `FIND_NAMES` again when its abstract changed (the merge re-finds names).
+  it logs and leaves both. When content moved or the abstract changed, a resolved survivor gets `RESOLVE_CONTENT`
+  (REPROCESS): its text level is recomputed from the moved rows and closed full text fetched again, and `FIND_NAMES`
+  follows when the document changed. Naming it directly would read the stale text level.
+- **Late abstracts.** An upsert that changes the effective abstract (JATS, else plain text) of a work past DISCOVERED
+  enqueues `RESOLVE_CONTENT` (key `content:<id>:abs:<sha12>`): an OAI `dc:description` arriving after OpenAlex or
+  Crossref created the work without one is named.
 - `work_sighting` (`work_id`, `layer`, `source_id`, `first_seen`), one row per work and layer. A sighting means "this
   layer saw the work", not "this layer owns its metadata": Crossref records its sighting also for works it stored through
   OpenAlex enrichment. The journal of a work is always `work.source_id`, never the sighting's.
@@ -143,8 +168,14 @@ writes `layer_health` (state OK / DEGRADED / FAILING, failed runs, yield against
 journal `source_layer_coverage`, in one transaction. `GET /api/admin/status` shows `layers`.
 
 - "Sources the layer serves": OpenAlex and Crossref the harvestable sources; OAI, Magtech and Europe PMC those with an
-  ACTIVE route of that layer; BLR none (community-wide, miss share 0). A miss is a work another layer first saw 3 to 17
-  days ago that this layer never sighted.
+  ACTIVE route of that layer; BLR none (community-wide, miss share 0). OpenAlex is charged misses only for journals
+  with an OpenAlex id, Crossref only for journals with an ISSN.
+- **LIVE works only.** Yield (and its 8-week median) and misses count LIVE-origin works: the V16 seed sightings,
+  snapshot backfills and onboarding passes would otherwise make every other layer miss about everything at the start of
+  the 5M backfill and keep OpenAlex DEGRADED for weeks after it. A miss candidate is a LIVE work created 3 to 17 days ago
+  (`work.first_seen_at`) by another layer (a sighting written with the row; a V16 seed sighting is younger than its
+  row) that this layer never sighted; a work the layer created itself is no candidate. A route's onboarding pass still
+  sights older LIVE works and so adds to its layer's yield on that day.
 - **Zero yield counts only on run days**: a day on which the layer had a `DONE` run with no new sighting. No run means
   not expected (switched off, no routes); failed runs are caught by the failed-run rule, and a deferred run that finishes
   the next day is no failure.
@@ -162,8 +193,8 @@ journal `source_layer_coverage`, in one transaction. `GET /api/admin/status` sho
 - **Crossref month cut at 10,000.** A journal-month with 10,000 works or more is cut at Crossref's offset ceiling;
   the cut is recorded in the run's error text, but `crossref_history_at` is still set (visible only there). A year split
   by month also re-reads its first 10,000 works as months: idempotent, but wasted free calls.
-- **Zenodo paging stops at 10,000 records** per query. The daily BLR delta (about 500) stays far below; a catch-up after
-  a long outage of more than a few weeks needs a smaller window by hand.
+- **Zenodo paging stops at 10,000 records** per query. The window is cut by day before that; only a single day of more
+  than 9,000 BLR records would lose the rest of that day (WARN).
 - **CLB I/O errors place names `NONE`.** When a single match call fails with an I/O error but the probe with
   `Animalia`/kingdom passes (ADR-0005), the name is placed `NONE`, not cached, with a WARN. A sick CLB that still answers
   the probe therefore loses placements until the next reprocess; the more-than-3-names rule defers the task in a real
@@ -176,6 +207,15 @@ journal `source_layer_coverage`, in one transaction. `GET /api/admin/status` sho
   series with the same title are the likely case); the guards on length and generic titles reduce, not remove, this.
 - **Cost of the title match** is one query per unmatched record; it is watched on the 5M backfill. Legacy rows with an
   invalid DOI are matched through their columns only.
+- **V16 locks `work` for the whole migration.** Its `ALTER TABLE work` holds an ACCESS EXCLUSIVE lock until commit,
+  through a full-table update, two index builds, a validating constraint and the identifier inserts (22.5 s on 104k
+  works, tens of minutes on 5M, with `web` blocked). The GBIF database starts empty at V18; a populated one needs a
+  maintenance window.
+- **A known DOI keeps lower-ranked metadata while OpenAlex is down.** Crossref's known-DOI path sends only its JATS
+  abstract (a ruled trade-off: one write per known DOI and page), so a work created by OAI, Europe PMC or Magtech with
+  a DOI keeps their metadata until OpenAlex (or a Crossref record of a new work) brings better.
+- **A set-less OAI route with `issns` whose records carry no ISSN** yields nothing (every record is skipped). That is
+  safer than filing a publisher's output under one journal; such a route needs a set or a hand-written filter.
 - **Deferred minors**: the quadratic skipped count in the BLR page mixes records and DOIs; a retried BLR page repeats
   its lookups.
 - The two-night check with OpenAlex blocked (spec, "Done when") is prepared in `docs/m6a-dev-check.md` and needs two
