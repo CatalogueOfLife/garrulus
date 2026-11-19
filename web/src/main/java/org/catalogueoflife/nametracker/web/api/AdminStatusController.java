@@ -5,7 +5,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,14 +15,12 @@ import org.catalogueoflife.nametracker.store.harvest.HarvestRunMapper;
 import org.catalogueoflife.nametracker.store.index.FinderRollout;
 import org.catalogueoflife.nametracker.store.index.FinderRolloutMapper;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
-import org.catalogueoflife.nametracker.store.ident.WorkSightingMapper;
 import org.catalogueoflife.nametracker.store.layer.LayerHealth;
 import org.catalogueoflife.nametracker.store.layer.LayerHealthMapper;
 import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.TaskMapper;
 import org.catalogueoflife.nametracker.store.usage.ApiUsageMapper;
-import org.catalogueoflife.nametracker.store.work.Layer;
 import org.catalogueoflife.nametracker.store.work.WorkMapper;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Value;
@@ -69,13 +66,13 @@ public class AdminStatusController {
   private final FinderRolloutMapper rollouts;
   private final LayerHealthMapper health;
   private final SourceRouteMapper routes;
-  private final WorkSightingMapper sightings;
   private final Clock clock;
   private final AdminAuth auth;
 
   public AdminStatusController(TaskMapper tasks, WorkMapper works, SourceMapper sources, ApiUsageMapper usage,
       HarvestRunMapper runs, IndexMapper index, BackfillMapper backfill, FinderRolloutMapper rollouts,
-      LayerHealthMapper health, SourceRouteMapper routes, WorkSightingMapper sightings, Clock clock, @Value("${nametracker.admin.token}") String token) {
+      LayerHealthMapper health, SourceRouteMapper routes, Clock clock,
+      @Value("${nametracker.admin.token}") String token) {
     this.tasks = tasks;
     this.works = works;
     this.sources = sources;
@@ -86,7 +83,6 @@ public class AdminStatusController {
     this.rollouts = rollouts;
     this.health = health;
     this.routes = routes;
-    this.sightings = sightings;
     this.clock = clock;
     this.auth = new AdminAuth(token);
   }
@@ -121,9 +117,9 @@ public class AdminStatusController {
   private Contribution contribution() {
     Map<String, Map<String, Long>> total = new LinkedHashMap<>();
     Map<String, Map<String, Map<String, Long>>> byCountry = new LinkedHashMap<>();
-    for (Map<String, Object> r : sightings.contribution(Arrays.stream(Layer.values()).map(Layer::name).toList())) {
+    for (Map<String, Object> r : health.latestContribution()) {
       String layer = (String) r.get("layer");
-      String country = r.get("country") == null ? "UNKNOWN" : (String) r.get("country");
+      String country = "".equals(r.get("country")) ? "UNKNOWN" : (String) r.get("country");
       long first = ((Number) r.get("first_found")).longValue();
       long only = ((Number) r.get("only_found")).longValue();
       Map<String, Long> t = total.computeIfAbsent(layer, k -> new LinkedHashMap<>());
@@ -137,7 +133,7 @@ public class AdminStatusController {
     return new Contribution(total, byCountry);
   }
 
-  /** The 28-day contribution of the layers, in total and by the journal's country. */
+  /** The 28-day contribution of the layers as of the last coverage check, in total and by the journal's country. */
   private record Contribution(Map<String, Map<String, Long>> total,
       Map<String, Map<String, Map<String, Long>>> byCountry) {}
 

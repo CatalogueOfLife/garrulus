@@ -19,9 +19,10 @@ public interface WorkSightingMapper {
   int moveAll(@Param("fromWork") long fromWork, @Param("toWork") long toWork);
 
   /**
-   * Contribution of the layers over the last 28 days, per journal country (null for none) and layer: sightings of
-   * works the layer saw first ({@code first_found}, ties by layer name) and of works only it has seen
-   * ({@code only_found}). {@code layers} bounds the scan to the layer index.
+   * Contribution of the layers to the LIVE works created from {@code from} to {@code to} inclusive (UTC), per journal
+   * country (null for none) and layer: works the layer saw first ({@code first_found}, ties by layer name) and works
+   * only it has seen ({@code only_found}). {@code layers} bounds the scan to the layer index.
    */
-  List<Map<String, Object>> contribution(@Param("layers") List<String> layers);
+  List<Map<String, Object>> contribution(@Param("layers") List<String> layers, @Param("from") java.time.LocalDate from,
+      @Param("to") java.time.LocalDate to);
 }

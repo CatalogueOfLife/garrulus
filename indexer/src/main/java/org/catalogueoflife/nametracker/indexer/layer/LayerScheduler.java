@@ -36,7 +36,7 @@ import org.springframework.stereotype.Component;
  * <p>The window starts three days before the route's last good run (120 days back for a route that never ran) for OAI
  * and Magtech, and {@value #EUROPEPMC_DAYS} days back for Europe PMC. BLR has no route: one job from the end of its
  * last DONE run (two days back without one). The monthly Europe PMC probe is behind the master switch and the
- * Europe PMC switch. The daily coverage check (\{@code nametracker.layers.coverage-cron}) is analysis and not behind the
+ * Europe PMC switch. The daily coverage check ({@code nametracker.layers.coverage-cron}) is analysis and not behind the
  * harvest switch.
  */
 @Component

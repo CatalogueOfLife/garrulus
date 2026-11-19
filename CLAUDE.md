@@ -116,7 +116,9 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
     FAILING logs a WARN (no mail yet). Thresholds `nametracker.coverage.{fail-days=2, yield-ratio=0.5, miss-share=0.30,
     miss-baseline=0.10}` (env `NAMETRACKER_COVERAGE_FAIL_DAYS`, `_YIELD_RATIO`, `_MISS_SHARE`, `_MISS_BASELINE`).
     `GET /api/admin/status` adds `layers` (last 7 days), `routes` (layer, status, count) and the 28-day `contribution`
-    (first-found and only-found per layer, also `contributionByCountry`).
+    (first-found and only-found per layer, also `contributionByCountry`), as of the last coverage check: the check
+    stores them in `layer_contribution` (V18) for LIVE works created in the 28 days up to its day, and the endpoint
+    reads the newest stored day. A zero-yield day counts for FAILING only with a DONE run that day.
   - `NAMETRACKER_HARVEST_OUTAGE_DELAY` (30m): a harvest or onboarding page that meets an outage is enqueued again after
     this delay instead of failing.
 - `indexer` matching and index (ADR-0005):

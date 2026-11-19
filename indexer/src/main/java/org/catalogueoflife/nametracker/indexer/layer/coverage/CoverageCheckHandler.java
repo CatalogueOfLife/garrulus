@@ -5,19 +5,19 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.layer.LayerHealth;
 import org.catalogueoflife.nametracker.store.layer.LayerHealthMapper;
 import org.catalogueoflife.nametracker.store.task.Task;
 import org.catalogueoflife.nametracker.store.work.Layer;
+import org.catalogueoflife.nametracker.store.ident.WorkSightingMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -38,10 +38,15 @@ public class CoverageCheckHandler implements TaskHandler {
 
   private final LayerHealthMapper mapper;
   private final LayerHealthCalculator calculator;
+  private final WorkSightingMapper sightings;
+  private final TransactionTemplate tx;
 
-  public CoverageCheckHandler(LayerHealthMapper mapper, LayerHealthCalculator calculator) {
+  public CoverageCheckHandler(LayerHealthMapper mapper, LayerHealthCalculator calculator,
+      WorkSightingMapper sightings, TransactionTemplate tx) {
     this.mapper = mapper;
     this.calculator = calculator;
+    this.sightings = sightings;
+    this.tx = tx;
   }
 
   @Override
@@ -58,6 +63,20 @@ public class CoverageCheckHandler implements TaskHandler {
     JsonNode p = FinderJson.mapper().readTree(task.payload());
     LocalDate day = LocalDate.parse(p.path("day").asString());
     for (Layer layer : Layer.values()) check(layer, day);
+    contribution(day);
+  }
+
+  /** The 28 days up to the day: LIVE works created then, by the layer that saw them first and that alone saw them. */
+  private void contribution(LocalDate day) {
+    List<Map<String, Object>> rows = sightings.contribution(Arrays.stream(Layer.values()).map(Layer::name).toList(),
+        day.minusDays(27), day);
+    tx.executeWithoutResult(s -> {
+      mapper.deleteContribution(day);
+      for (Map<String, Object> r : rows) {
+        mapper.insertContribution(day, (String) r.get("layer"), r.get("country") == null ? "" : (String) r.get("country"),
+            ((Number) r.get("first_found")).longValue(), ((Number) r.get("only_found")).longValue());
+      }
+    });
   }
 
   private void check(Layer layer, LocalDate day) {
@@ -84,7 +103,11 @@ public class CoverageCheckHandler implements TaskHandler {
     int yield7d = 0;
     for (int i = 0; i < 7; i++) yield7d += daily.getOrDefault(day.minusDays(i), 0);
     int zeroDays = 0;
-    for (LocalDate d = day; !d.isBefore(sightFrom) && daily.getOrDefault(d, 0) == 0; d = d.minusDays(1)) zeroDays++;
+    // a zero-yield day needs a DONE run that day: a day without a run was not expected to yield and ends the streak
+    for (LocalDate d = day; !d.isBefore(sightFrom); d = d.minusDays(1)) {
+      if (runs.getOrDefault(d, none)[2] > 0 && daily.getOrDefault(d, 0) == 0) zeroDays++;
+      else break;
+    }
     List<Integer> weeks = new ArrayList<>();
     for (int w = 0; w < WEEKS; w++) {
       int sum = 0;
@@ -127,12 +150,10 @@ public class CoverageCheckHandler implements TaskHandler {
       misses += m;
       bySource.computeIfAbsent(((Number) r.get("source_id")).longValue(), k -> new int[2])[1] = m;
     }
-    mapper.deleteCoverage(name);
-    Set<Long> ids = new LinkedHashSet<>(bySource.keySet());
-    for (long id : ids) {
-      int[] v = bySource.get(id);
-      mapper.upsertCoverage(id, name, v[0], v[1]);
-    }
+    tx.executeWithoutResult(s -> {
+      mapper.deleteCoverage(name);
+      bySource.forEach((id, v) -> mapper.upsertCoverage(id, name, v[0], v[1]));
+    });
     return total == 0 ? 0 : (double) misses / total;
   }
 

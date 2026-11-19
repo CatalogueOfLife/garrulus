@@ -31,6 +31,7 @@ class CoverageCheckHandlerIT extends AbstractPostgresIT {
   @BeforeEach
   void clean() {
     jdbc.update("DELETE FROM layer_health");
+    jdbc.update("DELETE FROM layer_contribution");
     jdbc.update("DELETE FROM source_layer_coverage");
     jdbc.update("DELETE FROM harvest_run");
     jdbc.update("DELETE FROM work");
@@ -45,8 +46,8 @@ class CoverageCheckHandlerIT extends AbstractPostgresIT {
   }
 
   long work(String doi, long sourceId) {
-    return jdbc.queryForObject("INSERT INTO work (doi, origin, state, source_id) VALUES (?, 'LIVE', 'DISCOVERED', ?) "
-        + "RETURNING id", Long.class, doi, sourceId);
+    return jdbc.queryForObject("INSERT INTO work (doi, origin, state, source_id, first_seen_at) VALUES (?, 'LIVE', 'DISCOVERED', ?, ?::timestamptz) "
+        + "RETURNING id", Long.class, doi, sourceId, DAY.minusDays(5) + "T00:00:00Z");
   }
 
   void sight(long workId, Layer layer, long sourceId, String when) {
@@ -134,31 +135,41 @@ class CoverageCheckHandlerIT extends AbstractPostgresIT {
   }
 
   @Test
-  void contributionCountsFirstAndOnly() {
+  void contributionCountsFirstAndOnly() throws Exception {
     long a = work("10.3/a", source); // OpenAlex first, Crossref later
-    sight(a, Layer.OPENALEX, source, java.time.Instant.now().minusSeconds(5 * 86400) + "");
-    sight(a, Layer.CROSSREF, source, java.time.Instant.now().minusSeconds(4 * 86400) + "");
+    sight(a, Layer.OPENALEX, source, DAY.minusDays(5) + "T10:00:00Z");
+    sight(a, Layer.CROSSREF, source, DAY.minusDays(4) + "T10:00:00Z");
     long b = work("10.3/b", source); // OAI only
-    sight(b, Layer.OAI, source, java.time.Instant.now().minusSeconds(3 * 86400) + "");
+    sight(b, Layer.OAI, source, DAY.minusDays(3) + "T10:00:00Z");
+    long old = work("10.3/old", source); // created before the window: not counted
+    jdbc.update("UPDATE work SET first_seen_at = ?::timestamptz WHERE id = ?", DAY.minusDays(60) + "T00:00:00Z", old);
+    sight(old, Layer.CROSSREF, source, DAY.minusDays(3) + "T10:00:00Z");
+    long seeded = work("10.3/seed", source); // a backfilled work: not counted
+    jdbc.update("UPDATE work SET origin = 'BACKFILL' WHERE id = ?", seeded);
+    sight(seeded, Layer.OPENALEX, source, DAY.minusDays(3) + "T10:00:00Z");
+    check(DAY);
     Map<String, long[]> byLayer = new java.util.HashMap<>();
-    for (Map<String, Object> r : sightings.contribution(List.of("OPENALEX", "CROSSREF", "OAI"))) {
-      byLayer.put(r.get("layer").toString(), new long[] {((Number) r.get("first_found")).longValue(),
-          ((Number) r.get("only_found")).longValue()});
+    for (Map<String, Object> r : health.latestContribution()) {
+      byLayer.computeIfAbsent(r.get("layer").toString(), k -> new long[2])[0] += ((Number) r.get("first_found")).longValue();
+      byLayer.get(r.get("layer").toString())[1] += ((Number) r.get("only_found")).longValue();
     }
     assertThat(byLayer.get("OPENALEX")).containsExactly(1, 0);
     assertThat(byLayer.get("CROSSREF")).containsExactly(0, 0);
     assertThat(byLayer.get("OAI")).containsExactly(1, 1);
+    check(DAY); // a rerun replaces the day's rows
+    assertThat(health.latestContribution()).hasSize(3);
   }
 
   @Test
-  void contributionByCountry() {
+  void contributionByCountry() throws Exception {
     long a = work("10.4/a", chinese);
-    sight(a, Layer.MAGTECH, chinese, java.time.Instant.now().minusSeconds(86400) + "");
+    sight(a, Layer.MAGTECH, chinese, DAY.minusDays(2) + "T10:00:00Z");
     long b = work("10.4/b", source);
-    sight(b, Layer.OPENALEX, source, java.time.Instant.now().minusSeconds(86400) + "");
+    sight(b, Layer.OPENALEX, source, DAY.minusDays(2) + "T10:00:00Z");
+    check(DAY);
     boolean cn = false;
     boolean de = false;
-    for (Map<String, Object> r : sightings.contribution(List.of("MAGTECH", "OPENALEX"))) {
+    for (Map<String, Object> r : health.latestContribution()) {
       if ("CN".equals(r.get("country"))) {
         assertThat(r.get("layer")).isEqualTo("MAGTECH");
         assertThat(((Number) r.get("only_found")).longValue()).isEqualTo(1);
@@ -170,5 +181,36 @@ class CoverageCheckHandlerIT extends AbstractPostgresIT {
       }
     }
     assertThat(cn && de).isTrue();
+  }
+
+  @Test
+  void quietLayerWithoutRunsStaysOk() throws Exception {
+    // yield for weeks, then three days without any run and without sightings (switched off): not a failure
+    for (int i = 3; i < 63; i++) {
+      for (int k = 0; k < 10; k++) sight(work("10.5/q" + i + "-" + k, source), Layer.OPENALEX, source, DAY.minusDays(i) + "T12:00:00Z");
+    }
+    check(DAY);
+    assertThat(row(Layer.OPENALEX, DAY).state()).isEqualTo("OK");
+  }
+
+  @Test
+  void zeroYieldWithDoneRunsTurnsFailing() throws Exception {
+    for (int i = 2; i < 63; i++) {
+      for (int k = 0; k < 10; k++) sight(work("10.6/z" + i + "-" + k, source), Layer.OPENALEX, source, DAY.minusDays(i) + "T12:00:00Z");
+    }
+    run("OPENALEX_LIVE", "DONE", DAY);
+    run("OPENALEX_LIVE", "DONE", DAY.minusDays(1));
+    check(DAY);
+    assertThat(row(Layer.OPENALEX, DAY).state()).isEqualTo("FAILING");
+  }
+
+  @Test
+  void deferredRunThatNeverCompletesStaysAFailedDay() throws Exception {
+    for (int i = 0; i < 63; i++) {
+      sight(work("10.7/d" + i, source), Layer.OPENALEX, source, DAY.minusDays(i) + "T12:00:00Z");
+    }
+    run("OPENALEX_LIVE", "DEFERRED", DAY);
+    check(DAY);
+    assertThat(row(Layer.OPENALEX, DAY).state()).isEqualTo("DEGRADED");
   }
 }

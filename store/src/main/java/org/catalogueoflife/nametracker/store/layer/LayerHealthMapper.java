@@ -52,4 +52,13 @@ public interface LayerHealthMapper {
 
   /** Removes all coverage rows of a layer (before they are written again). */
   int deleteCoverage(@Param("layer") String layer);
+
+  int deleteContribution(@Param("day") LocalDate day);
+
+  /** Stores one contribution row of a day; an empty country is a journal without one. */
+  int insertContribution(@Param("day") LocalDate day, @Param("layer") String layer, @Param("country") String country,
+      @Param("first") long first, @Param("only") long only);
+
+  /** The rows of the newest stored day: {@code layer}, {@code country}, {@code first_found}, {@code only_found}. */
+  List<Map<String, Object>> latestContribution();
 }

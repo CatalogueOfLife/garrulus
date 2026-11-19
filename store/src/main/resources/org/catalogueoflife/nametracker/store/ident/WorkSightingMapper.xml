@@ -31,7 +31,10 @@
       JOIN work w ON w.id = ws.work_id
       LEFT JOIN source s ON s.id = w.source_id
       WHERE ws.layer IN <foreach collection="layers" item="l" open="(" separator="," close=")">#{l}</foreach>
-        AND ws.first_seen &gt; now() - interval '28 days'
+        AND w.origin = 'LIVE'
+        AND w.first_seen_at &gt;= (#{from}::date)::timestamp AT TIME ZONE 'UTC'
+        AND w.first_seen_at &lt; ((#{to}::date) + 1)::timestamp AT TIME ZONE 'UTC'
+        AND ws.first_seen &gt;= (#{from}::date)::timestamp AT TIME ZONE 'UTC'
     ) x
     GROUP BY x.country, x.layer
   </select>

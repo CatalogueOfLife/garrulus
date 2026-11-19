@@ -159,14 +159,10 @@ class AdminStatusControllerIT extends AbstractPostgresIT {
     jdbc.update("INSERT INTO layer_health (layer, day, state, failed_runs, yield, median, miss_share) VALUES "
         + "('OPENALEX', (now() AT TIME ZONE 'UTC')::date - 1, 'FAILING', 1, 10, 70, 0.4), "
         + "('OPENALEX', (now() AT TIME ZONE 'UTC')::date - 30, 'OK', 0, 10, 70, 0)");
-    long w1 = jdbc.queryForObject("INSERT INTO work (doi, origin, state, source_id) VALUES ('10.9/a','LIVE','DISCOVERED',?) "
-        + "RETURNING id", Long.class, cn);
-    jdbc.update("INSERT INTO work_sighting (work_id, layer, source_id, first_seen) VALUES "
-        + "(?, 'MAGTECH', ?, now() - interval '3 days'), (?, 'OPENALEX', ?, now() - interval '2 days')", w1, cn, w1, cn);
-    long w2 = jdbc.queryForObject("INSERT INTO work (doi, origin, state, source_id) VALUES ('10.9/b','LIVE','DISCOVERED',?) "
-        + "RETURNING id", Long.class, cn);
-    jdbc.update("INSERT INTO work_sighting (work_id, layer, source_id, first_seen) VALUES (?, 'MAGTECH', ?, now() - interval '1 day')",
-        w2, cn);
+    jdbc.update("DELETE FROM layer_contribution");
+    jdbc.update("INSERT INTO layer_contribution (day, layer, country, first_found, only_found) VALUES "
+        + "('2026-01-01', 'MAGTECH', 'CN', 99, 99), "
+        + "('2026-01-02', 'MAGTECH', 'CN', 2, 1), ('2026-01-02', 'MAGTECH', '', 1, 0), ('2026-01-02', 'OPENALEX', 'CN', 0, 0)");
 
     JsonNode s = new ObjectMapper().readTree(get("test-token").body());
 
@@ -176,7 +172,7 @@ class AdminStatusControllerIT extends AbstractPostgresIT {
     assertThat(s.at("/routes/MAGTECH/ACTIVE").asLong()).isEqualTo(1);
     assertThat(s.at("/routes/MAGTECH/BROKEN").asLong()).isEqualTo(1);
     assertThat(s.at("/routes/OAI/ACTIVE").asLong()).isEqualTo(1);
-    assertThat(s.at("/contribution/MAGTECH/first").asLong()).isEqualTo(2);
+    assertThat(s.at("/contribution/MAGTECH/first").asLong()).isEqualTo(3);
     assertThat(s.at("/contribution/MAGTECH/only").asLong()).isEqualTo(1);
     assertThat(s.at("/contribution/OPENALEX/first").asLong()).isEqualTo(0);
     assertThat(s.at("/contributionByCountry/CN/MAGTECH/first").asLong()).isEqualTo(2);

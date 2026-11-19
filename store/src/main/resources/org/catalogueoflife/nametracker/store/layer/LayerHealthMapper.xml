@@ -99,4 +99,18 @@
     DELETE FROM source_layer_coverage WHERE layer = #{layer}
   </delete>
 
+  <delete id="deleteContribution">
+    DELETE FROM layer_contribution WHERE day = #{day}
+  </delete>
+
+  <insert id="insertContribution">
+    INSERT INTO layer_contribution (day, layer, country, first_found, only_found)
+    VALUES (#{day}, #{layer}, #{country}, #{first}, #{only})
+  </insert>
+
+  <select id="latestContribution" resultType="map">
+    SELECT layer, country, first_found, only_found FROM layer_contribution
+    WHERE day = (SELECT max(day) FROM layer_contribution)
+  </select>
+
 </mapper>
