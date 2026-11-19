@@ -6,7 +6,7 @@ first. All commands run from the repo root with JDK 25 (`source ~/.sdkman/bin/sd
 
 ```
 export FINDER_DICTIONARY=$PWD/eval/work/dictionary-316691.bin   # the pinned XR; rebuild with build-dictionary for a new one
-docker compose up -d gnfinder                                          # needed by pipeline, gnfinder, tune-salience
+gnfinder -p 8778                                                       # native gnfinder (CLAUDE.md), needed by pipeline, gnfinder, tune-salience
 ```
 
 ## 1. Fix the gold in Label Studio

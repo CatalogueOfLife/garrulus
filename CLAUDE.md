@@ -23,8 +23,8 @@ full backfill runs later on the GBIF VM. M2's week-long dev run continues (`docs
 Prerequisites: `sdk env` (JDK 25 from `.sdkmanrc`), Docker (OrbStack works), Node 24 for the frontend.
 
 ```
-docker compose up -d db gnfinder                    # db 5434, gnfinder 8778 (add --profile grobid / annotate for 8070 / 8090)
-                                                    # gnfinder v1.5.0 is built from docker/gnfinder (no upstream image); --build after a tag change
+docker compose up -d db                             # db 5434 (add --profile grobid / annotate / mail for 8070 / 8090 / 8025)
+gnfinder -p 8778                                    # native gnfinder, see "gnfinder" below (not in docker)
 mvn -B verify                                       # all unit tests and ITs (ITs use Testcontainers)
 mvn -B -pl <module> -am verify -Dit.test=<Class>    # one IT
 mvn -B -pl eval -am verify -Pgrobid -Dit.test=GrobidIT   # GrobidIT only runs with -Pgrobid (1.2 GB image)
@@ -36,6 +36,24 @@ mvn -pl web spring-boot:run                         # web on 8080
 cd frontend && npm install                          # once
 cd frontend && npm run dev | npm test | npm run build   # Vite on 5173, proxies /api to 8080
 ```
+
+## gnfinder
+
+gnfinder runs natively in development and in production (a systemd unit on the GBIF VM); docker only builds it for the
+integration test `GnfinderClientIT` (`docker/gnfinder/Dockerfile`, which pins the version). v1.5.0 has no released
+binary, Homebrew's `gnames/gn` tap is at v1.3.0, so install the tag with Go:
+
+```
+CGO_ENABLED=0 go install -ldflags "-X github.com/gnames/gnfinder/pkg.Version=v1.5.0" github.com/gnames/gnfinder@v1.5.0
+gnfinder -p 8778        # GNFINDER_URL default http://localhost:8778; check: curl localhost:8778/api/v1/version
+```
+
+- On a Mac it can run as a launchd agent (`~/Library/LaunchAgents/org.catalogueoflife.gnfinder.plist`: `~/go/bin/gnfinder
+  -p 8778`, RunAtLoad and KeepAlive, log `~/Library/Logs/gnfinder.log`; `launchctl bootstrap gui/$(id -u) <plist>`).
+- gnfinder has no bind-address option and listens on all interfaces: keep port 8778 closed to other hosts (macOS
+  firewall locally, a firewall rule on the VM).
+- A version change: bump `GNFINDER_VERSION` in the Dockerfile, the image tag in `GnfinderClientIT` and the tag above,
+  then `go install` again (and restart it). The gnfinder version is not part of the finder `configHash`.
 
 **CLB snapshot modules.** `clb.version` is `1.7.1-SNAPSHOT`; `vocab` (`TaxGroup`) and `nomenclature`
 (`TaxGroupAnalyzer`) come from the GBIF snapshot repository. When that repository is unreachable (it refused connections
@@ -255,8 +273,8 @@ Run the CLI after `mvn -B -DskipTests install` with `mvn -q -pl eval exec:java -
 on any command lists its options.
 
 - **Prerequisites:**
-  - `docker compose up -d gnfinder` for the gnfinder and pipeline finders (`GNFINDER_URL`, default
-    `http://localhost:8778`).
+  - A running native gnfinder for the gnfinder and pipeline finders (`GNFINDER_URL`, default
+    `http://localhost:8778`; see "gnfinder").
   - The COL dictionary for pipeline, mode B and tune: `--dictionary <file>` or `FINDER_DICTIONARY`.
 - **Dictionary** (not committed): `build-dictionary --xr https://download.checklistbank.org/col/xr_latest_coldp.zip
   --out eval/work` writes `eval/work/dictionary-<releaseKey>.bin` (format v2, about 46 MB).

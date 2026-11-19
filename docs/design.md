@@ -520,7 +520,7 @@ nametracker/                       (new repo github.com/CatalogueOfLife/nametrac
   web/                             Spring Boot app #2: public REST API, feeds, auth, subscriptions, digest delivery, admin endpoints
   eval/                            gold-set fetcher (Pensoft TaxPub), scorer, CLI, fixed held-out set
   frontend/                        Vite + React 18 + TypeScript + Mantine + TanStack Query (vitest + MSW)
-  docker-compose.yml               postgres:17 (port 5434), gnfinder, grobid
+  docker-compose.yml               postgres:17 (port 5434), grobid; gnfinder runs natively (docker only in its IT)
   docs/design.md                   this document; docs/adr/ for later decisions
 ```
 

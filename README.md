@@ -6,8 +6,9 @@ name; `nametracker` is the internal id. See [docs/design.md](docs/design.md) for
 
 ## Getting started
 
-1. Install JDK 25 (`sdk env`, see `.sdkmanrc`), Docker and Node 24.
-2. `docker compose up -d db gnfinder`
+1. Install JDK 25 (`sdk env`, see `.sdkmanrc`), Docker, Go and Node 24.
+2. `docker compose up -d db`, and gnfinder natively on port 8778 (see [CLAUDE.md](CLAUDE.md#gnfinder)):
+   `go install github.com/gnames/gnfinder@v1.5.0`, then `gnfinder -p 8778`.
 3. `mvn -B -DskipTests install` once (the apps resolve the sibling modules from `~/.m2`), then `mvn -B verify` for
    the Java build and tests and `cd frontend && npm install && npm test`.
 4. Optional: `cp .env.example .env` for local settings (read by both apps). Run the apps: `mvn -pl indexer spring-boot:run` and `mvn -pl web spring-boot:run`, plus `npm run dev` in `frontend/`.

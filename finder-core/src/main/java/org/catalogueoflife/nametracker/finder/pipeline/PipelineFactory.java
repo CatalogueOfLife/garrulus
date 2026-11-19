@@ -17,7 +17,7 @@ import java.nio.file.Path;
  * one place that assembles it, used by the eval CLI and the finder service alike.
  */
 public final class PipelineFactory {
-  /** Where docker compose publishes gnfinder. */
+  /** Where the native gnfinder of a development machine listens ({@code gnfinder -p 8778}). */
   public static final String DEFAULT_GNFINDER_URL = "http://localhost:8778";
   static final String BUILD_HINT = "build one with: eval build-dictionary --xr <XR zip> --out eval/work";
 

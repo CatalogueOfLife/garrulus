@@ -1,6 +1,9 @@
 # Local helper services for Garrulus (internal id nametracker).
 #
-#   docker compose up -d db gnfinder          # what the app and tests need day to day
+#   docker compose up -d db                   # what the apps need day to day
+#
+# gnfinder is not here: it runs natively in development and production (see CLAUDE.md, "gnfinder"), and only the
+# integration test GnfinderClientIT runs it in docker, built from docker/gnfinder.
 #   docker compose --profile grobid up -d     # + GROBID (PDF/TEI parsing)
 #   docker compose --profile annotate up -d   # + Label Studio (annotation)
 #   docker compose --profile mail up -d       # + Mailpit (SMTP 1025, web UI http://localhost:8025)
@@ -24,14 +27,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
-
-  gnfinder:
-    # v1.5.0 has no upstream image (gnames/gnfinder stops at v1.4.0, amd64 only): built from the tag, natively
-    build: docker/gnfinder
-    image: nametracker/gnfinder:v1.5.0
-    command: ["-p", "8999"]          # the image default, spelled out
-    ports:
-      - "127.0.0.1:8778:8999"
 
   grobid:
     image: grobid/grobid:0.9.1-crf
