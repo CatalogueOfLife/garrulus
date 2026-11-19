@@ -24,6 +24,7 @@ Prerequisites: `sdk env` (JDK 25 from `.sdkmanrc`), Docker (OrbStack works), Nod
 
 ```
 docker compose up -d db gnfinder                    # db 5434, gnfinder 8778 (add --profile grobid / annotate for 8070 / 8090)
+                                                    # gnfinder v1.5.0 is built from docker/gnfinder (no upstream image); --build after a tag change
 mvn -B verify                                       # all unit tests and ITs (ITs use Testcontainers)
 mvn -B -pl <module> -am verify -Dit.test=<Class>    # one IT
 mvn -B -pl eval -am verify -Pgrobid -Dit.test=GrobidIT   # GrobidIT only runs with -Pgrobid (1.2 GB image)

@@ -26,8 +26,9 @@ services:
       retries: 20
 
   gnfinder:
-    image: gnames/gnfinder:v1.4.0   # v1.5.0 is tagged but has no image yet
-    platform: linux/amd64           # v1.4.0 is published for amd64 only; runs emulated on arm64
+    # v1.5.0 has no upstream image (gnames/gnfinder stops at v1.4.0, amd64 only): built from the tag, natively
+    build: docker/gnfinder
+    image: nametracker/gnfinder:v1.5.0
     command: ["-p", "8999"]          # the image default, spelled out
     ports:
       - "127.0.0.1:8778:8999"

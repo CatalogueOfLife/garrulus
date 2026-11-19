@@ -1,0 +1,1473 @@
+{
+  "finder" : "pipeline",
+  "info" : {
+    "name" : "pipeline",
+    "version" : "0.1.0-SNAPSHOT",
+    "configHash" : "f40ea7de5c5fe60938dc0db79cbcd9eb91aa0479b28ea95db4bf138f1e185192",
+    "dictionaryKey" : "316691"
+  },
+  "corpus" : "curated",
+  "split" : "test",
+  "mode" : "A",
+  "documents" : 80,
+  "names" : {
+    "tp" : 573,
+    "fp" : 90,
+    "fn" : 75
+  },
+  "byCategory" : {
+    "block:ABSTRACT" : {
+      "tp" : 147,
+      "fp" : 22,
+      "fn" : 14
+    },
+    "block:CAPTION" : {
+      "tp" : 187,
+      "fp" : 6,
+      "fn" : 56
+    },
+    "block:HEADING" : {
+      "tp" : 21,
+      "fp" : 0,
+      "fn" : 0
+    },
+    "block:PARAGRAPH" : {
+      "tp" : 185,
+      "fp" : 39,
+      "fn" : 3
+    },
+    "block:TABLE_CELL" : {
+      "tp" : 9,
+      "fp" : 0,
+      "fn" : 0
+    },
+    "block:TITLE" : {
+      "tp" : 24,
+      "fp" : 23,
+      "fn" : 2
+    },
+    "kind:ABBREVIATED" : {
+      "tp" : 163,
+      "fp" : 0,
+      "fn" : 3
+    },
+    "kind:BINOMIAL" : {
+      "tp" : 175,
+      "fp" : 5,
+      "fn" : 4
+    },
+    "kind:TRINOMIAL" : {
+      "tp" : 6,
+      "fp" : 0,
+      "fn" : 3
+    },
+    "kind:UNINOMIAL" : {
+      "tp" : 229,
+      "fp" : 85,
+      "fn" : 65
+    },
+    "lang:de" : {
+      "tp" : 2,
+      "fp" : 0,
+      "fn" : 0
+    },
+    "lang:en" : {
+      "tp" : 493,
+      "fp" : 65,
+      "fn" : 71
+    },
+    "lang:es" : {
+      "tp" : 17,
+      "fp" : 8,
+      "fn" : 4
+    },
+    "lang:fr" : {
+      "tp" : 7,
+      "fp" : 2,
+      "fn" : 0
+    },
+    "lang:pt" : {
+      "tp" : 14,
+      "fp" : 0,
+      "fn" : 0
+    },
+    "lang:und" : {
+      "tp" : 40,
+      "fp" : 15,
+      "fn" : 0
+    },
+    "stratum:ACTS" : {
+      "tp" : 222,
+      "fp" : 41,
+      "fn" : 69
+    },
+    "stratum:BROAD_EN" : {
+      "tp" : 55,
+      "fp" : 6,
+      "fn" : 3
+    },
+    "stratum:NON_EN" : {
+      "tp" : 25,
+      "fp" : 4,
+      "fn" : 1
+    },
+    "stratum:PENSOFT" : {
+      "tp" : 271,
+      "fp" : 39,
+      "fn" : 2
+    }
+  },
+  "nameCorrect" : {
+    "correct" : 0,
+    "matched" : 0,
+    "rate" : 0.0
+  },
+  "nameCorrectByKind" : { },
+  "acts" : {
+    "tp" : 50,
+    "fp" : 3,
+    "fn" : 40
+  },
+  "contexts" : {
+    "tp" : 15,
+    "fp" : 21,
+    "fn" : 18
+  },
+  "mainSubject" : {
+    "tp" : 7,
+    "fp" : 88,
+    "fn" : 5
+  },
+  "falsePositives" : [ {
+    "docId" : "openalex:W4410991980",
+    "blockId" : "b1",
+    "start" : 74,
+    "end" : 83,
+    "text" : "Teleostei",
+    "category" : "UNINOMIAL",
+    "context" : "sa ferganaensis Sheraliev & Peng, 2021 («Teleostei»: Nemacheilidae)"
+  }, {
+    "docId" : "openalex:W7117713044",
+    "blockId" : "b1",
+    "start" : 29,
+    "end" : 40,
+    "text" : "MICROPTERUS",
+    "category" : "UNINOMIAL",
+    "context" : "FILLET QUALITY DIFFERENCE OF «MICROPTERUS» SALMOIDES CULTURED UNDER DIFFERENT MODE"
+  }, {
+    "docId" : "openalex:W4414511084",
+    "blockId" : "b1",
+    "start" : 91,
+    "end" : 99,
+    "text" : "Decapoda",
+    "category" : "UNINOMIAL",
+    "context" : "epresentatives of Pilumnus Leach, 1816 («Decapoda», Brachyura, Pilumnidae) based on molecu"
+  }, {
+    "docId" : "openalex:W4413210974",
+    "blockId" : "b2",
+    "start" : 127,
+    "end" : 142,
+    "text" : "Elaeis oleifera",
+    "category" : "BINOMIAL",
+    "context" : "a producir híbridos interespecíficos de «Elaeis oleifera» × Elaeis guineensis (O×G), presentan va"
+  }, {
+    "docId" : "openalex:W4416959617",
+    "blockId" : "b1",
+    "start" : 87,
+    "end" : 94,
+    "text" : "Odonata",
+    "category" : "UNINOMIAL",
+    "context" : "lax dendrophila Belle, 1984, en Guyane («Odonata» : Libellulidae)"
+  }, {
+    "docId" : "pensoft:zookeys.1229.138920",
+    "blockId" : "b96",
+    "start" : 0,
+    "end" : 8,
+    "text" : "Mesosoma",
+    "category" : "UNINOMIAL",
+    "context" : "«Mesosoma». Mesoscutum slightly swollen, straight "
+  }, {
+    "docId" : "pensoft:zookeys.1285.182943",
+    "blockId" : "b499",
+    "start" : 72,
+    "end" : 79,
+    "text" : "Atacama",
+    "category" : "UNINOMIAL",
+    "context" : "19\"W), at about 1050 m elevation in the «Atacama» Desert, Arica Province, northern Chile."
+  }, {
+    "docId" : "pensoft:bdj.13.e146229",
+    "blockId" : "b46",
+    "start" : 57,
+    "end" : 65,
+    "text" : "Fabaceae",
+    "category" : "UNINOMIAL",
+    "context" : "observed on a leaf of Pueraria montana («Fabaceae») growing on a sunny, grassy hill (Fig. "
+  }, {
+    "docId" : "pensoft:bdj.14.e190624",
+    "blockId" : "b20",
+    "start" : 339,
+    "end" : 346,
+    "text" : "Insecta",
+    "category" : "UNINOMIAL",
+    "context" : "ientificName: Cervaphis quercus; class: «Insecta»; order: Hemiptera; family: Aphididae; g"
+  }, {
+    "docId" : "pensoft:zookeys.1280.182768",
+    "blockId" : "b281",
+    "start" : 440,
+    "end" : 446,
+    "text" : "Chamba",
+    "category" : "UNINOMIAL",
+    "context" : "was represented by individuals from the «Chamba» region in the northwestern Himalaya of "
+  }, {
+    "docId" : "pensoft:phytokeys.271.181141",
+    "blockId" : "b85",
+    "start" : 80,
+    "end" : 90,
+    "text" : "Candelaria",
+    "category" : "UNINOMIAL",
+    "context" : "oquia Río Verde, Bosque Protector Cerro «Candelaria» (Fundación EcoMinga), upper Pastaza wat"
+  }, {
+    "docId" : "pensoft:mycokeys.130.183564",
+    "blockId" : "b675",
+    "start" : 222,
+    "end" : 230,
+    "text" : "Peridium",
+    "category" : "UNINOMIAL",
+    "context" : "itary and scattered, black, unilocular. «Peridium» 20–35 μm wide, composed of two layers, "
+  }, {
+    "docId" : "pensoft:bdj.12.e123575",
+    "blockId" : "b19",
+    "start" : 426,
+    "end" : 437,
+    "text" : "Hymenoptera",
+    "category" : "UNINOMIAL",
+    "context" : "gates atratulus (Schenck, 1852); order: «Hymenoptera»; family: Formicidae; taxonRank: species"
+  }, {
+    "docId" : "pensoft:zookeys.1264.165241",
+    "blockId" : "b11",
+    "start" : 625,
+    "end" : 630,
+    "text" : "Hubei",
+    "category" : "UNINOMIAL",
+    "context" : "n County, Hunan Province. Suizhou City, «Hubei» Province. T. kaijiangensis sp. nov.: Da"
+  }, {
+    "docId" : "pensoft:mycokeys.110.136844",
+    "blockId" : "b253",
+    "start" : 432,
+    "end" : 440,
+    "text" : "Ostiolum",
+    "category" : "UNINOMIAL",
+    "context" : "ard the substrate, sulcate or glabrous. «Ostiolum» periphysate. Ascomatal wall leathery to"
+  }, {
+    "docId" : "pensoft:phytokeys.274.183749",
+    "blockId" : "b334",
+    "start" : 1278,
+    "end" : 1283,
+    "text" : "Calyx",
+    "category" : "UNINOMIAL",
+    "context" : "lous hairs and sparse, glandular hairs. «Calyx» narrowly campanulate, 5.0–8.0 mm long, "
+  }, {
+    "docId" : "pensoft:zookeys.1223.137184",
+    "blockId" : "b612",
+    "start" : 110,
+    "end" : 118,
+    "text" : "Paratype",
+    "category" : "UNINOMIAL",
+    "context" : " Aug. 2024; Shuo Liu leg.; KIZ 2024083. «Paratype». China • ♀; same locality; 24 Aug. 2024"
+  }, {
+    "docId" : "pensoft:phytokeys.248.123248",
+    "blockId" : "b189",
+    "start" : 38,
+    "end" : 42,
+    "text" : "Lita",
+    "category" : "UNINOMIAL",
+    "context" : "Ecuador. Imbabura: Ibarra. Parroquia: «Lita». Unpaved road heading south, near Rocaf"
+  }, {
+    "docId" : "pensoft:mycokeys.124.171541",
+    "blockId" : "b1412",
+    "start" : 31,
+    "end" : 39,
+    "text" : "Entoloma",
+    "category" : "UNINOMIAL",
+    "context" : "Bayesian inference analysis of «Entoloma» subg. Cubospora based on ITS, LSU, rpb2"
+  }, {
+    "docId" : "pensoft:zookeys.1274.141366",
+    "blockId" : "b61",
+    "start" : 77,
+    "end" : 84,
+    "text" : "Syrrhoe",
+    "category" : "UNINOMIAL",
+    "context" : "e World (MEOW), and size range of world «Syrrhoe» species."
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 3700,
+    "end" : 3714,
+    "text" : "Nitrospinaceae",
+    "category" : "UNINOMIAL",
+    "context" : "5. Nitrospinia** cl. n. Cavalier-Smith («Nitrospinaceae»: Nitrospina) Subphylum 2. Acidobacteria"
+  }, {
+    "docId" : "doi:10.1007/s13225-020-00459-1",
+    "blockId" : "b3",
+    "start" : 1050,
+    "end" : 1059,
+    "text" : "Telamonia",
+    "category" : "UNINOMIAL",
+    "context" : " DNA-barcodes of species of C. subgenus «Telamonia» in the public sequence databases. This "
+  }, {
+    "docId" : "openalex:W4394689792",
+    "blockId" : "b1",
+    "start" : 33,
+    "end" : 48,
+    "text" : "Bacillariophyta",
+    "category" : "UNINOMIAL",
+    "context" : "Gyrosigma dongtingense sp. nov. («Bacillariophyta») from Dongting Lake, China"
+  }, {
+    "docId" : "openalex:W4403772617",
+    "blockId" : "b1",
+    "start" : 72,
+    "end" : 84,
+    "text" : "Phthiraptera",
+    "category" : "UNINOMIAL",
+    "context" : "ter, 1838, and Dictyocotes Kéler, 1940 («Phthiraptera»: Ischnocera), with descriptions of four"
+  }, {
+    "docId" : "openalex:W4403399836",
+    "blockId" : "b1",
+    "start" : 54,
+    "end" : 65,
+    "text" : "Prostigmata",
+    "category" : "UNINOMIAL",
+    "context" : "f the genus Schizotetranychus Trägårdh («Prostigmata»: Tetranychidae) from Saudi Arabia with "
+  }, {
+    "docId" : "openalex:W4405773338",
+    "blockId" : "b1",
+    "start" : 31,
+    "end" : 39,
+    "text" : "Mollusca",
+    "category" : "UNINOMIAL",
+    "context" : "Revision of the genus Amicula («Mollusca»: Polyplacophora: Mopaliidae)"
+  }, {
+    "docId" : "openalex:W4391116097",
+    "blockId" : "b1",
+    "start" : 75,
+    "end" : 85,
+    "text" : "Proteaceae",
+    "category" : "UNINOMIAL",
+    "context" : "mplexes of Western Australian Isopogon («Proteaceae») using RADseq"
+  }, {
+    "docId" : "openalex:W4403485334",
+    "blockId" : "b1",
+    "start" : 23,
+    "end" : 35,
+    "text" : "Gesneriaceae",
+    "category" : "UNINOMIAL",
+    "context" : "Columnea conopurpurea («Gesneriaceae»), a New Pendulous Epiphytic Species fro"
+  }, {
+    "docId" : "openalex:W4392694265",
+    "blockId" : "b1",
+    "start" : 58,
+    "end" : 67,
+    "text" : "Monogenea",
+    "category" : "UNINOMIAL",
+    "context" : "ee new species of Protoancylodiscoides («Monogenea»: Dactylogyridae) and biogeography of th"
+  }, {
+    "docId" : "openalex:W4415449747",
+    "blockId" : "b1",
+    "start" : 32,
+    "end" : 41,
+    "text" : "Lauraceae",
+    "category" : "UNINOMIAL",
+    "context" : "Cinco especies nuevas de Aniba («Lauraceae») de Colombia"
+  }, {
+    "docId" : "openalex:W4410991980",
+    "blockId" : "b1",
+    "start" : 85,
+    "end" : 98,
+    "text" : "Nemacheilidae",
+    "category" : "UNINOMIAL",
+    "context" : "nsis Sheraliev & Peng, 2021 (Teleostei: «Nemacheilidae»)"
+  }, {
+    "docId" : "openalex:W4414511084",
+    "blockId" : "b1",
+    "start" : 101,
+    "end" : 110,
+    "text" : "Brachyura",
+    "category" : "UNINOMIAL",
+    "context" : "ives of Pilumnus Leach, 1816 (Decapoda, «Brachyura», Pilumnidae) based on molecular markers"
+  }, {
+    "docId" : "openalex:W4413210974",
+    "blockId" : "b2",
+    "start" : 145,
+    "end" : 162,
+    "text" : "Elaeis guineensis",
+    "category" : "BINOMIAL",
+    "context" : "s interespecíficos de Elaeis oleifera × «Elaeis guineensis» (O×G), presentan variabilidad genética "
+  }, {
+    "docId" : "openalex:W4416959617",
+    "blockId" : "b1",
+    "start" : 97,
+    "end" : 109,
+    "text" : "Libellulidae",
+    "category" : "UNINOMIAL",
+    "context" : "phila Belle, 1984, en Guyane (Odonata : «Libellulidae»)"
+  }, {
+    "docId" : "pensoft:zookeys.1285.182943",
+    "blockId" : "b499",
+    "start" : 88,
+    "end" : 93,
+    "text" : "Arica",
+    "category" : "UNINOMIAL",
+    "context" : "1050 m elevation in the Atacama Desert, «Arica» Province, northern Chile."
+  }, {
+    "docId" : "pensoft:bdj.14.e190624",
+    "blockId" : "b20",
+    "start" : 355,
+    "end" : 364,
+    "text" : "Hemiptera",
+    "category" : "UNINOMIAL",
+    "context" : "rvaphis quercus; class: Insecta; order: «Hemiptera»; family: Aphididae; genus: Cervaphis; t"
+  }, {
+    "docId" : "pensoft:phytokeys.271.181141",
+    "blockId" : "b85",
+    "start" : 119,
+    "end" : 126,
+    "text" : "Pastaza",
+    "category" : "UNINOMIAL",
+    "context" : " Candelaria (Fundación EcoMinga), upper «Pastaza» watershed, high ridgeline above canyon,"
+  }, {
+    "docId" : "pensoft:mycokeys.130.183564",
+    "blockId" : "b675",
+    "start" : 1710,
+    "end" : 1717,
+    "text" : "Conidia",
+    "category" : "UNINOMIAL",
+    "context" : ", discrete, determinate, smooth-walled. «Conidia» 10–18 × 5–7 μm (x̄ = 15 × 6 μm, n = 25,"
+  }, {
+    "docId" : "pensoft:bdj.12.e123575",
+    "blockId" : "b19",
+    "start" : 447,
+    "end" : 457,
+    "text" : "Formicidae",
+    "category" : "UNINOMIAL",
+    "context" : "nck, 1852); order: Hymenoptera; family: «Formicidae»; taxonRank: species; Location: island: "
+  }, {
+    "docId" : "pensoft:zookeys.1264.165241",
+    "blockId" : "b11",
+    "start" : 741,
+    "end" : 747,
+    "text" : "Hainan",
+    "category" : "UNINOMIAL",
+    "context" : ". edgecombei sp. nov.: Chengmai County, «Hainan» Province. T. longicornis: Guangzhou Cit"
+  }, {
+    "docId" : "pensoft:mycokeys.124.171541",
+    "blockId" : "b1425",
+    "start" : 33,
+    "end" : 39,
+    "text" : "Pileus",
+    "category" : "UNINOMIAL",
+    "context" : "Basidioma small to medium-sized. «Pileus» 28–42 mm in diam., conical, with acumin"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 3716,
+    "end" : 3726,
+    "text" : "Nitrospina",
+    "category" : "UNINOMIAL",
+    "context" : " cl. n. Cavalier-Smith (Nitrospinaceae: «Nitrospina») Subphylum 2. Acidobacteria** Cavalier-"
+  }, {
+    "docId" : "doi:10.1007/s13225-020-00459-1",
+    "blockId" : "b3",
+    "start" : 1345,
+    "end" : 1354,
+    "text" : "Telamonia",
+    "category" : "UNINOMIAL",
+    "context" : "en in difficult groups like C. subgenus «Telamonia», can be solved and consequently identif"
+  }, {
+    "docId" : "openalex:W4403772617",
+    "blockId" : "b1",
+    "start" : 86,
+    "end" : 96,
+    "text" : "Ischnocera",
+    "category" : "UNINOMIAL",
+    "context" : " Dictyocotes Kéler, 1940 (Phthiraptera: «Ischnocera»), with descriptions of four new species"
+  }, {
+    "docId" : "openalex:W4403399836",
+    "blockId" : "b1",
+    "start" : 67,
+    "end" : 80,
+    "text" : "Tetranychidae",
+    "category" : "UNINOMIAL",
+    "context" : "chizotetranychus Trägårdh (Prostigmata: «Tetranychidae») from Saudi Arabia with the description"
+  }, {
+    "docId" : "openalex:W4405773338",
+    "blockId" : "b1",
+    "start" : 41,
+    "end" : 55,
+    "text" : "Polyplacophora",
+    "category" : "UNINOMIAL",
+    "context" : "evision of the genus Amicula (Mollusca: «Polyplacophora»: Mopaliidae)"
+  }, {
+    "docId" : "openalex:W4391116097",
+    "blockId" : "b2",
+    "start" : 40,
+    "end" : 50,
+    "text" : "Proteaceae",
+    "category" : "UNINOMIAL",
+    "context" : "Abstract The Australian genus Isopogon («Proteaceae») consists of approximately 39 species, "
+  }, {
+    "docId" : "openalex:W4403485334",
+    "blockId" : "b2",
+    "start" : 126,
+    "end" : 138,
+    "text" : "Gesneriaceae",
+    "category" : "UNINOMIAL",
+    "context" : "covery of a new species of Columnea L. («Gesneriaceae»). Columnea conopurpurea J. L. Clark, Y."
+  }, {
+    "docId" : "openalex:W4392694265",
+    "blockId" : "b1",
+    "start" : 69,
+    "end" : 83,
+    "text" : "Dactylogyridae",
+    "category" : "UNINOMIAL",
+    "context" : "ies of Protoancylodiscoides (Monogenea: «Dactylogyridae») and biogeography of those parasitizing"
+  }, {
+    "docId" : "openalex:W4415449747",
+    "blockId" : "b2",
+    "start" : 155,
+    "end" : 163,
+    "text" : "Amazonia",
+    "category" : "UNINOMIAL",
+    "context" : "nta mayor diversidad en la región de la «Amazonia» y Guayanas. Su circunscripción morfológ"
+  }, {
+    "docId" : "openalex:W4414511084",
+    "blockId" : "b1",
+    "start" : 112,
+    "end" : 122,
+    "text" : "Pilumnidae",
+    "category" : "UNINOMIAL",
+    "context" : "umnus Leach, 1816 (Decapoda, Brachyura, «Pilumnidae») based on molecular markers, with comme"
+  }, {
+    "docId" : "pensoft:zookeys.1285.182943",
+    "blockId" : "b507",
+    "start" : 28,
+    "end" : 33,
+    "text" : "Arica",
+    "category" : "UNINOMIAL",
+    "context" : "Holotype. Chile • ♂; Azapa, «Arica», December 2024; H.A. Vargas leg.; ex-la"
+  }, {
+    "docId" : "pensoft:bdj.14.e190624",
+    "blockId" : "b20",
+    "start" : 374,
+    "end" : 383,
+    "text" : "Aphididae",
+    "category" : "UNINOMIAL",
+    "context" : "ass: Insecta; order: Hemiptera; family: «Aphididae»; genus: Cervaphis; taxonomicStatus: acc"
+  }, {
+    "docId" : "pensoft:phytokeys.271.181141",
+    "blockId" : "b85",
+    "start" : 187,
+    "end" : 197,
+    "text" : "Candelaria",
+    "category" : "UNINOMIAL",
+    "context" : "eline above canyon, trail between Cerro «Candelaria» permanent plot #1 (2200 m) and high cam"
+  }, {
+    "docId" : "pensoft:mycokeys.130.183564",
+    "blockId" : "b681",
+    "start" : 102,
+    "end" : 115,
+    "text" : "Ranunculaceae",
+    "category" : "UNINOMIAL",
+    "context" : " lives on dead twigs of Thalictrum sp. («Ranunculaceae»), 25 September 2025, Achala Rathnayaka,"
+  }, {
+    "docId" : "pensoft:bdj.12.e123575",
+    "blockId" : "b20",
+    "start" : 385,
+    "end" : 396,
+    "text" : "Hymenoptera",
+    "category" : "UNINOMIAL",
+    "context" : "gates atratulus (Schenck, 1852); order: «Hymenoptera»; family: Formicidae; taxonRank: species"
+  }, {
+    "docId" : "pensoft:zookeys.1264.165241",
+    "blockId" : "b26",
+    "start" : 150,
+    "end" : 158,
+    "text" : "Paratype",
+    "category" : "UNINOMIAL",
+    "context" : "ay 2024; Jiehong Ji leg.; ZJNU SCKJ102. «Paratype». China • 3 females; same data as for ho"
+  }, {
+    "docId" : "doi:10.1007/s13225-020-00459-1",
+    "blockId" : "b61",
+    "start" : 40,
+    "end" : 44,
+    "text" : "Dima",
+    "category" : "UNINOMIAL",
+    "context" : "Cortinarius colorius (Bidaud) Niskanen, «Dima» & Liimat. comb. nov. IF 557484 Basionym"
+  }, {
+    "docId" : "openalex:W4403772617",
+    "blockId" : "b2",
+    "start" : 446,
+    "end" : 454,
+    "text" : "Geoffroy",
+    "category" : "UNINOMIAL",
+    "context" : "urcatus sp. nov. ex Lophophorus lhuysii «Geoffroy» Saint-Hilaire, 1866; Goniocotes cacumen"
+  }, {
+    "docId" : "openalex:W4403399836",
+    "blockId" : "b2",
+    "start" : 50,
+    "end" : 61,
+    "text" : "Prostigmata",
+    "category" : "UNINOMIAL",
+    "context" : " mite genus Schizotetranychus Trägårdh («Prostigmata»: Tetranychidae) is recorded for the fir"
+  }, {
+    "docId" : "openalex:W4405773338",
+    "blockId" : "b1",
+    "start" : 57,
+    "end" : 67,
+    "text" : "Mopaliidae",
+    "category" : "UNINOMIAL",
+    "context" : "enus Amicula (Mollusca: Polyplacophora: «Mopaliidae»)"
+  }, {
+    "docId" : "openalex:W4403485334",
+    "blockId" : "b2",
+    "start" : 461,
+    "end" : 469,
+    "text" : "Columnea",
+    "category" : "UNINOMIAL",
+    "context" : " An overview of fruit shapes throughout «Columnea» is summarized to demonstrate the unique"
+  }, {
+    "docId" : "openalex:W4392694265",
+    "blockId" : "b1",
+    "start" : 153,
+    "end" : 165,
+    "text" : "Siluriformes",
+    "category" : "UNINOMIAL",
+    "context" : "rasitizing Chrysichthys nigrodigitatus («Siluriformes»: Claroteidae) in Sanaga and Dibamba riv"
+  }, {
+    "docId" : "openalex:W4415449747",
+    "blockId" : "b2",
+    "start" : 308,
+    "end" : 318,
+    "text" : "Aniba para",
+    "category" : "BINOMIAL",
+    "context" : "ecímenes para el tratamiento del género «Aniba para» Colombia, se han identificado algunos e"
+  }, {
+    "docId" : "pensoft:bdj.14.e190624",
+    "blockId" : "b20",
+    "start" : 392,
+    "end" : 401,
+    "text" : "Cervaphis",
+    "category" : "UNINOMIAL",
+    "context" : "r: Hemiptera; family: Aphididae; genus: «Cervaphis»; taxonomicStatus: accepted; Location: h"
+  }, {
+    "docId" : "pensoft:phytokeys.271.181141",
+    "blockId" : "b91",
+    "start" : 249,
+    "end" : 256,
+    "text" : "Pastaza",
+    "category" : "UNINOMIAL",
+    "context" : "throughout Ecuador, particularly in the «Pastaza» Valley on the eastern slopes of the And"
+  }, {
+    "docId" : "pensoft:bdj.12.e123575",
+    "blockId" : "b20",
+    "start" : 406,
+    "end" : 416,
+    "text" : "Formicidae",
+    "category" : "UNINOMIAL",
+    "context" : "nck, 1852); order: Hymenoptera; family: «Formicidae»; taxonRank: species; Location: country:"
+  }, {
+    "docId" : "doi:10.1007/s13225-020-00459-1",
+    "blockId" : "b61",
+    "start" : 230,
+    "end" : 234,
+    "text" : "Dima",
+    "category" : "UNINOMIAL",
+    "context" : "94) Cortinarius iners (Bidaud) Liimat., «Dima» & Niskanen comb. nov. IF 557485 Basiony"
+  }, {
+    "docId" : "openalex:W4403772617",
+    "blockId" : "b2",
+    "start" : 535,
+    "end" : 540,
+    "text" : "Gould",
+    "category" : "UNINOMIAL",
+    "context" : "alis sp. nov. ex Tetraogallus tibetanus «Gould», 1854; Goniocotes caoi sp. nov. ex Chry"
+  }, {
+    "docId" : "openalex:W4403399836",
+    "blockId" : "b2",
+    "start" : 63,
+    "end" : 76,
+    "text" : "Tetranychidae",
+    "category" : "UNINOMIAL",
+    "context" : "chizotetranychus Trägårdh (Prostigmata: «Tetranychidae») is recorded for the first time from Sa"
+  }, {
+    "docId" : "openalex:W4405773338",
+    "blockId" : "b2",
+    "start" : 137,
+    "end" : 143,
+    "text" : "Pallas",
+    "category" : "UNINOMIAL",
+    "context" : "ained in its composition: A. amiculata («Pallas», 1788), A. gurjanovae Jakovleva, 1952, "
+  }, {
+    "docId" : "openalex:W4392694265",
+    "blockId" : "b1",
+    "start" : 167,
+    "end" : 178,
+    "text" : "Claroteidae",
+    "category" : "UNINOMIAL",
+    "context" : "ysichthys nigrodigitatus (Siluriformes: «Claroteidae») in Sanaga and Dibamba rivers, Cameroon"
+  }, {
+    "docId" : "openalex:W4415449747",
+    "blockId" : "b2",
+    "start" : 1113,
+    "end" : 1123,
+    "text" : "Aniba para",
+    "category" : "BINOMIAL",
+    "context" : "ustran cinco nuevas especies del género «Aniba para» Colombia pertenecientes al grupo “affin"
+  }, {
+    "docId" : "pensoft:bdj.14.e190624",
+    "blockId" : "b29",
+    "start" : 347,
+    "end" : 354,
+    "text" : "Insecta",
+    "category" : "UNINOMIAL",
+    "context" : "icName: Eutrichosiphum pasaniae; class: «Insecta»; order: Hemiptera; family: Aphididae; g"
+  }, {
+    "docId" : "pensoft:phytokeys.271.181141",
+    "blockId" : "b93",
+    "start" : 57,
+    "end" : 75,
+    "text" : "Candelaria reserve",
+    "category" : "BINOMIAL",
+    "context" : " is currently only known from the Cerro «Candelaria reserve» near Río Verde in Bosque Protector Cerr"
+  }, {
+    "docId" : "pensoft:bdj.12.e123575",
+    "blockId" : "b23",
+    "start" : 118,
+    "end" : 127,
+    "text" : "Hemiptera",
+    "category" : "UNINOMIAL",
+    "context" : "racletus cimiciformis von Heyden, 1837 («Hemiptera», Aphididae) were found. It is an aphid "
+  }, {
+    "docId" : "doi:10.1007/s13225-020-00459-1",
+    "blockId" : "b65",
+    "start" : 818,
+    "end" : 827,
+    "text" : "Telamonia",
+    "category" : "UNINOMIAL",
+    "context" : "arcoded species of Cortinarius, subgen. «Telamonia» in the public sequence databases. Also "
+  }, {
+    "docId" : "openalex:W4403772617",
+    "blockId" : "b2",
+    "start" : 597,
+    "end" : 605,
+    "text" : "Linnaeus",
+    "category" : "UNINOMIAL",
+    "context" : "s caoi sp. nov. ex Chrysolophus pictus («Linnaeus», 1758); Goniocotes sarissa sp. nov. ex "
+  }, {
+    "docId" : "openalex:W4403399836",
+    "blockId" : "b2",
+    "start" : 280,
+    "end" : 288,
+    "text" : "Fabaceae",
+    "category" : "UNINOMIAL",
+    "context" : "d males collected from Astragalus sp., («Fabaceae»). A diagnostic key to Schizotetranychus"
+  }, {
+    "docId" : "openalex:W4415449747",
+    "blockId" : "b2",
+    "start" : 1574,
+    "end" : 1584,
+    "text" : "Cordillera",
+    "category" : "UNINOMIAL",
+    "context" : "nsis sp. nov. crecen en los Andes de la «Cordillera» Oriental, A. anuliglandulosa y A. carde"
+  }, {
+    "docId" : "pensoft:bdj.14.e190624",
+    "blockId" : "b29",
+    "start" : 363,
+    "end" : 372,
+    "text" : "Hemiptera",
+    "category" : "UNINOMIAL",
+    "context" : "siphum pasaniae; class: Insecta; order: «Hemiptera»; family: Aphididae; genus: Eutrichosiph"
+  }, {
+    "docId" : "pensoft:phytokeys.271.181141",
+    "blockId" : "b93",
+    "start" : 117,
+    "end" : 127,
+    "text" : "Candelaria",
+    "category" : "UNINOMIAL",
+    "context" : "ear Río Verde in Bosque Protector Cerro «Candelaria», a private reserve managed by Fundación"
+  }, {
+    "docId" : "pensoft:bdj.12.e123575",
+    "blockId" : "b23",
+    "start" : 129,
+    "end" : 138,
+    "text" : "Aphididae",
+    "category" : "UNINOMIAL",
+    "context" : "miciformis von Heyden, 1837 (Hemiptera, «Aphididae») were found. It is an aphid with a comp"
+  }, {
+    "docId" : "doi:10.1007/s13225-020-00459-1",
+    "blockId" : "b69",
+    "start" : 836,
+    "end" : 845,
+    "text" : "Telamonia",
+    "category" : "UNINOMIAL",
+    "context" : " currently known species of C. subgenus «Telamonia». In recent years they have also include"
+  }, {
+    "docId" : "openalex:W4403772617",
+    "blockId" : "b2",
+    "start" : 662,
+    "end" : 667,
+    "text" : "Gould",
+    "category" : "UNINOMIAL",
+    "context" : "es sarissa sp. nov. ex Tragopan caboti («Gould», 1857). The altitudinal distribution of"
+  }, {
+    "docId" : "openalex:W4415449747",
+    "blockId" : "b2",
+    "start" : 1638,
+    "end" : 1646,
+    "text" : "Amazonia",
+    "category" : "UNINOMIAL",
+    "context" : "anuliglandulosa y A. cardenasiana en la «Amazonia», y A. giraldo-canasii sp. nov. únicamen"
+  }, {
+    "docId" : "pensoft:bdj.14.e190624",
+    "blockId" : "b29",
+    "start" : 382,
+    "end" : 391,
+    "text" : "Aphididae",
+    "category" : "UNINOMIAL",
+    "context" : "ass: Insecta; order: Hemiptera; family: «Aphididae»; genus: Eutrichosiphum; taxonomicStatus"
+  }, {
+    "docId" : "openalex:W4403772617",
+    "blockId" : "b2",
+    "start" : 807,
+    "end" : 817,
+    "text" : "Goniocotes",
+    "category" : "UNINOMIAL",
+    "context" : "vision between a primarily low-altitude «Goniocotes» and an exclusively high-altitude Dictyo"
+  }, {
+    "docId" : "pensoft:bdj.14.e190624",
+    "blockId" : "b29",
+    "start" : 400,
+    "end" : 414,
+    "text" : "Eutrichosiphum",
+    "category" : "UNINOMIAL",
+    "context" : "r: Hemiptera; family: Aphididae; genus: «Eutrichosiphum»; taxonomicStatus: accepted; Location: h"
+  }, {
+    "docId" : "openalex:W4403772617",
+    "blockId" : "b2",
+    "start" : 851,
+    "end" : 862,
+    "text" : "Dictyocotes",
+    "category" : "UNINOMIAL",
+    "context" : "ocotes and an exclusively high-altitude «Dictyocotes». The driving force behind this division"
+  } ],
+  "falseNegatives" : [ {
+    "docId" : "openalex:W7117713044",
+    "blockId" : "b1",
+    "start" : 29,
+    "end" : 50,
+    "text" : "MICROPTERUS SALMOIDES",
+    "category" : "BINOMIAL",
+    "context" : "FILLET QUALITY DIFFERENCE OF «MICROPTERUS SALMOIDES» CULTURED UNDER DIFFERENT MODES"
+  }, {
+    "docId" : "openalex:W4411159455",
+    "blockId" : "b2",
+    "start" : 10,
+    "end" : 31,
+    "text" : "Klebsiella pneumoniae",
+    "category" : "BINOMIAL",
+    "context" : "Objectives«Klebsiella pneumoniae» is a Gram-negative pathogen responsible"
+  }, {
+    "docId" : "openalex:W4414511084",
+    "blockId" : "b1",
+    "start" : 91,
+    "end" : 122,
+    "text" : "Decapoda, Brachyura, Pilumnidae",
+    "category" : "TRINOMIAL",
+    "context" : "epresentatives of Pilumnus Leach, 1816 («Decapoda, Brachyura, Pilumnidae») based on molecular markers, with comme"
+  }, {
+    "docId" : "openalex:W4413210974",
+    "blockId" : "b2",
+    "start" : 127,
+    "end" : 162,
+    "text" : "Elaeis oleifera × Elaeis guineensis",
+    "category" : "TRINOMIAL",
+    "context" : "a producir híbridos interespecíficos de «Elaeis oleifera × Elaeis guineensis» (O×G), presentan variabilidad genética "
+  }, {
+    "docId" : "pensoft:zookeys.1280.182768",
+    "blockId" : "b278",
+    "start" : 766,
+    "end" : 774,
+    "text" : "Himalaya",
+    "category" : "UNINOMIAL",
+    "context" : "stan, and (iii) the western and central «Himalaya» of Nepal. Notably, the Himalayan clades"
+  }, {
+    "docId" : "pensoft:mycokeys.124.171541",
+    "blockId" : "b1412",
+    "start" : 31,
+    "end" : 55,
+    "text" : "Entoloma subg. Cubospora",
+    "category" : "TRINOMIAL",
+    "context" : "Bayesian inference analysis of «Entoloma subg. Cubospora» based on ITS, LSU, rpb2, and tef1 seque"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b3",
+    "start" : 1039,
+    "end" : 1053,
+    "text" : "Proteobacteria",
+    "category" : "UNINOMIAL",
+    "context" : "phyly, that many 'rDNA-phyla' belong in «Proteobacteria», and reveal robust new phyla Synthermot"
+  }, {
+    "docId" : "doi:10.1007/s13225-020-00459-1",
+    "blockId" : "b3",
+    "start" : 1038,
+    "end" : 1059,
+    "text" : "C. subgenus Telamonia",
+    "category" : "ABBREVIATED",
+    "context" : " of reliable DNA-barcodes of species of «C. subgenus Telamonia» in the public sequence databases. This "
+  }, {
+    "docId" : "openalex:W4394689792",
+    "blockId" : "b2",
+    "start" : 270,
+    "end" : 287,
+    "text" : "section Strigiles",
+    "category" : "BINOMIAL",
+    "context" : "ma dongtingense sp. nov. belongs to the «section Strigiles» sensu H. Peragallo and it is characteri"
+  }, {
+    "docId" : "openalex:W4415449747",
+    "blockId" : "b2",
+    "start" : 26,
+    "end" : 31,
+    "text" : "Aniba",
+    "category" : "UNINOMIAL",
+    "context" : "Antecedentes y Objetivos: «Aniba» es un género de árboles y arbustos pert"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b3",
+    "start" : 1122,
+    "end" : 1134,
+    "text" : "Posibacteria",
+    "category" : "UNINOMIAL",
+    "context" : " Synthermota and Aquithermota. Monoderm «Posibacteria» and Mollicutes (two separate wall losse"
+  }, {
+    "docId" : "doi:10.1007/s13225-020-00459-1",
+    "blockId" : "b3",
+    "start" : 1333,
+    "end" : 1354,
+    "text" : "C. subgenus Telamonia",
+    "category" : "ABBREVIATED",
+    "context" : "problems, even in difficult groups like «C. subgenus Telamonia», can be solved and consequently identif"
+  }, {
+    "docId" : "openalex:W4415449747",
+    "blockId" : "b2",
+    "start" : 308,
+    "end" : 313,
+    "text" : "Aniba",
+    "category" : "UNINOMIAL",
+    "context" : "ecímenes para el tratamiento del género «Aniba» para Colombia, se han identificado algu"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b3",
+    "start" : 1234,
+    "end" : 1246,
+    "text" : "Endobacteria",
+    "category" : "UNINOMIAL",
+    "context" : "etic: multiple outer membrane losses in «Endobacteria» occurred separately from Actinobacteria"
+  }, {
+    "docId" : "doi:10.1007/s13225-020-00459-1",
+    "blockId" : "b65",
+    "start" : 810,
+    "end" : 827,
+    "text" : "subgen. Telamonia",
+    "category" : "BINOMIAL",
+    "context" : "bly of barcoded species of Cortinarius, «subgen. Telamonia» in the public sequence databases. Also "
+  }, {
+    "docId" : "openalex:W4415449747",
+    "blockId" : "b2",
+    "start" : 1113,
+    "end" : 1118,
+    "text" : "Aniba",
+    "category" : "UNINOMIAL",
+    "context" : "ustran cinco nuevas especies del género «Aniba» para Colombia pertenecientes al grupo “"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 495,
+    "end" : 507,
+    "text" : "Endobacteria",
+    "category" : "UNINOMIAL",
+    "context" : "g. Rubrobacter, Conexibacter) Phylum 2. «Endobacteria» Cavalier-Smith 1998 as subphylum stat. "
+  }, {
+    "docId" : "doi:10.1007/s13225-020-00459-1",
+    "blockId" : "b69",
+    "start" : 824,
+    "end" : 845,
+    "text" : "C. subgenus Telamonia",
+    "category" : "ABBREVIATED",
+    "context" : "% of all the currently known species of «C. subgenus Telamonia». In recent years they have also include"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 591,
+    "end" : 604,
+    "text" : "Halanaerobiia",
+    "category" : "UNINOMIAL",
+    "context" : "diderm classes D; monoderms M) Class 1. «Halanaerobiia» cl. n. Cavalier-Smith (e.g. Halanaerobi"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 1162,
+    "end" : 1174,
+    "text" : "Endobacteria",
+    "category" : "UNINOMIAL",
+    "context" : "mith (the negibacterial sister group to «Endobacteria») Infrakingdom 1. Thermobacteria* infrak"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 1298,
+    "end" : 1311,
+    "text" : "Synergistetes",
+    "category" : "UNINOMIAL",
+    "context" : "yl. n. Cavalier-Smith 2019 Subphylum 1. «Synergistetes»** subphyl. n. Cavalier-Smith. Sole clas"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 2211,
+    "end" : 2223,
+    "text" : "Fusobacteria",
+    "category" : "UNINOMIAL",
+    "context" : "osta 2002. (e.g. Meiothermus) Phylum 3. «Fusobacteria» Garrity and Holt 2012. Sole class Fusob"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 2410,
+    "end" : 2422,
+    "text" : "Gracilicutes",
+    "category" : "UNINOMIAL",
+    "context" : "mith 2019 (sister group to infrakingdom «Gracilicutes») Class 1. Aquificia** cl. n. Cavalier-S"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 2621,
+    "end" : 2633,
+    "text" : "Gracilicutes",
+    "category" : "UNINOMIAL",
+    "context" : ".g. Thermodesulfatator) Infrakingdom 2. «Gracilicutes»* Cavalier-Smith 2006 Parvkingdom 1. Pro"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 2670,
+    "end" : 2684,
+    "text" : "Proteobacteria",
+    "category" : "UNINOMIAL",
+    "context" : "tes* Cavalier-Smith 2006 Parvkingdom 1. «Proteobacteria» parvk. n. Cavalier-Smith. Description a"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 2763,
+    "end" : 2777,
+    "text" : "Proteobacteria",
+    "category" : "UNINOMIAL",
+    "context" : "as for phylum Proteobacteria. Phylum 1. «Proteobacteria» Stackebrandt et al. 1986 (as class) ex "
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 2862,
+    "end" : 2875,
+    "text" : "Rhodobacteria",
+    "category" : "UNINOMIAL",
+    "context" : "ier-Smith 2002 (as phylum) Subphylum 1. «Rhodobacteria» Cavalier-Smith 2002 (purple photosynthe"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 3040,
+    "end" : 3052,
+    "text" : "Pelagibacter",
+    "category" : "UNINOMIAL",
+    "context" : "teria e.g. Caulobacter, Rhodospirillum, «Pelagibacter») Class 2. Chromatiia cl. n. Cavalier-Sm"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 4532,
+    "end" : 4544,
+    "text" : "Spirochaetae",
+    "category" : "UNINOMIAL",
+    "context" : "yl n. Cavalier-Smith description as for «Spirochaetae» Phylum 1. Spirochaetae Cavalier-Smith 2"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 4555,
+    "end" : 4567,
+    "text" : "Spirochaetae",
+    "category" : "UNINOMIAL",
+    "context" : "scription as for Spirochaetae Phylum 1. «Spirochaetae» Cavalier-Smith 2002 (the classes were p"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 4852,
+    "end" : 4867,
+    "text" : "Planctobacteria",
+    "category" : "UNINOMIAL",
+    "context" : "rphyl. n. Cavalier-Smith 2019 Phylum 1. «Planctobacteria» Cavalier-Smith 1987 em. (see Table 3 fo"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 5186,
+    "end" : 5201,
+    "text" : "Sphingobacteria",
+    "category" : "UNINOMIAL",
+    "context" : "ces, Chlamydia; 3 infraphyla) Phylum 2. «Sphingobacteria» Cavalier-Smith 1987 Subphylum 1. Gemmat"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 5374,
+    "end" : 5386,
+    "text" : "Calditrichae",
+    "category" : "UNINOMIAL",
+    "context" : "matimonas, Longimicrobium) Subphylum 2. «Calditrichae»** subphyl. n. Cavalier-Smith. Sole clas"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 5494,
+    "end" : 5503,
+    "text" : "Chlorobia",
+    "category" : "UNINOMIAL",
+    "context" : "er-Smith (e.g. Caldithrix) Subphylum 3. «Chlorobia» subphyl. n. Cavalier-Smith Infraphylum "
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 5546,
+    "end" : 5554,
+    "text" : "Chlorobi",
+    "category" : "UNINOMIAL",
+    "context" : "bphyl. n. Cavalier-Smith Infraphylum 1. «Chlorobi»** infraphyl. n. Cavalier-Smith Class 1."
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 5648,
+    "end" : 5666,
+    "text" : "Thermochlorobacter",
+    "category" : "UNINOMIAL",
+    "context" : "cl. n. Cavalier-Smith (e.g. Chlorobium, «Thermochlorobacter», Chloroherpeton) Class 2. Ignavibacteri"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 5789,
+    "end" : 5802,
+    "text" : "Bacteroidetes",
+    "category" : "UNINOMIAL",
+    "context" : "erium, Melioribacterium) Infraphylum 2. «Bacteroidetes» ** infraphyl. n. Cavalier-Smith Supercl"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 993,
+    "end" : 1012,
+    "text" : "Erysipelotrichiidae",
+    "category" : "UNINOMIAL",
+    "context" : "Bacillus, Lactobacilllus) M Subclass 2. «Erysipelotrichiidae» subcl. n. Cavalier-Smith (e.g. Turiciba"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 3148,
+    "end" : 3167,
+    "text" : "Acidithiobacillidae",
+    "category" : "UNINOMIAL",
+    "context" : "hur bacteria and relatives) Subclass 1. «Acidithiobacillidae» (γ-proteobacteria e.g. Chromatium, Acid"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 3247,
+    "end" : 3259,
+    "text" : "Neisseriidae",
+    "category" : "UNINOMIAL",
+    "context" : "ithiobacillus, Escherichia) Subclass 2. «Neisseriidae» Cavalier-Smith subcl. n. (β-proteobacte"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 3475,
+    "end" : 3487,
+    "text" : "Mycococcidae",
+    "category" : "UNINOMIAL",
+    "context" : "er-Smith (δ-proteobacteria) Subclass 1. «Mycococcidae» subcl. n. Cavalier-Smith (e.g. Myxococc"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 3544,
+    "end" : 3557,
+    "text" : "Geobacteridae",
+    "category" : "UNINOMIAL",
+    "context" : "er-Smith (e.g. Myxococcus,) Subclass 2. «Geobacteridae» subcl. n. Cavalier-Smith (e.g. Geobacte"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 3612,
+    "end" : 3625,
+    "text" : "Oligoflexidae",
+    "category" : "UNINOMIAL",
+    "context" : "lier-Smith (e.g. Geobacter) Subclass 3. «Oligoflexidae» (Bdellovibrio, Oligoflexus) Class 5. Ni"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b3",
+    "start" : 1083,
+    "end" : 1094,
+    "text" : "Synthermota",
+    "category" : "UNINOMIAL",
+    "context" : "eobacteria, and reveal robust new phyla «Synthermota» and Aquithermota. Monoderm Posibacteria"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b3",
+    "start" : 1099,
+    "end" : 1111,
+    "text" : "Aquithermota",
+    "category" : "UNINOMIAL",
+    "context" : "reveal robust new phyla Synthermota and «Aquithermota». Monoderm Posibacteria and Mollicutes ("
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b3",
+    "start" : 1541,
+    "end" : 1553,
+    "text" : "Filarchaeota",
+    "category" : "UNINOMIAL",
+    "context" : " being their sisters and rooted between «Filarchaeota» (=Proteoarchaeota, including 'Asgardia'"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 49,
+    "end" : 64,
+    "text" : "Actinobacteriia",
+    "category" : "UNINOMIAL",
+    "context" : "bacter and all its descendants. Class1. «Actinobacteriia» Stackebrandt et al. 1987 spelling corre"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 144,
+    "end" : 157,
+    "text" : "Acidimicrobia",
+    "category" : "UNINOMIAL",
+    "context" : "cted and emend. Cavalier-Smith Class 2. «Acidimicrobia» Norris 2013 (Acidimicrobium) Class 3. C"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 413,
+    "end" : 427,
+    "text" : "Thermoleophila",
+    "category" : "UNINOMIAL",
+    "context" : "2013 emend. Cavalier-Smith by including «Thermoleophila» Suzuki and Whitman 2013 (e.g. Rubrobact"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 659,
+    "end" : 672,
+    "text" : "Selenomonadia",
+    "category" : "UNINOMIAL",
+    "context" : "r-Smith (e.g. Halanaerobium) D Class 2. «Selenomonadia» cl. n. Cavalier-Smith (=invalid Negativ"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 749,
+    "end" : 760,
+    "text" : "Clostridiia",
+    "category" : "UNINOMIAL",
+    "context" : "tivicutes, e.g. Veillonella) D Class 3. «Clostridiia»+ cl. n. Cavalier-Smith (e.g. Clostridiu"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 845,
+    "end" : 853,
+    "text" : "Bacillia",
+    "category" : "UNINOMIAL",
+    "context" : "liobacterium, Sulfobacillus) M Class 4. «Bacillia» cl. n. Cavalier-Smith M Table 2 (contin"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 963,
+    "end" : 977,
+    "text" : "Lactobacilllus",
+    "category" : "UNINOMIAL",
+    "context" : "ubcl. n. Cavalier-Smith (e.g. Bacillus, «Lactobacilllus») M Subclass 2. Erysipelotrichiidae subc"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 1086,
+    "end" : 1101,
+    "text" : "Neonegibacteria",
+    "category" : "UNINOMIAL",
+    "context" : "ricibacter, Mycoplasma) M Subkingdom 4. «Neonegibacteria»* subk. n. Cavalier-Smith (the negibacte"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 1192,
+    "end" : 1206,
+    "text" : "Thermobacteria",
+    "category" : "UNINOMIAL",
+    "context" : " group to Endobacteria) Infrakingdom 1. «Thermobacteria»* infrak. n. Cavalier-Smith Phylum 1. Sy"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 1244,
+    "end" : 1255,
+    "text" : "Synthermota",
+    "category" : "UNINOMIAL",
+    "context" : "ia* infrak. n. Cavalier-Smith Phylum 1. «Synthermota» phyl. n. Cavalier-Smith 2019 Subphylum "
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 1449,
+    "end" : 1460,
+    "text" : "Thermocalda",
+    "category" : "UNINOMIAL",
+    "context" : " Jonquetella, Synergistes) Subphylum 2. «Thermocalda» subphyl. n. Cavalier-Smith 2019 Class 1"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 1502,
+    "end" : 1513,
+    "text" : "Thermotogia",
+    "category" : "UNINOMIAL",
+    "context" : "ubphyl. n. Cavalier-Smith 2019 Class 1. «Thermotogia»** cl. n. Cavalier-Smith (e.g. Thermotog"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 1805,
+    "end" : 1816,
+    "text" : "Deinococcia",
+    "category" : "UNINOMIAL",
+    "context" : "dobacteria Cavalier-Smith 1992 Class 1. «Deinococcia» cl. n. Cavalier-Smith (replacement name"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 2338,
+    "end" : 2350,
+    "text" : "Aquithermota",
+    "category" : "UNINOMIAL",
+    "context" : ".g. Leptotrichia, Ilyobacter) Phylum 4. «Aquithermota» phyl. n. Cavalier-Smith 2019 (sister gr"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 2527,
+    "end" : 2549,
+    "text" : "Thermodesulfobacteriia",
+    "category" : "UNINOMIAL",
+    "context" : "Persephonella, Hydrogenivirga) Class 2. «Thermodesulfobacteriia»** cl. n. Cavalier-Smith 2019 (e.g. Ther"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 2952,
+    "end" : 2965,
+    "text" : "Caulobacteria",
+    "category" : "UNINOMIAL",
+    "context" : "thetic bacteria and relatives) Class 1. «Caulobacteria» cl. n. Cavalier-Smith (ɑ-proteobacteria"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 3063,
+    "end" : 3073,
+    "text" : "Chromatiia",
+    "category" : "UNINOMIAL",
+    "context" : " Rhodospirillum, Pelagibacter) Class 2. «Chromatiia» cl. n. Cavalier-Smith (purple sulphur b"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 3328,
+    "end" : 3341,
+    "text" : "Mariprofundia",
+    "category" : "UNINOMIAL",
+    "context" : "proteobacteria e.g. Neisseria) Class 3. «Mariprofundia» cl. n. Cavalier-Smith (ζ-proteobacteria"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 3983,
+    "end" : 3994,
+    "text" : "Geobacteria",
+    "category" : "UNINOMIAL",
+    "context" : "llum, Thermodesulfovibrio) Subphylum 3. «Geobacteria» Cavalier-Smith 2002 Class 1. Deferribac"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 4024,
+    "end" : 4039,
+    "text" : "Deferribacteria",
+    "category" : "UNINOMIAL",
+    "context" : "eobacteria Cavalier-Smith 2002 Class 1. «Deferribacteria» cl. n. Cavalier-Smith (orders Deferriba"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 4180,
+    "end" : 4189,
+    "text" : "Nautiliia",
+    "category" : "UNINOMIAL",
+    "context" : " Holt 2002, e.g. Chrysiogenes) Class 2. «Nautiliia» cl. n. Cavalier-Smith (ε-Proteobacteria"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 4277,
+    "end" : 4290,
+    "text" : "Spiroplanctia",
+    "category" : "UNINOMIAL",
+    "context" : "Nautilia, Campylobacter) Parvkingdom 2. «Spiroplanctia» parvk. n. Cavalier-Smith. Description: "
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 4793,
+    "end" : 4806,
+    "text" : "Planctochlora",
+    "category" : "UNINOMIAL",
+    "context" : "-Smith (e.g. Leptospira) Superphylum 2. «Planctochlora»* superphyl. n. Cavalier-Smith 2019 Phyl"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 5012,
+    "end" : 5026,
+    "text" : "Elusimicrobiia",
+    "category" : "UNINOMIAL",
+    "context" : " subphyl. n. Cavalier-Smith. Sole class «Elusimicrobiia» cl. n. Cavalier-Smith (Elusimicrobium, "
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 5094,
+    "end" : 5103,
+    "text" : "Euplancta",
+    "category" : "UNINOMIAL",
+    "context" : "imicrobium, Endomicrobium) Subphylum 2. «Euplancta» subphyl. n. Cavalier-Smith (e.g. Planct"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 5693,
+    "end" : 5708,
+    "text" : "Ignavibacteriia",
+    "category" : "UNINOMIAL",
+    "context" : "ochlorobacter, Chloroherpeton) Class 2. «Ignavibacteriia»** cl. n. Cavalier-Smith (e.g. Ignavibac"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 5756,
+    "end" : 5772,
+    "text" : "Melioribacterium",
+    "category" : "UNINOMIAL",
+    "context" : ". Cavalier-Smith (e.g. Ignavibacterium, «Melioribacterium») Infraphylum 2. Bacteroidetes ** infrap"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 5974,
+    "end" : 5987,
+    "text" : "Bacteroidetia",
+    "category" : "UNINOMIAL",
+    "context" : "aga, Dyadobacter, Flexibacter) Class 2. «Bacteroidetia» cl. n. Cavalier-Smith (spelling correct"
+  }, {
+    "docId" : "doi:10.1007/s00709-019-01442-7",
+    "blockId" : "b430",
+    "start" : 1999,
+    "end" : 2007,
+    "text" : "Truepara",
+    "category" : "UNINOMIAL",
+    "context" : "ccales Rainey et al. 1997 (Deinococcus, «Truepara») Class 2. Thermia cl. n. Cavalier-Smith"
+  } ],
+  "matchMode" : "STRICT",
+  "documentLevel" : false,
+  "notes" : [ ],
+  "otuMentions" : 0,
+  "otuByScheme" : { },
+  "authorship" : {
+    "tp" : 59,
+    "fp" : 15,
+    "fn" : 67
+  }
+}

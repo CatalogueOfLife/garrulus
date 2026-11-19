@@ -1,0 +1,1939 @@
+{
+  "finder" : "gnfinder",
+  "info" : {
+    "name" : "gnfinder",
+    "version" : "1.5.0",
+    "configHash" : "chunk=100000;ambiguous=true;odds=true;lang=detect"
+  },
+  "corpus" : "curated",
+  "split" : "dev",
+  "mode" : "A",
+  "documents" : 31,
+  "names" : {
+    "tp" : 179,
+    "fp" : 191,
+    "fn" : 33
+  },
+  "byCategory" : {
+    "block:ABSTRACT" : {
+      "tp" : 55,
+      "fp" : 56,
+      "fn" : 7
+    },
+    "block:CAPTION" : {
+      "tp" : 14,
+      "fp" : 22,
+      "fn" : 17
+    },
+    "block:HEADING" : {
+      "tp" : 8,
+      "fp" : 3,
+      "fn" : 1
+    },
+    "block:PARAGRAPH" : {
+      "tp" : 91,
+      "fp" : 91,
+      "fn" : 6
+    },
+    "block:TABLE_CELL" : {
+      "tp" : 2,
+      "fp" : 2,
+      "fn" : 0
+    },
+    "block:TITLE" : {
+      "tp" : 9,
+      "fp" : 17,
+      "fn" : 2
+    },
+    "kind:ABBREVIATED" : {
+      "tp" : 61,
+      "fp" : 1,
+      "fn" : 16
+    },
+    "kind:BINOMIAL" : {
+      "tp" : 70,
+      "fp" : 1,
+      "fn" : 13
+    },
+    "kind:TRINOMIAL" : {
+      "tp" : 0,
+      "fp" : 2,
+      "fn" : 0
+    },
+    "kind:UNINOMIAL" : {
+      "tp" : 48,
+      "fp" : 187,
+      "fn" : 4
+    },
+    "lang:de" : {
+      "tp" : 0,
+      "fp" : 3,
+      "fn" : 0
+    },
+    "lang:en" : {
+      "tp" : 123,
+      "fp" : 158,
+      "fn" : 30
+    },
+    "lang:es" : {
+      "tp" : 3,
+      "fp" : 3,
+      "fn" : 0
+    },
+    "lang:fr" : {
+      "tp" : 19,
+      "fp" : 7,
+      "fn" : 0
+    },
+    "lang:und" : {
+      "tp" : 34,
+      "fp" : 20,
+      "fn" : 3
+    },
+    "stratum:ACTS" : {
+      "tp" : 5,
+      "fp" : 6,
+      "fn" : 1
+    },
+    "stratum:BROAD_EN" : {
+      "tp" : 37,
+      "fp" : 54,
+      "fn" : 8
+    },
+    "stratum:NON_EN" : {
+      "tp" : 22,
+      "fp" : 13,
+      "fn" : 0
+    },
+    "stratum:PENSOFT" : {
+      "tp" : 115,
+      "fp" : 118,
+      "fn" : 24
+    }
+  },
+  "nameCorrect" : {
+    "correct" : 0,
+    "matched" : 0,
+    "rate" : 0.0
+  },
+  "nameCorrectByKind" : { },
+  "acts" : {
+    "tp" : 4,
+    "fp" : 1,
+    "fn" : 2
+  },
+  "contexts" : {
+    "tp" : 0,
+    "fp" : 0,
+    "fn" : 2
+  },
+  "mainSubject" : {
+    "tp" : 3,
+    "fp" : 28,
+    "fn" : 6
+  },
+  "falsePositives" : [ {
+    "docId" : "openalex:W4409207899",
+    "blockId" : "b2",
+    "start" : 236,
+    "end" : 241,
+    "text" : "Eagle",
+    "category" : "UNINOMIAL",
+    "context" : "enerally do not, except for the Crowned «Eagle» Stephanoaetus coronatus, which are beli"
+  }, {
+    "docId" : "openalex:W7114795836",
+    "blockId" : "b2",
+    "start" : 1018,
+    "end" : 1032,
+    "text" : "L. delbrueckii",
+    "category" : "ABBREVIATED",
+    "context" : "probiotic candidates L. acidophilus and «L. delbrueckii» spp. bulgaricus, along with assessments"
+  }, {
+    "docId" : "openalex:W4408161575",
+    "blockId" : "b1",
+    "start" : 96,
+    "end" : 100,
+    "text" : "Data",
+    "category" : "UNINOMIAL",
+    "context" : "ks With Environmental DNA Metabarcoding «Data» in a Coastal Marine Food Web"
+  }, {
+    "docId" : "openalex:W4410837196",
+    "blockId" : "b1",
+    "start" : 0,
+    "end" : 9,
+    "text" : "Vertebral",
+    "category" : "UNINOMIAL",
+    "context" : "«Vertebral» and Spinal Cord Hydatidosis: A Case Ser"
+  }, {
+    "docId" : "openalex:W4411735138",
+    "blockId" : "b2",
+    "start" : 257,
+    "end" : 259,
+    "text" : "IA",
+    "category" : "UNINOMIAL",
+    "context" : "n of a wide range of infectious agents («IA») in a host system. This technology allo"
+  }, {
+    "docId" : "openalex:W7117900258",
+    "blockId" : "b1",
+    "start" : 13,
+    "end" : 38,
+    "text" : "Columbicola columbae lice",
+    "category" : "TRINOMIAL",
+    "context" : "Incidence of «Columbicola columbae lice» in Domestic pigeons and Laughing doves "
+  }, {
+    "docId" : "openalex:W4411326215",
+    "blockId" : "b1",
+    "start" : 0,
+    "end" : 4,
+    "text" : "Wild",
+    "category" : "UNINOMIAL",
+    "context" : "«Wild» Animal Detection and Alert System"
+  }, {
+    "docId" : "openalex:W4415684239",
+    "blockId" : "b1",
+    "start" : 39,
+    "end" : 49,
+    "text" : "Vegetation",
+    "category" : "UNINOMIAL",
+    "context" : "Spatiotemporal Dynamics and Drivers of «Vegetation» NPP in the Yanshan-Taihang Mountain Eco"
+  }, {
+    "docId" : "openalex:W4408298287",
+    "blockId" : "b1",
+    "start" : 61,
+    "end" : 68,
+    "text" : "OPOSSUM",
+    "category" : "UNINOMIAL",
+    "context" : "IA SPP. IN THREE SPECIES OF FREERANGING «OPOSSUM» (DIDELPHIS SPP.) IN FLORIDA, USA, AND B"
+  }, {
+    "docId" : "openalex:W4409765352",
+    "blockId" : "b1",
+    "start" : 7,
+    "end" : 12,
+    "text" : "Death",
+    "category" : "UNINOMIAL",
+    "context" : "Sudden «Death» With Lyme Disease Myocarditis: A Case R"
+  }, {
+    "docId" : "openalex:W4406679611",
+    "blockId" : "b2",
+    "start" : 464,
+    "end" : 471,
+    "text" : "Namibia",
+    "category" : "UNINOMIAL",
+    "context" : " four eastern communal conservancies in «Namibia» using questionnaire surveys administere"
+  }, {
+    "docId" : "openalex:W4413897306",
+    "blockId" : "b2",
+    "start" : 624,
+    "end" : 628,
+    "text" : "Gram",
+    "category" : "UNINOMIAL",
+    "context" : "ahil edilmiştir.Tanımlayıcı analizlerde «Gram» boyama, konvansiyonel biyokimyasal yönt"
+  }, {
+    "docId" : "openalex:W4417208930",
+    "blockId" : "b2",
+    "start" : 22,
+    "end" : 24,
+    "text" : "La",
+    "category" : "UNINOMIAL",
+    "context" : "Resumen Introducción: «La» parasitosis infantil persiste como un p"
+  }, {
+    "docId" : "openalex:W7126047464",
+    "blockId" : "b2",
+    "start" : 811,
+    "end" : 813,
+    "text" : "La",
+    "category" : "UNINOMIAL",
+    "context" : "alis a été mis en évidence.. Résultats. «La» fréquence de l’infection à T. vaginalis"
+  }, {
+    "docId" : "openalex:W7126510610",
+    "blockId" : "b2",
+    "start" : 125,
+    "end" : 128,
+    "text" : "Die",
+    "category" : "UNINOMIAL",
+    "context" : "euen Studie die EU und ihre Fangquoten. «Die» Rede ist von systematischem Versagen in"
+  }, {
+    "docId" : "openalex:W4408055545",
+    "blockId" : "b1",
+    "start" : 71,
+    "end" : 80,
+    "text" : "ARGENTINA",
+    "category" : "UNINOMIAL",
+    "context" : "AL EN MUJERES CON FALLO REPRODUCTIVO EN «ARGENTINA»."
+  }, {
+    "docId" : "pensoft:zookeys.1260.128800",
+    "blockId" : "b18",
+    "start" : 77,
+    "end" : 82,
+    "text" : "Costa",
+    "category" : "UNINOMIAL",
+    "context" : " Mogensen Wildlife Refuge, northwestern «Costa» Rica. The areas bordered by dashed line"
+  }, {
+    "docId" : "pensoft:bdj.13.e144840",
+    "blockId" : "b36",
+    "start" : 13,
+    "end" : 16,
+    "text" : "MAT",
+    "category" : "UNINOMIAL",
+    "context" : "Temperature («MAT»). The box plot (Fig. 5a) shows the vari"
+  }, {
+    "docId" : "pensoft:zookeys.1253.163155",
+    "blockId" : "b25",
+    "start" : 46,
+    "end" : 51,
+    "text" : "China",
+    "category" : "UNINOMIAL",
+    "context" : " subgenera of Aprostocetus Girault from «China» (females)"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b27",
+    "start" : 0,
+    "end" : 5,
+    "text" : "Stems",
+    "category" : "UNINOMIAL",
+    "context" : "«Stems»"
+  }, {
+    "docId" : "pensoft:bdj.12.e129087",
+    "blockId" : "b22",
+    "start" : 21,
+    "end" : 25,
+    "text" : "Hong",
+    "category" : "UNINOMIAL",
+    "context" : "Metarhizium puerense «Hong» Yu bis, J. M. Ma & Z.Q. Wang sp. nov."
+  }, {
+    "docId" : "pensoft:phytokeys.268.176758",
+    "blockId" : "b263",
+    "start" : 0,
+    "end" : 6,
+    "text" : "Scales",
+    "category" : "UNINOMIAL",
+    "context" : "«Scales» oval, 5.8–7.1 × 4.1–4.6 µm. A wide post"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b13",
+    "start" : 65,
+    "end" : 74,
+    "text" : "Southeast",
+    "category" : "UNINOMIAL",
+    "context" : "tychognathus dajie sp. nov. in East and «Southeast» Asia. Solid symbols mean collection sit"
+  }, {
+    "docId" : "pensoft:phytokeys.268.172546",
+    "blockId" : "b192",
+    "start" : 0,
+    "end" : 5,
+    "text" : "China",
+    "category" : "UNINOMIAL",
+    "context" : "«China» • Guangdong Province: Shaoguan City, Re"
+  }, {
+    "docId" : "pensoft:phytokeys.274.184803",
+    "blockId" : "b10",
+    "start" : 52,
+    "end" : 57,
+    "text" : "China",
+    "category" : "UNINOMIAL",
+    "context" : " native Selaginella species to Guizhou, «China» and their infrageneric assignments."
+  }, {
+    "docId" : "openalex:W4405013555",
+    "blockId" : "b1",
+    "start" : 50,
+    "end" : 61,
+    "text" : "Culiciomyia",
+    "category" : "UNINOMIAL",
+    "context" : "angensis, a new species of the subgenus «Culiciomyia» Theobald of the genus Culex Linnaeus (D"
+  }, {
+    "docId" : "openalex:W4409207899",
+    "blockId" : "b2",
+    "start" : 613,
+    "end" : 618,
+    "text" : "There",
+    "category" : "UNINOMIAL",
+    "context" : " to facilitate a systematic comparison. «There» was significant individual variation in"
+  }, {
+    "docId" : "openalex:W4408161575",
+    "blockId" : "b2",
+    "start" : 557,
+    "end" : 561,
+    "text" : "Here",
+    "category" : "UNINOMIAL",
+    "context" : "nt biotic interactions remains unclear. «Here», we tackle this challenge and compare s"
+  }, {
+    "docId" : "openalex:W4410837196",
+    "blockId" : "b2",
+    "start" : 0,
+    "end" : 9,
+    "text" : "Vertebral",
+    "category" : "UNINOMIAL",
+    "context" : "«Vertebral» and Spinal Cord Hydatidosis is an infec"
+  }, {
+    "docId" : "openalex:W4411735138",
+    "blockId" : "b2",
+    "start" : 378,
+    "end" : 380,
+    "text" : "IA",
+    "category" : "UNINOMIAL",
+    "context" : "ned simultaneously for tens of targeted «IA» by real-time PCR. It represents a promi"
+  }, {
+    "docId" : "openalex:W7117900258",
+    "blockId" : "b1",
+    "start" : 42,
+    "end" : 50,
+    "text" : "Domestic",
+    "category" : "UNINOMIAL",
+    "context" : "cidence of Columbicola columbae lice in «Domestic» pigeons and Laughing doves in Babylon g"
+  }, {
+    "docId" : "openalex:W4411326215",
+    "blockId" : "b1",
+    "start" : 32,
+    "end" : 38,
+    "text" : "System",
+    "category" : "UNINOMIAL",
+    "context" : "Wild Animal Detection and Alert «System»"
+  }, {
+    "docId" : "openalex:W4415684239",
+    "blockId" : "b1",
+    "start" : 77,
+    "end" : 85,
+    "text" : "Mountain",
+    "category" : "UNINOMIAL",
+    "context" : "f Vegetation NPP in the Yanshan-Taihang «Mountain» Ecological Conservation Zone from 2004 "
+  }, {
+    "docId" : "openalex:W4408298287",
+    "blockId" : "b1",
+    "start" : 89,
+    "end" : 96,
+    "text" : "FLORIDA",
+    "category" : "UNINOMIAL",
+    "context" : "FREERANGING OPOSSUM (DIDELPHIS SPP.) IN «FLORIDA», USA, AND BRAZIL"
+  }, {
+    "docId" : "openalex:W4409765352",
+    "blockId" : "b2",
+    "start" : 10,
+    "end" : 15,
+    "text" : "Death",
+    "category" : "UNINOMIAL",
+    "context" : "ABSTRACT: «Death» from myocarditis due to Lyme disease is"
+  }, {
+    "docId" : "openalex:W4413897306",
+    "blockId" : "b2",
+    "start" : 828,
+    "end" : 832,
+    "text" : "Gram",
+    "category" : "UNINOMIAL",
+    "context" : "zole edilen mikroorganizmaların %49,3'ü «Gram» pozitif, %48,1'i Gram negatif bakterile"
+  }, {
+    "docId" : "openalex:W4417208930",
+    "blockId" : "b2",
+    "start" : 1091,
+    "end" : 1093,
+    "text" : "La",
+    "category" : "UNINOMIAL",
+    "context" : "tructurales y educativos. Conclusiones: «La» parasitosis infantil en zonas altoandin"
+  }, {
+    "docId" : "openalex:W7126047464",
+    "blockId" : "b2",
+    "start" : 983,
+    "end" : 985,
+    "text" : "La",
+    "category" : "UNINOMIAL",
+    "context" : "19 avec une fréquence de 6,1% (10/164). «La» tranche d’âge la plus représentée était"
+  }, {
+    "docId" : "openalex:W7126510610",
+    "blockId" : "b2",
+    "start" : 191,
+    "end" : 194,
+    "text" : "Die",
+    "category" : "UNINOMIAL",
+    "context" : "schem Versagen in der Fischereipolitik. «Die» EU gehe von viel zu hohen Fischbestände"
+  }, {
+    "docId" : "pensoft:zookeys.1260.128800",
+    "blockId" : "b262",
+    "start" : 0,
+    "end" : 5,
+    "text" : "Costa",
+    "category" : "UNINOMIAL",
+    "context" : "«Costa» Rica • Puntarenas Province, Karen Mogen"
+  }, {
+    "docId" : "pensoft:bdj.13.e144840",
+    "blockId" : "b36",
+    "start" : 1645,
+    "end" : 1648,
+    "text" : "All",
+    "category" : "UNINOMIAL",
+    "context" : " the medium temperature range (2-10°C). «All» evaluations collectively suggest that C"
+  }, {
+    "docId" : "pensoft:zookeys.1253.163155",
+    "blockId" : "b28",
+    "start" : 15,
+    "end" : 22,
+    "text" : "Ashmead",
+    "category" : "UNINOMIAL",
+    "context" : "Tetrastichodes «Ashmead»"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b133",
+    "start" : 0,
+    "end" : 6,
+    "text" : "Crimea",
+    "category" : "UNINOMIAL",
+    "context" : "«Crimea». “Ex Tauria”, P.S. Pallas in Herb. Bieb"
+  }, {
+    "docId" : "pensoft:bdj.12.e129087",
+    "blockId" : "b22",
+    "start" : 50,
+    "end" : 54,
+    "text" : "Wang",
+    "category" : "UNINOMIAL",
+    "context" : "m puerense Hong Yu bis, J. M. Ma & Z.Q. «Wang» sp. nov."
+  }, {
+    "docId" : "pensoft:phytokeys.268.176758",
+    "blockId" : "b266",
+    "start" : 41,
+    "end" : 44,
+    "text" : "Don",
+    "category" : "UNINOMIAL",
+    "context" : "hilippines • Mindanao Island, Bukidnon, «Don» Carlos, Barangay Pinamaloy, Lake Pinama"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b13",
+    "start" : 75,
+    "end" : 79,
+    "text" : "Asia",
+    "category" : "UNINOMIAL",
+    "context" : "us dajie sp. nov. in East and Southeast «Asia». Solid symbols mean collection sites of"
+  }, {
+    "docId" : "pensoft:phytokeys.268.172546",
+    "blockId" : "b192",
+    "start" : 8,
+    "end" : 17,
+    "text" : "Guangdong",
+    "category" : "UNINOMIAL",
+    "context" : "China • «Guangdong» Province: Shaoguan City, Renhua County,"
+  }, {
+    "docId" : "pensoft:phytokeys.274.184803",
+    "blockId" : "b170",
+    "start" : 75,
+    "end" : 80,
+    "text" : "China",
+    "category" : "UNINOMIAL",
+    "context" : "a specimens newly collected in Guizhou, «China»."
+  }, {
+    "docId" : "openalex:W4405013555",
+    "blockId" : "b1",
+    "start" : 90,
+    "end" : 98,
+    "text" : "Linnaeus",
+    "category" : "UNINOMIAL",
+    "context" : "Culiciomyia Theobald of the genus Culex «Linnaeus» (Diptera: Culicidae) from Bhutan"
+  }, {
+    "docId" : "openalex:W4410837196",
+    "blockId" : "b2",
+    "start" : 287,
+    "end" : 294,
+    "text" : "Morocco",
+    "category" : "UNINOMIAL",
+    "context" : "rticularly in endemic areas, notably in «Morocco». Despite its generally benign nature du"
+  }, {
+    "docId" : "openalex:W4411735138",
+    "blockId" : "b2",
+    "start" : 450,
+    "end" : 452,
+    "text" : "As",
+    "category" : "UNINOMIAL",
+    "context" : "ts a promising tool in disease ecology. «As» a proof of concept, we present here the"
+  }, {
+    "docId" : "openalex:W7117900258",
+    "blockId" : "b2",
+    "start" : 0,
+    "end" : 13,
+    "text" : "Ectoparasites",
+    "category" : "UNINOMIAL",
+    "context" : "«Ectoparasites», particularly lice, are common pathogen"
+  }, {
+    "docId" : "openalex:W4411326215",
+    "blockId" : "b2",
+    "start" : 46,
+    "end" : 50,
+    "text" : "Wild",
+    "category" : "UNINOMIAL",
+    "context" : "in objective of the Project is Abstract «Wild» Animal Detection and Alert System: A Te"
+  }, {
+    "docId" : "openalex:W4415684239",
+    "blockId" : "b2",
+    "start" : 91,
+    "end" : 99,
+    "text" : "Mountain",
+    "category" : "UNINOMIAL",
+    "context" : "PP) is essential in the Yanshan–Taihang «Mountain» Ecological Conservation Zone (YTECZ). S"
+  }, {
+    "docId" : "openalex:W4408298287",
+    "blockId" : "b1",
+    "start" : 107,
+    "end" : 113,
+    "text" : "BRAZIL",
+    "category" : "UNINOMIAL",
+    "context" : "M (DIDELPHIS SPP.) IN FLORIDA, USA, AND «BRAZIL»"
+  }, {
+    "docId" : "openalex:W4413897306",
+    "blockId" : "b2",
+    "start" : 850,
+    "end" : 854,
+    "text" : "Gram",
+    "category" : "UNINOMIAL",
+    "context" : "izmaların %49,3'ü Gram pozitif, %48,1'i «Gram» negatif bakterilerden, %2,6'sı ise Cand"
+  }, {
+    "docId" : "openalex:W7126047464",
+    "blockId" : "b2",
+    "start" : 1059,
+    "end" : 1062,
+    "text" : "Les",
+    "category" : "UNINOMIAL",
+    "context" : " était celle de [26-35 ans] soit 37,0%. «Les» leucorrhées des patientes atteintes d’i"
+  }, {
+    "docId" : "openalex:W7126510610",
+    "blockId" : "b2",
+    "start" : 261,
+    "end" : 264,
+    "text" : "Die",
+    "category" : "UNINOMIAL",
+    "context" : "Fischbeständen in Nord- und Ostsee aus. «Die» aktuellen Fangquoten führten nach Angab"
+  }, {
+    "docId" : "pensoft:zookeys.1260.128800",
+    "blockId" : "b268",
+    "start" : 0,
+    "end" : 5,
+    "text" : "Costa",
+    "category" : "UNINOMIAL",
+    "context" : "«Costa» Rica • Puntarenas Province, Karen Mogen"
+  }, {
+    "docId" : "pensoft:bdj.13.e144840",
+    "blockId" : "b96",
+    "start" : 80,
+    "end" : 85,
+    "text" : "Flora",
+    "category" : "UNINOMIAL",
+    "context" : "ewan representing 2084 specimens in the «Flora» of Saskatchewan Association (FOSA) data"
+  }, {
+    "docId" : "pensoft:zookeys.1253.163155",
+    "blockId" : "b270",
+    "start" : 28,
+    "end" : 33,
+    "text" : "China",
+    "category" : "UNINOMIAL",
+    "context" : "Holotype, female [on card], «China» • Hainan Province, Hainan Limushan Fore"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b133",
+    "start" : 12,
+    "end" : 18,
+    "text" : "Tauria",
+    "category" : "UNINOMIAL",
+    "context" : "Crimea. “Ex «Tauria»”, P.S. Pallas in Herb. Bieberstein (lec"
+  }, {
+    "docId" : "pensoft:bdj.12.e129087",
+    "blockId" : "b24",
+    "start" : 160,
+    "end" : 165,
+    "text" : "China",
+    "category" : "UNINOMIAL",
+    "context" : "m puerense sp. nov.; Location: country: «China»; stateProvince: Yunnan; locality: Pu'er"
+  }, {
+    "docId" : "pensoft:phytokeys.268.176758",
+    "blockId" : "b266",
+    "start" : 45,
+    "end" : 51,
+    "text" : "Carlos",
+    "category" : "UNINOMIAL",
+    "context" : "ppines • Mindanao Island, Bukidnon, Don «Carlos», Barangay Pinamaloy, Lake Pinamaloy; 7°"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b13",
+    "start" : 258,
+    "end" : 264,
+    "text" : "Taiwan",
+    "category" : "UNINOMIAL",
+    "context" : "–11 refer to Table 1; 12, Lanyu Island, «Taiwan»; 13, Miyako Islands, Japan; 14, Amami I"
+  }, {
+    "docId" : "pensoft:phytokeys.268.172546",
+    "blockId" : "b192",
+    "start" : 65,
+    "end" : 73,
+    "text" : "Mountain",
+    "category" : "UNINOMIAL",
+    "context" : "e: Shaoguan City, Renhua County, Danxia «Mountain» area, 250 m a.s.l., in moist valleys, 4"
+  }, {
+    "docId" : "pensoft:phytokeys.274.184803",
+    "blockId" : "b327",
+    "start" : 1258,
+    "end" : 1262,
+    "text" : "Wang",
+    "category" : "UNINOMIAL",
+    "context" : "requently employed in previous studies («Wang» and Wang 2001; Chang et al. 2012; Zhang"
+  }, {
+    "docId" : "openalex:W4405013555",
+    "blockId" : "b1",
+    "start" : 100,
+    "end" : 107,
+    "text" : "Diptera",
+    "category" : "UNINOMIAL",
+    "context" : "a Theobald of the genus Culex Linnaeus («Diptera»: Culicidae) from Bhutan"
+  }, {
+    "docId" : "openalex:W4410837196",
+    "blockId" : "b2",
+    "start" : 989,
+    "end" : 993,
+    "text" : "Here",
+    "category" : "UNINOMIAL",
+    "context" : "recurrence and spinal cord compression. «Here» in, we present a retrospective study of"
+  }, {
+    "docId" : "openalex:W4411735138",
+    "blockId" : "b2",
+    "start" : 611,
+    "end" : 613,
+    "text" : "IA",
+    "category" : "UNINOMIAL",
+    "context" : "r the detection of DNA from 28 selected «IA» in a set of wild vertebrates. We applie"
+  }, {
+    "docId" : "openalex:W7117900258",
+    "blockId" : "b2",
+    "start" : 811,
+    "end" : 836,
+    "text" : "Columbicola columbae lice",
+    "category" : "TRINOMIAL",
+    "context" : " study indicated that the prevalence of «Columbicola columbae lice» in endemic pigeons was 31.81%, while in"
+  }, {
+    "docId" : "openalex:W4411326215",
+    "blockId" : "b2",
+    "start" : 78,
+    "end" : 84,
+    "text" : "System",
+    "category" : "UNINOMIAL",
+    "context" : "bstract Wild Animal Detection and Alert «System»: A Technological Solution for Human-Wil"
+  }, {
+    "docId" : "openalex:W4408298287",
+    "blockId" : "b2",
+    "start" : 472,
+    "end" : 479,
+    "text" : "Florida",
+    "category" : "UNINOMIAL",
+    "context" : "a, n = 33) from urban/suburban areas of «Florida», USA admitted to rehabilitation centers"
+  }, {
+    "docId" : "openalex:W4413897306",
+    "blockId" : "b2",
+    "start" : 890,
+    "end" : 897,
+    "text" : "Candida",
+    "category" : "UNINOMIAL",
+    "context" : "Gram negatif bakterilerden, %2,6'sı ise «Candida» türlerinden oluşmuştur.En sık tespit ed"
+  }, {
+    "docId" : "openalex:W7126047464",
+    "blockId" : "b2",
+    "start" : 1174,
+    "end" : 1176,
+    "text" : "La",
+    "category" : "UNINOMIAL",
+    "context" : " étaient abondantes dans 42,2% (19/45). «La» quantité de leucocytes présente dans le"
+  }, {
+    "docId" : "pensoft:zookeys.1260.128800",
+    "blockId" : "b270",
+    "start" : 327,
+    "end" : 333,
+    "text" : "Common",
+    "category" : "UNINOMIAL",
+    "context" : "lack one (Wainwright 2007; Astúa 2015). «Common» in the study area. Recorded almost in e"
+  }, {
+    "docId" : "pensoft:bdj.13.e144840",
+    "blockId" : "b96",
+    "start" : 102,
+    "end" : 113,
+    "text" : "Association",
+    "category" : "UNINOMIAL",
+    "context" : " specimens in the Flora of Saskatchewan «Association» (FOSA) dataset and 571 specimens in the"
+  }, {
+    "docId" : "pensoft:zookeys.1253.163155",
+    "blockId" : "b270",
+    "start" : 76,
+    "end" : 80,
+    "text" : "Park",
+    "category" : "UNINOMIAL",
+    "context" : "Hainan Province, Hainan Limushan Forest «Park», 30.IV.2021, Gang Fu, Ming-Rui Li, by s"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b133",
+    "start" : 26,
+    "end" : 32,
+    "text" : "Pallas",
+    "category" : "UNINOMIAL",
+    "context" : "Crimea. “Ex Tauria”, P.S. «Pallas» in Herb. Bieberstein (lectotype LE01043"
+  }, {
+    "docId" : "pensoft:bdj.12.e129087",
+    "blockId" : "b24",
+    "start" : 347,
+    "end" : 351,
+    "text" : "Hong",
+    "category" : "UNINOMIAL",
+    "context" : "°95.57'E; Identification: identifiedBy: «Hong» Yu bis; Event: year: 2023; month: Augus"
+  }, {
+    "docId" : "pensoft:phytokeys.268.176758",
+    "blockId" : "b266",
+    "start" : 197,
+    "end" : 200,
+    "text" : "SEM",
+    "category" : "UNINOMIAL",
+    "context" : "rtion of a single gathering of cells on «SEM» stub 70_I_1, deposited at the Herbarium"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b13",
+    "start" : 322,
+    "end" : 327,
+    "text" : "Kochi",
+    "category" : "UNINOMIAL",
+    "context" : "ds, Japan; 14, Amami Island, Japan; 15, «Kochi» and Ehime, Japan; 16, Kanagawa, Japan; "
+  }, {
+    "docId" : "pensoft:phytokeys.268.172546",
+    "blockId" : "b197",
+    "start" : 34,
+    "end" : 39,
+    "text" : "Stems",
+    "category" : "UNINOMIAL",
+    "context" : "Perennial herb, up to 80 cm tall. «Stems» slightly prostrate at base, becoming er"
+  }, {
+    "docId" : "pensoft:phytokeys.274.184803",
+    "blockId" : "b327",
+    "start" : 1267,
+    "end" : 1271,
+    "text" : "Wang",
+    "category" : "UNINOMIAL",
+    "context" : " employed in previous studies (Wang and «Wang» 2001; Chang et al. 2012; Zhang et al. 2"
+  }, {
+    "docId" : "openalex:W4405013555",
+    "blockId" : "b1",
+    "start" : 109,
+    "end" : 118,
+    "text" : "Culicidae",
+    "category" : "UNINOMIAL",
+    "context" : "d of the genus Culex Linnaeus (Diptera: «Culicidae») from Bhutan"
+  }, {
+    "docId" : "openalex:W4410837196",
+    "blockId" : "b2",
+    "start" : 1057,
+    "end" : 1066,
+    "text" : "Vertebral",
+    "category" : "UNINOMIAL",
+    "context" : "pective study of a series of 9 cases of «Vertebral» and Spinal Cord Hydatidosis diagnosed a"
+  }, {
+    "docId" : "openalex:W4411735138",
+    "blockId" : "b2",
+    "start" : 1144,
+    "end" : 1146,
+    "text" : "IA",
+    "category" : "UNINOMIAL",
+    "context" : "em and/or sequencing. Fourteen targeted «IA» were detected. The approach allowed an "
+  }, {
+    "docId" : "openalex:W7117900258",
+    "blockId" : "b2",
+    "start" : 1375,
+    "end" : 1379,
+    "text" : "Iraq",
+    "category" : "UNINOMIAL",
+    "context" : " the laughing dove (S. senegalensis) in «Iraq»."
+  }, {
+    "docId" : "openalex:W4411326215",
+    "blockId" : "b2",
+    "start" : 310,
+    "end" : 314,
+    "text" : "Wild",
+    "category" : "UNINOMIAL",
+    "context" : "nd animal populations. In response, the «Wild» Animal Detection and Alert System emerg"
+  }, {
+    "docId" : "openalex:W4408298287",
+    "blockId" : "b2",
+    "start" : 598,
+    "end" : 604,
+    "text" : "Brazil",
+    "category" : "UNINOMIAL",
+    "context" : "k-eared opossum from two urban areas of «Brazil» (D. albiventris, n = 33; D. aurita, n ="
+  }, {
+    "docId" : "openalex:W4413897306",
+    "blockId" : "b2",
+    "start" : 1165,
+    "end" : 1169,
+    "text" : "Gram",
+    "category" : "UNINOMIAL",
+    "context" : " coli colistin, meropenem ve imipeneme; «Gram» pozitif bakteriler ise linezolid, tigec"
+  }, {
+    "docId" : "openalex:W7126047464",
+    "blockId" : "b2",
+    "start" : 1391,
+    "end" : 1393,
+    "text" : "La",
+    "category" : "UNINOMIAL",
+    "context" : "anismes dans 28,9% des cas. Conclusion. «La» fréquence de l’infection à T. vaginalis"
+  }, {
+    "docId" : "pensoft:zookeys.1260.128800",
+    "blockId" : "b270",
+    "start" : 476,
+    "end" : 481,
+    "text" : "Costa",
+    "category" : "UNINOMIAL",
+    "context" : "iana Kerr, 1792) occurs in northwestern «Costa» Rica, and it is distinguished by a tail"
+  }, {
+    "docId" : "pensoft:zookeys.1253.163155",
+    "blockId" : "b270",
+    "start" : 495,
+    "end" : 498,
+    "text" : "All",
+    "category" : "UNINOMIAL",
+    "context" : "021, Gang Fu, Ming-Rui Li, by sweeping. «All» deposited in YCTU."
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b138",
+    "start" : 8,
+    "end" : 14,
+    "text" : "Poland",
+    "category" : "UNINOMIAL",
+    "context" : "Europe: «Poland» (Zieliński 1975; Danielewicz 2020), Mol"
+  }, {
+    "docId" : "pensoft:bdj.12.e129087",
+    "blockId" : "b25",
+    "start" : 13,
+    "end" : 18,
+    "text" : "Other",
+    "category" : "UNINOMIAL",
+    "context" : "Type status: «Other» material. Occurrence: occurrenceID: E7C"
+  }, {
+    "docId" : "pensoft:phytokeys.268.176758",
+    "blockId" : "b266",
+    "start" : 248,
+    "end" : 254,
+    "text" : "Steppe",
+    "category" : "UNINOMIAL",
+    "context" : "_I_1, deposited at the Herbarium of the «Steppe» Institute of the Ural Branch of the Rus"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b13",
+    "start" : 395,
+    "end" : 404,
+    "text" : "Guangdong",
+    "category" : "UNINOMIAL",
+    "context" : "awa, Japan; 17, Izu Islands, Japan; 18, «Guangdong», China; 19, Negros, the Philippines; 20"
+  }, {
+    "docId" : "pensoft:phytokeys.268.172546",
+    "blockId" : "b197",
+    "start" : 992,
+    "end" : 997,
+    "text" : "Calyx",
+    "category" : "UNINOMIAL",
+    "context" : "densely white-hirsute on both surfaces. «Calyx» 5-lobed almost to base; lobes linear, 0"
+  }, {
+    "docId" : "pensoft:phytokeys.274.184803",
+    "blockId" : "b329",
+    "start" : 114,
+    "end" : 118,
+    "text" : "Here",
+    "category" : "UNINOMIAL",
+    "context" : "ecies are prevalent across Selaginella. «Here», the concept of cryptic species refers "
+  }, {
+    "docId" : "openalex:W4405013555",
+    "blockId" : "b2",
+    "start" : 70,
+    "end" : 78,
+    "text" : "Linnaeus",
+    "category" : "UNINOMIAL",
+    "context" : "Culiciomyia Theobald of the genus Culex «Linnaeus» is described from larvae found in a str"
+  }, {
+    "docId" : "openalex:W4410837196",
+    "blockId" : "b2",
+    "start" : 1116,
+    "end" : 1120,
+    "text" : "SINA",
+    "category" : "UNINOMIAL",
+    "context" : "l Cord Hydatidosis diagnosed at the IBN «SINA» RABAT hospital, during the period from "
+  }, {
+    "docId" : "openalex:W4411735138",
+    "blockId" : "b2",
+    "start" : 1570,
+    "end" : 1572,
+    "text" : "IA",
+    "category" : "UNINOMIAL",
+    "context" : "reviously raised conservation concerns. «IA» not previously known to be circulating "
+  }, {
+    "docId" : "openalex:W4411326215",
+    "blockId" : "b2",
+    "start" : 342,
+    "end" : 348,
+    "text" : "System",
+    "category" : "UNINOMIAL",
+    "context" : "se, the Wild Animal Detection and Alert «System» emerges as a pioneering technological e"
+  }, {
+    "docId" : "openalex:W4408298287",
+    "blockId" : "b2",
+    "start" : 973,
+    "end" : 979,
+    "text" : "Brazil",
+    "category" : "UNINOMIAL",
+    "context" : "ne of the samples from the opossum from «Brazil» showed such reactivity. The three Besno"
+  }, {
+    "docId" : "openalex:W7126047464",
+    "blockId" : "b2",
+    "start" : 1594,
+    "end" : 1597,
+    "text" : "Les",
+    "category" : "UNINOMIAL",
+    "context" : "ompagne d’une abondance de leucorrhées. «Les» facteurs associés ont été la tranche d’"
+  }, {
+    "docId" : "pensoft:zookeys.1260.128800",
+    "blockId" : "b270",
+    "start" : 569,
+    "end" : 575,
+    "text" : "Zamora",
+    "category" : "UNINOMIAL",
+    "context" : " than the head and body (Reid and Gόmez «Zamora» 2022 and literature therein)."
+  }, {
+    "docId" : "pensoft:zookeys.1253.163155",
+    "blockId" : "b272",
+    "start" : 0,
+    "end" : 8,
+    "text" : "Mesosoma",
+    "category" : "UNINOMIAL",
+    "context" : "«Mesosoma» with area surrounding median line black"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b138",
+    "start" : 77,
+    "end" : 84,
+    "text" : "Belarus",
+    "category" : "UNINOMIAL",
+    "context" : "lewicz 2020), Moldova (Heydemann 1986), «Belarus» (Semerenko 1999; Dubovik 2016), Ukraine"
+  }, {
+    "docId" : "pensoft:bdj.12.e129087",
+    "blockId" : "b25",
+    "start" : 166,
+    "end" : 171,
+    "text" : "China",
+    "category" : "UNINOMIAL",
+    "context" : "m puerense sp. nov.; Location: country: «China»; stateProvince: Yunnan; locality: Pu'er"
+  }, {
+    "docId" : "pensoft:phytokeys.268.176758",
+    "blockId" : "b266",
+    "start" : 330,
+    "end" : 334,
+    "text" : "ORIS",
+    "category" : "UNINOMIAL",
+    "context" : " Russian Academy of Sciences, Orenburg («ORIS»). Fig. 2A is a representative scale fro"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b13",
+    "start" : 406,
+    "end" : 411,
+    "text" : "China",
+    "category" : "UNINOMIAL",
+    "context" : " 17, Izu Islands, Japan; 18, Guangdong, «China»; 19, Negros, the Philippines; 20, Cebu,"
+  }, {
+    "docId" : "pensoft:phytokeys.268.172546",
+    "blockId" : "b201",
+    "start" : 71,
+    "end" : 79,
+    "text" : "Mountain",
+    "category" : "UNINOMIAL",
+    "context" : "is” refers to the type locality, Danxia «Mountain» in Guangdong Province, China, to commem"
+  }, {
+    "docId" : "pensoft:phytokeys.274.184803",
+    "blockId" : "b329",
+    "start" : 423,
+    "end" : 425,
+    "text" : "As",
+    "category" : "UNINOMIAL",
+    "context" : "represent distinct phylogenetic clades. «As» shown in the analysis of 82 accessions "
+  }, {
+    "docId" : "openalex:W4405013555",
+    "blockId" : "b2",
+    "start" : 410,
+    "end" : 418,
+    "text" : "Fragilis",
+    "category" : "UNINOMIAL",
+    "context" : "sp. nov. The species is a member of the «Fragilis» Group. The fourth-instar larva is descr"
+  }, {
+    "docId" : "openalex:W4410837196",
+    "blockId" : "b2",
+    "start" : 1185,
+    "end" : 1189,
+    "text" : "Data",
+    "category" : "UNINOMIAL",
+    "context" : "he period from 2009 to January of 2024. «Data» from radiological, clinical, therapeuti"
+  }, {
+    "docId" : "openalex:W4411735138",
+    "blockId" : "b2",
+    "start" : 1828,
+    "end" : 1830,
+    "text" : "IA",
+    "category" : "UNINOMIAL",
+    "context" : "). Prevalence and diversity of targeted «IA» could be compared among sites and host "
+  }, {
+    "docId" : "openalex:W4411326215",
+    "blockId" : "b2",
+    "start" : 1006,
+    "end" : 1008,
+    "text" : "As",
+    "category" : "UNINOMIAL",
+    "context" : "resulting from human-wildlife conflict. «As» a groundbreaking solution, the Wild Ani"
+  }, {
+    "docId" : "openalex:W4408298287",
+    "blockId" : "b2",
+    "start" : 1356,
+    "end" : 1363,
+    "text" : "Florida",
+    "category" : "UNINOMIAL",
+    "context" : "mited infection in the opossum of South «Florida», USA, and southern and southeastern Bra"
+  }, {
+    "docId" : "openalex:W7126047464",
+    "blockId" : "b2",
+    "start" : 2543,
+    "end" : 2550,
+    "text" : "Results",
+    "category" : "UNINOMIAL",
+    "context" : "s in whom T. vaginalis was highlighted. «Results». The frequency of T. vaginalis infectio"
+  }, {
+    "docId" : "pensoft:zookeys.1260.128800",
+    "blockId" : "b274",
+    "start" : 0,
+    "end" : 5,
+    "text" : "Costa",
+    "category" : "UNINOMIAL",
+    "context" : "«Costa» Rica • Puntarenas Province, Karen Mogen"
+  }, {
+    "docId" : "pensoft:zookeys.1253.163155",
+    "blockId" : "b272",
+    "start" : 758,
+    "end" : 761,
+    "text" : "POL",
+    "category" : "UNINOMIAL",
+    "context" : "he following combination of characters: «POL» 1.7–2.0 × OOL (vs 4.5×); mandibles dist"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b138",
+    "start" : 117,
+    "end" : 124,
+    "text" : "Ukraine",
+    "category" : "UNINOMIAL",
+    "context" : "Belarus (Semerenko 1999; Dubovik 2016), «Ukraine» (Tzvelev 1987; Fedoronchuk 2019, 2022),"
+  }, {
+    "docId" : "pensoft:bdj.12.e129087",
+    "blockId" : "b25",
+    "start" : 353,
+    "end" : 357,
+    "text" : "Hong",
+    "category" : "UNINOMIAL",
+    "context" : "°95.57'E; Identification: identifiedBy: «Hong» Yu bis; Event: year: 2023; month: Augus"
+  }, {
+    "docId" : "pensoft:phytokeys.268.176758",
+    "blockId" : "b272",
+    "start" : 283,
+    "end" : 292,
+    "text" : "Indonesia",
+    "category" : "UNINOMIAL",
+    "context" : "ytes of other tropical regions, such as «Indonesia» (45 taxa, Kapustin et al. (2019); Gusev"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b13",
+    "start" : 555,
+    "end" : 564,
+    "text" : "Indonesia",
+    "category" : "UNINOMIAL",
+    "context" : "sia; 23, Phuket, Thailand; 24, Ternate, «Indonesia»; 25, Ambon Island, Indonesia."
+  }, {
+    "docId" : "pensoft:phytokeys.268.172546",
+    "blockId" : "b201",
+    "start" : 83,
+    "end" : 92,
+    "text" : "Guangdong",
+    "category" : "UNINOMIAL",
+    "context" : "o the type locality, Danxia Mountain in «Guangdong» Province, China, to commemorate this un"
+  }, {
+    "docId" : "pensoft:phytokeys.274.184803",
+    "blockId" : "b334",
+    "start" : 246,
+    "end" : 251,
+    "text" : "China",
+    "category" : "UNINOMIAL",
+    "context" : "S. effusa populations found in southern «China». This finding suggests that specimens p"
+  }, {
+    "docId" : "openalex:W4410837196",
+    "blockId" : "b2",
+    "start" : 1272,
+    "end" : 1274,
+    "text" : "As",
+    "category" : "UNINOMIAL",
+    "context" : "and evolutionary studies were reviewed. «As» a conclusion, the objective of this wor"
+  }, {
+    "docId" : "openalex:W4411735138",
+    "blockId" : "b2",
+    "start" : 2169,
+    "end" : 2171,
+    "text" : "IA",
+    "category" : "UNINOMIAL",
+    "context" : "cology for exploring the composition of «IA» communities within host communities, bu"
+  }, {
+    "docId" : "openalex:W4411326215",
+    "blockId" : "b2",
+    "start" : 1040,
+    "end" : 1044,
+    "text" : "Wild",
+    "category" : "UNINOMIAL",
+    "context" : "lict. As a groundbreaking solution, the «Wild» Animal Detection and Alert System repre"
+  }, {
+    "docId" : "openalex:W4408298287",
+    "blockId" : "b2",
+    "start" : 1400,
+    "end" : 1406,
+    "text" : "Brazil",
+    "category" : "UNINOMIAL",
+    "context" : "ida, USA, and southern and southeastern «Brazil». Overall, the preliminary data has mana"
+  }, {
+    "docId" : "pensoft:zookeys.1253.163155",
+    "blockId" : "b275",
+    "start" : 78,
+    "end" : 86,
+    "text" : "Paratype",
+    "category" : "UNINOMIAL",
+    "context" : "otype, female, habitus, dorsal view; 2. «Paratype», male, habitus, lateral view; 3. Mesoso"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b138",
+    "start" : 165,
+    "end" : 171,
+    "text" : "Crimea",
+    "category" : "UNINOMIAL",
+    "context" : "(Tzvelev 1987; Fedoronchuk 2019, 2022), «Crimea» (Yena 2012), Russia (central, southern "
+  }, {
+    "docId" : "pensoft:bdj.12.e129087",
+    "blockId" : "b26",
+    "start" : 13,
+    "end" : 18,
+    "text" : "Other",
+    "category" : "UNINOMIAL",
+    "context" : "Type status: «Other» material. Occurrence: occurrenceID: D72"
+  }, {
+    "docId" : "pensoft:phytokeys.268.176758",
+    "blockId" : "b272",
+    "start" : 461,
+    "end" : 467,
+    "text" : "Brazil",
+    "category" : "UNINOMIAL",
+    "context" : "d Croome (1985)), the tropical areas of «Brazil» (47 taxa, Couté and Franceschini (1998)"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b13",
+    "start" : 584,
+    "end" : 593,
+    "text" : "Indonesia",
+    "category" : "UNINOMIAL",
+    "context" : ", Ternate, Indonesia; 25, Ambon Island, «Indonesia»."
+  }, {
+    "docId" : "pensoft:phytokeys.268.172546",
+    "blockId" : "b201",
+    "start" : 103,
+    "end" : 108,
+    "text" : "China",
+    "category" : "UNINOMIAL",
+    "context" : " Danxia Mountain in Guangdong Province, «China», to commemorate this unique landform an"
+  }, {
+    "docId" : "pensoft:phytokeys.274.184803",
+    "blockId" : "b334",
+    "start" : 770,
+    "end" : 774,
+    "text" : "Wang",
+    "category" : "UNINOMIAL",
+    "context" : "hyll dimorphism) used to separate them («Wang» and Wang 2001; Zhang 2004; Zhang et al."
+  }, {
+    "docId" : "openalex:W4411326215",
+    "blockId" : "b2",
+    "start" : 1072,
+    "end" : 1078,
+    "text" : "System",
+    "category" : "UNINOMIAL",
+    "context" : "on, the Wild Animal Detection and Alert «System» represents a substantial advancement in"
+  }, {
+    "docId" : "pensoft:zookeys.1253.163155",
+    "blockId" : "b275",
+    "start" : 120,
+    "end" : 128,
+    "text" : "Mesosoma",
+    "category" : "UNINOMIAL",
+    "context" : "ratype, male, habitus, lateral view; 3. «Mesosoma», dorsal view; 4. Antenna, lateral view;"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b138",
+    "start" : 185,
+    "end" : 191,
+    "text" : "Russia",
+    "category" : "UNINOMIAL",
+    "context" : "onchuk 2019, 2022), Crimea (Yena 2012), «Russia» (central, southern and south-eastern pa"
+  }, {
+    "docId" : "pensoft:bdj.12.e129087",
+    "blockId" : "b26",
+    "start" : 166,
+    "end" : 171,
+    "text" : "China",
+    "category" : "UNINOMIAL",
+    "context" : "m puerense sp. nov.; Location: country: «China»; stateProvince: Yunnan; locality: Pu'er"
+  }, {
+    "docId" : "pensoft:phytokeys.268.176758",
+    "blockId" : "b272",
+    "start" : 552,
+    "end" : 555,
+    "text" : "Sri",
+    "category" : "UNINOMIAL",
+    "context" : "nceschini and Kristiansen (2004) etc.), «Sri» Lanka (29 taxa, Dürrschmidt and Cronber"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b325",
+    "start" : 130,
+    "end" : 137,
+    "text" : "Okinawa",
+    "category" : "UNINOMIAL",
+    "context" : "female (10.8 × 9.7 mm); Ryukyu Islands, «Okinawa», Miyako, Urasoko; 11 Apr. 2002; NCHUZOO"
+  }, {
+    "docId" : "pensoft:phytokeys.268.172546",
+    "blockId" : "b203",
+    "start" : 52,
+    "end" : 60,
+    "text" : "Mountain",
+    "category" : "UNINOMIAL",
+    "context" : "s danxiaensis is known only from Danxia «Mountain», Guangdong Province, China. Only three "
+  }, {
+    "docId" : "pensoft:phytokeys.274.184803",
+    "blockId" : "b334",
+    "start" : 779,
+    "end" : 783,
+    "text" : "Wang",
+    "category" : "UNINOMIAL",
+    "context" : "rphism) used to separate them (Wang and «Wang» 2001; Zhang 2004; Zhang et al. 2013) ex"
+  }, {
+    "docId" : "pensoft:zookeys.1253.163155",
+    "blockId" : "b276",
+    "start" : 160,
+    "end" : 163,
+    "text" : "POL",
+    "category" : "UNINOMIAL",
+    "context" : "e, not depressed, without reticulation; «POL» 1.7–2.0 × (1.9×) OOL, OOL 1.8–2.0 × (2."
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b138",
+    "start" : 316,
+    "end" : 320,
+    "text" : "Asia",
+    "category" : "UNINOMIAL",
+    "context" : " part: Tulaganova 1981; Abdulina 1999). «Asia»: Russia (south-western Siberia: Kurbats"
+  }, {
+    "docId" : "pensoft:bdj.12.e129087",
+    "blockId" : "b26",
+    "start" : 353,
+    "end" : 357,
+    "text" : "Hong",
+    "category" : "UNINOMIAL",
+    "context" : "°95.57'E; Identification: identifiedBy: «Hong» Yu bis; Event: year: 2023; month: Augus"
+  }, {
+    "docId" : "pensoft:phytokeys.268.176758",
+    "blockId" : "b272",
+    "start" : 556,
+    "end" : 561,
+    "text" : "Lanka",
+    "category" : "UNINOMIAL",
+    "context" : "chini and Kristiansen (2004) etc.), Sri «Lanka» (29 taxa, Dürrschmidt and Cronberg (198"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b325",
+    "start" : 238,
+    "end" : 245,
+    "text" : "Okinawa",
+    "category" : "UNINOMIAL",
+    "context" : ".0 × 8.9–4.5 × 4.0 mm); Ryukyu Islands, «Okinawa», Benoki, Benoki River; 7 Jul. 1990; ZRC"
+  }, {
+    "docId" : "pensoft:phytokeys.268.172546",
+    "blockId" : "b203",
+    "start" : 62,
+    "end" : 71,
+    "text" : "Guangdong",
+    "category" : "UNINOMIAL",
+    "context" : "sis is known only from Danxia Mountain, «Guangdong» Province, China. Only three populations"
+  }, {
+    "docId" : "pensoft:zookeys.1253.163155",
+    "blockId" : "b277",
+    "start" : 0,
+    "end" : 8,
+    "text" : "Mesosoma",
+    "category" : "UNINOMIAL",
+    "context" : "«Mesosoma» (Figs 1, 3) 1.3–1.5 × (1.4×) as long as"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b138",
+    "start" : 322,
+    "end" : 328,
+    "text" : "Russia",
+    "category" : "UNINOMIAL",
+    "context" : " Tulaganova 1981; Abdulina 1999). Asia: «Russia» (south-western Siberia: Kurbatsky 1994;"
+  }, {
+    "docId" : "pensoft:bdj.12.e129087",
+    "blockId" : "b29",
+    "start" : 649,
+    "end" : 656,
+    "text" : "Conidia",
+    "category" : "UNINOMIAL",
+    "context" : "nidial peduncle, 6.1-17.6 × 1.5-2.9 µm. «Conidia» were smooth-walled, ellipsoid to column"
+  }, {
+    "docId" : "pensoft:phytokeys.268.176758",
+    "blockId" : "b272",
+    "start" : 646,
+    "end" : 651,
+    "text" : "Papua",
+    "category" : "UNINOMIAL",
+    "context" : "nd more than in such Asian countries as «Papua» New Guinea (19 taxa, Vyverman and Cronb"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b325",
+    "start" : 362,
+    "end" : 368,
+    "text" : "Taiwan",
+    "category" : "UNINOMIAL",
+    "context" : "kiensis” in NK Ng 2006’s dissertation). «Taiwan» • 10 males (12.4 × 10.9–7.7 × 6.8 mm), "
+  }, {
+    "docId" : "pensoft:phytokeys.268.172546",
+    "blockId" : "b203",
+    "start" : 82,
+    "end" : 87,
+    "text" : "China",
+    "category" : "UNINOMIAL",
+    "context" : "om Danxia Mountain, Guangdong Province, «China». Only three populations have been disco"
+  }, {
+    "docId" : "pensoft:zookeys.1253.163155",
+    "blockId" : "b277",
+    "start" : 239,
+    "end" : 248,
+    "text" : "Scutellum",
+    "category" : "UNINOMIAL",
+    "context" : " on each side, each row with 5–6 setae. «Scutellum» 1.4 × as broad as long, anterior pair o"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b138",
+    "start" : 344,
+    "end" : 351,
+    "text" : "Siberia",
+    "category" : "UNINOMIAL",
+    "context" : "lina 1999). Asia: Russia (south-western «Siberia»: Kurbatsky 1994; northern Caucasus: Zer"
+  }, {
+    "docId" : "pensoft:bdj.12.e129087",
+    "blockId" : "b65",
+    "start" : 96,
+    "end" : 102,
+    "text" : "Fungus",
+    "category" : "UNINOMIAL",
+    "context" : "a arising from hosts buried in soil. B. «Fungus» on the larvae of Lepidoptera. C. Apical"
+  }, {
+    "docId" : "pensoft:phytokeys.268.176758",
+    "blockId" : "b272",
+    "start" : 953,
+    "end" : 958,
+    "text" : "India",
+    "category" : "UNINOMIAL",
+    "context" : " (108 taxa, Gusev et al. (2023a) etc.), «India» (58 taxa, Saha and Wujek (1990); Wujek "
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b325",
+    "start" : 2824,
+    "end" : 2833,
+    "text" : "Indonesia",
+    "category" : "UNINOMIAL",
+    "context" : "n Island; 30 Aug. 2003; NCHUZOOL 17336. «Indonesia» • 1 ovig. female (8.1 × 7.2 mm); Bali I"
+  }, {
+    "docId" : "pensoft:phytokeys.268.172546",
+    "blockId" : "b203",
+    "start" : 233,
+    "end" : 243,
+    "text" : "Associated",
+    "category" : "UNINOMIAL",
+    "context" : "ist valleys at elevations of 350–400 m. «Associated» species include Maesa perlarius (Lour.)"
+  }, {
+    "docId" : "pensoft:zookeys.1253.163155",
+    "blockId" : "b291",
+    "start" : 20,
+    "end" : 26,
+    "text" : "Walker",
+    "category" : "UNINOMIAL",
+    "context" : "Aprostocetus ligus («Walker»), female. 7. Habitus, dorsal view; 8. F"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b138",
+    "start" : 402,
+    "end" : 409,
+    "text" : "Georgia",
+    "category" : "UNINOMIAL",
+    "context" : " 1994; northern Caucasus: Zernov 2006), «Georgia», Kazakhstan (north-western and northern"
+  }, {
+    "docId" : "pensoft:bdj.12.e129087",
+    "blockId" : "b65",
+    "start" : 136,
+    "end" : 142,
+    "text" : "Apical",
+    "category" : "UNINOMIAL",
+    "context" : "Fungus on the larvae of Lepidoptera. C. «Apical» part of stromata D-E. Culture character"
+  }, {
+    "docId" : "pensoft:phytokeys.268.176758",
+    "blockId" : "b272",
+    "start" : 1041,
+    "end" : 1046,
+    "text" : "China",
+    "category" : "UNINOMIAL",
+    "context" : " Saha (1996)) and the tropical areas of «China» (58 taxa, Wei and Yuan (2001); Wei et a"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b327",
+    "start" : 363,
+    "end" : 372,
+    "text" : "Caledonia",
+    "category" : "UNINOMIAL",
+    "context" : "3 females (8.5 × 6.9–7.0 × 6.1 mm); New «Caledonia»; 8 Nov. 2006; ZRC 2019.1806. Ptychognat"
+  }, {
+    "docId" : "pensoft:zookeys.1253.163155",
+    "blockId" : "b291",
+    "start" : 40,
+    "end" : 47,
+    "text" : "Habitus",
+    "category" : "UNINOMIAL",
+    "context" : "Aprostocetus ligus (Walker), female. 7. «Habitus», dorsal view; 8. Fore and hind wings, d"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b138",
+    "start" : 644,
+    "end" : 651,
+    "text" : "Romania",
+    "category" : "UNINOMIAL",
+    "context" : "en revised. Its presence in Hungary and «Romania» is also expected."
+  }, {
+    "docId" : "pensoft:bdj.12.e129087",
+    "blockId" : "b65",
+    "start" : 165,
+    "end" : 172,
+    "text" : "Culture",
+    "category" : "UNINOMIAL",
+    "context" : "optera. C. Apical part of stromata D-E. «Culture» characters on PDA (D = after 14 days, E"
+  }, {
+    "docId" : "pensoft:phytokeys.268.176758",
+    "blockId" : "b272",
+    "start" : 1057,
+    "end" : 1060,
+    "text" : "Wei",
+    "category" : "UNINOMIAL",
+    "context" : "d the tropical areas of China (58 taxa, «Wei» and Yuan (2001); Wei et al. (2014)). Si"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b327",
+    "start" : 423,
+    "end" : 431,
+    "text" : "Stimpson",
+    "category" : "UNINOMIAL",
+    "context" : "06; ZRC 2019.1806. Ptychognathus glaber «Stimpson», 1858: Japan • 2 males (11.4 × 9.5, 10."
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b142",
+    "start" : 154,
+    "end" : 161,
+    "text" : "Belarus",
+    "category" : "UNINOMIAL",
+    "context" : "s in Gomel, Grodno and Minsk Regions of «Belarus» and Zhitomir Region of Ukraine; voucher"
+  }, {
+    "docId" : "pensoft:bdj.12.e129087",
+    "blockId" : "b65",
+    "start" : 279,
+    "end" : 286,
+    "text" : "Conidia",
+    "category" : "UNINOMIAL",
+    "context" : "idiophores, phialides and conidia. J-K. «Conidia». Scale bars: A-E = 1 cm. F-J = 10 µm. K"
+  }, {
+    "docId" : "pensoft:phytokeys.268.176758",
+    "blockId" : "b272",
+    "start" : 1078,
+    "end" : 1081,
+    "text" : "Wei",
+    "category" : "UNINOMIAL",
+    "context" : "of China (58 taxa, Wei and Yuan (2001); «Wei» et al. (2014)). Since all reported taxa"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b327",
+    "start" : 523,
+    "end" : 532,
+    "text" : "Ogasawara",
+    "category" : "UNINOMIAL",
+    "context" : " 2 females (11.4 × 9.6, 11.0 × 9.1 mm); «Ogasawara» Islands, Chichi-jima Island, Futami, Ki"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b142",
+    "start" : 185,
+    "end" : 192,
+    "text" : "Ukraine",
+    "category" : "UNINOMIAL",
+    "context" : "gions of Belarus and Zhitomir Region of «Ukraine»; vouchers at MSK. 2n = 100 (Semerenko 1"
+  }, {
+    "docId" : "pensoft:bdj.12.e129087",
+    "blockId" : "b66",
+    "start" : 66,
+    "end" : 73,
+    "text" : "Maximum",
+    "category" : "UNINOMIAL",
+    "context" : "cement of M. puerense was inferred from «Maximum» Likelihood (ML) and Bayesian Inference "
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b327",
+    "start" : 654,
+    "end" : 663,
+    "text" : "Indonesia",
+    "category" : "UNINOMIAL",
+    "context" : "tychognathus guijulugani Rathbun, 1914: «Indonesia» • 14 males (9.1 × 7.9–6.6 × 5.8 mm), 6 "
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b142",
+    "start" : 493,
+    "end" : 499,
+    "text" : "Russia",
+    "category" : "UNINOMIAL",
+    "context" : "ating from Moscow and Riazan Regions of «Russia»; vouchers unknown."
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b327",
+    "start" : 862,
+    "end" : 868,
+    "text" : "Taiwan",
+    "category" : "UNINOMIAL",
+    "context" : "Ptychognathus hachijoensis Sakai, 1955: «Taiwan» • 4 males (9.8 × 7.7–7.0 × 5.9 mm), 6 f"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b327",
+    "start" : 1044,
+    "end" : 1050,
+    "text" : "Taiwan",
+    "category" : "UNINOMIAL",
+    "context" : "ognathus insolitus Osawa & NK Ng, 2006: «Taiwan» • 1 male (9.1 × 6.3 mm), 2 females (7.9"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b327",
+    "start" : 1203,
+    "end" : 1209,
+    "text" : "Taiwan",
+    "category" : "UNINOMIAL",
+    "context" : "16041. Ptychognathus ishii Sakai, 1939: «Taiwan» • 2 males (11.4 × 8.8, 8.9 × 7.3 mm), 2"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b327",
+    "start" : 1338,
+    "end" : 1358,
+    "text" : "Ptychognathus lipkei",
+    "category" : "BINOMIAL",
+    "context" : "ng, Dasi; 16 Aug. 2016; NCHUZOOL 16034. «Ptychognathus lipkei» NK Ng, 2010: Philippines • 4 males (par"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b327",
+    "start" : 1562,
+    "end" : 1571,
+    "text" : "AUSTRALIA",
+    "category" : "UNINOMIAL",
+    "context" : "3. Ptychognathus pusillus Heller, 1865: «AUSTRALIA» • 2 males (13.2 × 11.3, 10.5 × 9.2 mm),"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b327",
+    "start" : 1756,
+    "end" : 1762,
+    "text" : "Taiwan",
+    "category" : "UNINOMIAL",
+    "context" : "chognathus sakaii Hsu, Shih & Li, 2022: «Taiwan» • 1 male (holotype, 6.7 × 5.5 mm); Ping"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b327",
+    "start" : 2038,
+    "end" : 2044,
+    "text" : "Taiwan",
+    "category" : "UNINOMIAL",
+    "context" : "ychognathus stimpsoni Hsu & Shih, 2020: «Taiwan» • 1 male (holotype, 7.9 × 6.6 mm); Ping"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b327",
+    "start" : 2322,
+    "end" : 2328,
+    "text" : "Taiwan",
+    "category" : "UNINOMIAL",
+    "context" : "2. Ptychognathus takahasii Sakai, 1939: «Taiwan» • 4 males (10.1 × 8.6–8.9 × 7.8 mm), 2 "
+  } ],
+  "falseNegatives" : [ {
+    "docId" : "openalex:W7114795836",
+    "blockId" : "b2",
+    "start" : 1018,
+    "end" : 1048,
+    "text" : "L. delbrueckii spp. bulgaricus",
+    "category" : "ABBREVIATED",
+    "context" : "probiotic candidates L. acidophilus and «L. delbrueckii spp. bulgaricus», along with assessments of the prebioti"
+  }, {
+    "docId" : "openalex:W4414865928",
+    "blockId" : "b2",
+    "start" : 714,
+    "end" : 728,
+    "text" : "Echinococcosis",
+    "category" : "UNINOMIAL",
+    "context" : "the WHO-IWGE (Informal Working Group on «Echinococcosis») CE1-CE3 hydatid cysts. Differentials i"
+  }, {
+    "docId" : "openalex:W7117900258",
+    "blockId" : "b1",
+    "start" : 13,
+    "end" : 33,
+    "text" : "Columbicola columbae",
+    "category" : "BINOMIAL",
+    "context" : "Incidence of «Columbicola columbae» lice in Domestic pigeons and Laughing d"
+  }, {
+    "docId" : "openalex:W4408298287",
+    "blockId" : "b2",
+    "start" : 395,
+    "end" : 411,
+    "text" : "Virginia opossum",
+    "category" : "BINOMIAL",
+    "context" : "om three opossum species, including the «Virginia opossum» (Didelphis virginiana, n = 33) from urb"
+  }, {
+    "docId" : "openalex:W4413897306",
+    "blockId" : "b2",
+    "start" : 1123,
+    "end" : 1130,
+    "text" : "E. coli",
+    "category" : "ABBREVIATED",
+    "context" : "%9,3) ve Klebsiella spp.(%9,3) olmuştur.«E. coli» colistin, meropenem ve imipeneme; Gram "
+  }, {
+    "docId" : "pensoft:zookeys.1260.128800",
+    "blockId" : "b35",
+    "start" : 67,
+    "end" : 87,
+    "text" : "Dasypus novemcinctus",
+    "category" : "BINOMIAL",
+    "context" : "t the Karen Mogensen Wildlife Refuge. A.«Dasypus novemcinctus»; B.Dicotyles tajacu; C.Cebus imitator; "
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b119",
+    "start" : 58,
+    "end" : 74,
+    "text" : "C. borysthenicus",
+    "category" : "ABBREVIATED",
+    "context" : "ces in the Cytisus ratisbonensis group A«C. borysthenicus»BC. cinereusCC. kreczetovicziiDC. lithua"
+  }, {
+    "docId" : "pensoft:bdj.12.e129087",
+    "blockId" : "b30",
+    "start" : 68,
+    "end" : 76,
+    "text" : "M. album",
+    "category" : "ABBREVIATED",
+    "context" : "arhizium puerense is closely related to «M. album», but differs in morphological character"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b325",
+    "start" : 309,
+    "end" : 329,
+    "text" : "Cognatus benokiensis",
+    "category" : "BINOMIAL",
+    "context" : "7 Jul. 1990; ZRC 2008.0035 (labeled as “«Cognatus benokiensis»” in NK Ng 2006’s dissertation). Taiwan "
+  }, {
+    "docId" : "pensoft:phytokeys.268.172546",
+    "blockId" : "b105",
+    "start" : 77,
+    "end" : 88,
+    "text" : "S. japonica",
+    "category" : "ABBREVIATED",
+    "context" : "thes danxiaensis, S. austrosinensis and «S. japonica»."
+  }, {
+    "docId" : "pensoft:phytokeys.274.184803",
+    "blockId" : "b329",
+    "start" : 942,
+    "end" : 953,
+    "text" : "Selaginella",
+    "category" : "UNINOMIAL",
+    "context" : "at the occurrence of cryptic species in «Selaginella» has been also frequently reported in pr"
+  }, {
+    "docId" : "openalex:W4405013555",
+    "blockId" : "b1",
+    "start" : 41,
+    "end" : 61,
+    "text" : "subgenus Culiciomyia",
+    "category" : "BINOMIAL",
+    "context" : "ulex sarpangensis, a new species of the «subgenus Culiciomyia» Theobald of the genus Culex Linnaeus (D"
+  }, {
+    "docId" : "openalex:W7117900258",
+    "blockId" : "b2",
+    "start" : 811,
+    "end" : 831,
+    "text" : "Columbicola columbae",
+    "category" : "BINOMIAL",
+    "context" : " study indicated that the prevalence of «Columbicola columbae» lice in endemic pigeons was 31.81%, whi"
+  }, {
+    "docId" : "openalex:W4408298287",
+    "blockId" : "b2",
+    "start" : 870,
+    "end" : 886,
+    "text" : "Virginia opossum",
+    "category" : "BINOMIAL",
+    "context" : "ibodies. While 3/33 (9.1%) samples from «Virginia opossum» showed positive reactivity by both meth"
+  }, {
+    "docId" : "openalex:W4413897306",
+    "blockId" : "b2",
+    "start" : 969,
+    "end" : 975,
+    "text" : "E.coli",
+    "category" : "UNINOMIAL",
+    "context" : "espit edilen etkenler Escherichia coli («E.coli») (%35,7), koagülaz negatif stafilokokla"
+  }, {
+    "docId" : "pensoft:zookeys.1260.128800",
+    "blockId" : "b35",
+    "start" : 91,
+    "end" : 107,
+    "text" : "Dicotyles tajacu",
+    "category" : "BINOMIAL",
+    "context" : "dlife Refuge. A.Dasypus novemcinctus; B.«Dicotyles tajacu»; C.Cebus imitator; D.Alouatta palliata;"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b119",
+    "start" : 75,
+    "end" : 86,
+    "text" : "C. cinereus",
+    "category" : "ABBREVIATED",
+    "context" : "s ratisbonensis group AC. borysthenicusB«C. cinereus»CC. kreczetovicziiDC. lithuanicusEC. pol"
+  }, {
+    "docId" : "pensoft:bdj.12.e129087",
+    "blockId" : "b30",
+    "start" : 568,
+    "end" : 576,
+    "text" : "M. album",
+    "category" : "ABBREVIATED",
+    "context" : "2.1 µm), which was smaller than that of «M. album» (5-8 × 2-2.5 µm). The phialides of M. p"
+  }, {
+    "docId" : "pensoft:zookeys.1243.152263",
+    "blockId" : "b327",
+    "start" : 1338,
+    "end" : 1359,
+    "text" : "Ptychognathus lipkei ",
+    "category" : "BINOMIAL",
+    "context" : "ng, Dasi; 16 Aug. 2016; NCHUZOOL 16034. «Ptychognathus lipkei »NK Ng, 2010: Philippines • 4 males (para"
+  }, {
+    "docId" : "pensoft:zookeys.1260.128800",
+    "blockId" : "b35",
+    "start" : 111,
+    "end" : 125,
+    "text" : "Cebus imitator",
+    "category" : "BINOMIAL",
+    "context" : "pus novemcinctus; B.Dicotyles tajacu; C.«Cebus imitator»; D.Alouatta palliata; E.Nasua narica; F"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b119",
+    "start" : 87,
+    "end" : 104,
+    "text" : "C. kreczetoviczii",
+    "category" : "ABBREVIATED",
+    "context" : "sis group AC. borysthenicusBC. cinereusC«C. kreczetoviczii»DC. lithuanicusEC. polonicusFC. ratisbon"
+  }, {
+    "docId" : "pensoft:bdj.12.e129087",
+    "blockId" : "b30",
+    "start" : 670,
+    "end" : 678,
+    "text" : "M. album",
+    "category" : "ABBREVIATED",
+    "context" : "7.6 × 1.5-2.9 µm) was more slender than «M. album» (10-12.5 × 2-3.5 µm) (Michiel et al. 19"
+  }, {
+    "docId" : "pensoft:zookeys.1260.128800",
+    "blockId" : "b35",
+    "start" : 129,
+    "end" : 146,
+    "text" : "Alouatta palliata",
+    "category" : "BINOMIAL",
+    "context" : "B.Dicotyles tajacu; C.Cebus imitator; D.«Alouatta palliata»; E.Nasua narica; F.Dasyprocta punctata."
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b119",
+    "start" : 105,
+    "end" : 119,
+    "text" : "C. lithuanicus",
+    "category" : "ABBREVIATED",
+    "context" : "sthenicusBC. cinereusCC. kreczetovicziiD«C. lithuanicus»EC. polonicusFC. ratisbonensisGC. ruthen"
+  }, {
+    "docId" : "pensoft:zookeys.1260.128800",
+    "blockId" : "b35",
+    "start" : 150,
+    "end" : 162,
+    "text" : "Nasua narica",
+    "category" : "BINOMIAL",
+    "context" : ".Cebus imitator; D.Alouatta palliata; E.«Nasua narica»; F.Dasyprocta punctata. Photographs by "
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b119",
+    "start" : 120,
+    "end" : 132,
+    "text" : "C. polonicus",
+    "category" : "ABBREVIATED",
+    "context" : "nereusCC. kreczetovicziiDC. lithuanicusE«C. polonicus»FC. ratisbonensisGC. ruthenicusHC. semer"
+  }, {
+    "docId" : "pensoft:zookeys.1260.128800",
+    "blockId" : "b35",
+    "start" : 166,
+    "end" : 185,
+    "text" : "Dasyprocta punctata",
+    "category" : "BINOMIAL",
+    "context" : " D.Alouatta palliata; E.Nasua narica; F.«Dasyprocta punctata». Photographs by M. Dal Zotto."
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b119",
+    "start" : 133,
+    "end" : 149,
+    "text" : "C. ratisbonensis",
+    "category" : "ABBREVIATED",
+    "context" : "czetovicziiDC. lithuanicusEC. polonicusF«C. ratisbonensis»GC. ruthenicusHC. semerenkoanusIC. elong"
+  }, {
+    "docId" : "pensoft:zookeys.1260.128800",
+    "blockId" : "b257",
+    "start" : 6,
+    "end" : 20,
+    "text" : "Didelphimorpha",
+    "category" : "UNINOMIAL",
+    "context" : "Order «Didelphimorpha» Gill, 1872"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b119",
+    "start" : 150,
+    "end" : 163,
+    "text" : "C. ruthenicus",
+    "category" : "ABBREVIATED",
+    "context" : "thuanicusEC. polonicusFC. ratisbonensisG«C. ruthenicus»HC. semerenkoanusIC. elongatusJC. wulffi"
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b119",
+    "start" : 164,
+    "end" : 180,
+    "text" : "C. semerenkoanus",
+    "category" : "ABBREVIATED",
+    "context" : "olonicusFC. ratisbonensisGC. ruthenicusH«C. semerenkoanus»IC. elongatusJC. wulffii. Scale bars: 1 "
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b119",
+    "start" : 181,
+    "end" : 193,
+    "text" : "C. elongatus",
+    "category" : "ABBREVIATED",
+    "context" : "bonensisGC. ruthenicusHC. semerenkoanusI«C. elongatus»JC. wulffii. Scale bars: 1 mm."
+  }, {
+    "docId" : "pensoft:phytokeys.238.118031",
+    "blockId" : "b119",
+    "start" : 194,
+    "end" : 204,
+    "text" : "C. wulffii",
+    "category" : "ABBREVIATED",
+    "context" : "uthenicusHC. semerenkoanusIC. elongatusJ«C. wulffii». Scale bars: 1 mm."
+  } ],
+  "matchMode" : "STRICT",
+  "documentLevel" : false,
+  "notes" : [ ],
+  "otuMentions" : 0,
+  "otuByScheme" : { },
+  "authorship" : {
+    "tp" : 0,
+    "fp" : 0,
+    "fn" : 24
+  }
+}

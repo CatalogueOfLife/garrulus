@@ -68,6 +68,12 @@ also a genus; the higher rank wins) and at the `gen. nov.` link in zookeys.1285 
 Where the pipeline loses on test: 57 of its 77 missed names are in captions, uninomials carry 89 of its 94 false positives,
 and acts recall is the weakest score.
 
+**gnfinder v1.5.0 (2026-11-19, reports `2026-11-19-*`; the table above is v1.4.0):** v1.5.0 merges gnfinder's word
+dictionaries into one hashed file, and its output changes. gnfinder alone finds more and keeps more noise (names F1 dev
+.615, test .659, test recall .900; acts .727 / .500); the pipeline gains a little (names .916 / .874, acts 1.000 / .699,
+contexts .333 / .435). These are the baselines for tuning. The pipeline's `configHash` does not include the gnfinder
+version, so stored works are not re-run by the upgrade; the tuned config will change the hash and roll out anyway.
+
 Convention: STRICT is the committed default; OVERLAP reports go to `eval/reports/OVERLAP/` and are not committed.
 
 ```

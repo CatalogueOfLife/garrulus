@@ -26,7 +26,7 @@ import java.util.regex.Pattern;
  * reproduce its attachment (which often hangs a "sp. nov." on a neighbouring higher name) deliberately, wrong or not.
  */
 public class GnfinderOnlyFinder implements NameFinder {
-  static final String GNFINDER_VERSION = "1.4.0";
+  static final String GNFINDER_VERSION = "1.5.0";
   private static final Pattern INITIAL = Pattern.compile("\\p{Lu}\\.(\\s.*)?", Pattern.DOTALL);
   private static final int MAX_CHUNK = 100_000;
 

@@ -5,20 +5,25 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.images.builder.ImageFromDockerfile;
 
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Runs against the real gnfinder image (linux/amd64 only, so emulated on Apple Silicon). */
+/**
+ * Runs against the real gnfinder, built from docker/gnfinder/Dockerfile (the tag there; no upstream image exists for
+ * v1.5.0). The image is kept, so docker's layer cache makes later runs start at once.
+ */
 @Testcontainers
 class GnfinderClientIT {
   @Container
-  static final GenericContainer<?> GNFINDER = new GenericContainer<>(DockerImageName.parse("gnames/gnfinder:v1.4.0"))
-      .withCreateContainerCmdModifier(c -> c.withPlatform("linux/amd64"))
+  static final GenericContainer<?> GNFINDER = new GenericContainer<>(
+      new ImageFromDockerfile("nametracker/gnfinder:v1.5.0", false)
+          .withDockerfile(Path.of("../docker/gnfinder/Dockerfile").toAbsolutePath().normalize()))
       .withExposedPorts(8999)
       .waitingFor(Wait.forHttp("/api/v1/ping").forStatusCode(200).withStartupTimeout(java.time.Duration.ofMinutes(3)));
 
@@ -55,7 +60,7 @@ class GnfinderClientIT {
 
   @Test
   void hyphenatedLineBreakBehaviour() {
-    // Observed with gnfinder v1.4.0: a name split by a hyphen and a line break is not found at all, so de-hyphenation has to
+    // Observed with gnfinder v1.4.0 and v1.5.0: a name split by a hyphen and a line break is not found at all, so de-hyphenation has to
     // happen before gnfinder sees the text (input for ADR-0003).
     assertThat(client().find("Pterosti-\nchus niger").names()).isEmpty();
     assertThat(client().find("Pterostichus niger").names()).hasSize(1);
