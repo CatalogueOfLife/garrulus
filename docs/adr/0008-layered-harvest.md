@@ -174,8 +174,9 @@ journal `source_layer_coverage`, in one transaction. `GET /api/admin/status` sho
   snapshot backfills and onboarding passes would otherwise make every other layer miss about everything at the start of
   the 5M backfill and keep OpenAlex DEGRADED for weeks after it. A miss candidate is a LIVE work created 3 to 17 days ago
   (`work.first_seen_at`) by another layer (a sighting written with the row; a V16 seed sighting is younger than its
-  row) that this layer never sighted; a work the layer created itself is no candidate. A route's onboarding pass still
-  sights older LIVE works and so adds to its layer's yield on that day.
+  row) that this layer never sighted; a work the layer created itself is no candidate. Yield is not fully cleaned: a
+  V16 seed sighting of a LIVE work, and a route's onboarding pass sighting existing LIVE works, add to the layer's
+  yield on their day; neither is ever a miss.
 - **Zero yield counts only on run days**: a day on which the layer had a `DONE` run with no new sighting. No run means
   not expected (switched off, no routes); failed runs are caught by the failed-run rule, and a deferred run that finishes
   the next day is no failure.

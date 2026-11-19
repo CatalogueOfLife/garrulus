@@ -117,8 +117,9 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   - Coverage monitor (M6): `NAMETRACKER_LAYERS_COVERAGE_CRON` (`nametracker.layers.coverage-cron`, `0 30 6 * * *` UTC, not
     behind the harvest switch) enqueues `COVERAGE_CHECK {"day":"<yesterday>"}` (key `coverage-check:<day>`; admin may
     enqueue any day, a rerun overwrites that day). It writes `layer_health` (OK/DEGRADED/FAILING per layer and day) and
-    `source_layer_coverage` (28-day sightings and misses per journal). Yield and misses count LIVE-origin works only
-    (no V16 seed, snapshot backfill or onboarding). A miss is a LIVE work another layer created 3 to 17 days before the
+    `source_layer_coverage` (28-day sightings and misses per journal). Yield and misses count LIVE-origin works only:
+    works of a snapshot backfill or an onboarding pass never count, but a V16 seed sighting of a LIVE work, or an
+    onboarding pass that sights an existing LIVE work, does add yield on its day (never a miss). A miss is a LIVE work another layer created 3 to 17 days before the
     day (`work.first_seen_at`), in a journal the layer serves (OpenAlex: harvestable sources with an OpenAlex id;
     Crossref: harvestable sources with an ISSN; OAI, Magtech, Europe PMC: sources with an ACTIVE route of it; BLR none),
     that the layer never saw; a work the layer created itself is no candidate. A layer turning

@@ -25,7 +25,9 @@ import tools.jackson.databind.JsonNode;
  * layer writes its {@code layer_health} row of the day from the harvest runs, the layer's new sightings of LIVE-origin
  * works and the misses (LIVE-origin works another layer created 3 to 17 days before the day, in journals the layer
  * serves, that the layer never saw; a work the layer created itself is no candidate), and the
- * {@code source_layer_coverage} rows. Backfill, onboarding and the V16 seed therefore move neither yield nor misses. Running it again for a day overwrites that day's rows. A layer that
+ * {@code source_layer_coverage} rows. Works of a backfill or an onboarding pass (origin BACKFILL or ONBOARDING) count
+ * for neither. A V16 seed sighting of a LIVE work, or an onboarding pass sighting an existing LIVE work, does add yield
+ * on its day; neither is ever a miss (a seed sighting is younger than its row, so it is no creating sighting). Running it again for a day overwrites that day's rows. A layer that
  * turns {@code FAILING} (the day before it was not) is logged as a WARN; mails come with M6b.
  */
 @Component
