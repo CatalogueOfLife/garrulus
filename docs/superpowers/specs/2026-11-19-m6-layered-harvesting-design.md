@@ -49,9 +49,10 @@ work to the key services of the field, and a way for people to register journals
 - Paid services of any kind (Markus, 2026-11-19: "strictly avoid paid services"). OpenAlex runs on its free daily
   allowance only, as today.
 - Harvesting BHL content. BHL appears only as identifiers and links.
-- Scraping publisher websites or PDFs; RSS/Atom feeds as a harvest layer (they carry 10–100 items and often no abstract;
-  at most a later signal); crawling Chinese journal sites; J-STAGE (needs written permission) and KCI (needs a key
-  application). All stay possible later behind the same layer SPI.
+- Scraping publisher websites or PDFs; generic publisher RSS/Atom feeds as a harvest layer (they carry 10–100 items and
+  often no abstract; at most a later signal; the Magtech feeds of Chinese journals are the exception, see L3); crawling
+  journal sites that are not on Magtech (e.g. Zoological Systematics' own site); J-STAGE (needs written permission) and
+  KCI (needs a key application). All stay possible later behind the same layer SPI.
 - The nomenclator recall monitor and the deep pre-2000 backfill from the original M6 list. Crosslinks to IPNI and
   ZooBank prepare the recall monitor; it gets its own design later.
 - Judging and tuning (M7), the portal widget (M8), deployment.
@@ -140,7 +141,7 @@ new services need no migration, and the same rows serve matching.
 |---|---|---|---|---|
 | L1 OpenAlex | daily window (120 d) and weekly sweep (400 d), as today | all onboarded with an OpenAlex id | daily 02:00, Sun 04:00 | metadata, OA status, topics, inverted abstract, TEI (free allowance) |
 | L2 Crossref | `from-index-date` by every ISSN, as today | all onboarded with an ISSN | daily 03:00 | metadata, JATS abstract (publisher dependent), licence URL |
-| L3 OAI-PMH | per journal (OJS) or per platform set | onboarded journals with a route (below) | daily 04:30 | metadata, abstract, DOI or OAI id, sometimes JATS full text |
+| L3 Journal feeds | OAI-PMH per journal (OJS) or per platform set; Magtech RSS for Chinese journals | onboarded journals with a route (below) | daily 04:30 | metadata, abstract, DOI or OAI id / Magtech article id, sometimes JATS full text |
 | L4 Europe PMC | search by ISSN and `FIRST_IDATE` | onboarded journals that PubMed/Europe PMC index | daily 05:00 | metadata, abstract, PMID, PMCID, OA full text flag |
 | L5 BLR | Zenodo community `biosyslit`, `created` since last run | every journal (signal for new taxonomic DOIs) | daily 05:15 | article DOIs with treatments and their acts |
 
@@ -151,7 +152,7 @@ new services need no migration, and the same rows serve matching.
 - **A layer SPI** (the `HarvestAdapter` of the design, finally): `HarvestLayer` with `layer()`, `servesSource(source)`,
   `firstPage(sourceBatch, window)` and `nextPage(position)`, each page returning `WorkRecord`s with their identifiers.
   The existing OpenAlex and Crossref handlers are wrapped, not rewritten. Each layer has its own `harvest_run.adapter`
-  value (`OAI`, `EUROPEPMC`, `BLR` join `OPENALEX_LIVE`, `OPENALEX_SWEEP`, `CROSSREF`), its own dedup key prefix and
+  value (`OAI`, `MAGTECH`, `EUROPEPMC`, `BLR` join `OPENALEX_LIVE`, `OPENALEX_SWEEP`, `CROSSREF`), its own dedup key prefix and
   its own switch `nametracker.layers.<layer>.enabled` (all on by default, except keyed services without a key).
 - **Windows.** L3 harvests with `from` = last successful run minus 3 days; endpoints whose datestamps are unreliable
   (flag on the route, e.g. AJOL, DergiPark, MNHN) are read in full weekly instead of daily and deduplicated by
@@ -163,6 +164,25 @@ new services need no migration, and the same rows serve matching.
 - **OAI politeness.** One `HostLimiter` per OAI host, default 1 request every 2 s, so a platform with 50 journals is read
   as one slow stream; platform-wide endpoints are read once per run with all their wanted sets, not once per journal.
   Prefer `jats` over `oai_dc` where an endpoint offers it.
+- **Magtech RSS route** (Markus, 2026-11-19: "Chinese and Indian scientists do a major if not the majority of current
+  taxonomic work, so capturing them properly is important"). Many Chinese journals run on the Beijing Magtech platform,
+  whose DOIs are registered with CNKI or ISTIC rather than Crossref, so L1 and L2 miss them, and which has no OAI-PMH.
+  Its RSS feeds are structured, though: `<site>/EN/rss_dqml_<ISSN>.xml` (current issue), `rss_first_<ISSN>.xml`
+  (online first) and per-section feeds, listed on `<site>/EN/rss/showRssInfo.do`. Checked 2026-11-19 on Biodiversity
+  Science: 20 items, each with the English title and an English abstract (about 2,600 characters, as HTML keeping the
+  `<i>` of the names), authors and the article page link, but no DOI, and a `pubDate` that did not look current;
+  Acta Entomologica Sinica's listed feeds answered with a 404 page. Hence:
+  - a `MAGTECH` route per journal (site and ISSN), polled daily for current issue and online first, verified by
+    `VERIFY_ROUTE` (a feed with items, else `BROKEN`);
+  - identity by the new scheme `MAGTECH` (host plus the numeric article id of the link), plus the DOI read from the
+    article page's `citation_doi` meta tag: one polite request per new article, the only page Garrulus reads there
+    (metadata only, no full text: the sites say "All Rights Reserved");
+  - the publication date from the page's `citation_publication_date` where the feed's is missing or stale;
+  - the abstract (HTML with italics) as an abstract of kind `MAGTECH`, converted like a JATS abstract;
+  - the CNKI/ISTIC DOI as an ordinary `DOI` identifier (doi.org resolves it), so a later Crossref or OpenAlex record
+    of the same paper merges.
+  Discovery finds Magtech journals from the COL references, Plazi statistics and the "Powered by Beijing Magtech"
+  footer of a registered journal's site; a journal also on another layer simply has both.
 - **A new route starts with an onboarding pass.** When a route is added to an already onboarded journal, its first run
   is an `ONBOARDING_ROUTE` pass over 120 days at `REPROCESS` (works it creates get origin `ONBOARDING`), like a new
   journal (ADR-0004); only then does it join the daily schedule. Alerts follow ADR-0006 unchanged: the 90-day window,
@@ -175,7 +195,7 @@ new services need no migration, and the same rows serve matching.
 
 - **`work_identifier`** (`work_id`, `scheme`, `value`, `first_layer`, `first_seen`), unique on (`scheme`, `value`).
   Schemes: `DOI`, `OPENALEX`, `OAI` (value `<repository identifier>`, e.g. `oai:zookeys.pensoft.net:12345`), `PMID`,
-  `PMCID`, `BLR` (Zenodo record id), `PLAZI` (Plazi article/document id), `ZOOBANK` (reference UUID), `BHL_PART`.
+  `PMCID`, `BLR` (Zenodo record id), `PLAZI` (Plazi article/document id), `ZOOBANK` (reference UUID), `BHL_PART`, `MAGTECH` (host and article id).
   Values are normalised per scheme (DOI lower case without resolver, PMCID with `PMC`, …).
 - `work.doi` and `work.openalex_id` stay as columns (much code reads them) and are mirrored into the store. The V1
   `CHECK (openalex_id IS NOT NULL OR doi IS NOT NULL)` is dropped (V16): a work needs at least one identifier row
@@ -249,6 +269,10 @@ new services need no migration, and the same rows serve matching.
 - **`IDENTIFY_SOURCE`** completes a candidate: ISSN-L and all ISSNs, title, publisher, country (ISSN table, Crossref
   `/journals`, DOAJ), OpenAlex id and topics if OpenAlex knows it, OAI route if PKP Beacon or DOAJ give one (verified
   with `Identify`), Europe PMC presence (one search), and the crosslinks of the journal (below).
+- **Chinese and Indian journals** get explicit attention, since much of today's taxonomic work comes from them. Chinese
+  journals on Magtech get the Magtech route (L3). Indian taxonomy journals mostly publish in English and sit in
+  Crossref (e.g. JoTT) or on OJS, which the PKP Beacon list and OAI cover. The journal's country is part of every
+  coverage figure (see "Done when"), so gaps in either country show up.
 - **Classification** stays OpenAlex-first: subfields and topics from OpenAlex where the journal is there (Markus likes
   the current classifications). For a journal OpenAlex does not know, discipline comes from DOAJ LCC subjects mapped to
   the harvested subfields, journal type from its act rate once indexed, taxonomic focus from the index as today.
@@ -318,7 +342,7 @@ new services need no migration, and the same rows serve matching.
   - **Abstract top-up** when a work still has no abstract after its routes: Europe PMC (by PMID or DOI), the Springer
     Nature Meta API (DOIs `10.1007/`, `10.1186/`, `10.1038/`; free key; off without one), SciELO ArticleMeta (SciELO
     journals), CiNii Research (Japanese journals; free appid; only abstracts flagged as reusable), then the institutional
-    layer when enabled. `abstract_source` gains `EUROPEPMC`, `SPRINGER`, `SCIELO`, `CINII`, `OAI`, `INSTITUTIONAL`.
+    layer when enabled. `abstract_source` gains `EUROPEPMC`, `SPRINGER`, `SCIELO`, `CINII`, `OAI`, `MAGTECH`, `INSTITUTIONAL`.
     A work whose abstract arrives later gets `FIND_NAMES` again (as a JATS abstract does today).
 
 ### Institutional access (University of Copenhagen)
@@ -405,6 +429,10 @@ tail's history (expected to be small next to the OpenAlex snapshot backfill; mea
   duplicate works; `COVERAGE_CHECK` reports L1 `DEGRADED` after the first day and `FAILING` after the second, and one
   admin e-mail is sent; unblocking returns it to `OK` (one recovery mail) and L1 back-fills through its window without
   new hits for the works others already brought.
+- Magtech routes are active for at least five Chinese taxonomy journals (Biodiversity Science among them); their works
+  carry English titles and abstracts with italics and, where the page has one, their CNKI/ISTIC DOI.
+- The contribution report and the admin journal list break coverage down by the journal's country, so the share of
+  Chinese and Indian journals harvested, and through which layers, is visible.
 - OAI routes are active for at least the Pensoft journals, Magnolia Press, EJT, JoTT and two platforms, and their first
   passes ran as `ONBOARDING`.
 - A user registers a journal by ISSN and by article DOI; both appear as candidates with their signals and identified
