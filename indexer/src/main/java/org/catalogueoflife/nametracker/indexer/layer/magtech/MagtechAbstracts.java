@@ -24,14 +24,15 @@ public final class MagtechAbstracts {
   private MagtechAbstracts() {
   }
 
+  /** The JATS of the abstract, well-formed as returned: characters XML 1.0 does not allow are stripped from it. */
   public static String toJats(String html) {
-    String jats = build(html);
+    String jats = OaiPmhClient.stripIllegal(build(html));
     try {
       OaiPmhClient.parse(("<r xmlns:jats=\"http://jats.nlm.nih.gov\">" + jats + "</r>").getBytes(StandardCharsets.UTF_8));
       return jats;
     } catch (Exception e) { // the safety net: the plain text in one paragraph
       String plain = TitleText.clean(html);
-      return plain == null ? "" : "<jats:p>" + escape(plain) + "</jats:p>";
+      return plain == null ? "" : "<jats:p>" + escape(OaiPmhClient.stripIllegal(plain)) + "</jats:p>";
     }
   }
 

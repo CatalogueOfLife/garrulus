@@ -144,6 +144,11 @@ public class OaiPmhClient {
       "[^\\x09\\x0A\\x0D\\x20-\\uD7FF\\uE000-\\uFFFD\\x{10000}-\\x{10FFFF}]"
       + "|&#(?:0*(?:[0-8]|1[12]|1[4-9]|2\\d|3[01])|[xX]0*(?:[0-8]|[bB]|[cC]|[eEfF]|1[0-9a-fA-F]))(?![0-9a-fA-F]);");
 
+  /** The text without the characters XML 1.0 does not allow (raw, and as numeric references). */
+  public static String stripIllegal(String text) {
+    return ILLEGAL.matcher(text).replaceAll("");
+  }
+
   /** Parses the response; on a syntax error illegal characters are stripped and it is read once more. */
   public static Document parse(byte[] xml) throws Exception {
     try {

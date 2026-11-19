@@ -41,4 +41,11 @@ class MagtechAbstractsTest {
         .isEqualTo("<jats:p>a b c d e </jats:p>");
     assertThat(MagtechAbstracts.toJats("<p>&Aacute;lvarez &eacute;t &#946;</p>")).isEqualTo("<jats:p>\u00c1lvarez \u00e9t \u03b2</jats:p>");
   }
+
+  @Test
+  void xmlIllegalCharactersAreStrippedFromTheResult() {
+    // raw and as a reference: the returned JATS must be well-formed itself, not only after a sanitised re-parse
+    assertThat(MagtechAbstracts.toJats("<p>Aus\u0001 <i>bus</i>&#1;</p>"))
+        .isEqualTo("<jats:p>Aus <jats:italic>bus</jats:italic></jats:p>");
+  }
 }
