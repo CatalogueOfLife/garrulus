@@ -7,16 +7,20 @@ import org.junit.jupiter.api.Test;
 
 class WorkMergerTest {
 
-  private static Work work(String title, String license, String metaLayer, String state) {
+  private static Work work(String title, String license, String metaLayer, String accessLayer, String state) {
     return new Work(1L, null, null, null, title, null, null, null, null, null, null, null, null, null, license,
         null, null, null, "HARVEST", state, "NONE", null, null, null, Instant.EPOCH, null, null, null, null, null,
-        metaLayer, null);
+        metaLayer, null, accessLayer);
+  }
+
+  private static Work work(String title, String license, String metaLayer, String state) {
+    return work(title, license, metaLayer, null, state);
   }
 
   private static Work abs(String text, String textSource, String jats, String jatsSource) {
     return new Work(1L, null, null, null, "T", null, null, null, null, null, null, null, null, null, null, null,
         text, textSource, "HARVEST", "DISCOVERED", "NONE", null, null, null, Instant.EPOCH, null, jats, null, null,
-        null, "CROSSREF", jatsSource);
+        null, "CROSSREF", jatsSource, null);
   }
 
   @Test
@@ -33,7 +37,7 @@ class WorkMergerTest {
     Work stored = work("Crossref title", null, "CROSSREF", "DISCOVERED");
     Work in = new Work(null, null, null, null, "OAI title", null, (short) 2020, null, null, null, null, null, null,
         null, null, null, null, null, "HARVEST", "DISCOVERED", "NONE", null, null, null, null, null, null, null,
-        null, null, null, null);
+        null, null, null, null, null);
     var r = WorkMerger.merge(stored, in, Layer.OAI);
     assertThat(r.work().title()).isEqualTo("Crossref title");
     assertThat(r.work().year()).isEqualTo((short) 2020);
@@ -98,7 +102,7 @@ class WorkMergerTest {
   void originAndStateNeverChange() {
     Work in = new Work(9L, null, null, null, "N", null, null, null, null, null, null, null, null, null, null, null,
         null, null, "BACKFILL", "INDEXED", "FULL", null, null, null, Instant.now(), null, null, null, null, null,
-        null, null);
+        null, null, null);
     var r = WorkMerger.merge(work("T", null, "OPENALEX", "DISCOVERED"), in, Layer.CROSSREF);
     assertThat(r.work().origin()).isEqualTo("HARVEST");
     assertThat(r.work().state()).isEqualTo("DISCOVERED");
@@ -109,9 +113,39 @@ class WorkMergerTest {
 
   @Test
   void unchangedWhenNothingNew() {
-    Work stored = work("T", "cc0", "CROSSREF", "DISCOVERED");
+    Work stored = work("T", "cc0", "CROSSREF", "CROSSREF", "DISCOVERED");
     var r = WorkMerger.merge(stored, work("T", "cc0", null, "DISCOVERED"), Layer.CROSSREF);
     assertThat(r.changed()).isFalse();
     assertThat(r.work()).isEqualTo(stored);
+  }
+
+  @Test
+  void crossrefLicenceDoesNotOverwriteOpenalexLicenceOnCrossrefOwnedWork() {
+    Work stored = work("T", "openalex-licence", "CROSSREF", "OPENALEX", "DISCOVERED");
+    var r = WorkMerger.merge(stored, work("T", "crossref-licence", null, "DISCOVERED"), Layer.CROSSREF);
+    assertThat(r.work().license()).isEqualTo("openalex-licence");
+    assertThat(r.work().accessLayer()).isEqualTo("OPENALEX");
+    assertThat(r.work().metaLayer()).isEqualTo("CROSSREF");
+  }
+
+  @Test
+  void accessOwnerTrackedSeparately() {
+    // an OpenAlex-owned work: Crossref wins biblio (metaLayer moves) but not access
+    Work stored = work("Open", "cc0", "OPENALEX", "OPENALEX", "DISCOVERED");
+    var r = WorkMerger.merge(stored, work("Cross", "cc-by", null, "DISCOVERED"), Layer.CROSSREF);
+    assertThat(r.work().title()).isEqualTo("Cross");
+    assertThat(r.work().metaLayer()).isEqualTo("CROSSREF");
+    assertThat(r.work().license()).isEqualTo("cc0");
+    assertThat(r.work().accessLayer()).isEqualTo("OPENALEX");
+    // OAI (access rank 2) beats an unowned access value and becomes the access owner
+    var r2 = WorkMerger.merge(work("T", null, "CROSSREF", "DISCOVERED"), work("T", "cc-by", null, "DISCOVERED"),
+        Layer.OAI);
+    assertThat(r2.work().license()).isEqualTo("cc-by");
+    assertThat(r2.work().accessLayer()).isEqualTo("OAI");
+    assertThat(r2.work().metaLayer()).isEqualTo("CROSSREF");
+    // a later OpenAlex licence takes over
+    var r3 = WorkMerger.merge(r2.work(), work("T", "cc0", null, "DISCOVERED"), Layer.OPENALEX);
+    assertThat(r3.work().license()).isEqualTo("cc0");
+    assertThat(r3.work().accessLayer()).isEqualTo("OPENALEX");
   }
 }

@@ -63,7 +63,7 @@ CREATE TABLE layer_unmatched (
   first_seen timestamptz NOT NULL DEFAULT now()
 );
 
-ALTER TABLE work ADD COLUMN meta_layer text, ADD COLUMN abstract_jats_source text;
+ALTER TABLE work ADD COLUMN meta_layer text, ADD COLUMN abstract_jats_source text, ADD COLUMN access_layer text;
 UPDATE work SET abstract_jats_source = 'CROSSREF' WHERE abstract_jats IS NOT NULL;
 
 -- a work may now be known by other identifiers only (V1 generated name: work_check)

@@ -21,7 +21,7 @@ class WorkUpsertIT extends AbstractPostgresIT {
 
   private static Work work(String openalexId, String doi, String title, String origin) {
     return new Work(null, openalexId, doi, null, title, null, null, null, null, null, null, null, null, null, null,
-        null, null, null, origin, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        null, null, null, origin, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
   }
 
   @Test
@@ -85,7 +85,7 @@ class WorkUpsertIT extends AbstractPostgresIT {
     WorkUpsert upsert = new WorkUpsert(works);
     Work full = new Work(null, "W-keep", "doi:10.1/KEEP", null, "Title", LocalDate.of(2026, 1, 2), (short) 2026, "1",
         "2", "3-4", "[{\"name\":\"Doe\"}]", "article", "en", "gold", "cc-by", "https://x", "abs", null, "LIVE",
-        null, null, null, null, null, null, null, "<abstract/>", "PMC1", true, null, null, null);
+        null, null, null, null, null, null, null, "<abstract/>", "PMC1", true, null, null, null, null);
     long id = upsert.upsert(full).id();
     works.setState(id, "MATCHED", "FULLTEXT");
 
@@ -104,7 +104,7 @@ class WorkUpsertIT extends AbstractPostgresIT {
 
     upsert.upsert(new Work(null, "W-keep", null, null, "New title", null, null, null, null, null, null, null, null,
         null, null, null, null, null, "SWEEP", null, null, null, null, null, null, null, "<abstract2/>", null,
-        false, null, null, null));
+        false, null, null, null, null));
     Work w2 = works.get(id);
     assertThat(w2.title()).isEqualTo("New title");
     assertThat(w2.abstractJats()).isEqualTo("<abstract2/>");
@@ -170,7 +170,7 @@ class WorkUpsertIT extends AbstractPostgresIT {
     WorkUpsert.UpsertResult created = upsert.upsert(work(null, "10.1/late", "T", "LIVE"));
     assertThat(created.abstractJatsAdded()).isFalse();
     Work withJats = new Work(null, null, "10.1/late", null, null, null, null, null, null, null, null, null, null, null,
-        null, null, null, null, null, null, null, null, null, null, null, null, "<abstract/>", null, null, null, null, null);
+        null, null, null, null, null, null, null, null, null, null, null, null, "<abstract/>", null, null, null, null, null, null);
 
     // still DISCOVERED: the first RESOLVE_CONTENT has not run yet
     assertThat(upsert.upsert(withJats).abstractJatsAdded()).isFalse();

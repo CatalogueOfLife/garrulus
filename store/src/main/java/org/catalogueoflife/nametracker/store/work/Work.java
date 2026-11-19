@@ -37,5 +37,6 @@ public record Work(
     Boolean openalexHasTei,
     Instant openalexCheckedAt,
     String metaLayer,
-    String abstractJatsSource) {
+    String abstractJatsSource,
+    String accessLayer) {
 }

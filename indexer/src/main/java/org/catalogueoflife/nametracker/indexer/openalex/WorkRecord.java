@@ -29,7 +29,7 @@ public record WorkRecord(
   public Work toWork(@Nullable Long sourceId, String origin) {
     return new Work(null, openalexId, doi, sourceId, title, publicationDate, year, volume, issue, pages, authors, type,
         language, oaStatus, license, bestOaUrl, abstractText, abstractText == null ? null : "OPENALEX_INVERTED",
-        origin, null, null, null, null, null, null, null, abstractJats, pmcid, openalexHasTei, null, null, null);
+        origin, null, null, null, null, null, null, null, abstractJats, pmcid, openalexHasTei, null, null, null, null);
   }
 
   /** The same record with the given JATS abstract (and the DOI when this one has none). */

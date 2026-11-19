@@ -15,9 +15,11 @@ public final class WorkMerger {
   private WorkMerger() {}
 
   public static Merged merge(Work s, Work in, Layer layer) {
-    Layer stLayer = s.metaLayer() == null ? null : Layer.valueOf(s.metaLayer());
-    boolean biblio = stLayer == null || layer.biblioRank() <= stLayer.biblioRank();
-    boolean access = stLayer == null || layer.accessRank() <= stLayer.accessRank();
+    Layer metaOwner = s.metaLayer() == null ? null : Layer.valueOf(s.metaLayer());
+    Layer accessOwner = s.accessLayer() == null ? null : Layer.valueOf(s.accessLayer());
+    boolean biblio = metaOwner == null || layer.biblioRank() <= metaOwner.biblioRank();
+    boolean access = accessOwner == null || layer.accessRank() <= accessOwner.accessRank();
+    boolean hasAccess = in.oaStatus() != null || in.license() != null || in.bestOaUrl() != null;
     boolean frozen = s.state() != null && NAMED.contains(s.state());
 
     String title = frozen ? s.title() : pick(s.title(), in.title(), biblio);
@@ -64,7 +66,8 @@ public final class WorkMerger {
         s.openalexHasTei(),
         s.openalexCheckedAt(),
         biblio ? layer.name() : s.metaLayer(),
-        jatsSource);
+        jatsSource,
+        (access && hasAccess) ? layer.name() : s.accessLayer());
     return new Merged(m, !m.equals(s));
   }
 

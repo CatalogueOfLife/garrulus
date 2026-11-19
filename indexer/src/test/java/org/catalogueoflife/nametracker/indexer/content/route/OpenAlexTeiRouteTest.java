@@ -42,7 +42,7 @@ class OpenAlexTeiRouteTest {
 
   private static Work work(String origin, boolean hasTei, String openalexId) {
     return new Work(5L, openalexId, "10.1/x", 1L, "T", null, null, null, null, null, null, null, null, null,
-        "cc-by", null, null, null, origin, null, null, null, null, null, null, null, null, null, hasTei, null, null, null);
+        "cc-by", null, null, null, origin, null, null, null, null, null, null, null, null, null, hasTei, null, null, null, null);
   }
 
   private static void stubTei() {

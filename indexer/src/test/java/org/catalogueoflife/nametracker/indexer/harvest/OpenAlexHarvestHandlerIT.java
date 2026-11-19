@@ -418,10 +418,10 @@ class OpenAlexHarvestHandlerIT extends AbstractPostgresIT {
   void lateJatsAbstractReResolves() {
     org.catalogueoflife.nametracker.store.work.Work plain = new org.catalogueoflife.nametracker.store.work.Work(null,
         null, "10.1/late", null, "T", null, null, null, null, null, null, null, null, null, null, null, null, null,
-        "LIVE", null, null, null, null, null, null, null, null, null, null, null, null, null);
+        "LIVE", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     org.catalogueoflife.nametracker.store.work.Work withJats = new org.catalogueoflife.nametracker.store.work.Work(null,
         null, "10.1/late", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-        null, null, null, null, null, null, null, null, "<abstract>x</abstract>", null, null, null, null, null);
+        null, null, null, null, null, null, null, null, "<abstract>x</abstract>", null, null, null, null, null, null);
     assertThat(pager.store(plain, TaskPriority.LIVE)).isTrue();
     long id = jdbc.queryForObject("SELECT id FROM work WHERE doi = '10.1/late'", Long.class);
     jdbc.update("UPDATE work SET state = 'CONTENT_RESOLVED'");

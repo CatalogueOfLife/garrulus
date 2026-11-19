@@ -36,12 +36,13 @@
       <arg column="openalex_checked_at" javaType="java.time.Instant"/>
       <arg column="meta_layer" javaType="string"/>
       <arg column="abstract_jats_source" javaType="string"/>
+      <arg column="access_layer" javaType="string"/>
     </constructor>
   </resultMap>
 
   <select id="insert" resultType="long" flushCache="true">
-    INSERT INTO work (openalex_id, doi, source_id, title, publication_date, year, volume, issue, pages, authors, type, language, oa_status, license, best_oa_url, abstract, abstract_source, origin, state, text_level, codes, taxgroups, has_acts, abstract_jats, pmcid, openalex_has_tei, openalex_checked_at, meta_layer, abstract_jats_source)
-    VALUES (#{o.openalexId}, #{o.doi}, #{o.sourceId}, #{o.title}, #{o.publicationDate}, #{o.year}, #{o.volume}, #{o.issue}, #{o.pages}, #{o.authors, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, #{o.type}, #{o.language}, #{o.oaStatus}, #{o.license}, #{o.bestOaUrl}, #{o.abstractText}, #{o.abstractSource}, #{o.origin}, #{o.state}, #{o.textLevel}, #{o.codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, #{o.taxgroups, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, #{o.hasActs}, #{o.abstractJats}, #{o.pmcid}, COALESCE(#{o.openalexHasTei}, false), #{o.openalexCheckedAt}, #{o.metaLayer}, #{o.abstractJatsSource})
+    INSERT INTO work (openalex_id, doi, source_id, title, publication_date, year, volume, issue, pages, authors, type, language, oa_status, license, best_oa_url, abstract, abstract_source, origin, state, text_level, codes, taxgroups, has_acts, abstract_jats, pmcid, openalex_has_tei, openalex_checked_at, meta_layer, abstract_jats_source, access_layer)
+    VALUES (#{o.openalexId}, #{o.doi}, #{o.sourceId}, #{o.title}, #{o.publicationDate}, #{o.year}, #{o.volume}, #{o.issue}, #{o.pages}, #{o.authors, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, #{o.type}, #{o.language}, #{o.oaStatus}, #{o.license}, #{o.bestOaUrl}, #{o.abstractText}, #{o.abstractSource}, #{o.origin}, #{o.state}, #{o.textLevel}, #{o.codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, #{o.taxgroups, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, #{o.hasActs}, #{o.abstractJats}, #{o.pmcid}, COALESCE(#{o.openalexHasTei}, false), #{o.openalexCheckedAt}, #{o.metaLayer}, #{o.abstractJatsSource}, #{o.accessLayer})
     RETURNING id
   </select>
 
@@ -79,6 +80,7 @@
       openalex_has_tei = COALESCE(#{o.openalexHasTei}, false),
       openalex_checked_at = #{o.openalexCheckedAt},
       meta_layer = COALESCE(#{o.metaLayer}::text, meta_layer),
+      access_layer = COALESCE(#{o.accessLayer}::text, access_layer),
       abstract_jats_source = COALESCE(#{o.abstractJatsSource}::text, abstract_jats_source),
       modified = now()
     WHERE id = #{o.id}
@@ -117,8 +119,8 @@
   </update>
 
   <select id="insertIfAbsent" resultType="long" flushCache="true">
-    INSERT INTO work (openalex_id, doi, source_id, title, publication_date, year, volume, issue, pages, authors, type, language, oa_status, license, best_oa_url, abstract, abstract_source, origin, state, text_level, codes, taxgroups, has_acts, abstract_jats, pmcid, openalex_has_tei, openalex_checked_at, meta_layer, abstract_jats_source)
-    VALUES (#{o.openalexId}, #{o.doi}, #{o.sourceId}, #{o.title}, #{o.publicationDate}, #{o.year}, #{o.volume}, #{o.issue}, #{o.pages}, COALESCE(#{o.authors, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, '[]'::jsonb), #{o.type}, #{o.language}, #{o.oaStatus}, #{o.license}, #{o.bestOaUrl}, #{o.abstractText}, #{o.abstractSource}, #{o.origin}, COALESCE(#{o.state}, 'DISCOVERED'), #{o.textLevel}, COALESCE(#{o.codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[]), COALESCE(#{o.taxgroups, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[]), COALESCE(#{o.hasActs}, false), #{o.abstractJats}, #{o.pmcid}, COALESCE(#{o.openalexHasTei}, false), #{o.openalexCheckedAt}, #{o.metaLayer}, #{o.abstractJatsSource})
+    INSERT INTO work (openalex_id, doi, source_id, title, publication_date, year, volume, issue, pages, authors, type, language, oa_status, license, best_oa_url, abstract, abstract_source, origin, state, text_level, codes, taxgroups, has_acts, abstract_jats, pmcid, openalex_has_tei, openalex_checked_at, meta_layer, abstract_jats_source, access_layer)
+    VALUES (#{o.openalexId}, #{o.doi}, #{o.sourceId}, #{o.title}, #{o.publicationDate}, #{o.year}, #{o.volume}, #{o.issue}, #{o.pages}, COALESCE(#{o.authors, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, '[]'::jsonb), #{o.type}, #{o.language}, #{o.oaStatus}, #{o.license}, #{o.bestOaUrl}, #{o.abstractText}, #{o.abstractSource}, #{o.origin}, COALESCE(#{o.state}, 'DISCOVERED'), #{o.textLevel}, COALESCE(#{o.codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[]), COALESCE(#{o.taxgroups, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[]), COALESCE(#{o.hasActs}, false), #{o.abstractJats}, #{o.pmcid}, COALESCE(#{o.openalexHasTei}, false), #{o.openalexCheckedAt}, #{o.metaLayer}, #{o.abstractJatsSource}, #{o.accessLayer})
     ON CONFLICT DO NOTHING
     RETURNING id
   </select>
@@ -152,6 +154,7 @@
       openalex_has_tei = COALESCE(#{o.openalexHasTei}, openalex_has_tei),
       openalex_checked_at = COALESCE(openalex_checked_at, #{o.openalexCheckedAt}),
       meta_layer = COALESCE(meta_layer, #{o.metaLayer}::text),
+      access_layer = COALESCE(access_layer, #{o.accessLayer}::text),
       abstract_jats_source = CASE WHEN #{o.abstractJats}::text IS NOT NULL
                                   THEN COALESCE(#{o.abstractJatsSource}::text, abstract_jats_source)
                                   ELSE abstract_jats_source END,

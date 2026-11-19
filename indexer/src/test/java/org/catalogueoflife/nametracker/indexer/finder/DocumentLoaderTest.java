@@ -39,7 +39,7 @@ class DocumentLoaderTest {
   private static Work work(long id, String level, String title, String abs) {
     return new Work(id, null, "10.1/" + id, null, title, null, null, null, null, null, null, null, null, null, null,
         null, abs, null, "LIVE", "CONTENT_RESOLVED", level, List.of(), List.of(), false, null, null, null, null, null,
-        null, null, null);
+        null, null, null, null);
   }
 
   private static Document fullDoc() {

@@ -23,7 +23,7 @@ class IdentityMappersIT extends AbstractPostgresIT {
   private long work(String doi) {
     return works.insert(new Work(null, null, doi, null, "t", null, null, null, null, null, "[]", null, null, null,
         null, null, null, null, "LIVE", "DISCOVERED", null, List.of(), List.of(), false, null, null, null, null,
-        false, null, null, null));
+        false, null, null, null, null));
   }
 
   @Test

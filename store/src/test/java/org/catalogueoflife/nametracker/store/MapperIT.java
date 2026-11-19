@@ -55,7 +55,7 @@ class MapperIT extends AbstractPostgresIT {
     long sourceId = sources.insert(source("S-work", "Phytotaxa"));
     Work w = new Work(0L, "W-roundtrip", "10.1/rt", sourceId, "A title", LocalDate.of(2026, 5, 17), (short) 2026,
         "12", "3", "1-10", "[{\"name\": \"Doe\"}]", "article", "en", "gold", "cc-by", "https://x/y", "An abstract",
-        "CROSSREF_JATS", "LIVE", "DISCOVERED", null, List.of("ICN"), List.of("Plantae"), false, null, null, null, null, false, null, null, null);
+        "CROSSREF_JATS", "LIVE", "DISCOVERED", null, List.of("ICN"), List.of("Plantae"), false, null, null, null, null, false, null, null, null, null);
     long id = works.insert(w);
     Work got = works.get(id);
     assertThat(got.doi()).isEqualTo("10.1/rt");
@@ -70,7 +70,7 @@ class MapperIT extends AbstractPostgresIT {
     Work next = new Work(id, got.openalexId(), got.doi(), got.sourceId(), got.title(), got.publicationDate(),
         got.year(), got.volume(), got.issue(), got.pages(), got.authors(), got.type(), got.language(),
         got.oaStatus(), got.license(), got.bestOaUrl(), got.abstractText(), got.abstractSource(), got.origin(),
-        "MATCHED", "FULLTEXT", got.codes(), got.taxgroups(), true, null, null, null, null, false, null, null, null);
+        "MATCHED", "FULLTEXT", got.codes(), got.taxgroups(), true, null, null, null, null, false, null, null, null, null);
     assertThat(works.update(next)).isEqualTo(1);
     Work u = works.get(id);
     assertThat(u.state()).isEqualTo("MATCHED");
@@ -82,7 +82,7 @@ class MapperIT extends AbstractPostgresIT {
   void updateKeepsLayerFieldsWhenNullAndSetsWhenGiven() {
     long id = works.insert(new Work(null, "W-layer", null, null, "t", null, null, null, null, null, "[]", null, null,
         null, null, null, null, null, "LIVE", "DISCOVERED", null, List.of(), List.of(), false, null, null, null, null,
-        false, null, "OPENALEX", "CROSSREF"));
+        false, null, "OPENALEX", "CROSSREF", null));
     Work got = works.get(id);
     assertThat(got.metaLayer()).isEqualTo("OPENALEX");
     works.update(withLayers(got, null, null));
@@ -98,6 +98,6 @@ class MapperIT extends AbstractPostgresIT {
         g.issue(), g.pages(), g.authors(), g.type(), g.language(), g.oaStatus(), g.license(), g.bestOaUrl(),
         g.abstractText(), g.abstractSource(), g.origin(), g.state(), g.textLevel(), g.codes(), g.taxgroups(),
         g.hasActs(), g.firstSeenAt(), g.modified(), g.abstractJats(), g.pmcid(), g.openalexHasTei(),
-        g.openalexCheckedAt(), meta, jats);
+        g.openalexCheckedAt(), meta, jats, null);
   }
 }
