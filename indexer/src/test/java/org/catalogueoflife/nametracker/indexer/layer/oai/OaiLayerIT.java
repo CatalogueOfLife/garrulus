@@ -191,6 +191,23 @@ class OaiLayerIT extends AbstractPostgresIT {
   }
 
   @Test
+  void serverErrorDefersTheSamePage(WireMockRuntimeInfo w) throws Exception {
+    route(w, false);
+    stubFor(get(urlPathEqualTo("/oai")).willReturn(aResponse().withStatus(502)));
+    HarvestOaiHandler h = handler(WEDNESDAY);
+    enqueueFirst(h);
+    drain(h);
+
+    assertThat(runs.recent(1).getFirst().state()).isEqualTo("DEFERRED");
+    assertThat(count("SELECT count(*) FROM task WHERE state = 'DEAD'")).isZero();
+    assertThat(count("SELECT count(*) FROM task WHERE state = 'QUEUED' AND type = 'HARVEST_OAI' AND run_after > now()"))
+        .isEqualTo(1);
+    String payload = jdbc.queryForObject("SELECT payload::text FROM task WHERE state = 'QUEUED'", String.class)
+        .replace(" ", "");
+    assertThat(payload).contains("\"from\":\"2026-11-01\"", "\"runId\":");
+  }
+
+  @Test
   void fullReadRouteSkipsWeekdays(WireMockRuntimeInfo w) throws Exception {
     route(w, true);
     stubFor(get(urlPathEqualTo("/oai")).willReturn(xml("magnolia-listrecords-oai_dc.xml")

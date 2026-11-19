@@ -110,4 +110,17 @@ class OaiRecordMapperTest {
     assertThat(w.doi()).isEqualTo("10.5555/first.one");
     assertThat(w.license()).isEqualTo("cc-by-nc");
   }
+
+  @Test
+  void doiOfUnderstandsTheCommonForms() {
+    assertThat(OaiRecordMapper.doiOf("info:doi/10.1234/Abc")).isEqualTo("10.1234/abc");
+    assertThat(OaiRecordMapper.doiOf("info:doi:10.1234/abc")).isEqualTo("10.1234/abc");
+    assertThat(OaiRecordMapper.doiOf("doi:10.1234/abc")).isEqualTo("10.1234/abc");
+    assertThat(OaiRecordMapper.doiOf("DOI: 10.1234/abc")).isEqualTo("10.1234/abc");
+    assertThat(OaiRecordMapper.doiOf("https://dx.doi.org/10.1234/abc")).isEqualTo("10.1234/abc");
+    assertThat(OaiRecordMapper.doiOf("http://doi.org/10.1234/abc")).isEqualTo("10.1234/abc");
+    assertThat(OaiRecordMapper.doiOf("https://x.org/proxy/doi.org/10.1234/abc")).isNull();
+    assertThat(OaiRecordMapper.doiOf("https://notdoi.org/10.1234/abc")).isNull();
+    assertThat(OaiRecordMapper.doiOf("hdl:10013/epic.1234")).isNull();
+  }
 }

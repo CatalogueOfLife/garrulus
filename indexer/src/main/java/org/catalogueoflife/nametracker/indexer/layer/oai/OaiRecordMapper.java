@@ -1,5 +1,6 @@
 package org.catalogueoflife.nametracker.indexer.layer.oai;
 
+import java.net.URI;
 import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -120,21 +121,37 @@ public final class OaiRecordMapper {
     return s;
   }
 
-  /** The DOI of an identifier value: a bare DOI, {@code info:doi:…} or a doi.org URL; null for any other value. */
+  private static final Pattern DOI_PREFIX = Pattern.compile("^(?:info:doi[/:]|doi:)\\s*", Pattern.CASE_INSENSITIVE);
+
+  /**
+   * The DOI of an identifier value: a bare DOI, {@code info:doi/…}, {@code info:doi:…}, {@code doi:…} or a URL on
+   * doi.org (or a subdomain such as dx.doi.org); null for any other value.
+   */
   static @Nullable String doiOf(String v) {
-    String s = v;
+    String s = v.strip();
     String lower = s.toLowerCase(Locale.ROOT);
-    if (lower.startsWith("info:doi:")) {
-      s = s.substring("info:doi:".length());
+    if (lower.startsWith("http://") || lower.startsWith("https://")) {
+      try {
+        URI u = URI.create(s);
+        String host = u.getHost() == null ? "" : u.getHost().toLowerCase(Locale.ROOT);
+        if (!host.equals("doi.org") && !host.endsWith(".doi.org")) return null;
+        String path = u.getRawPath() == null ? "" : u.getRawPath();
+        s = java.net.URLDecoder.decode(path.startsWith("/") ? path.substring(1) : path,
+            java.nio.charset.StandardCharsets.UTF_8);
+      } catch (IllegalArgumentException e) {
+        return null;
+      }
     } else {
-      int i = lower.indexOf("doi.org/");
-      if (i >= 0 && lower.startsWith("http")) s = s.substring(i + "doi.org/".length());
+      s = DOI_PREFIX.matcher(s).replaceFirst("");
     }
     s = s.strip();
     return s.startsWith("10.") ? IdScheme.DOI.normalise(s) : null;
   }
 
-  /** The Creative Commons code ({@code cc-by}) of a licence URL; null for anything else. */
+  /**
+   * The Creative Commons code ({@code cc-by}) of a licence URL. {@code work.license} holds such codes only, so any
+   * other URL, and any text that is no URL, gives null.
+   */
   static @Nullable String license(@Nullable String url) {
     if (url == null) return null;
     String u = url.strip().toLowerCase(Locale.ROOT);

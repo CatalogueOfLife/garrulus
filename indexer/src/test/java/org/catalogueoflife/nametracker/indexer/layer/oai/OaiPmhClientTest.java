@@ -103,4 +103,27 @@ class OaiPmhClientTest {
             + "</set><resumptionToken/></ListSets></OAI-PMH>")));
     assertThat(client().listSets(URI.create(w.getHttpBaseUrl() + "/oai"))).containsExactly("a", "b");
   }
+
+  @Test
+  void doctypeIsRejectedWithoutFetchingTheEntity(WireMockRuntimeInfo w) {
+    stubFor(get(urlPathEqualTo("/evil")).willReturn(aResponse().withBody("secret")));
+    stubFor(get(urlPathEqualTo("/oai")).willReturn(xml("<?xml version=\"1.0\"?><!DOCTYPE x [<!ENTITY e SYSTEM \""
+        + w.getHttpBaseUrl() + "/evil\">]><OAI-PMH xmlns=\"http://www.openarchives.org/OAI/2.0/\"><ListRecords>"
+        + "<record><header><identifier>&e;</identifier></header></record></ListRecords></OAI-PMH>")));
+    assertThatThrownBy(() -> client().listRecords(URI.create(w.getHttpBaseUrl() + "/oai"), "oai_dc", null, null, null,
+        null)).isInstanceOf(org.catalogueoflife.nametracker.indexer.http.HttpProblem.class)
+        .hasMessageContaining("Unreadable");
+    verify(0, getRequestedFor(urlPathEqualTo("/evil")));
+  }
+
+  @Test
+  void illegalXmlCharactersAreStrippedAndTheResponseRead(WireMockRuntimeInfo w) throws IOException {
+    String body = fixture("magnolia-listrecords-oai_dc.xml").replace("New genera and", "New\u0001 genera\u000b and")
+        .replace("Thailand</dc:title>", "Thailand&#2;</dc:title>");
+    assertThat(body).contains("\u0001");
+    stubFor(get(urlPathEqualTo("/oai")).willReturn(xml(body)));
+    OaiPmhClient.OaiPage p = client().listRecords(URI.create(w.getHttpBaseUrl() + "/oai"), "oai_dc", null, null, null,
+        null);
+    assertThat(p.records()).hasSize(3);
+  }
 }

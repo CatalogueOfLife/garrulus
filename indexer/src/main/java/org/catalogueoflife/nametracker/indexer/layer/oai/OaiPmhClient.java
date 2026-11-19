@@ -135,14 +135,38 @@ public class OaiPmhClient {
     return new HttpProblem(uri, 200, false, "Unreadable OAI-PMH response from " + uri + ": " + why, cause);
   }
 
+  /** Characters XML 1.0 does not allow, as raw characters and as numeric references. */
+  private static final java.util.regex.Pattern ILLEGAL = java.util.regex.Pattern.compile(
+      "[^\\x09\\x0A\\x0D\\x20-\\uD7FF\\uE000-\\uFFFD\\x{10000}-\\x{10FFFF}]"
+      + "|&#(?:0*(?:[0-8]|1[12]|1[4-9]|2\\d|3[01])|[xX]0*(?:[0-8]|[bB]|[cC]|[eEfF]|1[0-9a-fA-F]))(?![0-9a-fA-F]);");
+
+  /** Parses the response; on a syntax error illegal characters are stripped and it is read once more. */
   static Document parse(byte[] xml) throws Exception {
+    try {
+      return build(new org.xml.sax.InputSource(new ByteArrayInputStream(xml)));
+    } catch (org.xml.sax.SAXParseException e) {
+      String text = new String(xml, StandardCharsets.UTF_8);
+      String clean = ILLEGAL.matcher(text).replaceAll("");
+      if (clean.equals(text)) throw e;
+      return build(new org.xml.sax.InputSource(new java.io.StringReader(clean)));
+    }
+  }
+
+  private static Document build(org.xml.sax.InputSource in) throws Exception {
     DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
     f.setNamespaceAware(true);
     f.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
     f.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
     f.setXIncludeAware(false);
     f.setExpandEntityReferences(false);
-    return f.newDocumentBuilder().parse(new ByteArrayInputStream(xml));
+    javax.xml.parsers.DocumentBuilder b = f.newDocumentBuilder();
+    b.setErrorHandler(new org.xml.sax.helpers.DefaultHandler() { // silent: the exception is the report
+      @Override
+      public void fatalError(org.xml.sax.SAXParseException e) throws org.xml.sax.SAXException {
+        throw e;
+      }
+    });
+    return b.parse(in);
   }
 
   /** The records of a ListRecords response document. */
