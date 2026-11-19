@@ -110,6 +110,17 @@ class EuropePmcLayerIT extends AbstractPostgresIT {
   }
 
   @Test
+  void probeKeepsActiveForASourceWithAnOpenAlexId(WireMockRuntimeInfo w) throws Exception {
+    stubFor(get(urlPathEqualTo("/rest/search")).willReturn(aResponse()
+        .withBody(EuropePmcSearchClientTest.fixture("search-core-issn.json"))));
+    jdbc.update("UPDATE source SET openalex_id = 'S99' WHERE id = ?", sourceId);
+    var p = new ProbeEuropePmcHandler(EuropePmcSearchClientTest.http(), sources, routes, clock, w.getHttpBaseUrl());
+    p.handle(new Task(0, ProbeEuropePmcHandler.TYPE, "{\"sourceId\":" + sourceId + "}", TaskPriority.LIVE,
+        TaskState.RUNNING, 1, null, null, null, null, null, null));
+    assertThat(routes.forSource(sourceId)).extracting("status").containsExactly("ACTIVE");
+  }
+
+  @Test
   void probeAddsRouteOnlyOnHits(WireMockRuntimeInfo w) throws Exception {
     stubFor(get(urlPathEqualTo("/rest/search")).withQueryParam("query", containing("1313-2989"))
         .willReturn(aResponse().withBody(EuropePmcSearchClientTest.fixture("search-core-issn.json"))));
@@ -126,7 +137,7 @@ class EuropePmcLayerIT extends AbstractPostgresIT {
     var added = routes.forSource(sourceId);
     assertThat(added).hasSize(1);
     assertThat(added.getFirst().layer()).isEqualTo("EUROPEPMC");
-    assertThat(added.getFirst().status()).isEqualTo("ACTIVE");
+    assertThat(added.getFirst().status()).isEqualTo("VERIFIED"); // no OpenAlex id: the rollout onboards it
     assertThat(added.getFirst().origin()).isEqualTo("DISCOVERED");
     assertThat(added.getFirst().config()).contains("1313-2989").contains("1313-2970");
     assertThat(routes.forSource(miss)).isEmpty();

@@ -97,6 +97,16 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
     `NAMETRACKER_CLB_MATCH_BASE_URL=http://localhost:18100` (never 8080/8081). It is for development only, not
     throttled, its `GET /dataset` gives the release key to pin, and a bundle of another release than the pinned one
     defers `MATCH_NAMES` 30 minutes without using an attempt (ADR-0005, "Local bundle matching").
+  - Layered harvesting (M6): `NAMETRACKER_LAYERS_<OAI|MAGTECH|EUROPEPMC|BLR>_ENABLED` (default true; false also turns the
+    layer's handler off, its tasks wait). Daily live crons, UTC, run only with the harvest switch and the layer switch on:
+    `NAMETRACKER_LAYERS_OAI_CRON` (`0 30 4 * * *`), `..._MAGTECH_CRON` (`0 45 4 * * *`), `..._EUROPEPMC_CRON`
+    (`0 0 5 * * *`), `..._BLR_CRON` (`0 15 5 * * *`); the route rollout is `NAMETRACKER_LAYERS_ROLLOUT_CRON`
+    (`0 30 0 * * *`) with `NAMETRACKER_LAYERS_ROLLOUT_PER_NIGHT` (20). A cron enqueues one `LIVE` job per ACTIVE route
+    of a harvestable source (none while that route's LIVE job is still queued or running), from 3 days before the
+    route's last good run (120 days back if it never ran; Europe PMC always 14 days back); BLR one job from the end of
+    its last DONE run (2 days back without one). The monthly `PROBE_EUROPEPMC` (`0 0 1 1 * *`) needs the harvest and
+    the Europe PMC switch; its new route is VERIFIED for a journal without an OpenAlex id (the rollout onboards it),
+    else ACTIVE.
   - `NAMETRACKER_HARVEST_OUTAGE_DELAY` (30m): a harvest or onboarding page that meets an outage is enqueued again after
     this delay instead of failing.
 - `indexer` matching and index (ADR-0005):

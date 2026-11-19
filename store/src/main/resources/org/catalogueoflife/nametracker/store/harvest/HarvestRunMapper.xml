@@ -55,6 +55,10 @@
     SELECT max(window_to) FROM harvest_run WHERE adapter = #{adapter} AND state &lt;&gt; 'FAILED'
   </select>
 
+  <select id="latestDoneWindowTo" resultType="java.time.LocalDate">
+    SELECT max(window_to) FROM harvest_run WHERE adapter = #{adapter} AND state = 'DONE'
+  </select>
+
   <select id="recent" resultMap="result">
     SELECT * FROM harvest_run ORDER BY started DESC, id DESC LIMIT #{limit}
   </select>

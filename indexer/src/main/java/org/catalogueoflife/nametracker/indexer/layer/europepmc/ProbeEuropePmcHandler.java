@@ -25,7 +25,8 @@ import tools.jackson.databind.JsonNode;
 /**
  * {@code PROBE_EUROPEPMC}, payload {@code {"sourceId":n}} or {@code {}} for every harvestable source without a
  * {@code EUROPEPMC} route: asks Europe PMC whether it indexes the journal's ISSNs and, on a hit only, adds an
- * {@code ACTIVE} route {@code {"issns":[…]}} with origin {@code DISCOVERED}. A source that already has a Europe PMC
+ * route {@code {"issns":[…]}} with origin {@code DISCOVERED}: {@code VERIFIED} for a source without an OpenAlex id
+ * (the nightly rollout then onboards it), else {@code ACTIVE}. A source that already has a Europe PMC
  * route (any status) is left alone, so the task is idempotent. A network error fails the task like any other.
  */
 @Component
@@ -84,7 +85,10 @@ public class ProbeEuropePmcHandler implements TaskHandler {
     if (s.issns() != null) issns.addAll(s.issns());
     if (issns.isEmpty() || !client.hasJournal(List.copyOf(issns))) return false;
     String config = FinderJson.mapper().writeValueAsString(Map.of("issns", List.copyOf(issns)));
-    long id = routes.insert(new SourceRoute(0, s.id(), "EUROPEPMC", config, "ACTIVE", "DISCOVERED", null, null, null,
+    // a journal without an OpenAlex id is not onboarded by OpenAlex: VERIFIED lets the nightly rollout give it its
+    // onboarding pass (which onboards it) and its backfill; one with an id is already covered and goes live at once
+    String status = s.openalexId() == null || s.openalexId().isBlank() ? "VERIFIED" : "ACTIVE";
+    long id = routes.insert(new SourceRoute(0, s.id(), "EUROPEPMC", config, status, "DISCOVERED", null, null, null,
         null, null, null));
     routes.setVerified(id, clock.instant());
     LOG.info("Europe PMC indexes source {} ({}): route {} added", s.id(), issns, id);

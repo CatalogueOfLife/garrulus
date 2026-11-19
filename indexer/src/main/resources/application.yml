@@ -52,6 +52,20 @@ nametracker:
     # a harvest or onboarding page that meets an outage (a retryable HTTP failure) is enqueued again after this delay
     outage-delay: ${NAMETRACKER_HARVEST_OUTAGE_DELAY:30m}
 
+  layers:
+    # nightly route rollout: onboarding passes of VERIFIED routes, a few a night (behind the harvest switch)
+    rollout-cron: ${NAMETRACKER_LAYERS_ROLLOUT_CRON:0 30 0 * * *}
+    rollout-per-night: ${NAMETRACKER_LAYERS_ROLLOUT_PER_NIGHT:20}
+    # daily live harvests per layer, behind the harvest switch and the layer's own switch (default on); UTC
+    oai-cron: ${NAMETRACKER_LAYERS_OAI_CRON:0 30 4 * * *}
+    magtech-cron: ${NAMETRACKER_LAYERS_MAGTECH_CRON:0 45 4 * * *}
+    europepmc-cron: ${NAMETRACKER_LAYERS_EUROPEPMC_CRON:0 0 5 * * *}
+    blr-cron: ${NAMETRACKER_LAYERS_BLR_CRON:0 15 5 * * *}
+    oai.enabled: ${NAMETRACKER_LAYERS_OAI_ENABLED:true}
+    magtech.enabled: ${NAMETRACKER_LAYERS_MAGTECH_ENABLED:true}
+    europepmc.enabled: ${NAMETRACKER_LAYERS_EUROPEPMC_ENABLED:true}
+    blr.enabled: ${NAMETRACKER_LAYERS_BLR_ENABLED:true}
+
   openalex:
     base-url: ${NAMETRACKER_OPENALEX_BASE_URL:https://api.openalex.org}
     # from the environment or the git-ignored .env; blank means no key (keyless page paging)
