@@ -53,46 +53,55 @@
     GROUP BY 1 ORDER BY 1
   </select>
 
+  <!-- sightings of LIVE-origin works only: the V16 seed of a backfilled work, snapshot backfills and onboarding
+       passes are no yield -->
   <select id="sightingDays" resultType="map">
-    SELECT (first_seen AT TIME ZONE 'UTC')::date AS day, count(*)::int AS n
-    FROM work_sighting
-    WHERE layer = #{layer}
-      AND first_seen &gt;= (#{from}::date)::timestamp AT TIME ZONE 'UTC'
-      AND first_seen &lt; ((#{to}::date) + 1)::timestamp AT TIME ZONE 'UTC'
+    SELECT (ws.first_seen AT TIME ZONE 'UTC')::date AS day, count(*)::int AS n
+    FROM work_sighting ws JOIN work w ON w.id = ws.work_id
+    WHERE ws.layer = #{layer} AND w.origin = 'LIVE'
+      AND ws.first_seen &gt;= (#{from}::date)::timestamp AT TIME ZONE 'UTC'
+      AND ws.first_seen &lt; ((#{to}::date) + 1)::timestamp AT TIME ZONE 'UTC'
     GROUP BY 1 ORDER BY 1
   </select>
 
   <select id="sightingsBySource" resultType="map">
     SELECT w.source_id, count(*)::int AS n
     FROM work_sighting ws JOIN work w ON w.id = ws.work_id
-    WHERE ws.layer = #{layer} AND w.source_id IS NOT NULL
+    WHERE ws.layer = #{layer} AND w.source_id IS NOT NULL AND w.origin = 'LIVE'
       AND ws.first_seen &gt;= (#{from}::date)::timestamp AT TIME ZONE 'UTC'
       AND ws.first_seen &lt; ((#{to}::date) + 1)::timestamp AT TIME ZONE 'UTC'
     GROUP BY w.source_id
   </select>
 
+  <!-- The candidates: LIVE-origin works created in the window (work.first_seen_at) by another layer, i.e. with a
+       sighting of another layer written with the row (WorksPager writes the creating sighting in the same transaction,
+       so its first_seen equals first_seen_at) and none of this layer. A V16 seed sighting is younger than its row and
+       never a creating one; a work this layer found first is no candidate. -->
   <select id="missesBySource" resultType="map">
     WITH served AS (
       <if test="routeLayer == null">
         SELECT id AS source_id FROM source WHERE active AND tier IN ('CORE','BROAD') AND onboarded_at IS NOT NULL
+        <if test="layer == 'OPENALEX'">AND openalex_id IS NOT NULL</if>
+        <if test="layer == 'CROSSREF'">AND (issn_l IS NOT NULL OR cardinality(issns) &gt; 0)</if>
       </if>
       <if test="routeLayer != null">
         SELECT DISTINCT source_id FROM source_route WHERE layer = #{routeLayer} AND status = 'ACTIVE'
       </if>
     ), cand AS (
-      SELECT DISTINCT work_id FROM work_sighting
-      WHERE layer IN <foreach collection="others" item="l" open="(" separator="," close=")">#{l}</foreach>
-        AND first_seen &gt;= (#{from}::date)::timestamp AT TIME ZONE 'UTC'
-        AND first_seen &lt; ((#{to}::date) + 1)::timestamp AT TIME ZONE 'UTC'
+      SELECT w.id AS work_id, w.source_id FROM work w
+      WHERE w.origin = 'LIVE'
+        AND w.first_seen_at &gt;= (#{from}::date)::timestamp AT TIME ZONE 'UTC'
+        AND w.first_seen_at &lt; ((#{to}::date) + 1)::timestamp AT TIME ZONE 'UTC'
+        AND EXISTS (SELECT 1 FROM work_sighting c WHERE c.work_id = w.id AND c.first_seen &lt;= w.first_seen_at
+          AND c.layer IN <foreach collection="others" item="l" open="(" separator="," close=")">#{l}</foreach>)
+        AND NOT EXISTS (SELECT 1 FROM work_sighting c WHERE c.work_id = w.id AND c.first_seen &lt;= w.first_seen_at
+          AND c.layer = #{layer})
     )
-    SELECT w.source_id, count(*)::int AS total,
+    SELECT c.source_id, count(*)::int AS total,
       count(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM work_sighting m WHERE m.work_id = c.work_id AND m.layer = #{layer}))::int AS misses
     FROM cand c
-    JOIN work w ON w.id = c.work_id
-    JOIN served s ON s.source_id = w.source_id
-    WHERE NOT EXISTS (SELECT 1 FROM work_sighting e WHERE e.work_id = c.work_id
-      AND e.first_seen &lt; (#{from}::date)::timestamp AT TIME ZONE 'UTC')
-    GROUP BY w.source_id
+    JOIN served s ON s.source_id = c.source_id
+    GROUP BY c.source_id
   </select>
 
   <delete id="deleteCoverage">

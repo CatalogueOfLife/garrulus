@@ -33,19 +33,26 @@ public interface LayerHealthMapper {
   List<Map<String, Object>> runDays(@Param("adapter") String adapter, @Param("from") LocalDate from,
       @Param("to") LocalDate to);
 
-  /** New sightings of the layer per UTC day from {@code from} to {@code to} inclusive: {@code day}, {@code n}. */
+  /**
+   * New sightings of LIVE-origin works by the layer per UTC day from {@code from} to {@code to} inclusive: {@code day},
+   * {@code n}.
+   */
   List<Map<String, Object>> sightingDays(@Param("layer") String layer, @Param("from") LocalDate from,
       @Param("to") LocalDate to);
 
-  /** The layer's new sightings from {@code from} to {@code to} inclusive per journal ({@code work.source_id}): {@code source_id}, {@code n}. */
+  /**
+   * The layer's new sightings of LIVE-origin works from {@code from} to {@code to} inclusive per journal
+   * ({@code work.source_id}): {@code source_id}, {@code n}.
+   */
   List<Map<String, Object>> sightingsBySource(@Param("layer") String layer, @Param("from") LocalDate from,
       @Param("to") LocalDate to);
 
   /**
-   * Misses per journal: works first sighted from {@code from} to {@code to} inclusive by one of {@code others} (no
-   * sighting of any layer before {@code from}) in a journal the layer serves, and the part never sighted by
-   * {@code layer}: {@code source_id}, {@code total}, {@code misses}. The journals served are the ACTIVE routes of
-   * {@code routeLayer}, or the harvestable sources when it is null.
+   * Misses per journal: LIVE-origin works created from {@code from} to {@code to} inclusive by one of {@code others}
+   * (a sighting written with the row; not by {@code layer}) in a journal the layer serves, and the part never sighted
+   * by {@code layer}: {@code source_id}, {@code total}, {@code misses}. The journals served are the ACTIVE routes of
+   * {@code routeLayer}, or, when it is null, the harvestable sources: for OPENALEX those with an OpenAlex id, for
+   * CROSSREF those with an ISSN.
    */
   List<Map<String, Object>> missesBySource(@Param("layer") String layer, @Param("others") List<String> others,
       @Param("routeLayer") @Nullable String routeLayer, @Param("from") LocalDate from, @Param("to") LocalDate to);

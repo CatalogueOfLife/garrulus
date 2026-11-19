@@ -41,8 +41,17 @@ class CoverageCheckHandlerIT extends AbstractPostgresIT {
   }
 
   long src(String oa, String country) {
-    return jdbc.queryForObject("INSERT INTO source (openalex_id, title, origin, tier, country, onboarded_at) "
-        + "VALUES (?, 't', 'MANUAL', 'CORE', ?, now()) RETURNING id", Long.class, oa, country);
+    return jdbc.queryForObject("INSERT INTO source (openalex_id, issn_l, title, origin, tier, country, onboarded_at) "
+        + "VALUES (?, ?, 't', 'MANUAL', 'CORE', ?, now()) RETURNING id", Long.class, oa,
+        oa == null ? null : "1234-" + oa.substring(1).repeat(4).substring(0, 4), country);
+  }
+
+  /** A work created at {@code when} by {@code layer}: its sighting is written with the row, as WorksPager does. */
+  long created(String doi, long sourceId, Layer layer, String when) {
+    long w = jdbc.queryForObject("INSERT INTO work (doi, origin, state, source_id, first_seen_at) "
+        + "VALUES (?, 'LIVE', 'DISCOVERED', ?, ?::timestamptz) RETURNING id", Long.class, doi, sourceId, when);
+    sight(w, layer, sourceId, when);
+    return w;
   }
 
   long work(String doi, long sourceId) {
@@ -115,14 +124,11 @@ class CoverageCheckHandlerIT extends AbstractPostgresIT {
     jdbc.update("INSERT INTO source_route (source_id, layer, config, status, origin) VALUES (?, 'OAI', '{}', 'ACTIVE', 'SEED')",
         source);
     for (int i = 0; i < 3; i++) {
-      long w = work("10.2/m" + i, source);
-      sight(w, Layer.OPENALEX, source, DAY.minusDays(10) + "T10:00:00Z");
+      long w = created("10.2/m" + i, source, Layer.OPENALEX, DAY.minusDays(10) + "T10:00:00Z");
       if (i == 0) sight(w, Layer.OAI, source, DAY.minusDays(9) + "T10:00:00Z");
     }
-    long other = work("10.2/x", chinese); // not served by OAI
-    sight(other, Layer.OPENALEX, chinese, DAY.minusDays(10) + "T10:00:00Z");
-    long tooNew = work("10.2/t", source); // inside the 3 day grace
-    sight(tooNew, Layer.OPENALEX, source, DAY.minusDays(1) + "T10:00:00Z");
+    created("10.2/x", chinese, Layer.OPENALEX, DAY.minusDays(10) + "T10:00:00Z"); // not served by OAI
+    created("10.2/t", source, Layer.OPENALEX, DAY.minusDays(1) + "T10:00:00Z"); // inside the 3 day grace
     check(DAY);
     assertThat(row(Layer.OAI, DAY).missShare()).isEqualTo(2.0 / 3);
     assertThat(jdbc.queryForObject("SELECT misses FROM source_layer_coverage WHERE source_id = ? AND layer = 'OAI'",
@@ -212,5 +218,53 @@ class CoverageCheckHandlerIT extends AbstractPostgresIT {
     run("OPENALEX_LIVE", "DEFERRED", DAY);
     check(DAY);
     assertThat(row(Layer.OPENALEX, DAY).state()).isEqualTo("DEGRADED");
+  }
+
+  @Test
+  void seededAndBackfilledWorksAreNoMissesAndNoYield() throws Exception {
+    // a LIVE work created before V16: its only sighting is the migration's seed, written days after the row
+    long seeded = jdbc.queryForObject("INSERT INTO work (doi, origin, state, source_id, first_seen_at) "
+        + "VALUES ('10.8/seed', 'LIVE', 'DISCOVERED', ?, ?::timestamptz) RETURNING id", Long.class, source,
+        DAY.minusDays(12) + "T00:00:00Z");
+    sight(seeded, Layer.OPENALEX, source, DAY.minusDays(5) + "T00:00:00Z");
+    // a snapshot backfill work, created and sighted by OpenAlex in the miss window
+    long backfill = created("10.8/bf", source, Layer.OPENALEX, DAY.minusDays(4) + "T00:00:00Z");
+    jdbc.update("UPDATE work SET origin = 'BACKFILL' WHERE id = ?", backfill);
+    check(DAY);
+    assertThat(row(Layer.CROSSREF, DAY).missShare()).isEqualTo(0.0);
+    assertThat(row(Layer.OPENALEX, DAY).yield()).isEqualTo(1); // the seed sighting of a LIVE work, not the backfill
+    assertThat(jdbc.queryForObject("SELECT sightings_28d FROM source_layer_coverage WHERE source_id = ? AND layer = 'OPENALEX'",
+        Integer.class, source)).isEqualTo(1);
+  }
+
+  @Test
+  void worksTheLayerFoundFirstAreNotInTheDenominator() throws Exception {
+    jdbc.update("INSERT INTO source_route (source_id, layer, config, status, origin) VALUES (?, 'OAI', '{}', 'ACTIVE', 'SEED')",
+        source);
+    long first = created("10.9/oai-first", source, Layer.OAI, DAY.minusDays(10) + "T04:30:00Z");
+    sight(first, Layer.OPENALEX, source, DAY.minusDays(9) + "T02:00:00Z");
+    created("10.9/missed", source, Layer.OPENALEX, DAY.minusDays(10) + "T02:00:00Z");
+    check(DAY);
+    assertThat(row(Layer.OAI, DAY).missShare()).isEqualTo(1.0);
+    // OpenAlex saw the OAI-first work later: it is a hit, not a miss
+    assertThat(row(Layer.OPENALEX, DAY).missShare()).isEqualTo(0.0);
+  }
+
+  @Test
+  void missesOnlyForJournalsTheLayerCanServe() throws Exception {
+    long noOpenalex = src(null, "FR"); // no OpenAlex id, no ISSN
+    jdbc.update("UPDATE source SET issn_l = '2222-3333' WHERE id = ?", noOpenalex);
+    long noIssn = src("S9", "IT");
+    jdbc.update("UPDATE source SET issn_l = NULL WHERE id = ?", noIssn);
+    created("10.10/a", noOpenalex, Layer.OAI, DAY.minusDays(10) + "T04:30:00Z");
+    created("10.10/b", noIssn, Layer.OAI, DAY.minusDays(10) + "T04:30:00Z");
+    check(DAY);
+    // OpenAlex cannot serve a journal without an OpenAlex id, Crossref one without an ISSN
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM source_layer_coverage WHERE source_id = ? AND layer = 'OPENALEX' AND misses > 0",
+        Integer.class, noOpenalex)).isZero();
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM source_layer_coverage WHERE source_id = ? AND layer = 'CROSSREF' AND misses > 0",
+        Integer.class, noIssn)).isZero();
+    assertThat(row(Layer.OPENALEX, DAY).missShare()).isEqualTo(1.0); // the ISSN-less journal it does serve
+    assertThat(row(Layer.CROSSREF, DAY).missShare()).isEqualTo(1.0); // the journal without OpenAlex id
   }
 }

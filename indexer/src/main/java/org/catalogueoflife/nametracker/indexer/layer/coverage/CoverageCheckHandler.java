@@ -22,9 +22,10 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * {@code COVERAGE_CHECK}, payload {@code {"day":"yyyy-mm-dd"}} (the UTC day to judge, normally yesterday): for every
- * layer writes its {@code layer_health} row of the day from the harvest runs, the layer's new sightings and the misses
- * (works first sighted by another layer 3 to 17 days before the day, in journals the layer serves, that the layer never
- * saw), and the {@code source_layer_coverage} rows. Running it again for a day overwrites that day's rows. A layer that
+ * layer writes its {@code layer_health} row of the day from the harvest runs, the layer's new sightings of LIVE-origin
+ * works and the misses (LIVE-origin works another layer created 3 to 17 days before the day, in journals the layer
+ * serves, that the layer never saw; a work the layer created itself is no candidate), and the
+ * {@code source_layer_coverage} rows. Backfill, onboarding and the V16 seed therefore move neither yield nor misses. Running it again for a day overwrites that day's rows. A layer that
  * turns {@code FAILING} (the day before it was not) is logged as a WARN; mails come with M6b.
  */
 @Component
