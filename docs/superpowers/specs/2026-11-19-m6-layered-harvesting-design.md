@@ -47,6 +47,9 @@ work to the key services of the field, and a way for people to register journals
    filter on them and do metrics"). Every work has a reliable language, usable as a filter, a facet and a metric; the
    English title and abstract a source supplies are kept; titles with no English version get a stored machine
    translation; abstracts are translated in the reader's browser on request.
+12. **Where a name is mentioned, as a filter** (Markus, 2026-11-19: "Exposing a mentionedIn filter is worthwhile").
+   Not harvesting, but small and on data that exists. Main subject and its salience scoring stay as they are ("the
+   main subject design is good with the scoring, keep it").
 
 ## Non-goals
 
@@ -397,6 +400,21 @@ titles only, translate abstracts in the browser. Paid translation services stay 
   - A public `GET /api/stats/languages` gives works per language and year, filterable by `taxgroup`, `code`,
     `country` and `yearFrom`/`yearTo`, for metrics on who publishes taxonomy in which language. All in the OpenAPI.
 
+### Mentioned-in filter
+
+- `work_name` already records where a name occurs: `in_title`, `in_abstract`, `in_heading`, `body_count`,
+  `only_reference`, `act_types`. M6 exposes it; nothing is computed anew and salience is unchanged.
+- **`mentionedIn`** (repeatable: `TITLE`, `ABSTRACT`, `BODY`; any of them suffices) on `/api/works` and every list built
+  on it (taxon, name, journal pages, feeds' query parameters). With a taxon or name filter it applies to the names that
+  filter selects: "papers with a name of this taxon in the title or abstract". Without one, to any name of the work.
+  `BODY` means `body_count > 0` or `in_heading` (headings, paragraphs, captions, tables, footnotes; references stay
+  governed by the existing `includeReferences`). It combines freely with `mainSubjectOnly`, `hasActs` and `actType`.
+- **Follows** get the same option (`mentioned_in` text array on `subscription`, empty = any part, as today), applied in
+  `SubscriptionMatcher` next to `main_subject_only`; the follow dialog shows it as "Mentioned in: title, abstract, full
+  text" checkboxes, with a hint that full text exists only for some papers.
+- **UI:** the search page's filter panel gets the same three checkboxes; the work page lists, per name, where it occurs
+  (the flags are already in `NameDetail`'s data). OpenAPI updated (`OpenApiCoverageTest`).
+
 ### Institutional access (University of Copenhagen)
 
 Garrulus will run in the KU network as part of COL and GBIF, which reaches many subscribed journals. M6 builds the
@@ -499,6 +517,8 @@ tail's history (expected to be small next to the OpenAlex snapshot backfill; mea
 - A promoted journal without an OpenAlex id gets its history back to 2000 through its routes, at `BACKFILL`, with no
   hits; records before 2000 are skipped and counted.
 - The institutional route exists, is covered by tests against a stub, and is off.
+- `/api/works?taxon=…&mentionedIn=TITLE&mentionedIn=ABSTRACT` returns only papers with a name of that taxon in title or
+  abstract; a follow with `mentioned_in = {TITLE}` gets hits only for such papers; existing follows behave as before.
 - Every work has a decided language with its source; the 148 "Uzbek" works of the dev DB are re-decided; `/api/works`
   filters and facets by language, and `GET /api/stats/languages` answers per year and taxgroup.
 - Magtech and SciELO works carry their parallel English titles and abstracts; with the translation service running,
