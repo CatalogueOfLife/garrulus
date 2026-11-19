@@ -7,7 +7,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
+import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
+import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
+import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.route.SourceRoute;
 import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
@@ -16,9 +19,11 @@ import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.Task;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
+import org.catalogueoflife.nametracker.store.work.Layer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
@@ -27,7 +32,9 @@ import tools.jackson.databind.JsonNode;
  * {@code EUROPEPMC} route: asks Europe PMC whether it indexes the journal's ISSNs and, on a hit only, adds an
  * route {@code {"issns":[…]}} with origin {@code DISCOVERED}: {@code VERIFIED} for a source without an OpenAlex id
  * (the nightly rollout then onboards it), else {@code ACTIVE}. A source that already has a Europe PMC
- * route (any status) is left alone, so the task is idempotent. A network error fails the task like any other.
+ * route (any status) is left alone, so the task is idempotent. Europe PMC being down defers the task without using
+ * an attempt; any other failure of one source is logged and the probe goes on with the next. The handler is off while
+ * {@code nametracker.layers.europepmc.enabled} is false.
  */
 @Component
 public class ProbeEuropePmcHandler implements TaskHandler {
@@ -39,13 +46,18 @@ public class ProbeEuropePmcHandler implements TaskHandler {
   private final EuropePmcSearchClient client;
   private final SourceMapper sources;
   private final SourceRouteMapper routes;
+  private final HarvestOutage outage;
+  private final Environment env;
   private final Clock clock;
 
-  public ProbeEuropePmcHandler(PoliteHttp http, SourceMapper sources, SourceRouteMapper routes, Clock clock,
+  public ProbeEuropePmcHandler(PoliteHttp http, SourceMapper sources, SourceRouteMapper routes, HarvestOutage outage,
+      Environment env, Clock clock,
       @Value("${nametracker.europepmc.base-url:https://www.ebi.ac.uk/europepmc/webservices}") String baseUrl) {
     this.client = new EuropePmcSearchClient(http, baseUrl);
     this.sources = sources;
     this.routes = routes;
+    this.outage = outage;
+    this.env = env;
     this.clock = clock;
   }
 
@@ -70,10 +82,27 @@ public class ProbeEuropePmcHandler implements TaskHandler {
       todo.addAll(sources.listHarvestable());
     }
     int added = 0;
+    int failed = 0;
     for (Source s : todo) {
-      if (probe(s)) added++;
+      try {
+        if (probe(s)) added++;
+      } catch (RuntimeException e) {
+        HttpProblem down = HarvestOutage.retryable(e);
+        if (down != null) {
+          // the whole probe waits; the sources done so far have their route and are skipped next time
+          throw new ServiceOutageException("Europe PMC", outage.retryAt(), e);
+        }
+        failed++;
+        LOG.warn("Europe PMC probe of source {} failed, going on with the others: {}", s.id(), e.toString());
+      }
     }
-    LOG.info("Europe PMC probe: {} sources checked, {} routes added", todo.size(), added);
+    LOG.info("Europe PMC probe: {} sources checked, {} routes added, {} failed", todo.size(), added, failed);
+  }
+
+  /** Off with the Europe PMC layer: the probes enqueued by onboarding then wait in the queue. */
+  @Override
+  public boolean enabled() {
+    return env.getProperty(Layer.EUROPEPMC.enabledProperty(), Boolean.class, true);
   }
 
   private boolean probe(Source s) {

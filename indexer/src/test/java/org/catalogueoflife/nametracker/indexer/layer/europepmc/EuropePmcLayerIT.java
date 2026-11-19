@@ -114,7 +114,7 @@ class EuropePmcLayerIT extends AbstractPostgresIT {
     stubFor(get(urlPathEqualTo("/rest/search")).willReturn(aResponse()
         .withBody(EuropePmcSearchClientTest.fixture("search-core-issn.json"))));
     jdbc.update("UPDATE source SET openalex_id = 'S99' WHERE id = ?", sourceId);
-    var p = new ProbeEuropePmcHandler(EuropePmcSearchClientTest.http(), sources, routes, clock, w.getHttpBaseUrl());
+    var p = probe(w, new MockEnvironment());
     p.handle(new Task(0, ProbeEuropePmcHandler.TYPE, "{\"sourceId\":" + sourceId + "}", TaskPriority.LIVE,
         TaskState.RUNNING, 1, null, null, null, null, null, null));
     assertThat(routes.forSource(sourceId)).extracting("status").containsExactly("ACTIVE");
@@ -128,7 +128,7 @@ class EuropePmcLayerIT extends AbstractPostgresIT {
         .willReturn(aResponse().withBody(EuropePmcSearchClientTest.fixture("search-core-empty.json"))));
     long miss = jdbc.queryForObject("INSERT INTO source (issn_l, issns, title, tier, origin, onboarded_at, active) "
         + "VALUES ('0000-0000', '{0000-0000}', 'Nothing', 'CORE', 'MANUAL', now(), true) RETURNING id", Long.class);
-    var p = new ProbeEuropePmcHandler(EuropePmcSearchClientTest.http(), sources, routes, clock, w.getHttpBaseUrl());
+    var p = probe(w, new MockEnvironment());
     Task all = new Task(0, ProbeEuropePmcHandler.TYPE, "{}", TaskPriority.LIVE, TaskState.RUNNING, 1, null, null, null, null,
         null, null);
     p.handle(all);
@@ -145,5 +145,44 @@ class EuropePmcLayerIT extends AbstractPostgresIT {
     verify(1, getRequestedFor(urlPathEqualTo("/rest/search")).withQueryParam("query", containing("1313-2989"))
         .withQueryParam("pageSize", equalTo("1")));
     verify(2, getRequestedFor(urlPathEqualTo("/rest/search")).withQueryParam("query", containing("0000-0000")));
+  }
+
+  private ProbeEuropePmcHandler probe(WireMockRuntimeInfo w, MockEnvironment env) {
+    return new ProbeEuropePmcHandler(EuropePmcSearchClientTest.http(), sources, routes, outage, env, clock,
+        w.getHttpBaseUrl());
+  }
+
+  private static Task probeAll() {
+    return new Task(0, ProbeEuropePmcHandler.TYPE, "{}", TaskPriority.LIVE, TaskState.RUNNING, 1, null, null, null,
+        null, null, null);
+  }
+
+  @Test
+  void probeOutageDefersWithoutAnAttempt(WireMockRuntimeInfo w) {
+    stubFor(get(urlPathEqualTo("/rest/search")).willReturn(aResponse().withStatus(502)));
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> probe(w, new MockEnvironment()).handle(probeAll()))
+        .isInstanceOf(org.catalogueoflife.nametracker.indexer.task.ServiceOutageException.class);
+  }
+
+  @Test
+  void probeGoesOnAfterOneBadSource(WireMockRuntimeInfo w) throws Exception {
+    // the first source (lower id) gets a 400, the one after it still gets its route
+    long bad = jdbc.queryForObject("INSERT INTO source (id, issn_l, issns, title, tier, origin, onboarded_at, active) "
+        + "VALUES (?, '0000-0019', '{0000-0019}', 'Bad', 'CORE', 'MANUAL', now(), true) RETURNING id", Long.class,
+        sourceId - 1000);
+    stubFor(get(urlPathEqualTo("/rest/search")).withQueryParam("query", containing("0000-0019"))
+        .willReturn(aResponse().withStatus(400)));
+    stubFor(get(urlPathEqualTo("/rest/search")).withQueryParam("query", containing("1313-2989"))
+        .willReturn(aResponse().withBody(EuropePmcSearchClientTest.fixture("search-core-issn.json"))));
+    probe(w, new MockEnvironment()).handle(probeAll());
+    assertThat(routes.forSource(bad)).isEmpty();
+    assertThat(routes.forSource(sourceId)).hasSize(1);
+  }
+
+  @Test
+  void probeIsOffWithTheEuropePmcLayer(WireMockRuntimeInfo w) {
+    assertThat(probe(w, new MockEnvironment()).enabled()).isTrue();
+    assertThat(probe(w, new MockEnvironment().withProperty("nametracker.layers.europepmc.enabled", "false"))
+        .enabled()).isFalse();
   }
 }
