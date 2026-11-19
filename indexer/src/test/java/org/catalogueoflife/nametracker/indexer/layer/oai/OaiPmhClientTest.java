@@ -126,4 +126,14 @@ public class OaiPmhClientTest {
         null);
     assertThat(p.records()).hasSize(3);
   }
+
+  @Test
+  void oaiSpacingLeavesThePensoftContentLimiterAlone() {
+    PoliteHttp http = new PoliteHttp(HttpClient.newHttpClient(), PoliteHttp.defaultIntervals(),
+        PoliteHttp.userAgent(), Clock.systemUTC(), d -> { });
+    OaiLayer layer = new OaiLayer(http, null, new org.springframework.mock.env.MockEnvironment(), Clock.systemUTC());
+    layer.polite(URI.create("https://zookeys.pensoft.net/oai.php"));
+    assertThat(http.intervalFor("zookeys.pensoft.net")).isEqualTo(Duration.ofSeconds(1));
+    assertThat(http.intervalFor(OaiPmhClient.CHANNEL, "zookeys.pensoft.net")).isEqualTo(OaiLayer.ROUTE_INTERVAL);
+  }
 }

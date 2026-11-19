@@ -125,12 +125,16 @@ public class OaiLayer implements HarvestLayer {
     space(base.getHost());
   }
 
-  /** Registers the route's politeness once per host, unless the host has its own configured interval. */
+  /**
+   * Registers the route's politeness once per host on the OAI channel ({@link OaiPmhClient#CHANNEL}), unless the host
+   * has its own configured interval (which the channel then starts with). The host's other traffic keeps its own
+   * spacing: Pensoft's content fetches are not slowed by an OAI route on zookeys.pensoft.net.
+   */
   private void space(String host) {
     if (host == null || !spaced.add(host)) return;
     Map<String, String> configured = Binder.get(env)
         .bind("nametracker.http.min-interval", Bindable.mapOf(String.class, String.class)).orElse(Map.of());
-    if (!configured.containsKey(host)) http.setMinInterval(host, ROUTE_INTERVAL);
+    if (!configured.containsKey(host)) http.setMinInterval(OaiPmhClient.CHANNEL, host, ROUTE_INTERVAL);
   }
 
   private static @Nullable String text(JsonNode n, String field) {

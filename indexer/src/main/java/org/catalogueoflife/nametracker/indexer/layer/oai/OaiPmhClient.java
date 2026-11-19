@@ -26,6 +26,10 @@ import org.w3c.dom.Node;
 /** OAI-PMH 2.0 client for {@code ListRecords}, {@code Identify} and {@code ListSets}, through {@link PoliteHttp}. */
 public class OaiPmhClient {
 
+  /** OAI-PMH requests are spaced on their own limiter per host ({@link PoliteHttp#get(URI, Map, String)}). */
+  public static final String CHANNEL = "oai";
+
+
   static final String NS = "http://www.openarchives.org/OAI/2.0/";
 
   /** One page of records and the resumption token of the next page (null on the last page). */
@@ -105,7 +109,7 @@ public class OaiPmhClient {
       sep = '&';
     }
     URI uri = URI.create(sb.toString());
-    HttpResponse<byte[]> resp = http.get(uri, Map.of("Accept", "text/xml, application/xml"));
+    HttpResponse<byte[]> resp = http.get(uri, Map.of("Accept", "text/xml, application/xml"), CHANNEL);
     int status = resp.statusCode();
     if (status < 200 || status >= 300) {
       throw new HttpProblem(uri, status, false, "HTTP " + status + " from OAI-PMH endpoint: " + uri, null);

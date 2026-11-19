@@ -18,6 +18,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The one HTTP entry point for every external service: per-host spacing, the Garrulus user agent
@@ -71,7 +72,7 @@ public class PoliteHttp {
     m.put("api.openalex.org", Duration.ofMillis(100));
     m.put("content.openalex.org", Duration.ofSeconds(1));
     m.put("api.checklistbank.org", Duration.ZERO);
-    m.put("api.crossref.org", Duration.ofMillis(250));
+    m.put("api.crossref.org", Duration.ofMillis(350)); // 3 list requests a second per mailto (2026)
     m.put("www.ebi.ac.uk", Duration.ofMillis(200));
     m.put("pmc-oa-opendata.s3.amazonaws.com", Duration.ofMillis(100));
     m.put(PENSOFT_KEY, Duration.ofSeconds(1));
@@ -92,11 +93,29 @@ public class PoliteHttp {
   }
 
   /**
+   * The limiter of a channel on a host: requests of one kind (OAI-PMH) spaced on their own, apart from the host's
+   * other traffic (Pensoft's content fetches share {@code *.pensoft.net}). It starts with the host's configured
+   * interval (the exact host name), else the default; a null channel is the host's own limiter.
+   */
+  HostLimiter limiterFor(@Nullable String channel, String host) {
+    if (channel == null) return limiterFor(host);
+    String h = host.toLowerCase(Locale.ROOT);
+    return limiters.computeIfAbsent(channel + "|" + h,
+        k -> new HostLimiter(intervals.getOrDefault(h, loopback(h) ? Duration.ZERO : DEFAULT_INTERVAL), clock,
+            sleeper));
+  }
+
+  /**
    * Overrides the spacing of requests to a host at runtime (a route's own politeness); it applies from the next request
    * on. Thread-safe.
    */
   public void setMinInterval(String host, Duration minInterval) {
     limiterFor(host).setMinInterval(minInterval);
+  }
+
+  /** As {@link #setMinInterval(String, Duration)} for the requests of one channel to the host. */
+  public void setMinInterval(String channel, String host, Duration minInterval) {
+    limiterFor(channel, host).setMinInterval(minInterval);
   }
 
   /** A local service (a CLB bundle) is not rate limited unless configured. */
@@ -105,8 +124,13 @@ public class PoliteHttp {
   }
 
   /** The spacing of requests to a host (after the defaults and configuration). */
-  Duration intervalFor(String host) {
+  public Duration intervalFor(String host) {
     return limiterFor(host).minInterval();
+  }
+
+  /** The spacing of a channel's requests to a host. */
+  public Duration intervalFor(@Nullable String channel, String host) {
+    return limiterFor(channel, host).minInterval();
   }
 
   /** Replaces the values of the secret query parameters {@code api_key} and {@code mailto} with {@code ***}. */
@@ -118,8 +142,13 @@ public class PoliteHttp {
   }
 
   public HttpResponse<byte[]> get(URI uri, Map<String, String> headers) {
+    return get(uri, headers, null);
+  }
+
+  /** As {@link #get(URI, Map)}, spaced by the channel's own limiter on the host ({@link #limiterFor(String, String)}). */
+  public HttpResponse<byte[]> get(URI uri, Map<String, String> headers, @Nullable String channel) {
     URI safe = redact(uri);
-    HostLimiter limiter = limiterFor(uri.getHost());
+    HostLimiter limiter = limiterFor(channel, uri.getHost());
     HttpRequest.Builder b = HttpRequest.newBuilder(uri).GET().timeout(REQUEST_TIMEOUT)
         .header("User-Agent", userAgent);
     headers.forEach(b::header);

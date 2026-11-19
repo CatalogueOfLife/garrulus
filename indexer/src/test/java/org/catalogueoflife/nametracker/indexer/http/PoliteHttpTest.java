@@ -223,4 +223,25 @@ class PoliteHttpTest {
   void clbHasNoInterval() {
     assertEquals(Duration.ZERO, PoliteHttp.defaultIntervals().get("api.checklistbank.org"));
   }
+
+  @Test
+  void aChannelHasItsOwnLimiterOnASharedHost() {
+    FakeTime t = new FakeTime();
+    PoliteHttp h = new PoliteHttp(HttpClient.newHttpClient(), PoliteHttp.defaultIntervals(),
+        PoliteHttp.userAgent(), t, t::sleep);
+    h.setMinInterval("oai", "zookeys.pensoft.net", Duration.ofSeconds(2));
+    // the OAI spacing does not slow the Pensoft content fetches of the same host
+    assertEquals(Duration.ofSeconds(1), h.intervalFor("zookeys.pensoft.net"));
+    assertEquals(Duration.ofSeconds(2), h.intervalFor("oai", "zookeys.pensoft.net"));
+    assertNotSame(h.limiterFor("zookeys.pensoft.net"), h.limiterFor("oai", "zookeys.pensoft.net"));
+    // a channel limiter starts from the host's configured interval
+    PoliteHttp c = new PoliteHttp(HttpClient.newHttpClient(), Map.of("oai.example.org", Duration.ofSeconds(7)),
+        PoliteHttp.userAgent(), t, t::sleep);
+    assertEquals(Duration.ofSeconds(7), c.intervalFor("oai", "oai.example.org"));
+  }
+
+  @Test
+  void crossrefIsSpacedForThreeListRequestsASecond() {
+    assertEquals(Duration.ofMillis(350), PoliteHttp.defaultIntervals().get("api.crossref.org"));
+  }
 }
