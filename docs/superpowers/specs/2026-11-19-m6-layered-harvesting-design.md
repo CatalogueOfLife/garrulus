@@ -52,6 +52,9 @@ work to the key services of the field, and a way for people to register journals
    main subject design is good with the scoring, keep it").
 13. **Ceased journals** (Markus, 2026-11-19: journals that "went out of business": keep their history and reindex
    their works when the finder improves, but mark them so no crawling happens, and show that to users).
+14. **Journal classification on our own vocabulary.** Disciplines stay OpenAlex-derived in result, but on a vocabulary
+   Garrulus owns, with crosswalks from OpenAlex, DOAJ and others, so a change at OpenAlex or a wish to deviate is a data
+   change, not a schema or API change.
 
 ## Non-goals
 
@@ -282,13 +285,46 @@ new services need no migration, and the same rows serve matching.
   journals on Magtech get the Magtech route (L3). Indian taxonomy journals mostly publish in English and sit in
   Crossref (e.g. JoTT) or on OJS, which the PKP Beacon list and OAI cover. The journal's country is part of every
   coverage figure (see "Done when"), so gaps in either country show up.
-- **Classification** stays OpenAlex-first: subfields and topics from OpenAlex where the journal is there (Markus likes
-  the current classifications). For a journal OpenAlex does not know, discipline comes from DOAJ LCC subjects mapped to
-  the harvested subfields, journal type from its act rate once indexed, taxonomic focus from the index as today.
+- **Classification** stays OpenAlex-first in its results (Markus likes the current classifications), but on a
+  vocabulary Garrulus owns; see "Journal classification".
 - Promotion to CORE or BROAD stays an admin decision; it starts the usual onboarding of every route of the journal,
   and for a journal OpenAlex does not have, its route backfill. Candidates are ranked by their sample and signals
   ("Candidate sampling"); harvested journals by name-density feedback (proposals to promote or demote from distinct
   names per article and act rate). Both are shown on the admin journal page; neither changes a tier by itself.
+
+### Journal classification
+
+A journal is classified on three dimensions. Two are already Garrulus' own: **journal type** (TAXONOMIC if the act rate
+is at least 10% or the tier is CORE, else GENERAL) and **taxonomic focus** (the COL TaxGroups and codes holding at
+least 20% of its main-subject names), both computed nightly from the index by `SourceCategoriser`. They stay as they
+are. The third, **discipline**, is today OpenAlex's subfield codes stored directly (`source.subfields`,
+`primary_subfield`, the 9 harvested codes in `SourceSeeder`, labels in `frontend/src/subfields.ts`), and the seeding
+hard-codes 11 OpenAlex taxonomy topic ids. OpenAlex does change its classification (it replaced concepts by topics in
+2024; topic ids are not promised to be stable; the subfield level, taken from the Scopus ASJC scheme, has been stable).
+M6 decouples it (my call, explained to Markus on 2026-11-19):
+
+- **Our own discipline vocabulary**, a `discipline` table (code, label, parent, `replaced_by`, sort order), seeded with
+  exactly today's 9 subfields, same codes and labels, so the API filter `subfield` (kept, plus the alias `discipline`)
+  and the UI do not change. `GET /api/vocab/discipline` serves it (OpenAPI); the frontend reads labels from it instead
+  of `subfields.ts`.
+- **Raw external classifications are kept as fetched**: `source_classification_raw` (source, scheme, code, label, share,
+  fetched) for `OPENALEX_SUBFIELD`, `OPENALEX_TOPIC`, `DOAJ_LCC`, and any later scheme (e.g. a Wikidata main subject).
+  Refreshed with the monthly seeding and on `IDENTIFY_SOURCE`.
+- **Crosswalks** `discipline_mapping` (scheme, external code, discipline, weight): OpenAlex subfield to discipline 1:1
+  today; DOAJ LCC classes and subject terms to disciplines; and, as the last fallback for a journal nobody classifies,
+  TaxGroup to discipline (plants to plant science, insects to insect science, …) from its taxonomic focus.
+- **`CATEGORISE_SOURCES` derives** a journal's disciplines and primary discipline from raw data plus crosswalks, in the
+  order OpenAlex, DOAJ, taxonomic-focus fallback, and writes them with `discipline_source`. A change of a crosswalk or of
+  the vocabulary is applied by a recompute over the stored raw data; nothing is re-fetched.
+- **When OpenAlex changes** a topic or subfield, only crosswalk rows and the seed topic list change; the vocabulary and
+  the user-facing filters stay. The seed topics move from code into configuration (`nametracker.seed.taxonomy-topics`),
+  and the seeding logs a WARN for a configured topic id OpenAlex no longer knows.
+- **To deviate later** (a "Mycology" discipline, which ASJC lacks; splitting systematics from ecology inside 1105), add
+  or split entries in our vocabulary, adjust the crosswalks and recompute. A retired code keeps resolving through
+  `replaced_by`, so saved links and follows keep working (a follow on a retired discipline is rewritten to its
+  replacement, and its owner sees the new label).
+- **Admin override**: an admin can set a journal's disciplines by hand on the admin journal page (`discipline_set_by`
+  ADMIN), and the recompute leaves them alone, as `tier_set_by` does for tiers.
 
 ### Ceased journals
 
