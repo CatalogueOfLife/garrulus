@@ -141,7 +141,7 @@ public class OaiPmhClient {
       + "|&#(?:0*(?:[0-8]|1[12]|1[4-9]|2\\d|3[01])|[xX]0*(?:[0-8]|[bB]|[cC]|[eEfF]|1[0-9a-fA-F]))(?![0-9a-fA-F]);");
 
   /** Parses the response; on a syntax error illegal characters are stripped and it is read once more. */
-  static Document parse(byte[] xml) throws Exception {
+  public static Document parse(byte[] xml) throws Exception {
     try {
       return build(new org.xml.sax.InputSource(new ByteArrayInputStream(xml)));
     } catch (org.xml.sax.SAXParseException e) {
