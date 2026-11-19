@@ -37,7 +37,9 @@ import tools.jackson.databind.JsonNode;
  * {@code until}, and only on Sundays (UTC) in live mode; on other days {@link HarvestOaiHandler} skips the job without
  * a run. A {@code BACKFILL} job reads the whole repository too (datestamps are not publication dates; the age rule of
  * {@link org.catalogueoflife.nametracker.indexer.layer.LayerWriter} sorts the records). The host is spaced 2 seconds
- * apart unless {@code nametracker.http.min-interval.<host>} says otherwise.
+ * apart unless {@code nametracker.http.min-interval.<host>} says otherwise. A route without a set but with
+ * {@code issns} keeps only the records that carry one of those ISSNs ({@link OaiRecordMapper#issns}: an endpoint of
+ * several journals, such as MDPI's, whose sets are not journals); the others count as skipped.
  */
 @Component
 public class OaiLayer implements HarvestLayer {
@@ -89,7 +91,17 @@ public class OaiLayer implements HarvestLayer {
         whole ? null : job.until(), token);
     List<HarvestedWork> works = new ArrayList<>();
     int skipped = 0;
+    // a set-less route with ISSNs may read an endpoint of several journals: only records with one of them are its own
+    Set<String> wanted = new java.util.HashSet<>();
+    if (set == null) {
+      for (JsonNode i : cfg.path("issns")) wanted.add(i.asString().strip().toUpperCase(java.util.Locale.ROOT));
+    }
     for (OaiRecord r : page.records()) {
+      if (!wanted.isEmpty() && !r.deleted()
+          && java.util.Collections.disjoint(wanted, OaiRecordMapper.issns(r))) {
+        skipped++;
+        continue;
+      }
       var hw = OaiRecordMapper.toHarvested(r, route.sourceId());
       if (hw.isPresent()) works.add(hw.get());
       else skipped++;

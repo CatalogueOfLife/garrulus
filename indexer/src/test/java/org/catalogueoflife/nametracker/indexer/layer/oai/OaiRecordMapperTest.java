@@ -123,4 +123,22 @@ class OaiRecordMapperTest {
     assertThat(OaiRecordMapper.doiOf("https://notdoi.org/10.1234/abc")).isNull();
     assertThat(OaiRecordMapper.doiOf("hdl:10013/epic.1234")).isNull();
   }
+
+  @Test
+  void issnsOfDublinCoreAndJatsRecords() throws Exception {
+    assertThat(OaiRecordMapper.issns(records("magnolia-listrecords-oai_dc.xml", "oai_dc").get(0)))
+        .containsExactlyInAnyOrder("1175-5334", "1175-5326");
+    assertThat(OaiRecordMapper.issns(records("jott-listrecords-jats.xml", "jats").get(0)))
+        .containsExactlyInAnyOrder("0974-7907", "0974-7893");
+    // a page range that looks like an ISSN fails the check digit
+    assertThat(OaiRecordMapper.validIssn("1234-1250")).isFalse();
+    assertThat(OaiRecordMapper.validIssn("1809-127X")).isTrue();
+  }
+
+  @Test
+  void doiUrlKeepsAPlus() {
+    assertThat(OaiRecordMapper.doiOf("https://doi.org/10.1002/(SICI)1097-4679+X%3C1::AID%3E3.0.CO;2-K"))
+        .isEqualTo("10.1002/(sici)1097-4679+x<1::aid>3.0.co;2-k");
+    assertThat(OaiRecordMapper.doiOf("https://doi.org/10.5555/a%20b")).isNull();
+  }
 }

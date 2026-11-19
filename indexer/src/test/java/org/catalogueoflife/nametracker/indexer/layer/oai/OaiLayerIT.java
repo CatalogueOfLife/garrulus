@@ -66,10 +66,33 @@ class OaiLayerIT extends AbstractPostgresIT {
   }
 
   private void route(WireMockRuntimeInfo w, boolean fullReadWeekly) {
+    route(w, fullReadWeekly, "[]");
+  }
+
+  /** A set-less route; {@code issns} (a JSON array) filters its records when not empty. */
+  private void route(WireMockRuntimeInfo w, boolean fullReadWeekly, String issns) {
     routeId = jdbc.queryForObject("INSERT INTO source_route (source_id, layer, config, status, origin) VALUES "
         + "(?, 'OAI', ?::jsonb, 'ACTIVE', 'SEED') RETURNING id", Long.class, sourceId,
         "{\"base\":\"" + w.getHttpBaseUrl() + "/oai\",\"set\":null,\"prefix\":\"oai_dc\",\"fullReadWeekly\":"
-            + fullReadWeekly + ",\"issns\":[\"1234-5679\"]}");
+            + fullReadWeekly + ",\"issns\":" + issns + "}");
+  }
+
+  @Test
+  void aSetlessRouteWithIssnsKeepsOnlyItsJournalsRecords(WireMockRuntimeInfo w) throws Exception {
+    // a publisher-wide endpoint: the route takes only the records that carry one of its ISSNs
+    route(w, false, "[\"1175-5326\"]");
+    stubFor(get(urlPathEqualTo("/oai")).withQueryParam("metadataPrefix", equalTo("oai_dc"))
+        .willReturn(xml("pensoft-listrecords-oai_dc.xml")));
+    stubFor(get(urlPathEqualTo("/oai")).withQueryParam("resumptionToken", equalTo(TOKEN_2))
+        .willReturn(xml("magnolia-listrecords-oai_dc.xml")));
+    stubFor(get(urlPathEqualTo("/oai")).withQueryParam("resumptionToken", equalTo(TOKEN_3))
+        .willReturn(xml("deleted-record.xml")));
+    HarvestOaiHandler h = handler(WEDNESDAY);
+    enqueueFirst(h);
+    drain(h);
+    // the three Zootaxa records (ISSN 1175-5326) only, not the Pensoft ones
+    assertThat(jdbc.queryForList("SELECT doi FROM work ORDER BY doi", String.class))
+        .containsExactly("10.11646/zootaxa.5741.1.1", "10.11646/zootaxa.5741.1.2", "10.11646/zootaxa.5741.1.3");
   }
 
   private HarvestOaiHandler handler(Instant now) {

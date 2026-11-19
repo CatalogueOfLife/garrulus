@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
@@ -109,6 +110,44 @@ public final class OaiRecordMapper {
     return p;
   }
 
+  /** The ISSNs a record carries: {@code dc:source} and {@code dc:identifier} of oai_dc, {@code issn} of JATS. */
+  public static Set<String> issns(OaiRecord r) {
+    Set<String> out = new java.util.LinkedHashSet<>();
+    if (r.metadata() == null) return out;
+    List<Element> fields = new ArrayList<>();
+    if ("jats".equals(r.prefix())) {
+      fields.addAll(descendants(r.metadata(), "issn"));
+    } else {
+      fields.addAll(elements(r.metadata(), DC, "source"));
+      fields.addAll(elements(r.metadata(), DC, "identifier"));
+    }
+    for (Element e : fields) {
+      Matcher m = ISSN.matcher(e.getTextContent());
+      while (m.find()) {
+        String issn = m.group(1).toUpperCase(Locale.ROOT);
+        if (validIssn(issn)) out.add(issn);
+      }
+    }
+    return out;
+  }
+
+  private static final Pattern ISSN = Pattern.compile("(?<![\\d-])(\\d{4}-\\d{3}[\\dXx])(?![\\d-])");
+
+  /** An ISSN {@code NNNN-NNNC} whose check digit is right (a page range such as 1234-1250 is not). */
+  static boolean validIssn(String s) {
+    if (s.length() != 9 || s.charAt(4) != '-') return false;
+    String d = s.substring(0, 4) + s.substring(5);
+    int sum = 0;
+    for (int i = 0; i < 7; i++) {
+      char c = d.charAt(i);
+      if (c < '0' || c > '9') return false;
+      sum += (c - '0') * (8 - i);
+    }
+    int check = (11 - sum % 11) % 11;
+    char last = Character.toUpperCase(d.charAt(7));
+    return check == 10 ? last == 'X' : last == (char) ('0' + check);
+  }
+
   /** "Family, Given" becomes "Given Family"; anything else stays as it is. */
   static String creator(String s) {
     int i = s.indexOf(',');
@@ -135,9 +174,9 @@ public final class OaiRecordMapper {
         URI u = URI.create(s);
         String host = u.getHost() == null ? "" : u.getHost().toLowerCase(Locale.ROOT);
         if (!host.equals("doi.org") && !host.endsWith(".doi.org")) return null;
-        String path = u.getRawPath() == null ? "" : u.getRawPath();
-        s = java.net.URLDecoder.decode(path.startsWith("/") ? path.substring(1) : path,
-            java.nio.charset.StandardCharsets.UTF_8);
+        // the decoded path: percent escapes resolved, a '+' kept (it is a character of DOIs, not a space)
+        String path = u.getPath() == null ? "" : u.getPath();
+        s = path.startsWith("/") ? path.substring(1) : path;
       } catch (IllegalArgumentException e) {
         return null;
       }
