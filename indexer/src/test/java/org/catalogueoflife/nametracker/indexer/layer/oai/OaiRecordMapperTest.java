@@ -136,6 +136,21 @@ class OaiRecordMapperTest {
   }
 
   @Test
+  void jatsIssnsComeFromTheJournalMetaOnly() throws Exception {
+    String xml = "<record xmlns=\"http://www.openarchives.org/OAI/2.0/\"><header><identifier>oai:x:1</identifier>"
+        + "<datestamp>2026-01-01</datestamp></header><metadata><article xmlns=\"https://jats.nlm.nih.gov/ns/archiving/1.3/\">"
+        + "<front><journal-meta><issn pub-type=\"epub\">0974-7907</issn></journal-meta><article-meta>"
+        + "<title-group><article-title>T</article-title></title-group></article-meta></front>"
+        + "<back><ref-list><ref><element-citation><source>Zootaxa</source><issn>1175-5326</issn></element-citation>"
+        + "</ref></ref-list></back></article></metadata></record>";
+    String page = "<OAI-PMH xmlns=\"http://www.openarchives.org/OAI/2.0/\"><ListRecords>" + xml
+        + "</ListRecords></OAI-PMH>";
+    OaiRecord r = OaiPmhClient.readRecords(page.getBytes(StandardCharsets.UTF_8), "jats").getFirst();
+    // a reference's ISSN is not the record's journal
+    assertThat(OaiRecordMapper.issns(r)).containsExactly("0974-7907");
+  }
+
+  @Test
   void doiUrlKeepsAPlus() {
     assertThat(OaiRecordMapper.doiOf("https://doi.org/10.1002/(SICI)1097-4679+X%3C1::AID%3E3.0.CO;2-K"))
         .isEqualTo("10.1002/(sici)1097-4679+x<1::aid>3.0.co;2-k");

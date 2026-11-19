@@ -110,13 +110,17 @@ public final class OaiRecordMapper {
     return p;
   }
 
-  /** The ISSNs a record carries: {@code dc:source} and {@code dc:identifier} of oai_dc, {@code issn} of JATS. */
+  /**
+   * The ISSNs a record carries: {@code dc:source} and {@code dc:identifier} of oai_dc, {@code issn} in the
+   * {@code journal-meta} of JATS.
+   */
   public static Set<String> issns(OaiRecord r) {
     Set<String> out = new java.util.LinkedHashSet<>();
     if (r.metadata() == null) return out;
     List<Element> fields = new ArrayList<>();
     if ("jats".equals(r.prefix())) {
-      fields.addAll(descendants(r.metadata(), "issn"));
+      // the journal's own ISSNs only, not those of cited works in the reference list
+      for (Element meta : descendants(r.metadata(), "journal-meta")) fields.addAll(descendants(meta, "issn"));
     } else {
       fields.addAll(elements(r.metadata(), DC, "source"));
       fields.addAll(elements(r.metadata(), DC, "identifier"));
