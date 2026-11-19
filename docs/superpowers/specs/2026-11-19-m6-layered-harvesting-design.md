@@ -580,6 +580,10 @@ tail's history (expected to be small next to the OpenAlex snapshot backfill; mea
   there, and receives the layer mail of the OpenAlex block test; other accounts get 403 on `/api/admin/**`.
 - A promoted journal without an OpenAlex id gets its history back to 2000 through its routes, at `BACKFILL`, with no
   hits; records before 2000 are skipped and counted.
+- Disciplines come from the `discipline` vocabulary (today's 9 codes, unchanged for users); changing a crosswalk row
+  and running `CATEGORISE_SOURCES` re-derives them with no external call; a retired code still resolves through
+  `replaced_by`; an admin-set discipline survives the recompute; a journal unknown to OpenAlex gets its disciplines
+  from DOAJ or its taxonomic focus.
 - A journal marked `CEASED` gets no harvest calls of any layer from then on, keeps all its works listed, takes part in a
   `REPROCESS_NAMES {"all":true}` run, and shows its badge (and successor, if set) on the journal page and in the follow
   list; a journal with no new works for 12 months is proposed as dormant on the admin page.
