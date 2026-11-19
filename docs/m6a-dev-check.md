@@ -18,6 +18,11 @@ the two-night numbers (step 2) and the OpenAlex block (step 3) need real nights 
   onboarded and have an OpenAlex id, so they stay `VERIFIED` until the nightly rollout (00:30 UTC) starts their
   onboarding pass (at most 20 a night, so all 19 the first night).
 
+**Redeploy 16:49 UTC** with the final-review fixes (jars from `02b62b1`, same settings; no migration). The nights
+below therefore run the fixed code: a task claim that never exceeds its limit, coverage on LIVE-origin works only, OAI
+continuations that keep their queue place, routes that record errors and turn BROKEN when their task dies, and free-only
+re-resolves after a late abstract or a merge. Previous logs: `data/run/indexer-14.log`, `data/run/web-1.log`.
+
 Routes: Acta Ichthyologica et Piscatoria, Arthropod Systematics & Phylogeny, Biodiversity Data Journal, Check List,
 Deutsche Entomologische Zeitschrift, European Journal of Taxonomy, Evolutionary Systematics, Herpetozoa, Journal of
 Hymenoptera Research, Journal of Orthoptera Research, Journal of Threatened Taxa, MycoKeys, PhytoKeys, Phytotaxa,
