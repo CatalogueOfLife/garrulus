@@ -1,6 +1,6 @@
 # M6: layered harvesting, crosslinks and journal registration — design
 
-Date: 2026-11-19. Status: draft for Markus' review (decisions of 2026-11-19 included: approach A, admins by ORCID with admin pages, route backfill, candidate sampling).
+Date: 2026-11-19. Status: approved by Markus on 2026-11-19.
 
 Research input: `docs/research/2026-11-19-journal-harvesting-without-openalex.md` (live checks of 2026-11-19). The
 roadmap is renumbered (Markus, 2026-11-18): M6 is reach, M7 is judging (trained and optional LLM judge, the next
