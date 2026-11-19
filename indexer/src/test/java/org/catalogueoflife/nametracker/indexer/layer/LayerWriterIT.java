@@ -23,6 +23,15 @@ class LayerWriterIT extends AbstractPostgresIT {
   @Autowired JdbcTemplate jdbc;
   @Autowired org.catalogueoflife.nametracker.indexer.content.ResolveContentHandler resolve;
   @Autowired org.catalogueoflife.nametracker.store.work.WorkMapper works;
+  @Autowired org.catalogueoflife.nametracker.store.source.SourceMapper sources;
+  @Autowired org.catalogueoflife.nametracker.store.content.ContentMapper contents;
+  @Autowired org.catalogueoflife.nametracker.store.blob.BlobStore blobs;
+  @Autowired org.catalogueoflife.nametracker.indexer.content.LicencePolicy policy;
+  @Autowired org.catalogueoflife.nametracker.indexer.finder.Spool spool;
+  @Autowired org.catalogueoflife.nametracker.store.index.IndexMapper index;
+  @Autowired org.catalogueoflife.nametracker.store.task.TaskQueue queue;
+  @Autowired org.springframework.transaction.support.TransactionTemplate tx;
+  @Autowired java.time.Clock clock;
 
   @BeforeEach
   void clean() {
@@ -146,6 +155,32 @@ class LayerWriterIT extends AbstractPostgresIT {
         .isEqualTo(LayerWriter.Stored.MERGED);
     org.catalogueoflife.nametracker.store.task.Task again = queued("RESOLVE_CONTENT");
     assertThat(again.dedupKey()).startsWith("content:" + id + ":abs:");
+    // the work was resolved before: a re-resolve uses the free routes only
+    assertThat(again.payload().replace(" ", "")).contains("\"freeOnly\":true");
+    java.util.concurrent.atomic.AtomicInteger paidCalls = new java.util.concurrent.atomic.AtomicInteger();
+    org.catalogueoflife.nametracker.indexer.content.ContentRoute paid =
+        new org.catalogueoflife.nametracker.indexer.content.ContentRoute() {
+          @Override public String route() {
+            return "PAID";
+          }
+
+          @Override public boolean applies(Work w, org.catalogueoflife.nametracker.store.source.Source s) {
+            return true;
+          }
+
+          @Override public java.util.Optional<org.catalogueoflife.nametracker.indexer.content.FetchedContent> fetch(
+              Work w, org.catalogueoflife.nametracker.store.source.Source s) {
+            paidCalls.incrementAndGet();
+            return java.util.Optional.empty();
+          }
+
+          @Override public boolean paid() {
+            return true;
+          }
+        };
+    new org.catalogueoflife.nametracker.indexer.content.ResolveContentHandler(List.of(paid), works, sources, contents,
+        blobs, policy, spool, index, queue, tx, clock).handle(again);
+    assertThat(paidCalls).hasValue(0);
     resolve.handle(again);
     String now = org.catalogueoflife.nametracker.indexer.finder.DocumentLoader.abstractSha(works.get(id));
     assertThat(now).isNotEqualTo(named);

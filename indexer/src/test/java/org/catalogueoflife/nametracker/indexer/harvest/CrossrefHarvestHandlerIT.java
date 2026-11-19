@@ -349,6 +349,32 @@ class CrossrefHarvestHandlerIT extends AbstractPostgresIT {
     assertThat(works.listCrossrefOnly(500)).isEmpty();
   }
 
+  @Test
+  void recheckBringingAnAbstractReResolvesTheWork() throws Exception {
+    source();
+    stubCrossref();
+    stubFor(get(urlPathEqualTo("/works/doi:" + DOI1)).willReturn(aResponse().withStatus(404)));
+    stubFor(get(urlPathEqualTo("/works/doi:" + DOI2)).willReturn(aResponse().withStatus(404)));
+    harvestYesterday();
+    long id = works.findByDoi(DOI1).id();
+    jdbc.update("UPDATE work SET first_seen_at = first_seen_at - interval '3 days', state = 'INDEXED', "
+        + "abstract = NULL, abstract_jats = NULL, abstract_source = NULL, abstract_jats_source = NULL WHERE id = ?", id);
+    jdbc.update("UPDATE task SET state = 'DONE', finished = now()");
+
+    // the nightly re-check finds the work in OpenAlex, now with an abstract
+    String withAbstract = openAlexWork("W89", DOI1).replaceFirst("\\}$",
+        ",\"abstract_inverted_index\":{\"Aus\":[0],\"bus\":[1],\"described\":[2]}}");
+    stubFor(get(urlPathEqualTo("/works/doi:" + DOI1)).atPriority(1).willReturn(okJson(withAbstract)));
+    queue.enqueue("OPENALEX_RECHECK", "{}", TaskPriority.LIVE, "openalex-recheck");
+    drain(recheck);
+
+    assertThat(works.get(id).abstractText()).isNotBlank();
+    java.util.Map<String, Object> t = jdbc.queryForMap("SELECT payload::text AS payload, dedup_key FROM task "
+        + "WHERE type = 'RESOLVE_CONTENT' AND state = 'QUEUED'");
+    assertThat((String) t.get("dedup_key")).startsWith("content:" + id + ":abs:");
+    assertThat(((String) t.get("payload")).replace(" ", "")).contains("\"freeOnly\":true");
+  }
+
   /**
    * M2-K: the index-date listing also brings DOIs whose metadata merely changed. A new work published more than 120
    * days ago is not news: origin BACKFILL and its content task at BACKFILL priority. Recent and undated works stay LIVE.

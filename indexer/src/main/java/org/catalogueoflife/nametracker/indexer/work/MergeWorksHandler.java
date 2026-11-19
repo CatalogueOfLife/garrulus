@@ -26,7 +26,7 @@ import tools.jackson.databind.JsonNode;
  * younger's meta layer is its layer, BLR when unknown), its identifiers, sightings, content rows and hits move over
  * (a route, layer or (subscription, kind) the survivor has already is dropped, so nobody is notified twice) and the
  * younger is deleted, its mentions with it. When content moved or the survivor's abstract changed (and it is past
- * DISCOVERED), its text level and document may differ: RESOLVE_CONTENT at REPROCESS (key
+ * DISCOVERED), its text level and document may differ: RESOLVE_CONTENT, free routes only, at REPROCESS (key
  * {@code merge-content:<survivor>:<other>}, this task's run_after), which recomputes the level and names the work
  * again when its document changed. A missing work (already merged) is a no-op; two different DOIs are never merged.
  * Idempotent.
@@ -102,8 +102,8 @@ public class MergeWorksHandler implements TaskHandler {
       // the text level decides the document the finder reads: RESOLVE_CONTENT recomputes it from the content rows
       // (moved full text counts), fetches closed full text again (its spool entry was keyed by the younger) and
       // enqueues FIND_NAMES when the document differs from the one named
-      queue.enqueue(WorksPager.RESOLVE_CONTENT, "{\"workId\":" + survivorId + "}", TaskPriority.REPROCESS,
-          "merge-content:" + survivorId + ":" + otherId, task.runAfter());
+      WorksPager.enqueueReresolve(queue, survivorId, TaskPriority.REPROCESS, "merge-content:" + survivorId + ":" + otherId,
+          task.runAfter());
     }
     LOG.info("Merged work {} into {}: {} identifiers, {} sightings, {} content rows, {} hits moved", otherId,
         survivorId, ids, sights, moved, movedHits);

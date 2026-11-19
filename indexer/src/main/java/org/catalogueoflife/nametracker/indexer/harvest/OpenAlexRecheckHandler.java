@@ -26,7 +26,8 @@ import tools.jackson.databind.JsonNode;
 /**
  * {@code OPENALEX_RECHECK}, payload {@code {}}, dedup key {@code openalex-recheck}, daily. Looks the DOI of up to 500
  * Crossref-only works (no OpenAlex id, not checked for 7 days) up in OpenAlex (free). A found work is merged by upsert,
- * which never changes its origin or first_seen_at; every checked work, found or not, gets {@code openalex_checked_at}.
+ * which never changes its origin or first_seen_at (an abstract it brings re-resolves a resolved work, free routes
+ * only); every checked work, found or not, gets {@code openalex_checked_at}.
  * A spent budget defers the rest to the next day.
  */
 @Component
@@ -97,6 +98,7 @@ public class OpenAlexRecheckHandler implements TaskHandler {
       tx.executeWithoutResult(status -> {
         if (in != null) {
           WorkUpsert.UpsertResult r = upsert.upsert(in, Layer.OPENALEX, inIds);
+          WorksPager.enqueueAbstractResolve(queue, r, task.priority()); // OpenAlex may bring the first abstract
           WorksPager.enqueueMerge(queue, r, task.priority());
         }
         works.setOpenalexChecked(w.id(), now);

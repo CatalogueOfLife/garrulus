@@ -3,6 +3,7 @@ package org.catalogueoflife.nametracker.indexer.harvest;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.LinkedHashMap;
@@ -79,7 +80,7 @@ public class WorksPager {
   /**
    * Upserts the work and, when it is new, queues its RESOLVE_CONTENT task, in one transaction: a crash cannot leave a
    * new work without its content task. A work past DISCOVERED whose effective abstract (JATS, else plain text) changed
-   * gets another one, keyed {@code content:<id>:abs:<sha12>} (the first 12 hex digits of the new abstract's SHA-256).
+   * gets another one, free routes only, keyed {@code content:<id>:abs:<sha12>} (see {@link #enqueueAbstractResolve}).
    * A record whose identifiers hit a second work enqueues {@code MERGE_WORKS}. Returns whether the work was created.
    */
   public boolean store(Work work, Layer layer, List<Identifier> ids, TaskPriority contentPriority) {
@@ -98,15 +99,32 @@ public class WorksPager {
       if (alsoSeenBy != null) sightings.sight(r.id(), alsoSeenBy.name(), work.sourceId());
       if (r.created()) {
         queue.enqueue(RESOLVE_CONTENT, "{\"workId\":" + r.id() + "}", contentPriority, "content:" + r.id());
-      } else if (r.abstractChanged()) {
-        // an abstract that arrived or changed after the content was resolved: resolve again; the text level is
-        // recomputed and the document's sha decides whether the names are found again
-        queue.enqueue(RESOLVE_CONTENT, "{\"workId\":" + r.id() + "}", contentPriority,
-            "content:" + r.id() + ":abs:" + r.abstractSha());
+      } else {
+        enqueueAbstractResolve(queue, r, contentPriority);
       }
       enqueueMerge(queue, r, contentPriority);
       return r.created();
     }));
+  }
+
+  /**
+   * When the upsert changed the effective abstract of a work that was resolved before, queues RESOLVE_CONTENT for it
+   * again (key {@code content:<id>:abs:<sha12>}): the text level is recomputed and the document's sha decides whether
+   * the names are found again. Call it in the transaction of the upsert.
+   */
+  public static void enqueueAbstractResolve(TaskQueue queue, WorkUpsert.UpsertResult r, TaskPriority priority) {
+    if (r.abstractChanged()) {
+      enqueueReresolve(queue, r.id(), priority, "content:" + r.id() + ":abs:" + r.abstractSha(), null);
+    }
+  }
+
+  /**
+   * Queues RESOLVE_CONTENT for a work whose content was resolved before, with {@code "freeOnly":true}: a re-resolve
+   * never calls a paid route again (OpenAlex TEI is charged even for a miss).
+   */
+  public static void enqueueReresolve(TaskQueue queue, long workId, TaskPriority priority, String dedupKey,
+      @Nullable Instant runAfter) {
+    queue.enqueue(RESOLVE_CONTENT, "{\"workId\":" + workId + ",\"freeOnly\":true}", priority, dedupKey, runAfter);
   }
 
   /**

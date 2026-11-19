@@ -113,8 +113,10 @@ class MergeWorksHandlerIT extends AbstractPostgresIT {
     assertThat(queued("FIND_NAMES")).isEmpty();
     java.util.Map<String, Object> r = jdbc.queryForMap("SELECT payload::text AS payload, priority, dedup_key, run_after "
         + "FROM task WHERE type = 'RESOLVE_CONTENT' AND state = 'QUEUED'");
-    assertThat(org.catalogueoflife.nametracker.finder.api.FinderJson.mapper().readTree((String) r.get("payload"))
-        .path("workId").asLong()).isEqualTo(a);
+    tools.jackson.databind.JsonNode payload = org.catalogueoflife.nametracker.finder.api.FinderJson.mapper()
+        .readTree((String) r.get("payload"));
+    assertThat(payload.path("workId").asLong()).isEqualTo(a);
+    assertThat(payload.path("freeOnly").asBoolean()).isTrue(); // resolved before: no paid route again
     assertThat(((Number) r.get("priority")).intValue()).isEqualTo(TaskPriority.REPROCESS.code());
     assertThat(r.get("dedup_key")).isEqualTo("merge-content:" + a + ":" + b);
     assertThat(((java.sql.Timestamp) r.get("run_after")).toInstant()).isEqualTo(t.runAfter());
