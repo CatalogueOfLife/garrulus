@@ -3,6 +3,7 @@ package org.catalogueoflife.nametracker.store.work;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -20,7 +21,8 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>Matching order, first hit wins: the record's DOI, its OpenAlex id, any other of its identifiers, then a title
  * match (same source, same year, same {@link TitleKey}, the same first-author family name when both have authors,
- * never between two different DOIs). A found row is locked ({@code FOR UPDATE}, so run the upsert inside the caller's
+ * never between two different DOIs; a record without a DOI joins nothing when the candidates hold two DOIs). Upserts
+ * of the same title in the same source and year are serialised by a transaction-level advisory lock. A found row is locked ({@code FOR UPDATE}, so run the upsert inside the caller's
  * transaction) and merged field by field by layer precedence ({@link WorkMerger}); otherwise the record is inserted.
  * Every upsert then adds the record's identifiers and one sighting per layer. The work's DOI, OpenAlex id and PMCID
  * columns are mirrored into the identifiers and filled from them. Concurrent inserts are resolved by INSERT ... ON
@@ -73,8 +75,9 @@ public class WorkUpsert {
   public UpsertResult upsert(Work in, Layer layer, List<Identifier> ids) {
     List<Identifier> all = identifiers(in, ids);
     Work incoming = normalized(in, all);
+    TitleSlot slot = lockTitle(incoming);
     for (int i = 0; i < TRIES; i++) {
-      Long found = find(incoming, all);
+      Long found = find(incoming, all, slot);
       if (found == null) {
         Long id = mapper.insertIfAbsent(claimed(incoming, layer));
         if (id == null) {
@@ -106,7 +109,7 @@ public class WorkUpsert {
   public Optional<Long> insertIfNew(Work in, Layer layer, List<Identifier> ids) {
     List<Identifier> all = identifiers(in, ids);
     Work incoming = normalized(in, all);
-    if (find(incoming, all) != null) {
+    if (find(incoming, all, lockTitle(incoming)) != null) {
       return Optional.empty();
     }
     Long id = mapper.insertIfAbsent(claimed(incoming, layer));
@@ -158,7 +161,7 @@ public class WorkUpsert {
   }
 
   /** The id of the work the record belongs to, by the matching order, or null. */
-  private @Nullable Long find(Work w, List<Identifier> all) {
+  private @Nullable Long find(Work w, List<Identifier> all, @Nullable TitleSlot slot) {
     Long found = byIds(all, i -> i.scheme().equals(IdScheme.DOI.code()));
     if (found == null && w.doi() != null) {
       found = id(mapper.findByDoi(w.doi())); // a DOI the identifier rule rejects lives only in the column
@@ -172,7 +175,7 @@ public class WorkUpsert {
     if (found == null) {
       found = byIds(all, i -> !FIRST_SCHEMES.contains(i.scheme()));
     }
-    return found != null ? found : byTitle(w);
+    return found != null ? found : byTitle(w, slot);
   }
 
   private @Nullable Long byIds(List<Identifier> all, Predicate<Identifier> scheme) {
@@ -184,30 +187,64 @@ public class WorkUpsert {
     return ids.isEmpty() ? null : ids.getFirst();
   }
 
-  /** The lowest-id work of the same source and year with the same title key and first author, never another DOI. */
-  private @Nullable Long byTitle(Work w) {
+  /** Source, year and title key of a record that can take part in a title match. */
+  private record TitleSlot(long sourceId, short year, String key) {
+
+    /** The advisory-lock key: same-title upserts of one source and year wait for each other's commit. */
+    String lockKey() {
+      return sourceId + ":" + year + ":" + key;
+    }
+  }
+
+  private static @Nullable TitleSlot slot(Work w) {
     String key = TitleKey.of(w.title());
     Short year = w.year() != null ? w.year()
         : w.publicationDate() == null ? null : (short) w.publicationDate().getYear();
-    if (key == null || w.sourceId() == null || year == null) {
+    return key == null || w.sourceId() == null || year == null ? null : new TitleSlot(w.sourceId(), year, key);
+  }
+
+  /**
+   * Serialises upserts of the same title in the same source and year until the caller's transaction ends, so two
+   * layers bringing the same new paper without a shared identifier (Crossref with a DOI, OAI without) cannot both miss
+   * the other's uncommitted row and insert twice.
+   */
+  private @Nullable TitleSlot lockTitle(Work w) {
+    TitleSlot slot = slot(w);
+    if (slot != null) {
+      mapper.lockTitle(slot.lockKey());
+    }
+    return slot;
+  }
+
+  /**
+   * The lowest-id work of the same source and year with the same title key and first author. A record with a DOI only
+   * joins a work without one. A record without a DOI joins nothing when the matching works hold more than one DOI:
+   * joining either would later ask MERGE_WORKS to merge two DOIs.
+   */
+  private @Nullable Long byTitle(Work w, @Nullable TitleSlot slot) {
+    if (slot == null) {
       return null;
     }
-    String word = Arrays.stream(key.split(" ")).max(Comparator.comparingInt(String::length)).orElseThrow();
+    String word = Arrays.stream(slot.key().split(" ")).max(Comparator.comparingInt(String::length)).orElseThrow();
     String author = FirstAuthor.family(w.authors());
-    for (WorkMapper.TitleCandidate c : mapper.findByTitleMatch(w.sourceId(), year, w.doi(), word)) {
-      if (w.doi() != null && c.doi() != null && !w.doi().equals(c.doi())) {
-        continue;
-      }
-      if (!key.equals(TitleKey.of(c.title()))) {
+    Long first = null;
+    Set<String> dois = new HashSet<>();
+    for (WorkMapper.TitleCandidate c : mapper.findByTitleMatch(slot.sourceId(), slot.year(), w.doi() != null, word)) {
+      if (w.doi() != null && c.doi() != null || !slot.key().equals(TitleKey.of(c.title()))) {
         continue;
       }
       String other = FirstAuthor.family(c.authors());
       if (author != null && other != null && !author.equals(other)) {
         continue;
       }
-      return c.id();
+      if (first == null) {
+        first = c.id();
+      }
+      if (c.doi() != null) {
+        dois.add(c.doi());
+      }
     }
-    return null;
+    return dois.size() > 1 ? null : first;
   }
 
   /**

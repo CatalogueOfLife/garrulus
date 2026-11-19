@@ -24,6 +24,7 @@ class WorkUpsertIT extends AbstractPostgresIT {
   @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
   @Autowired WorkIdentifierMapper identifiers;
   @Autowired WorkSightingMapper sightings;
+  @Autowired org.springframework.transaction.PlatformTransactionManager txManager;
 
   private static Work work(String openalexId, String doi, String title, String origin) {
     return new Work(null, openalexId, doi, null, title, null, null, null, null, null, null, null, null, null, null,
@@ -416,5 +417,55 @@ class WorkUpsertIT extends AbstractPostgresIT {
     org.assertj.core.api.Assertions.assertThatThrownBy(() -> new WorkUpsert(works, identifiers, sightings).upsert(
         rec(null, null, 2025, "No identifiers at all here", null), Layer.OAI, List.of()))
         .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void doiLessRecordJoinsNoneOfTwoWorksWithDifferentDois() {
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
+    long src = source();
+    String title = "A new species of Aus from Uruguay, with an erratum";
+    long a = upsert.upsert(rec("10.1234/amb-a", src, 2023, title, null), Layer.CROSSREF, ids(doi("10.1234/amb-a")))
+        .id();
+    long b = upsert.upsert(rec("10.1234/amb-b", src, 2023, title, null), Layer.CROSSREF, ids(doi("10.1234/amb-b")))
+        .id();
+    // ambiguous: joining either would later ask MERGE_WORKS to merge two DOIs
+    var r = upsert.upsert(rec(null, src, 2023, title, null), Layer.OAI, ids(oai("oai:r:amb")));
+    assertThat(r.created()).isTrue();
+    assertThat(r.id()).isNotIn(a, b);
+    assertThat(r.duplicateOf()).isNull();
+    // one DOI among the candidates is not ambiguous
+    long c = upsert.upsert(rec("10.1234/amb-c", src, 2023, "Only one DOI work has this title", null), Layer.CROSSREF,
+        ids(doi("10.1234/amb-c"))).id();
+    upsert.upsert(rec(null, src, 2023, "Only one DOI work has this title", null), Layer.OAI, ids(oai("oai:r:amb-c1")));
+    assertThat(identifiers.list(c)).contains(new Identifier("OAI", "oai:r:amb-c1"));
+  }
+
+  @Test
+  void concurrentLayersWithoutSharedIdentifierMakeOneWork() throws Exception {
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
+    long src = source();
+    String title = "A concurrent new species of Aus from Paraguay";
+    var tx = new org.springframework.transaction.support.TransactionTemplate(txManager);
+    var crossrefInside = new java.util.concurrent.CountDownLatch(1);
+    ExecutorService pool = Executors.newFixedThreadPool(2);
+    try {
+      Future<WorkUpsert.UpsertResult> cr = pool.submit(() -> tx.execute(s -> {
+        var r = upsert.upsert(rec("10.1234/conc", src, 2025, title, null), Layer.CROSSREF, ids(doi("10.1234/conc")));
+        crossrefInside.countDown();
+        try {
+          Thread.sleep(500); // still uncommitted while the OAI record arrives
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+        }
+        return r;
+      }));
+      assertThat(crossrefInside.await(30, TimeUnit.SECONDS)).isTrue();
+      Future<WorkUpsert.UpsertResult> oa = pool.submit(() -> tx.execute(s ->
+          upsert.upsert(rec(null, src, 2025, title, null), Layer.OAI, ids(oai("oai:r:conc")))));
+      assertThat(oa.get(30, TimeUnit.SECONDS).id()).isEqualTo(cr.get(30, TimeUnit.SECONDS).id());
+    } finally {
+      pool.shutdownNow();
+    }
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM work WHERE source_id = ?", Integer.class, src)).isEqualTo(1);
   }
 }

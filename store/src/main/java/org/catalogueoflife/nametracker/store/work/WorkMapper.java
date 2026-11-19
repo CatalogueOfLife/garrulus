@@ -64,10 +64,14 @@ public interface WorkMapper {
 
   /**
    * Candidates for a title match, in id order: works of the source and year with a title containing {@code word}
-   * (case-insensitive; a word of the title key, to keep the set small) and, when {@code doi} is given, no other DOI.
+   * (case-insensitive; a word of the title key, to keep the set small); only works without a DOI when
+   * {@code doiLessOnly} (the incoming record has a DOI that matched nothing).
    */
   List<TitleCandidate> findByTitleMatch(@Param("sourceId") long sourceId, @Param("year") short year,
-      @Param("doi") @Nullable String doi, @Param("word") String word);
+      @Param("doiLessOnly") boolean doiLessOnly, @Param("word") String word);
+
+  /** Takes the transaction-level advisory lock of the key (released at commit or rollback; at once without one). */
+  int lockTitle(@Param("key") String key);
 
   /** Up to {@code limit} works with an id above {@code afterId}, in id order. */
   List<Work> listAfter(@Param("afterId") long afterId, @Param("limit") int limit);

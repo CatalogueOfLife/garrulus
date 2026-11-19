@@ -213,8 +213,12 @@
     SELECT id, doi, title, authors::text AS authors FROM work
     WHERE source_id = #{sourceId} AND year = #{year} AND title IS NOT NULL
       AND strpos(lower(title), #{word}) &gt; 0
-      <if test="doi != null">AND (doi IS NULL OR doi = #{doi})</if>
+      <if test="doiLessOnly">AND doi IS NULL</if>
     ORDER BY id
+  </select>
+
+  <select id="lockTitle" resultType="int" flushCache="true" useCache="false">
+    SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtextextended(#{key}, 0))) l
   </select>
 
   <select id="listAfter" resultMap="result">

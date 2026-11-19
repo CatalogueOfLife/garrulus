@@ -74,8 +74,9 @@ UPDATE work SET
       THEN 'OPENALEX'
     WHEN license IS NOT NULL THEN 'CROSSREF'
   END;
--- the candidates of WorkUpsert's title match
+-- the candidates of WorkUpsert's title match: all of them for a record without a DOI, only DOI-less works for one with
 CREATE INDEX work_source_year_idx ON work (source_id, year);
+CREATE INDEX work_source_year_nodoi_idx ON work (source_id, year) WHERE doi IS NULL;
 
 -- a work may now be known by other identifiers only (V1 generated name: work_check)
 ALTER TABLE work DROP CONSTRAINT work_check;
