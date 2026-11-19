@@ -18,7 +18,8 @@ backfill: ADR-0007; M5a XR switch, reprocessing and pending re-index, M5b snapsh
 full backfill runs later on the GBIF VM. M2's week-long dev run continues (`docs/m2-dev-run.md`, M3 check in
 `docs/m3-dev-check.md`). The curated gold is imported and its baselines are committed (`docs/tuning-stage.md`).
 Roadmap (2026-11-18): M6 reach (layered harvesting, design `docs/superpowers/specs/2026-11-19-m6-layered-harvesting-design.md`,
-research `docs/research/`), M7 judging (the next tuning step), M8 the portal widget. Next: M6.
+research `docs/research/`), M7 judging (the next tuning step), M8 the portal widget. M6a (identity and layered harvest:
+ADR-0008) is built locally and its dev check runs (`docs/m6a-dev-check.md`); M6b and M6c follow.
 
 ## Commands
 
@@ -392,7 +393,7 @@ on any command lists its options.
 
 - `docs/design.md`: the approved design. Goals, constraints, components, data model, workflows, roadmap.
 - `docs/adr/`: later decisions, one file each (0004: onboarding gate, harvest windows, budget, keyless limits; 0005:
-  index pipeline, spool, XR pin, placement, salience, categorisation, OpenAPI).
+  index pipeline, spool, XR pin, placement, salience, categorisation, OpenAPI; 0008: work identity, layered harvest, routes, coverage).
 
 ## Ground rules (from the design)
 
