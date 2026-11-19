@@ -85,17 +85,25 @@ class IdentityMappersIT extends AbstractPostgresIT {
         + "VALUES ('W-mig1', '10.16/mig1', 'LIVE', '<abstract/>', 'PMC1')");
     j.execute("INSERT INTO migcheck.work (doi, origin) VALUES ('10.16/mig2', 'LIVE')");
     j.execute("INSERT INTO migcheck.work (doi, origin, pmcid) VALUES ('10.16/mig3', 'LIVE', 'PMC1')"); // same PMCID
+    j.execute("INSERT INTO migcheck.work (openalex_id, doi, origin, oa_status) VALUES ('W-mig4', '10.16/mig4', 'LIVE', "
+        + "'gold')");
+    j.execute("INSERT INTO migcheck.work (doi, origin, license) VALUES ('10.16/mig5', 'LIVE', 'cc-by')");
     Flyway.configure().dataSource(ds).schemas("migcheck").target("16").load().migrate();
 
-    assertThat(j.queryForObject("SELECT count(*) FROM migcheck.work_identifier", Integer.class)).isEqualTo(5);
+    assertThat(j.queryForObject("SELECT count(*) FROM migcheck.work_identifier", Integer.class)).isEqualTo(8);
     assertThat(j.queryForList("SELECT scheme FROM migcheck.work_identifier WHERE value = 'PMC1'", String.class))
         .containsExactly("PMCID");
     assertThat(j.queryForObject("SELECT work_id = (SELECT min(id) FROM migcheck.work) FROM migcheck.work_identifier "
         + "WHERE value = 'PMC1'", Boolean.class)).isTrue();
     assertThat(j.queryForList("SELECT layer FROM migcheck.work_sighting ORDER BY layer", String.class))
-        .containsExactly("CROSSREF", "CROSSREF", "OPENALEX");
+        .containsExactly("CROSSREF", "CROSSREF", "CROSSREF", "OPENALEX", "OPENALEX");
     assertThat(j.queryForList("SELECT abstract_jats_source FROM migcheck.work WHERE abstract_jats IS NOT NULL",
         String.class)).containsExactly("CROSSREF");
+    // owners of existing rows: OpenAlex where it delivered the record, else Crossref; access only with access values
+    assertThat(j.queryForList("SELECT doi || ' ' || meta_layer || ' ' || coalesce(access_layer, '-') "
+        + "FROM migcheck.work ORDER BY doi", String.class)).containsExactly(
+        "10.16/mig1 OPENALEX -", "10.16/mig2 CROSSREF -", "10.16/mig3 CROSSREF -", "10.16/mig4 OPENALEX OPENALEX",
+        "10.16/mig5 CROSSREF CROSSREF");
     // a work with no DOI and no OpenAlex id is now allowed
     j.execute("INSERT INTO migcheck.work (origin) VALUES ('LIVE')");
   }

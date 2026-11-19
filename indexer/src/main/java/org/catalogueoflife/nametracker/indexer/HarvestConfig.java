@@ -14,6 +14,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.catalogueoflife.nametracker.store.blob.BlobStore;
 import org.catalogueoflife.nametracker.store.blob.FileBlobStore;
+import org.catalogueoflife.nametracker.store.ident.WorkIdentifierMapper;
+import org.catalogueoflife.nametracker.store.ident.WorkSightingMapper;
 import org.catalogueoflife.nametracker.indexer.backfill.SnapshotClient;
 import org.catalogueoflife.nametracker.indexer.content.LicencePolicy;
 import org.catalogueoflife.nametracker.indexer.cost.OpenAlexBudget;
@@ -123,8 +125,8 @@ public class HarvestConfig {
   }
 
   @Bean
-  WorkUpsert workUpsert(WorkMapper works) {
-    return new WorkUpsert(works);
+  WorkUpsert workUpsert(WorkMapper works, WorkIdentifierMapper identifiers, WorkSightingMapper sightings) {
+    return new WorkUpsert(works, identifiers, sightings);
   }
 
   @Bean

@@ -65,6 +65,17 @@ CREATE TABLE layer_unmatched (
 
 ALTER TABLE work ADD COLUMN meta_layer text, ADD COLUMN abstract_jats_source text, ADD COLUMN access_layer text;
 UPDATE work SET abstract_jats_source = 'CROSSREF' WHERE abstract_jats IS NOT NULL;
+-- owners of the existing rows: OpenAlex where it delivered the record, else Crossref (until V16 the last writer won);
+-- access fields only where there is an access value
+UPDATE work SET
+  meta_layer = CASE WHEN openalex_id IS NOT NULL THEN 'OPENALEX' ELSE 'CROSSREF' END,
+  access_layer = CASE
+    WHEN openalex_id IS NOT NULL AND (oa_status IS NOT NULL OR license IS NOT NULL OR best_oa_url IS NOT NULL)
+      THEN 'OPENALEX'
+    WHEN license IS NOT NULL THEN 'CROSSREF'
+  END;
+-- the candidates of WorkUpsert's title match
+CREATE INDEX work_source_year_idx ON work (source_id, year);
 
 -- a work may now be known by other identifiers only (V1 generated name: work_check)
 ALTER TABLE work DROP CONSTRAINT work_check;

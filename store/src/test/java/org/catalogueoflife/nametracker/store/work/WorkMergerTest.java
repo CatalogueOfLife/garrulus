@@ -148,4 +148,36 @@ class WorkMergerTest {
     assertThat(r3.work().license()).isEqualTo("cc0");
     assertThat(r3.work().accessLayer()).isEqualTo("OPENALEX");
   }
+
+  @Test
+  void abstractOnlyRecordDoesNotClaimBiblioOwner() {
+    // an unowned work gets an abstract-only record (e.g. a Crossref JATS abstract): the owner stays open, so a later
+    // OpenAlex title still lands
+    Work stored = work("Open title", null, null, "DISCOVERED");
+    Work in = new Work(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+        "text", "CROSSREF_JATS", "HARVEST", "DISCOVERED", "NONE", null, null, null, null, null, "<jats/>", null, null,
+        null, null, "CROSSREF", null);
+    var r = WorkMerger.merge(stored, in, Layer.CROSSREF);
+    assertThat(r.work().abstractJats()).isEqualTo("<jats/>");
+    assertThat(r.work().metaLayer()).isNull();
+    var r2 = WorkMerger.merge(r.work(), work("Better title", null, null, "DISCOVERED"), Layer.OPENALEX);
+    assertThat(r2.work().title()).isEqualTo("Better title");
+    assertThat(r2.work().metaLayer()).isEqualTo("OPENALEX");
+  }
+
+  @Test
+  void openalexTeiFlagFollowsIncomingAndCheckedAtFills() {
+    Work stored = new Work(1L, null, null, null, "T", null, null, null, null, null, null, null, null, null, null, null,
+        null, null, "HARVEST", "DISCOVERED", "NONE", null, null, null, Instant.EPOCH, null, null, null, true, null,
+        "OPENALEX", null, null);
+    Work in = new Work(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+        null, null, "HARVEST", "DISCOVERED", "NONE", null, null, null, null, null, null, null, false,
+        Instant.ofEpochSecond(5), null, null, null);
+    var r = WorkMerger.merge(stored, in, Layer.OPENALEX);
+    assertThat(r.work().openalexHasTei()).isFalse();
+    assertThat(r.work().openalexCheckedAt()).isEqualTo(Instant.ofEpochSecond(5));
+    // null leaves the flag alone
+    assertThat(WorkMerger.merge(stored, work(null, null, null, "DISCOVERED"), Layer.CROSSREF).work().openalexHasTei())
+        .isTrue();
+  }
 }

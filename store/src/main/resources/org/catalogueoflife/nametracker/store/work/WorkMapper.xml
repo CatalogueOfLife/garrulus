@@ -162,6 +162,61 @@
     WHERE id = #{id}
   </update>
 
+  <select id="findForUpdate" resultMap="result" flushCache="true" useCache="false">
+    SELECT * FROM work WHERE id = #{id} FOR UPDATE
+  </select>
+
+  <update id="updateMerged">
+    UPDATE work SET
+      openalex_id = CASE WHEN #{o.openalexId}::text IS NULL
+                          OR EXISTS (SELECT 1 FROM work w2 WHERE w2.openalex_id = #{o.openalexId}::text AND w2.id &lt;&gt; #{o.id})
+                         THEN openalex_id ELSE #{o.openalexId}::text END,
+      doi = CASE WHEN #{o.doi}::text IS NULL
+                  OR EXISTS (SELECT 1 FROM work w2 WHERE w2.doi = #{o.doi}::text AND w2.id &lt;&gt; #{o.id})
+                 THEN doi ELSE #{o.doi}::text END,
+      source_id = #{o.sourceId},
+      title = #{o.title},
+      publication_date = #{o.publicationDate},
+      year = #{o.year},
+      volume = #{o.volume},
+      issue = #{o.issue},
+      pages = #{o.pages},
+      authors = COALESCE(#{o.authors, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, '[]'::jsonb),
+      type = #{o.type},
+      language = #{o.language},
+      oa_status = #{o.oaStatus},
+      license = #{o.license},
+      best_oa_url = #{o.bestOaUrl},
+      abstract = #{o.abstractText},
+      abstract_source = #{o.abstractSource},
+      abstract_jats = #{o.abstractJats},
+      abstract_jats_source = #{o.abstractJatsSource},
+      pmcid = #{o.pmcid},
+      openalex_has_tei = COALESCE(#{o.openalexHasTei}, false),
+      openalex_checked_at = #{o.openalexCheckedAt},
+      meta_layer = #{o.metaLayer},
+      access_layer = #{o.accessLayer},
+      modified = now()
+    WHERE id = #{o.id}
+  </update>
+
+  <resultMap id="titleCandidate" type="org.catalogueoflife.nametracker.store.work.WorkMapper$TitleCandidate">
+    <constructor>
+      <idArg column="id" javaType="_long"/>
+      <arg column="doi" javaType="string"/>
+      <arg column="title" javaType="string"/>
+      <arg column="authors" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <select id="findByTitleMatch" resultMap="titleCandidate">
+    SELECT id, doi, title, authors::text AS authors FROM work
+    WHERE source_id = #{sourceId} AND year = #{year} AND title IS NOT NULL
+      AND strpos(lower(title), #{word}) &gt; 0
+      <if test="doi != null">AND (doi IS NULL OR doi = #{doi})</if>
+    ORDER BY id
+  </select>
+
   <select id="listAfter" resultMap="result">
     SELECT * FROM work WHERE id &gt; #{afterId} ORDER BY id LIMIT #{limit}
   </select>

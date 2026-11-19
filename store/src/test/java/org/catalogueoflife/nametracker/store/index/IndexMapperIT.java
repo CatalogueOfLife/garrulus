@@ -19,10 +19,12 @@ class IndexMapperIT extends AbstractPostgresIT {
   @Autowired IndexMapper index;
   @Autowired WorkMapper works;
   @Autowired JdbcTemplate jdbc;
+  @Autowired org.catalogueoflife.nametracker.store.ident.WorkIdentifierMapper identifiers;
+  @Autowired org.catalogueoflife.nametracker.store.ident.WorkSightingMapper sightings;
 
   private long newWork() {
     String doi = "10.1/idx" + SEQ.incrementAndGet();
-    return new org.catalogueoflife.nametracker.store.work.WorkUpsert(works).upsert(new Work(null, null, doi, null, "T", null, null, null, null, null, null, null, null, null,
+    return new org.catalogueoflife.nametracker.store.work.WorkUpsert(works, identifiers, sightings).upsert(new Work(null, null, doi, null, "T", null, null, null, null, null, null, null, null, null,
         null, null, null, null, "LIVE", null, null, null, null, null, null, null, null, null, null, null, null, null, null)).id();
   }
 

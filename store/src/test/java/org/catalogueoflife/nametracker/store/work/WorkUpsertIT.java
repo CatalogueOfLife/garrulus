@@ -11,6 +11,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.catalogueoflife.nametracker.store.AbstractPostgresIT;
+import org.catalogueoflife.nametracker.store.ident.IdScheme;
+import org.catalogueoflife.nametracker.store.ident.Identifier;
+import org.catalogueoflife.nametracker.store.ident.WorkIdentifierMapper;
+import org.catalogueoflife.nametracker.store.ident.WorkSightingMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -18,6 +22,8 @@ class WorkUpsertIT extends AbstractPostgresIT {
 
   @Autowired WorkMapper works;
   @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
+  @Autowired WorkIdentifierMapper identifiers;
+  @Autowired WorkSightingMapper sightings;
 
   private static Work work(String openalexId, String doi, String title, String origin) {
     return new Work(null, openalexId, doi, null, title, null, null, null, null, null, null, null, null, null, null,
@@ -26,7 +32,7 @@ class WorkUpsertIT extends AbstractPostgresIT {
 
   @Test
   void insertIfNewInsertsOnlyUnknownWorksAndNeverTouchesExistingOnes() {
-    WorkUpsert upsert = new WorkUpsert(works);
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
     long live = upsert.upsert(work("W-live", "10.1/live", "Live title", "LIVE")).id();
     Instant firstSeen = works.get(live).firstSeenAt();
 
@@ -50,7 +56,7 @@ class WorkUpsertIT extends AbstractPostgresIT {
 
   @Test
   void setPmcidWritesOnlyWhenEmpty() {
-    long id = new WorkUpsert(works).upsert(work(null, "10.1/pmcid", "T", "LIVE")).id();
+    long id = new WorkUpsert(works, identifiers, sightings).upsert(work(null, "10.1/pmcid", "T", "LIVE")).id();
     assertThat(works.setPmcid(id, "PMC1")).isEqualTo(1);
     assertThat(works.setPmcid(id, "PMC2")).isZero();
     assertThat(works.get(id).pmcid()).isEqualTo("PMC1");
@@ -58,7 +64,7 @@ class WorkUpsertIT extends AbstractPostgresIT {
 
   @Test
   void upsertMergesByDoiAndKeepsOriginAndFirstSeen() {
-    WorkUpsert upsert = new WorkUpsert(works);
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
     WorkUpsert.UpsertResult first = upsert.upsert(work(null, "10.3897/ZooKeys.1.2", null, "LIVE"));
     assertThat(first.created()).isTrue();
     Work stored = works.get(first.id());
@@ -82,7 +88,7 @@ class WorkUpsertIT extends AbstractPostgresIT {
 
   @Test
   void nullIncomingNeverWipesAndStateIsKept() {
-    WorkUpsert upsert = new WorkUpsert(works);
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
     Work full = new Work(null, "W-keep", "doi:10.1/KEEP", null, "Title", LocalDate.of(2026, 1, 2), (short) 2026, "1",
         "2", "3-4", "[{\"name\":\"Doe\"}]", "article", "en", "gold", "cc-by", "https://x", "abs", null, "LIVE",
         null, null, null, null, null, null, null, "<abstract/>", "PMC1", true, null, null, null, null);
@@ -106,7 +112,7 @@ class WorkUpsertIT extends AbstractPostgresIT {
         null, null, null, null, null, "SWEEP", null, null, null, null, null, null, null, "<abstract2/>", null,
         false, null, null, null, null));
     Work w2 = works.get(id);
-    assertThat(w2.title()).isEqualTo("New title");
+    assertThat(w2.title()).isEqualTo("Title"); // frozen: the finder has named the work
     assertThat(w2.abstractJats()).isEqualTo("<abstract2/>");
     assertThat(w2.openalexHasTei()).isFalse();
     assertThat(w2.pmcid()).isEqualTo("PMC1");
@@ -114,16 +120,16 @@ class WorkUpsertIT extends AbstractPostgresIT {
 
   @Test
   void doiFormsNormalise() {
-    WorkUpsert upsert = new WorkUpsert(works);
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
     long id = upsert.upsert(work(null, "http://dx.doi.org/10.5/ABC", null, "LIVE")).id();
     assertThat(works.get(id).doi()).isEqualTo("10.5/abc");
     assertThat(upsert.upsert(work(null, "DOI:10.5/Abc", null, "LIVE"))).isEqualTo(
-        new WorkUpsert.UpsertResult(id, false, false));
+        new WorkUpsert.UpsertResult(id, false, false, null));
   }
 
   @Test
   void concurrentUpsertsMakeOneRow() throws Exception {
-    WorkUpsert upsert = new WorkUpsert(works);
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
     ExecutorService pool = Executors.newFixedThreadPool(8);
     try {
       List<Future<WorkUpsert.UpsertResult>> fs = new ArrayList<>();
@@ -149,14 +155,14 @@ class WorkUpsertIT extends AbstractPostgresIT {
 
   @Test
   void listCrossrefOnlyHonoursCheckedAt() {
-    WorkUpsert upsert = new WorkUpsert(works);
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
     long id = upsert.upsert(work(null, "10.7/crossref-only", "T", "LIVE")).id();
     assertThat(works.listCrossrefOnly(1000)).extracting(Work::id).contains(id);
   }
 
   @Test
   void countByStateAndTextLevel() {
-    long id = new WorkUpsert(works).upsert(work(null, "10.1/count", "T", "LIVE")).id();
+    long id = new WorkUpsert(works, identifiers, sightings).upsert(work(null, "10.1/count", "T", "LIVE")).id();
     works.setState(id, "MATCHED", "FULLTEXT");
     assertThat(works.countByStateAndTextLevel()).anySatisfy(r -> {
       assertThat(r).containsEntry("state", "MATCHED").containsEntry("text_level", "FULLTEXT");
@@ -166,7 +172,7 @@ class WorkUpsertIT extends AbstractPostgresIT {
 
   @Test
   void abstractJatsAddedOnlyForAResolvedWorkWithoutOne() {
-    WorkUpsert upsert = new WorkUpsert(works);
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
     WorkUpsert.UpsertResult created = upsert.upsert(work(null, "10.1/late", "T", "LIVE"));
     assertThat(created.abstractJatsAdded()).isFalse();
     Work withJats = new Work(null, null, "10.1/late", null, null, null, null, null, null, null, null, null, null, null,
@@ -184,11 +190,231 @@ class WorkUpsertIT extends AbstractPostgresIT {
 
   @Test
   void upsertCleansTitlesOnInsertAndMerge() {
-    WorkUpsert upsert = new WorkUpsert(works);
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
     long id = upsert.upsert(work("W-dirty", null, "A <i>Carabus</i>\n  of Mulsant &amp; Rey", "LIVE")).id();
     assertThat(works.get(id).title()).isEqualTo("A Carabus of Mulsant & Rey");
     upsert.upsert(work(null, "10.1/dirty", "x", "LIVE"));
     upsert.upsert(work("W-dirty", "10.1/dirty-2", "The <b>new</b>\ttitle", "LIVE"));
     assertThat(works.get(id).title()).isEqualTo("The new title");
+  }
+
+  // ---- identifiers, title match, sightings
+
+  private long source() {
+    return jdbc.queryForObject("INSERT INTO source (title, origin) VALUES ('J', 'MANUAL') RETURNING id", Long.class);
+  }
+
+  private static Work rec(String doi, Long sourceId, int year, String title, String firstAuthor) {
+    String authors = firstAuthor == null ? null : "[{\"name\":\"" + firstAuthor + "\",\"orcid\":null}]";
+    return new Work(null, null, doi, sourceId, title, null, (short) year, null, null, null, authors, null, null, null,
+        null, null, null, null, "LIVE", null, null, null, null, null, null, null, null, null, null, null, null, null,
+        null);
+  }
+
+  private static List<Identifier> ids(Identifier... ids) {
+    return List.of(ids);
+  }
+
+  private static Identifier doi(String raw) {
+    return IdScheme.id(IdScheme.DOI, raw);
+  }
+
+  private static Identifier oai(String raw) {
+    return IdScheme.id(IdScheme.OAI, raw);
+  }
+
+  private int sightingCount(long workId, String layer) {
+    return jdbc.queryForObject("SELECT count(*) FROM work_sighting WHERE work_id = ? AND layer = ?", Integer.class,
+        workId, layer);
+  }
+
+  @Test
+  void doiSpellingsLandOnOneWork() {
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
+    var a = upsert.upsert(rec("https://doi.org/10.1234/Spell", null, 2025, null, null), Layer.CROSSREF,
+        ids(doi("https://doi.org/10.1234/Spell")));
+    var b = upsert.upsert(rec("doi:10.1234/spell", null, 2025, null, null), Layer.OPENALEX,
+        ids(doi("doi:10.1234/spell")));
+    // the DOI only as an identifier: the column is filled from it
+    var c = upsert.upsert(rec(null, null, 2025, null, null), Layer.OAI,
+        ids(doi("10.1234/SPELL"), oai("oai:repo.example:spell")));
+    assertThat(a.created()).isTrue();
+    assertThat(b.id()).isEqualTo(a.id());
+    assertThat(c.id()).isEqualTo(a.id());
+    assertThat(b.created() || c.created()).isFalse();
+    assertThat(works.get(a.id()).doi()).isEqualTo("10.1234/spell");
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM work_identifier WHERE scheme = 'DOI' AND value LIKE "
+        + "'10.1234/spell'", Integer.class)).isEqualTo(1);
+    assertThat(identifiers.list(a.id())).containsExactlyInAnyOrder(new Identifier("DOI", "10.1234/spell"),
+        new Identifier("OAI", "oai:repo.example:spell"));
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM work WHERE doi = '10.1234/spell'", Integer.class))
+        .isEqualTo(1);
+  }
+
+  @Test
+  void oaiRecordWithoutDoiJoinsWorkByTitle() {
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
+    long src = source();
+    var cr = upsert.upsert(rec("10.1234/t-oai", src, 2025, "A new species of <i>Aus</i> from the Andes", "Jane Doe"),
+        Layer.CROSSREF, ids(doi("10.1234/t-oai")));
+    var oa = upsert.upsert(rec(null, src, 2025, "A NEW SPECIES OF AUS FROM THE ANDES.", "Doe, J."), Layer.OAI,
+        ids(oai("oai:repo.example:t-oai")));
+    assertThat(oa.id()).isEqualTo(cr.id());
+    assertThat(oa.created()).isFalse();
+    assertThat(oa.duplicateOf()).isNull();
+    Work w = works.get(cr.id());
+    assertThat(w.title()).isEqualTo("A new species of Aus from the Andes");
+    assertThat(identifiers.list(cr.id())).contains(new Identifier("OAI", "oai:repo.example:t-oai"));
+    assertThat(sightingCount(cr.id(), "OAI")).isEqualTo(1);
+  }
+
+  @Test
+  void doiRecordJoinsDoiLessWorkByTitle() {
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
+    long src = source();
+    var oa = upsert.upsert(rec(null, src, 2024, "A NEW SPECIES OF AUS FROM PERU", "Smith, A."), Layer.OAI,
+        ids(oai("oai:repo.example:t-doi")));
+    assertThat(oa.created()).isTrue();
+    var cr = upsert.upsert(rec("10.1234/t-doi", src, 2024, "A new species of Aus from Peru", "Anna Smith"),
+        Layer.CROSSREF, ids(doi("10.1234/t-doi")));
+    assertThat(cr.id()).isEqualTo(oa.id());
+    assertThat(cr.created()).isFalse();
+    Work w = works.get(oa.id());
+    assertThat(w.doi()).isEqualTo("10.1234/t-doi");
+    assertThat(w.title()).isEqualTo("A new species of Aus from Peru");
+    assertThat(w.metaLayer()).isEqualTo("CROSSREF");
+    assertThat(identifiers.list(oa.id())).containsExactlyInAnyOrder(new Identifier("DOI", "10.1234/t-doi"),
+        new Identifier("OAI", "oai:repo.example:t-doi"));
+  }
+
+  @Test
+  void titleMatchNeverJoinsDifferentDois() {
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
+    long src = source();
+    String title = "A second new species of Aus from Bolivia";
+    var a = upsert.upsert(rec("10.1234/dd-a", src, 2023, title, null), Layer.CROSSREF, ids(doi("10.1234/dd-a")));
+    var b = upsert.upsert(rec("10.1234/dd-b", src, 2023, title, null), Layer.CROSSREF, ids(doi("10.1234/dd-b")));
+    assertThat(b.id()).isNotEqualTo(a.id());
+    assertThat(b.created()).isTrue();
+    assertThat(b.duplicateOf()).isNull();
+  }
+
+  @Test
+  void titleMatchNeedsSameSourceYearAndFirstAuthor() {
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
+    long src = source();
+    long other = source();
+    String title = "A third new species of Aus from Ecuador";
+    long id = upsert.upsert(rec("10.1234/sya", src, 2022, title, "Jane Doe"), Layer.CROSSREF,
+        ids(doi("10.1234/sya"))).id();
+    assertThat(upsert.upsert(rec(null, other, 2022, title, "Jane Doe"), Layer.OAI, ids(oai("oai:r:sya1"))).id())
+        .isNotEqualTo(id);
+    assertThat(upsert.upsert(rec(null, src, 2021, title, "Jane Doe"), Layer.OAI, ids(oai("oai:r:sya2"))).id())
+        .isNotEqualTo(id);
+    assertThat(upsert.upsert(rec(null, src, 2022, title, "John Roe"), Layer.OAI, ids(oai("oai:r:sya3"))).id())
+        .isNotEqualTo(id);
+    // no authors on one side: the author check does not apply
+    assertThat(upsert.upsert(rec(null, src, 2022, title, null), Layer.OAI, ids(oai("oai:r:sya4"))).id())
+        .isEqualTo(id);
+  }
+
+  @Test
+  void genericTitlesNeverMatch() {
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
+    long src = source();
+    String generic = "Corrigendum to: A new species of Aus from Chile";
+    var a = upsert.upsert(rec(null, src, 2025, generic, null), Layer.OAI, ids(oai("oai:r:gen1")));
+    var b = upsert.upsert(rec(null, src, 2025, generic, null), Layer.OAI, ids(oai("oai:r:gen2")));
+    assertThat(b.id()).isNotEqualTo(a.id());
+    var c = upsert.upsert(rec(null, src, 2025, "Aus bus", null), Layer.OAI, ids(oai("oai:r:gen3")));
+    var d = upsert.upsert(rec(null, src, 2025, "Aus bus", null), Layer.OAI, ids(oai("oai:r:gen4")));
+    assertThat(d.id()).isNotEqualTo(c.id());
+  }
+
+  @Test
+  void pmcidMatchesWorkFirstSeenByDoi() {
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
+    long id = upsert.upsert(rec("10.1234/pmc", null, 2025, "T", null), Layer.CROSSREF, ids(doi("10.1234/pmc")))
+        .id();
+    identifiers.insertAll(id, List.of(IdScheme.id(IdScheme.PMCID, "PMC424242")), "OPENALEX");
+    // Europe PMC: no DOI, another title, other identifiers
+    var r = upsert.upsert(rec(null, null, 2025, "Another spelling of the title", null), Layer.EUROPEPMC,
+        ids(IdScheme.id(IdScheme.PMCID, "424242"), IdScheme.id(IdScheme.PMID, "4242")));
+    assertThat(r.id()).isEqualTo(id);
+    assertThat(r.created()).isFalse();
+    assertThat(works.get(id).pmcid()).isEqualTo("PMC424242");
+    assertThat(identifiers.list(id)).contains(new Identifier("PMID", "4242"));
+    assertThat(sightingCount(id, "EUROPEPMC")).isEqualTo(1);
+  }
+
+  @Test
+  void sightingPerLayerOnce() {
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
+    var a = upsert.upsert(rec(null, null, 2025, "Sighted twice", null), Layer.OAI, ids(oai("oai:r:sight")));
+    var b = upsert.upsert(rec(null, null, 2025, "Sighted twice", null), Layer.OAI, ids(oai("oai:r:sight")));
+    assertThat(b.id()).isEqualTo(a.id());
+    assertThat(sightingCount(a.id(), "OAI")).isEqualTo(1);
+    upsert.upsert(rec("10.1234/sight", null, 2025, null, null), Layer.CROSSREF,
+        ids(doi("10.1234/sight"), oai("oai:r:sight")));
+    assertThat(jdbc.queryForList("SELECT layer FROM work_sighting WHERE work_id = ? ORDER BY layer", String.class,
+        a.id())).containsExactly("CROSSREF", "OAI");
+  }
+
+  @Test
+  void duplicateOfReportedWhenIdsPointToTwoWorks() {
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
+    long older = upsert.upsert(rec(null, null, 2025, "Seen by OAI first", null), Layer.OAI,
+        ids(oai("oai:r:dup"))).id();
+    long byDoi = upsert.upsert(rec("10.1234/dup", null, 2025, "Seen by Crossref first", null), Layer.CROSSREF,
+        ids(doi("10.1234/dup"))).id();
+    assertThat(byDoi).isGreaterThan(older);
+
+    var r = upsert.upsert(rec("10.1234/dup", null, 2025, null, null), Layer.OAI,
+        ids(doi("10.1234/dup"), oai("oai:r:dup")));
+    assertThat(r.id()).isEqualTo(byDoi); // the DOI comes first in the matching order
+    assertThat(r.created()).isFalse();
+    assertThat(r.duplicateOf()).isEqualTo(older);
+    // the identifier stays with the other work until MERGE_WORKS moves it
+    assertThat(identifiers.list(byDoi)).containsExactly(new Identifier("DOI", "10.1234/dup"));
+    assertThat(identifiers.list(older)).containsExactly(new Identifier("OAI", "oai:r:dup"));
+  }
+
+  @Test
+  void crossrefOverwritesOaiTitleButOaiDoesNotOverwriteCrossref() {
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
+    long id = upsert.upsert(rec("10.1234/ow", null, 2025, "Oai title of a paper", null), Layer.OAI,
+        ids(doi("10.1234/ow"), oai("oai:r:ow"))).id();
+    assertThat(works.get(id).metaLayer()).isEqualTo("OAI");
+    upsert.upsert(rec("10.1234/ow", null, 2025, "Crossref title of a paper", null), Layer.CROSSREF,
+        ids(doi("10.1234/ow")));
+    assertThat(works.get(id).title()).isEqualTo("Crossref title of a paper");
+    upsert.upsert(rec(null, null, 2025, "Oai title of the paper again", null), Layer.OAI, ids(oai("oai:r:ow")));
+    Work w = works.get(id);
+    assertThat(w.title()).isEqualTo("Crossref title of a paper");
+    assertThat(w.metaLayer()).isEqualTo("CROSSREF");
+  }
+
+  @Test
+  void insertIfNewWritesIdentifiersAndSighting() {
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
+    long src = source();
+    var id = upsert.insertIfNew(rec("10.1234/ifn", src, 2025, "Inserted by the backfill", null), Layer.OPENALEX,
+        ids(doi("10.1234/ifn"), IdScheme.id(IdScheme.OPENALEX, "W424242")));
+    assertThat(id).isPresent();
+    Work w = works.get(id.get());
+    assertThat(w.openalexId()).isEqualTo("W424242");
+    assertThat(w.metaLayer()).isEqualTo("OPENALEX");
+    assertThat(identifiers.list(id.get())).hasSize(2);
+    assertThat(sightingCount(id.get(), "OPENALEX")).isEqualTo(1);
+    assertThat(upsert.insertIfNew(rec(null, src, 2025, "Inserted by the backfill", null), Layer.OAI,
+        ids(oai("oai:r:ifn")))).isEmpty(); // a title match is an existing work
+    assertThat(identifiers.list(id.get())).hasSize(2);
+  }
+
+  @Test
+  void aWorkNeedsAnIdentifier() {
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> new WorkUpsert(works, identifiers, sightings).upsert(
+        rec(null, null, 2025, "No identifiers at all here", null), Layer.OAI, List.of()))
+        .isInstanceOf(IllegalArgumentException.class);
   }
 }

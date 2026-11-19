@@ -19,7 +19,8 @@ public final class WorkMerger {
     Layer accessOwner = s.accessLayer() == null ? null : Layer.valueOf(s.accessLayer());
     boolean biblio = metaOwner == null || layer.biblioRank() <= metaOwner.biblioRank();
     boolean access = accessOwner == null || layer.accessRank() <= accessOwner.accessRank();
-    boolean hasAccess = in.oaStatus() != null || in.license() != null || in.bestOaUrl() != null;
+    boolean hasBiblio = hasBiblio(in);
+    boolean hasAccess = hasAccess(in);
     boolean frozen = s.state() != null && NAMED.contains(s.state());
 
     String title = frozen ? s.title() : pick(s.title(), in.title(), biblio);
@@ -63,12 +64,23 @@ public final class WorkMerger {
         s.modified(),
         jats,
         fill(s.pmcid(), in.pmcid()),
-        s.openalexHasTei(),
-        s.openalexCheckedAt(),
-        biblio ? layer.name() : s.metaLayer(),
+        in.openalexHasTei() != null ? in.openalexHasTei() : s.openalexHasTei(),
+        fill(s.openalexCheckedAt(), in.openalexCheckedAt()),
+        (biblio && hasBiblio) ? layer.name() : s.metaLayer(),
         jatsSource,
         (access && hasAccess) ? layer.name() : s.accessLayer());
     return new Merged(m, !m.equals(s));
+  }
+
+  /** The record carries a bibliographic value: only then may its layer claim the bibliographic fields. */
+  static boolean hasBiblio(Work w) {
+    return w.title() != null || w.authors() != null || w.volume() != null || w.issue() != null || w.pages() != null
+        || w.publicationDate() != null || w.year() != null || w.type() != null;
+  }
+
+  /** The record carries an access value: only then may its layer claim the access fields. */
+  static boolean hasAccess(Work w) {
+    return w.oaStatus() != null || w.license() != null || w.bestOaUrl() != null;
   }
 
   /** The incoming value wins when its layer wins and it is not null; otherwise fill a null. */
