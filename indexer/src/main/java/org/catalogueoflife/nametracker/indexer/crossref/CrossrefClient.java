@@ -59,18 +59,30 @@ public class CrossrefClient {
   }
 
   /**
-   * One page of the offset listing, from {@code offset} (at most {@link #MAX_OFFSET}). Unlike a cursor, an offset does
-   * not expire, so a page can wait in the queue for hours.
+   * One page of {@code rows} items of the offset listing, from {@code offset} (at most {@link #MAX_OFFSET}), oldest DOI
+   * first ({@code sort=created&order=asc}: a DOI's creation date never changes, so the order holds between pages).
+   * Unlike a cursor, an offset does not expire, so a page can wait in the queue for hours.
    */
-  public Page worksAt(String filter, int offset) {
-    return list(filter, "offset", String.valueOf(offset));
+  public Page worksAt(String filter, int offset, int rows) {
+    Map<String, String> paging = new LinkedHashMap<>();
+    paging.put("rows", String.valueOf(rows));
+    paging.put("offset", String.valueOf(offset));
+    paging.put("sort", "created");
+    paging.put("order", "asc");
+    return list(filter, paging);
   }
 
   private Page list(String filter, String pagingParam, String pagingValue) {
+    Map<String, String> paging = new LinkedHashMap<>();
+    paging.put("rows", String.valueOf(ROWS));
+    paging.put(pagingParam, pagingValue);
+    return list(filter, paging);
+  }
+
+  private Page list(String filter, Map<String, String> paging) {
     Map<String, String> q = new LinkedHashMap<>();
     q.put("filter", filter);
-    q.put("rows", String.valueOf(ROWS));
-    q.put(pagingParam, pagingValue);
+    q.putAll(paging);
     q.put("select", SELECT);
     if (mailto != null) q.put("mailto", mailto);
     StringBuilder sb = new StringBuilder(base).append("/works");

@@ -238,8 +238,11 @@ curl ... -d '{"type":"BACKFILL","payload":{"fromYear":2020,"toYear":2024,"files"
   - Task types: `SEED_ROUTES` (`{}`, the routes of `indexer/src/main/resources/routes-seed.tsv` for the journals with
     those ISSNs), `VERIFY_ROUTE` (`{"routeId":n}`: pass → VERIFIED, or ACTIVE when the route was onboarded before or
     its journal has an OpenAlex id and is not onboarded yet; fail → BROKEN with the reason), `ROUTE_BACKFILL`
-    (`{"sourceId":n}`: the journal's ACTIVE routes not yet backfilled in `BACKFILL` mode from 2000 to 120 days ago,
-    plus `HARVEST_CROSSREF_HISTORY` by its ISSNs, one publication year per offset listing).
+    (`{"sourceId":n,"force":false}`: the journal's ACTIVE routes not yet backfilled in `BACKFILL` mode from 2000 to
+    120 days ago, plus `HARVEST_CROSSREF_HISTORY` by its ISSNs unless it ran before (`source.crossref_history_at`);
+    `force` reads both again; a job with a live page is never started twice). The history reads one publication year
+    per offset listing (sorted by DOI creation), a year past Crossref's 10,000 offsets month by month; a month past
+    them is cut and noted on the run's error.
   - The nightly rollout (`nametracker.layers.rollout-cron`, `0 30 0 * * *` UTC, behind the harvest switch) starts the
     `ONBOARDING` pass (120 days, `REPROCESS`) of up to `nametracker.layers.rollout-per-night` (20) VERIFIED routes of
     active CORE/BROAD journals. The pass's last page makes the route ACTIVE; for a journal without an OpenAlex id it

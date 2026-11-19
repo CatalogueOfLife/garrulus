@@ -50,6 +50,12 @@ public interface TaskMapper {
    */
   long countLive(@Param("type") String type, @Param("window") @Nullable String window);
 
+  /**
+   * QUEUED or RUNNING tasks of a layer job: type, payload {@code scope} and {@code mode} (first page and continuations
+   * alike).
+   */
+  long countLiveJob(@Param("type") String type, @Param("scope") String scope, @Param("mode") String mode);
+
   /** Rows type, state, n. */
   List<Map<String, Object>> countByTypeAndState();
 

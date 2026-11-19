@@ -15,6 +15,7 @@ import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.Task;
+import org.catalogueoflife.nametracker.store.task.TaskMapper;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.catalogueoflife.nametracker.store.work.Layer;
@@ -24,13 +25,21 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
 /**
- * The history of a journal back to {@value #FROM_YEAR} through its own routes, at {@code BACKFILL} priority: per
- * ACTIVE route not backfilled yet a {@code HARVEST_<layer>} job in {@code BACKFILL} mode (key
- * {@code route-backfill:<routeId>}), plus {@code HARVEST_CROSSREF_HISTORY} by the journal's ISSNs (key
- * {@code route-backfill:crossref:<sourceId>}), each from 1 January {@value #FROM_YEAR} to
- * {@value RouteLifecycle#ONBOARDING_DAYS} days before today (the onboarding pass covers the rest). Works get origin
- * {@code BACKFILL}. {@link RouteLifecycle} starts it for journals without an OpenAlex id; {@code ROUTE_BACKFILL}
- * ({@code {"sourceId":n}}) is the admin entry for any journal.
+ * The history of a journal back to {@value #FROM_YEAR} through its own routes, at {@code BACKFILL} priority, from
+ * 1 January {@value #FROM_YEAR} to {@value RouteLifecycle#ONBOARDING_DAYS} days before today (the onboarding pass
+ * covers the rest); works get origin {@code BACKFILL}.
+ *
+ * <ul>
+ *   <li>Per ACTIVE route a {@code HARVEST_<layer>} job in {@code BACKFILL} mode, key {@code route-backfill:<routeId>},
+ *   unless the route was backfilled before ({@code backfilled_at}).</li>
+ *   <li>{@code HARVEST_CROSSREF_HISTORY} by the journal's ISSNs, key {@code route-backfill:crossref:<sourceId>}, unless
+ *   it ran to its end before ({@code source.crossref_history_at}).</li>
+ *   <li>A job with a QUEUED or RUNNING page (its first page or any continuation) is never started a second time.</li>
+ * </ul>
+ *
+ * {@link RouteLifecycle} starts it for journals without an OpenAlex id. {@code ROUTE_BACKFILL}
+ * ({@code {"sourceId":n,"force":false}}) is the admin entry for any journal; {@code "force":true} reads backfilled
+ * routes and a read Crossref history again (still never in parallel to a running one).
  */
 @Component
 public class RouteBackfill implements TaskHandler {
@@ -42,12 +51,15 @@ public class RouteBackfill implements TaskHandler {
   private final SourceRouteMapper routes;
   private final SourceMapper sources;
   private final TaskQueue queue;
+  private final TaskMapper tasks;
   private final Clock clock;
 
-  public RouteBackfill(SourceRouteMapper routes, SourceMapper sources, TaskQueue queue, Clock clock) {
+  public RouteBackfill(SourceRouteMapper routes, SourceMapper sources, TaskQueue queue, TaskMapper tasks,
+      Clock clock) {
     this.routes = routes;
     this.sources = sources;
     this.queue = queue;
+    this.tasks = tasks;
     this.clock = clock;
   }
 
@@ -61,17 +73,22 @@ public class RouteBackfill implements TaskHandler {
     JsonNode p = FinderJson.mapper().readTree(task.payload());
     long sourceId = p.path("sourceId").asLong(0);
     if (sourceId == 0) throw new IllegalArgumentException(TYPE + " needs a sourceId: " + task.payload());
-    enqueue(sourceId);
+    enqueue(sourceId, p.path("force").asBoolean(false));
   }
 
+  /** The automatic backfill: what was not read before. */
   public void enqueue(long sourceId) {
+    enqueue(sourceId, false);
+  }
+
+  public void enqueue(long sourceId, boolean force) {
     Source source = sources.get(sourceId);
     if (source == null) throw new IllegalArgumentException("Unknown source " + sourceId);
     LocalDate from = LocalDate.of(FROM_YEAR, 1, 1);
     LocalDate until = LocalDate.now(clock.withZone(ZoneOffset.UTC)).minusDays(RouteLifecycle.ONBOARDING_DAYS);
     int n = 0;
     for (SourceRoute r : routes.forSource(sourceId)) {
-      if (!"ACTIVE".equals(r.status()) || r.backfilledAt() != null) continue;
+      if (!"ACTIVE".equals(r.status()) || (r.backfilledAt() != null && !force)) continue;
       Layer layer;
       try {
         layer = Layer.valueOf(r.layer());
@@ -79,11 +96,17 @@ public class RouteBackfill implements TaskHandler {
         LOG.warn("Route {} has the unknown layer {}; not backfilled", r.id(), r.layer());
         continue;
       }
+      if (running("HARVEST_" + layer.name(), "r" + r.id())) {
+        LOG.info("Route {} is being backfilled already", r.id());
+        continue;
+      }
       queue.enqueue("HARVEST_" + layer.name(), LayerHarvestHandler.firstPayload("r" + r.id(), r.id(),
           List.of(sourceId), from, until, LayerMode.BACKFILL), TaskPriority.BACKFILL, "route-backfill:" + r.id());
       n++;
     }
-    boolean crossref = !CrossrefHistoryLayer.issns(source).isEmpty();
+    boolean crossref = !CrossrefHistoryLayer.issns(source).isEmpty()
+        && (force || sources.crossrefHistoryDone(sourceId) == null)
+        && !running(HarvestCrossrefHistoryHandler.TYPE, "s" + sourceId);
     if (crossref) {
       queue.enqueue(HarvestCrossrefHistoryHandler.TYPE, LayerHarvestHandler.firstPayload("s" + sourceId, null,
           List.of(sourceId), from, until, LayerMode.BACKFILL), TaskPriority.BACKFILL,
@@ -91,5 +114,10 @@ public class RouteBackfill implements TaskHandler {
     }
     LOG.info("Route backfill of source {} from {} to {}: {} routes{}", sourceId, from, until, n,
         crossref ? " and the Crossref history" : "");
+  }
+
+  /** Whether a page of the job (first or continuation) is QUEUED or RUNNING. */
+  private boolean running(String type, String scope) {
+    return tasks.countLiveJob(type, scope, LayerMode.BACKFILL.name()) > 0;
   }
 }

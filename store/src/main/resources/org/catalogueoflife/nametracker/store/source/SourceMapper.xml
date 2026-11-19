@@ -101,6 +101,14 @@
     ORDER BY id
   </select>
 
+  <update id="setCrossrefHistoryDone">
+    UPDATE source SET crossref_history_at = #{at} WHERE id = #{id}
+  </update>
+
+  <select id="crossrefHistoryDone" resultType="java.time.Instant">
+    SELECT crossref_history_at FROM source WHERE id = #{id}
+  </select>
+
   <select id="listHarvestable" resultMap="result">
     SELECT * FROM source WHERE active AND tier IN ('CORE','BROAD') AND onboarded_at IS NOT NULL ORDER BY id
   </select>

@@ -3,12 +3,14 @@ package org.catalogueoflife.nametracker.indexer.route;
 import java.time.Clock;
 import java.time.Instant;
 import org.catalogueoflife.nametracker.indexer.layer.LayerJob;
+import org.catalogueoflife.nametracker.indexer.layer.LayerMode;
 import org.catalogueoflife.nametracker.indexer.layer.europepmc.ProbeEuropePmcHandler;
 import org.catalogueoflife.nametracker.store.route.SourceRoute;
 import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
+import org.catalogueoflife.nametracker.store.work.Layer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -25,7 +27,8 @@ import org.springframework.stereotype.Component;
  *   history from the snapshot backfill.</li>
  *   <li>{@code BACKFILL}: the route's {@code backfilled_at}.</li>
  * </ul>
- * A job without a route (a Crossref history) changes nothing.
+ * A job without a route changes no route; the end of a Crossref history sets the source's
+ * {@code crossref_history_at}, which keeps later automatic route backfills from reading it again.
  */
 @Component
 public class RouteLifecycle {
@@ -51,8 +54,13 @@ public class RouteLifecycle {
   }
 
   public void lastPage(LayerJob job) {
-    if (job.routeId() == null) return;
     Instant now = clock.instant();
+    if (job.routeId() == null) {
+      if (job.layer() == Layer.CROSSREF && job.mode() == LayerMode.BACKFILL && !job.sourceIds().isEmpty()) {
+        sources.setCrossrefHistoryDone(job.sourceIds().getFirst(), now); // later automatic backfills skip it
+      }
+      return;
+    }
     routes.markOk(job.routeId(), now);
     SourceRoute route = routes.get(job.routeId());
     if (route == null) return;

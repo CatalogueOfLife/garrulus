@@ -2,6 +2,7 @@ package org.catalogueoflife.nametracker.indexer.layer.crossref;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -16,22 +17,28 @@ import org.catalogueoflife.nametracker.indexer.layer.LayerJob;
 import org.catalogueoflife.nametracker.indexer.layer.LayerMode;
 import org.catalogueoflife.nametracker.indexer.layer.LayerPage;
 import org.catalogueoflife.nametracker.indexer.openalex.WorkRecord;
+import org.catalogueoflife.nametracker.store.harvest.HarvestRunMapper;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.work.Layer;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
 /**
  * The history of one journal in Crossref, for a route backfill ({@code BACKFILL} mode only): the journal articles of
- * every ISSN of the job's source with {@code from-pub-date:<from>,until-pub-date:<until>}, read one publication year
- * at a time. Position {@code <year>:<offset>}; pages are offset pages, because a backfill page waits at
- * {@code BACKFILL} priority far longer than a Crossref cursor lives (about 5 minutes). A year beyond the
- * {@value CrossrefClient#MAX_OFFSET} offsets Crossref serves is cut off with a WARN. Works keep the source of the
- * job; no OpenAlex lookup is made.
+ * every ISSN of the job's source with {@code from-pub-date}/{@code until-pub-date}, read one span at a time.
+ *
+ * <p>A span is a publication year (position {@code <yyyy>:<offset>}) or, for a year Crossref cannot list in full, a
+ * month ({@code <yyyy-mm>:<offset>}). Pages are offset pages sorted by DOI creation, not cursor pages, because a
+ * backfill page waits at {@code BACKFILL} priority far longer than a Crossref cursor lives (about 5 minutes); the
+ * positions depend on nothing but the job, so a page delivered again enqueues the same continuation. Crossref serves
+ * offsets up to {@value CrossrefClient#MAX_OFFSET}: a year whose page there is still full is read again month by month,
+ * and a month whose page there is still full loses the rest, which is logged and noted on the run's error (the run
+ * still ends DONE).
  */
 @Component
 public class CrossrefHistoryLayer implements HarvestLayer {
@@ -40,17 +47,63 @@ public class CrossrefHistoryLayer implements HarvestLayer {
 
   private final CrossrefClient crossref;
   private final SourceMapper sources;
+  private final HarvestRunMapper runs;
   private final Clock clock;
+  private final int rows;
+  private final int maxOffset;
 
-  public CrossrefHistoryLayer(CrossrefClient crossref, SourceMapper sources, Clock clock) {
+  @Autowired
+  public CrossrefHistoryLayer(CrossrefClient crossref, SourceMapper sources, HarvestRunMapper runs, Clock clock) {
+    this(crossref, sources, runs, clock, CrossrefClient.ROWS, CrossrefClient.MAX_OFFSET);
+  }
+
+  /** With other page sizes, for tests. */
+  CrossrefHistoryLayer(CrossrefClient crossref, SourceMapper sources, HarvestRunMapper runs, Clock clock, int rows,
+      int maxOffset) {
     this.crossref = crossref;
     this.sources = sources;
+    this.runs = runs;
     this.clock = clock;
+    this.rows = rows;
+    this.maxOffset = maxOffset;
   }
 
   @Override
   public Layer layer() {
     return Layer.CROSSREF;
+  }
+
+  /** A publication year ({@code month} null) or one month of it. */
+  private record Span(int year, @Nullable Integer month) {
+
+    static Span parse(String s) {
+      int dash = s.indexOf('-');
+      return dash < 0 ? new Span(Integer.parseInt(s), null)
+          : new Span(Integer.parseInt(s.substring(0, dash)), Integer.parseInt(s.substring(dash + 1)));
+    }
+
+    LocalDate first() {
+      return month == null ? LocalDate.of(year, 1, 1) : LocalDate.of(year, month, 1);
+    }
+
+    LocalDate last() {
+      return month == null ? LocalDate.of(year, 12, 31) : YearMonth.of(year, month).atEndOfMonth();
+    }
+
+    /** The span after this one: the next month of a month span (December goes on with the next year), else the next year. */
+    Span next() {
+      if (month != null && month < 12) return new Span(year, month + 1);
+      return new Span(year + 1, null);
+    }
+
+    /** {@code yyyy} or {@code yyyy-mm}. */
+    String label() {
+      return month == null ? String.valueOf(year) : String.format(Locale.ROOT, "%d-%02d", year, month);
+    }
+
+    String at(int offset) {
+      return label() + ":" + offset;
+    }
   }
 
   @Override
@@ -65,18 +118,18 @@ public class CrossrefHistoryLayer implements HarvestLayer {
     List<String> issns = issns(source);
     if (issns.isEmpty()) return new LayerPage(List.of(), null, 0, 0);
     LocalDate until = job.until() != null ? job.until() : LocalDate.now(clock.withZone(ZoneOffset.UTC));
-    int year = job.from().getYear();
+    Span span = new Span(job.from().getYear(), null);
     int offset = 0;
     if (position != null) {
-      int colon = position.indexOf(':');
-      year = Integer.parseInt(position.substring(0, colon));
+      int colon = position.lastIndexOf(':');
+      span = Span.parse(position.substring(0, colon));
       offset = Integer.parseInt(position.substring(colon + 1));
     }
-    LocalDate start = max(job.from(), LocalDate.of(year, 1, 1));
-    LocalDate end = min(until, LocalDate.of(year, 12, 31));
-    if (start.isAfter(end)) return new LayerPage(List.of(), null, 0, 0);
+    LocalDate start = max(job.from(), span.first());
+    LocalDate end = min(until, span.last());
+    if (start.isAfter(end)) return new LayerPage(List.of(), next(span.next(), until), 0, 0);
 
-    CrossrefClient.Page page = crossref.worksAt(filter(start, end, issns), offset);
+    CrossrefClient.Page page = crossref.worksAt(filter(start, end, issns), offset, rows);
     List<HarvestedWork> works = new ArrayList<>();
     int skipped = 0;
     for (JsonNode item : page.items()) {
@@ -88,16 +141,29 @@ public class CrossrefHistoryLayer implements HarvestLayer {
         skipped++;
       }
     }
-    return new LayerPage(works, next(page.items().size(), year, offset, until, sourceId), 1, skipped);
+    String next;
+    if (page.items().size() < rows) {
+      next = next(span.next(), until);
+    } else if (offset + rows < maxOffset) {
+      next = span.at(offset + rows);
+    } else if (span.month() == null) {
+      // the year is too large to list: read it again month by month, from the month it starts in
+      LOG.info("Crossref history of source {}: {} has more than {} articles; reading it by month", sourceId,
+          span.year(), maxOffset);
+      next = new Span(span.year(), start.getMonthValue()).at(0);
+    } else {
+      String lost = "Crossref history of source " + sourceId + ": " + span.label() + " has more than "
+          + maxOffset + " articles; the rest of the month is left out";
+      LOG.warn(lost);
+      runs.noteError(job.runId(), lost);
+      next = next(span.next(), until);
+    }
+    return new LayerPage(works, next, 1, skipped);
   }
 
-  private static @Nullable String next(int items, int year, int offset, LocalDate until, long sourceId) {
-    if (items >= CrossrefClient.ROWS) {
-      if (offset + CrossrefClient.ROWS < CrossrefClient.MAX_OFFSET) return year + ":" + (offset + CrossrefClient.ROWS);
-      LOG.warn("Crossref history of source {}: {} has more than {} articles; the rest of the year is left out",
-          sourceId, year, CrossrefClient.MAX_OFFSET);
-    }
-    return year < until.getYear() ? (year + 1) + ":0" : null;
+  /** The first page of a span, or null when it starts after {@code until}. */
+  private static @Nullable String next(Span span, LocalDate until) {
+    return span.first().isAfter(until) ? null : span.at(0);
   }
 
   /** The filter of one span: publication dates, journal articles, every ISSN (ORed by Crossref). */

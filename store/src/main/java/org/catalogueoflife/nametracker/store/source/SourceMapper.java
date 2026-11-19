@@ -34,6 +34,12 @@ public interface SourceMapper {
 
   int setOnboarded(@Param("id") long id, @Param("at") Instant at);
 
+  /** Records that the source's Crossref history ran to its end. */
+  int setCrossrefHistoryDone(@Param("id") long id, @Param("at") Instant at);
+
+  /** When the source's Crossref history last ran to its end; null when never. */
+  @Nullable Instant crossrefHistoryDone(@Param("id") long id);
+
   int setLastHarvested(@Param("id") long id, @Param("at") Instant at);
 
   int setTier(@Param("id") long id, @Param("tier") String tier, @Param("active") boolean active,

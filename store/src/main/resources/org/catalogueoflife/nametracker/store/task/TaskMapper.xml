@@ -102,6 +102,11 @@
     <if test="window != null">AND payload->>'window' = #{window}</if>
   </select>
 
+  <select id="countLiveJob" resultType="long">
+    SELECT count(*) FROM task WHERE type = #{type} AND state IN ('QUEUED','RUNNING')
+      AND payload->>'scope' = #{scope} AND payload->>'mode' = #{mode}
+  </select>
+
   <select id="countByTypeAndState" resultType="map">
     SELECT type, state, count(*) AS n FROM task GROUP BY type, state ORDER BY type, state
   </select>

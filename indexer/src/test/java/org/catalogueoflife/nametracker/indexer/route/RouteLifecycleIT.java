@@ -18,6 +18,7 @@ import org.catalogueoflife.nametracker.indexer.crossref.CrossrefClient;
 import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.hits.EvaluateHitsHandler;
 import org.catalogueoflife.nametracker.indexer.layer.LayerHarvestHandler;
+import org.catalogueoflife.nametracker.indexer.layer.LayerMode;
 import org.catalogueoflife.nametracker.indexer.layer.LayerWriter;
 import org.catalogueoflife.nametracker.indexer.layer.crossref.CrossrefHistoryLayer;
 import org.catalogueoflife.nametracker.indexer.layer.crossref.HarvestCrossrefHistoryHandler;
@@ -109,7 +110,7 @@ class RouteLifecycleIT extends AbstractPostgresIT {
 
   private HarvestCrossrefHistoryHandler crossrefHandler(WireMockRuntimeInfo w) {
     var layer = new CrossrefHistoryLayer(new CrossrefClient(EuropePmcSearchClientTest.http(), null, w.getHttpBaseUrl()),
-        sources, clock);
+        sources, runs, clock);
     return new HarvestCrossrefHistoryHandler(writer, queue, runs, routes, outage, clock, env(true), layer, lifecycle);
   }
 
@@ -216,6 +217,40 @@ class RouteLifecycleIT extends AbstractPostgresIT {
   }
 
   @Test
+  void noRecrawlOfTheCrossrefHistoryAndNoParallelRouteBackfill() throws Exception {
+    long longTail = source(null, "CORE", true);
+    long route = route(longTail, "ACTIVE", "{\"base\":\"https://x.example.org/oai\"}");
+    LocalDate from = LocalDate.of(2000, 1, 1);
+    // a continuation of the route's backfill is still queued, and the Crossref history was read before
+    queue.enqueue("HARVEST_OAI", LayerHarvestHandler.firstPayload("r" + route, route, List.of(longTail), from, null,
+        LayerMode.BACKFILL).replace("}", ",\"position\":\"tok\",\"runId\":1}"), TaskPriority.BACKFILL,
+        "live-continuation");
+    jdbc.update("UPDATE source SET crossref_history_at = now() WHERE id = ?", longTail);
+
+    backfill.enqueue(longTail);
+    backfill.handle(routeBackfill(longTail, false));
+    assertThat(count("SELECT count(*) FROM task WHERE dedup_key LIKE 'route-backfill:%'")).isZero();
+
+    // the admin may force the history again; the route's running backfill is still not doubled
+    backfill.handle(routeBackfill(longTail, true));
+    assertThat(task("route-backfill:crossref:" + longTail).get("type")).isEqualTo("HARVEST_CROSSREF_HISTORY");
+    assertThat(count("SELECT count(*) FROM task WHERE dedup_key = ?", "route-backfill:" + route)).isZero();
+
+    // a history whose continuation is live is not started a second time, forced or not
+    jdbc.update("DELETE FROM task WHERE dedup_key = ?", "route-backfill:crossref:" + longTail);
+    queue.enqueue(HarvestCrossrefHistoryHandler.TYPE, LayerHarvestHandler.firstPayload("s" + longTail, null,
+        List.of(longTail), from, null, LayerMode.BACKFILL).replace("}", ",\"position\":\"2003:0\",\"runId\":1}"),
+        TaskPriority.BACKFILL, "live-history");
+    backfill.handle(routeBackfill(longTail, true));
+    assertThat(count("SELECT count(*) FROM task WHERE dedup_key = ?", "route-backfill:crossref:" + longTail)).isZero();
+  }
+
+  private static Task routeBackfill(long sourceId, boolean force) {
+    return new Task(0, RouteBackfill.TYPE, "{\"sourceId\":" + sourceId + ",\"force\":" + force + "}",
+        TaskPriority.LIVE, TaskState.RUNNING, 1, null, null, null, null, null, null);
+  }
+
+  @Test
   void backfillWorksGetBackfillOriginAndNoHits(WireMockRuntimeInfo w) throws Exception {
     stubOai();
     stubFor(get(urlPathEqualTo("/works")).willReturn(aResponse().withBody(crossrefPage(List.of()))));
@@ -233,6 +268,8 @@ class RouteLifecycleIT extends AbstractPostgresIT {
     verify(getRequestedFor(urlPathEqualTo("/works"))
         .withQueryParam("filter", containing("from-pub-date:2000-01-01,until-pub-date:2000-12-31")));
     assertThat(routes.get(route).backfilledAt()).isNotNull();
+    assertThat(jdbc.queryForObject("SELECT crossref_history_at FROM source WHERE id = ?", java.sql.Timestamp.class,
+        longTail)).isNotNull();
     assertThat(count("SELECT count(*) FROM work")).isEqualTo(4);
     assertThat(count("SELECT count(*) FROM work WHERE origin <> 'BACKFILL'")).isZero();
     assertThat(count("SELECT count(*) FROM work WHERE source_id = ?", longTail)).isEqualTo(4);
