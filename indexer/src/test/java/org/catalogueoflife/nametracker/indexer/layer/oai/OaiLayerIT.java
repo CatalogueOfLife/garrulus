@@ -162,7 +162,32 @@ class OaiLayerIT extends AbstractPostgresIT {
     String payload = jdbc.queryForObject("SELECT payload::text FROM task WHERE state = 'QUEUED' AND type = 'HARVEST_OAI'",
         String.class).replace(" ", "");
     assertThat(payload).contains("\"from\":\"2026-11-01\"", "\"mode\":\"LIVE\"")
-        .doesNotContain("runId", "position");
+        .contains("\"position\":\"R:\"").doesNotContain("runId");
+  }
+
+  @Test
+  void secondBadResumptionTokenMarksRouteBroken(WireMockRuntimeInfo w) throws Exception {
+    route(w, false);
+    stubFor(get(urlPathEqualTo("/oai")).withQueryParam("metadataPrefix", equalTo("oai_dc"))
+        .willReturn(xml("pensoft-listrecords-oai_dc.xml")));
+    stubFor(get(urlPathEqualTo("/oai")).withQueryParam("resumptionToken", equalTo(TOKEN_2))
+        .willReturn(xml("bad-resumption-token.xml")));
+    HarvestOaiHandler h = handler(WEDNESDAY);
+    enqueueFirst(h);
+    // first page, lost token (restart), restarted first page, lost token again
+    for (int i = 0; i < 4; i++) {
+      Task t = claim(h);
+      assertThat(t).isNotNull();
+      h.handle(t);
+      queue.complete(t.id(), t.attempts());
+    }
+    assertThat(claim(h)).isNull();
+    assertThat(count("SELECT count(*) FROM task WHERE state = 'DEAD'")).isZero();
+    assertThat(count("SELECT count(*) FROM task WHERE state = 'QUEUED' AND type = 'HARVEST_OAI'")).isZero();
+    assertThat(count("SELECT count(*) FROM harvest_run WHERE state = 'RUNNING'")).isZero();
+    var route = routes.get(routeId);
+    assertThat(route.status()).isEqualTo("BROKEN");
+    assertThat(route.lastError()).isEqualTo("resumption tokens rejected twice");
   }
 
   @Test
@@ -177,7 +202,9 @@ class OaiLayerIT extends AbstractPostgresIT {
     drain(weekday);
     verify(0, getRequestedFor(urlPathEqualTo("/oai")));
     assertThat(count("SELECT count(*) FROM work")).isZero();
-    assertThat(runs.recent(1).getFirst().state()).isEqualTo("DONE");
+    // nothing happened: no run, and the route is not marked as working
+    assertThat(count("SELECT count(*) FROM harvest_run")).isZero();
+    assertThat(routes.get(routeId).lastOk()).isNull();
 
     jdbc.update("DELETE FROM harvest_run");
     jdbc.update("DELETE FROM task");

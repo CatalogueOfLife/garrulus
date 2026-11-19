@@ -34,11 +34,14 @@ import tools.jackson.databind.JsonNode;
  * {@code {"base":"…","set":"…"|null,"prefix":"oai_dc"|"jats","fullReadWeekly":false,"issns":[…]}}.
  *
  * <p>A {@code fullReadWeekly} route (datestamps that cannot be trusted) is read in full, ignoring {@code from} and
- * {@code until}, and only on Sundays (UTC) in live mode; on other days its page is empty. The host is spaced 2 seconds
+ * {@code until}, and only on Sundays (UTC) in live mode; on other days {@link HarvestOaiHandler} skips the job without a run. The host is spaced 2 seconds
  * apart unless {@code nametracker.http.min-interval.<host>} says otherwise.
  */
 @Component
 public class OaiLayer implements HarvestLayer {
+
+  /** Marks the positions of a job that was restarted after a lost resumption token; the rest is the token. */
+  static final String RESTARTED = "R:";
 
   static final Duration ROUTE_INTERVAL = Duration.ofSeconds(2);
 
@@ -74,14 +77,13 @@ public class OaiLayer implements HarvestLayer {
     String prefix = text(cfg, "prefix");
     if (prefix == null) prefix = "oai_dc";
     boolean fullRead = cfg.path("fullReadWeekly").asBoolean(false);
-    if (fullRead && job.mode() == LayerMode.LIVE
-        && clock.instant().atOffset(ZoneOffset.UTC).getDayOfWeek() != DayOfWeek.SUNDAY) {
-      return new LayerPage(List.of(), null, 0, 0);
-    }
+    boolean restarted = position != null && position.startsWith(RESTARTED);
+    String token = position == null ? null : restarted ? position.substring(RESTARTED.length()) : position;
+    if (token != null && token.isEmpty()) token = null;
     URI uri = URI.create(base);
     space(uri.getHost());
     OaiPmhClient.OaiPage page = client.listRecords(uri, prefix, set, fullRead ? null : job.from(),
-        fullRead ? null : job.until(), position);
+        fullRead ? null : job.until(), token);
     List<HarvestedWork> works = new ArrayList<>();
     int skipped = 0;
     for (OaiRecord r : page.records()) {
@@ -89,7 +91,18 @@ public class OaiLayer implements HarvestLayer {
       if (hw.isPresent()) works.add(hw.get());
       else skipped++;
     }
-    return new LayerPage(works, page.token(), 1, skipped);
+    String next = page.token() == null ? null : restarted ? RESTARTED + page.token() : page.token();
+    return new LayerPage(works, next, 1, skipped);
+  }
+
+  /** True for a live first page of a fullReadWeekly route on a day other than Sunday (UTC): nothing to do. */
+  boolean skipsToday(long routeId, LayerMode mode) {
+    if (mode != LayerMode.LIVE) return false;
+    SourceRoute route = routes.get(routeId);
+    if (route == null || !FinderJson.mapper().readTree(route.config()).path("fullReadWeekly").asBoolean(false)) {
+      return false;
+    }
+    return clock.instant().atOffset(ZoneOffset.UTC).getDayOfWeek() != DayOfWeek.SUNDAY;
   }
 
   /** Registers the route's politeness once per host, unless the host has its own configured interval. */

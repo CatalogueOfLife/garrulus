@@ -23,8 +23,8 @@ import tools.jackson.databind.node.ObjectNode;
 
 /**
  * {@code HARVEST_OAI}. An expired resumption token does not fail the task: the failed run is left as FAILED and the
- * same job starts again from its first page (position {@code null}, same {@code from}, a new run), so the task ends
- * DONE.
+ * same job starts again from its first page (position {@code R:}, the restart marker kept in all its positions, same
+ * {@code from}, a new run), so the task ends DONE. A second lost token of the restarted job marks the route BROKEN.
  */
 @Component
 public class HarvestOaiHandler extends LayerHarvestHandler {
@@ -33,12 +33,14 @@ public class HarvestOaiHandler extends LayerHarvestHandler {
 
   private final OaiLayer layer;
   private final TaskQueue queue;
+  private final SourceRouteMapper routes;
 
   public HarvestOaiHandler(LayerWriter writer, TaskQueue queue, HarvestRunMapper runs, SourceRouteMapper routes,
       HarvestOutage outage, Clock clock, Environment env, OaiLayer layer) {
     super(writer, queue, runs, routes, outage, clock, env);
     this.layer = layer;
     this.queue = queue;
+    this.routes = routes;
   }
 
   @Override
@@ -48,18 +50,29 @@ public class HarvestOaiHandler extends LayerHarvestHandler {
 
   @Override
   public void handle(Task task) throws Exception {
+    JsonNode first = FinderJson.mapper().readTree(task.payload());
+    if (WorksPager.text(first, "position") == null && first.hasNonNull("routeId")
+        && layer.skipsToday(first.path("routeId").asLong(),
+            LayerMode.valueOf(first.path("mode").asString(LayerMode.LIVE.name())))) {
+      return; // a fullReadWeekly route is read on Sundays only: no run, the route stays as it is
+    }
     try {
       super.handle(task);
     } catch (OaiPmhClient.BadResumptionTokenException e) {
       JsonNode p = FinderJson.mapper().readTree(task.payload());
       String position = WorksPager.text(p, "position");
       if (position == null) throw e; // the first page has no token to lose
+      if (position.startsWith(OaiLayer.RESTARTED)) { // lost again after a restart: give the route up
+        routes.setStatus(p.path("routeId").asLong(), "BROKEN", "resumption tokens rejected twice");
+        LOG.warn("OAI route {}: resumption tokens rejected twice; the route is BROKEN", p.path("routeId").asLong());
+        return;
+      }
       String scope = WorksPager.text(p, "scope");
       LocalDate from = LocalDate.parse(WorksPager.text(p, "from"));
       LayerMode mode = LayerMode.valueOf(p.path("mode").asString(LayerMode.LIVE.name()));
       LOG.warn("OAI harvest of {} from {}: {}; starting again from the first page", scope, from, e.getMessage());
       ObjectNode restart = ((ObjectNode) p).deepCopy();
-      restart.remove("position");
+      restart.put("position", OaiLayer.RESTARTED); // the restarted job and its continuations carry the R: marker
       restart.remove("runId");
       // the key of the lost page plus a suffix: the running task may still hold the plain keys
       queue.enqueue(type(), FinderJson.mapper().writeValueAsString(restart), task.priority(),
