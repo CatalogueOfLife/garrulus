@@ -34,6 +34,9 @@ public interface SourceRouteMapper {
   /** Sets the status and replaces the stored error (null clears it). */
   int setStatus(@Param("id") long id, @Param("status") String status, @Param("error") @Nullable String error);
 
+  /** Records why the route's last job failed, keeping its status. */
+  int setError(@Param("id") long id, @Param("error") String error);
+
   int setVerified(@Param("id") long id, @Param("at") Instant at);
 
   int markOk(@Param("id") long id, @Param("at") Instant at);

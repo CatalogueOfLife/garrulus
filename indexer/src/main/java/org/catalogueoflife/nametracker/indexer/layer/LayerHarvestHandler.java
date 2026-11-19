@@ -31,8 +31,8 @@ import tools.jackson.databind.JsonNode;
 /**
  * {@code HARVEST_<layer>}: one page of a {@link HarvestLayer} per task. Payload
  * {@code {"scope","routeId","sourceIds":[…],"from","until","mode","position","runId"}}; the first task has no
- * position and no run. Each task stores its page through {@link LayerWriter}, enqueues its continuation and completes,
- * so a crash re-runs at most one page. The task's priority is the content priority of its new works.
+ * position and no run. Each task stores its page through {@link LayerWriter}, enqueues its continuation (with the
+ * task's own run_after, so the job keeps its place in the queue) and completes, so a crash re-runs at most one page. The task's priority is the content priority of its new works.
  *
  * <p>The run is a {@code harvest_run} with the layer's adapter ({@code _ONBOARDING} or {@code _BACKFILL} appended in
  * those modes). An outage ({@link HarvestOutage}) leaves the run DEFERRED and enqueues the same page again after the
@@ -135,8 +135,10 @@ public abstract class LayerHarvestHandler implements TaskHandler {
     LOG.info("{} harvest of {} from {}: {} works seen, {} created, {} skipped", job.layer(), job.scope(), job.from(),
         seen, created, skipped);
     if (page.nextPosition() != null) {
+      // the continuation takes this task's place in the queue (its run_after): a job runs depth first and is not
+      // queued behind everything enqueued since it started (OAI resumption tokens expire)
       queue.enqueue(type(), payload(job, page.nextPosition()), task.priority(),
-          key(job.layer(), job.scope(), job.mode(), job.from(), page.nextPosition()));
+          key(job.layer(), job.scope(), job.mode(), job.from(), page.nextPosition()), task.runAfter());
     } else {
       lastPage(job);
       runs.setState(job.runId(), "DONE", null);

@@ -58,6 +58,10 @@
     UPDATE source_route SET status = #{status}, last_error = #{error} WHERE id = #{id}
   </update>
 
+  <update id="setError">
+    UPDATE source_route SET last_error = #{error} WHERE id = #{id}
+  </update>
+
   <update id="setVerified">
     UPDATE source_route SET verified_at = #{at} WHERE id = #{id}
   </update>

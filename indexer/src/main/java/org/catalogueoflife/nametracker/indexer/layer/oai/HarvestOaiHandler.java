@@ -1,6 +1,8 @@
 package org.catalogueoflife.nametracker.indexer.layer.oai;
 
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
@@ -26,17 +28,22 @@ import tools.jackson.databind.node.ObjectNode;
 /**
  * {@code HARVEST_OAI}. An expired resumption token does not fail the task: the failed run is left as FAILED and the
  * same job starts again from its first page (position {@code R:}, the restart marker kept in all its positions, same
- * {@code from}, a new run), so the task ends DONE. A second lost token of the restarted job marks the route BROKEN.
+ * {@code from}, a new run, the task's own run_after), so the task ends DONE. A second lost token of the restarted job
+ * marks the route BROKEN in {@code LIVE} mode. An {@code ONBOARDING} or {@code BACKFILL} pass may have outlived its
+ * tokens in a busy queue: it starts again a day later and records the reason in the route's
+ * {@code last_error}, keeping its status (at most one restart a day).
  */
 @Component
 public class HarvestOaiHandler extends LayerHarvestHandler {
 
   private static final Logger LOG = LoggerFactory.getLogger(HarvestOaiHandler.class);
+  static final Duration RETRY_LONG_PASS = Duration.ofDays(1);
 
   private final OaiLayer layer;
   private final RouteLifecycle lifecycle;
   private final TaskQueue queue;
   private final SourceRouteMapper routes;
+  private final Clock clock;
 
   public HarvestOaiHandler(LayerWriter writer, TaskQueue queue, HarvestRunMapper runs, SourceRouteMapper routes,
       HarvestOutage outage, Clock clock, Environment env, OaiLayer layer,
@@ -46,6 +53,7 @@ public class HarvestOaiHandler extends LayerHarvestHandler {
     this.lifecycle = lifecycle;
     this.queue = queue;
     this.routes = routes;
+    this.clock = clock;
   }
 
   @Override
@@ -73,21 +81,31 @@ public class HarvestOaiHandler extends LayerHarvestHandler {
       JsonNode p = FinderJson.mapper().readTree(task.payload());
       String position = WorksPager.text(p, "position");
       if (position == null) throw e; // the first page has no token to lose
-      if (position.startsWith(OaiLayer.RESTARTED)) { // lost again after a restart: give the route up
-        routes.setStatus(p.path("routeId").asLong(), "BROKEN", "resumption tokens rejected twice");
-        LOG.warn("OAI route {}: resumption tokens rejected twice; the route is BROKEN", p.path("routeId").asLong());
-        return;
-      }
       String scope = WorksPager.text(p, "scope");
       LocalDate from = LocalDate.parse(WorksPager.text(p, "from"));
       LayerMode mode = LayerMode.valueOf(p.path("mode").asString(LayerMode.LIVE.name()));
+      long routeId = p.path("routeId").asLong();
+      Instant runAfter = task.runAfter(); // the restart keeps the job's place in the queue
+      if (position.startsWith(OaiLayer.RESTARTED)) { // lost again after a restart
+        if (mode == LayerMode.LIVE) { // a daily read of a few pages: the repository is at fault, give the route up
+          routes.setStatus(routeId, "BROKEN", "resumption tokens rejected twice");
+          LOG.warn("OAI route {}: resumption tokens rejected twice; the route is BROKEN", routeId);
+          return;
+        }
+        // a long onboarding or backfill pass may simply have outlived the tokens: start it again tomorrow
+        runAfter = clock.instant().plus(RETRY_LONG_PASS);
+        routes.setError(routeId, "resumption tokens rejected twice in the " + mode + " pass; it starts again at "
+            + runAfter);
+        LOG.warn("OAI route {}: resumption tokens rejected twice in the {} pass; it starts again at {}", routeId,
+            mode, runAfter);
+      }
       LOG.warn("OAI harvest of {} from {}: {}; starting again from the first page", scope, from, e.getMessage());
       ObjectNode restart = ((ObjectNode) p).deepCopy();
       restart.put("position", OaiLayer.RESTARTED); // the restarted job and its continuations carry the R: marker
       restart.remove("runId");
       // the key of the lost page plus a suffix: the running task may still hold the plain keys
       queue.enqueue(type(), FinderJson.mapper().writeValueAsString(restart), task.priority(),
-          key(Layer.OAI, scope, mode, from, position) + ":restart");
+          key(Layer.OAI, scope, mode, from, position) + ":restart", runAfter);
     }
   }
 }

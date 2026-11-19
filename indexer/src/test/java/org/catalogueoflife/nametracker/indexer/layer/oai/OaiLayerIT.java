@@ -81,10 +81,14 @@ class OaiLayerIT extends AbstractPostgresIT {
   }
 
   private void enqueueFirst(HarvestOaiHandler h) {
+    enqueueFirst(h, LayerMode.LIVE);
+  }
+
+  private void enqueueFirst(HarvestOaiHandler h, LayerMode mode) {
     LocalDate from = LocalDate.of(2026, 11, 1);
     queue.enqueue(h.type(), LayerHarvestHandler.firstPayload("r" + routeId, routeId, List.of(sourceId), from, null,
-        LayerMode.LIVE), TaskPriority.LIVE, LayerHarvestHandler.key(Layer.OAI, "r" + routeId, LayerMode.LIVE, from,
-            null));
+        mode), TaskPriority.LIVE, LayerHarvestHandler.key(Layer.OAI, "r" + routeId, mode, from, null),
+        Instant.now().minus(Duration.ofHours(6)).truncatedTo(java.time.temporal.ChronoUnit.MICROS));
   }
 
   private @Nullable Task claim(HarvestOaiHandler h) {
@@ -165,6 +169,48 @@ class OaiLayerIT extends AbstractPostgresIT {
         String.class).replace(" ", "");
     assertThat(payload).contains("\"from\":\"2026-11-01\"", "\"mode\":\"LIVE\"")
         .contains("\"position\":\"R:\"").doesNotContain("runId");
+    // the restart keeps its place in the queue (depth first), it does not go to the back
+    assertThat(jdbc.queryForObject("SELECT run_after FROM task WHERE state = 'QUEUED' AND type = 'HARVEST_OAI'",
+        java.sql.Timestamp.class).toInstant()).isEqualTo(lost.runAfter());
+  }
+
+  @Test
+  void continuationKeepsItsPlaceInTheQueue(WireMockRuntimeInfo w) throws Exception {
+    route(w, false);
+    stubFor(get(urlPathEqualTo("/oai")).withQueryParam("metadataPrefix", equalTo("oai_dc"))
+        .willReturn(xml("pensoft-listrecords-oai_dc.xml")));
+    HarvestOaiHandler h = handler(WEDNESDAY);
+    enqueueFirst(h);
+    Task first = claim(h);
+    h.handle(first);
+    assertThat(jdbc.queryForObject("SELECT run_after FROM task WHERE state = 'QUEUED' AND type = 'HARVEST_OAI'",
+        java.sql.Timestamp.class).toInstant()).isEqualTo(first.runAfter());
+  }
+
+  @Test
+  void secondBadTokenOfAnOnboardingPassRetriesTomorrow(WireMockRuntimeInfo w) throws Exception {
+    route(w, false);
+    jdbc.update("UPDATE source_route SET status = 'VERIFIED' WHERE id = ?", routeId);
+    stubFor(get(urlPathEqualTo("/oai")).withQueryParam("metadataPrefix", equalTo("oai_dc"))
+        .willReturn(xml("pensoft-listrecords-oai_dc.xml")));
+    stubFor(get(urlPathEqualTo("/oai")).withQueryParam("resumptionToken", equalTo(TOKEN_2))
+        .willReturn(xml("bad-resumption-token.xml")));
+    HarvestOaiHandler h = handler(WEDNESDAY);
+    enqueueFirst(h, LayerMode.ONBOARDING);
+    for (int i = 0; i < 4; i++) {
+      Task t = claim(h);
+      assertThat(t).isNotNull();
+      h.handle(t);
+      queue.complete(t.id(), t.attempts());
+    }
+    // a queue that held the pass too long is no fault of the repository: the route stays, the pass waits a day
+    var route = routes.get(routeId);
+    assertThat(route.status()).isEqualTo("VERIFIED");
+    assertThat(route.lastError()).contains("resumption tokens rejected twice");
+    Instant runAfter = jdbc.queryForObject("SELECT run_after FROM task WHERE state = 'QUEUED' AND type = 'HARVEST_OAI'",
+        java.sql.Timestamp.class).toInstant();
+    assertThat(runAfter).isAfter(Instant.now().plus(Duration.ofHours(23)));
+    assertThat(count("SELECT count(*) FROM task WHERE state = 'DEAD'")).isZero();
   }
 
   @Test
