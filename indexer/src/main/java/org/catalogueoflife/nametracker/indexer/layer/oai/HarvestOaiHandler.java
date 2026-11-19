@@ -7,8 +7,10 @@ import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.harvest.WorksPager;
 import org.catalogueoflife.nametracker.indexer.layer.HarvestLayer;
 import org.catalogueoflife.nametracker.indexer.layer.LayerHarvestHandler;
+import org.catalogueoflife.nametracker.indexer.layer.LayerJob;
 import org.catalogueoflife.nametracker.indexer.layer.LayerMode;
 import org.catalogueoflife.nametracker.indexer.layer.LayerWriter;
+import org.catalogueoflife.nametracker.indexer.route.RouteLifecycle;
 import org.catalogueoflife.nametracker.store.harvest.HarvestRunMapper;
 import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
 import org.catalogueoflife.nametracker.store.task.Task;
@@ -32,13 +34,16 @@ public class HarvestOaiHandler extends LayerHarvestHandler {
   private static final Logger LOG = LoggerFactory.getLogger(HarvestOaiHandler.class);
 
   private final OaiLayer layer;
+  private final RouteLifecycle lifecycle;
   private final TaskQueue queue;
   private final SourceRouteMapper routes;
 
   public HarvestOaiHandler(LayerWriter writer, TaskQueue queue, HarvestRunMapper runs, SourceRouteMapper routes,
-      HarvestOutage outage, Clock clock, Environment env, OaiLayer layer) {
+      HarvestOutage outage, Clock clock, Environment env, OaiLayer layer,
+      RouteLifecycle lifecycle) {
     super(writer, queue, runs, routes, outage, clock, env);
     this.layer = layer;
+    this.lifecycle = lifecycle;
     this.queue = queue;
     this.routes = routes;
   }
@@ -46,6 +51,12 @@ public class HarvestOaiHandler extends LayerHarvestHandler {
   @Override
   protected HarvestLayer layer() {
     return layer;
+  }
+
+  /** The route's lifecycle: ACTIVE after its onboarding pass, backfilled after its backfill ({@link RouteLifecycle}). */
+  @Override
+  protected void lastPage(LayerJob job) {
+    lifecycle.lastPage(job);
   }
 
   @Override

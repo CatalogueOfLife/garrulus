@@ -19,9 +19,9 @@ import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
 import org.junit.jupiter.api.Test;
 
 @WireMockTest
-class MagtechClientTest {
+public class MagtechClientTest {
 
-  static String fixture(String name) throws IOException {
+  public static String fixture(String name) throws IOException {
     try (var in = MagtechClientTest.class.getResourceAsStream("/magtech/" + name)) {
       return new String(in.readAllBytes(), StandardCharsets.UTF_8);
     }

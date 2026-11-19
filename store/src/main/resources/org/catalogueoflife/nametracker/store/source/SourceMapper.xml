@@ -95,6 +95,12 @@
     SELECT * FROM source WHERE openalex_id = #{id}
   </select>
 
+  <select id="findByIssn" resultMap="result">
+    SELECT * FROM source
+    WHERE upper(issn_l) = upper(#{issn}) OR EXISTS (SELECT 1 FROM unnest(issns) i WHERE upper(i) = upper(#{issn}))
+    ORDER BY id
+  </select>
+
   <select id="listHarvestable" resultMap="result">
     SELECT * FROM source WHERE active AND tier IN ('CORE','BROAD') AND onboarded_at IS NOT NULL ORDER BY id
   </select>

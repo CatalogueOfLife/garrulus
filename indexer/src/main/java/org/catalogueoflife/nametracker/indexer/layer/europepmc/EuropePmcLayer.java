@@ -12,6 +12,7 @@ import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.layer.HarvestLayer;
 import org.catalogueoflife.nametracker.indexer.layer.HarvestedWork;
 import org.catalogueoflife.nametracker.indexer.layer.LayerJob;
+import org.catalogueoflife.nametracker.indexer.layer.LayerMode;
 import org.catalogueoflife.nametracker.indexer.layer.LayerPage;
 import org.catalogueoflife.nametracker.indexer.layer.magtech.MagtechAbstracts;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
@@ -29,7 +30,8 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * The Europe PMC layer: one route per job, cursor pages of the search
- * {@code (ISSN:"a" OR ISSN:"b") AND FIRST_IDATE:[from TO until]}. The route config is {@code {"issns":["…"]}}. The
+ * {@code (ISSN:"a" OR ISSN:"b") AND FIRST_IDATE:[from TO until]} ({@code FIRST_PDATE}, the publication date, for a
+ * {@code BACKFILL} job). The route config is {@code {"issns":["…"]}}. The
  * abstract (inline HTML) is stored as JATS of kind {@code EUROPEPMC}; DOI, PMID and PMCID are the work's identifiers.
  */
 @Component
@@ -57,7 +59,9 @@ public class EuropePmcLayer implements HarvestLayer {
     List<String> issns = issns(route);
     if (issns.isEmpty()) throw new IllegalArgumentException("Europe PMC route " + route.id() + " needs issns");
     LocalDate until = job.until() != null ? job.until() : LocalDate.now(ZoneOffset.UTC);
-    String query = EuropePmcSearchClient.issnQuery(issns) + " AND FIRST_IDATE:[" + job.from() + " TO " + until + "]";
+    // a backfill asks for the papers published in the span, the daily harvest for those Europe PMC indexed in it
+    String field = job.mode() == LayerMode.BACKFILL ? "FIRST_PDATE" : "FIRST_IDATE";
+    String query = EuropePmcSearchClient.issnQuery(issns) + " AND " + field + ":[" + job.from() + " TO " + until + "]";
     EuropePmcSearchClient.EpmcPage page = client.search(query, position);
     List<HarvestedWork> works = new ArrayList<>();
     int skipped = 0;
@@ -69,7 +73,8 @@ public class EuropePmcLayer implements HarvestLayer {
     return new LayerPage(works, page.nextCursor(), 1, skipped);
   }
 
-  static List<String> issns(SourceRoute route) {
+  /** The ISSNs of a route's config. */
+  public static List<String> issns(SourceRoute route) {
     List<String> out = new ArrayList<>();
     for (JsonNode i : FinderJson.mapper().readTree(route.config()).path("issns")) {
       String s = i.asString("").strip();

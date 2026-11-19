@@ -34,7 +34,9 @@ import tools.jackson.databind.JsonNode;
  * {@code {"base":"…","set":"…"|null,"prefix":"oai_dc"|"jats","fullReadWeekly":false,"issns":[…]}}.
  *
  * <p>A {@code fullReadWeekly} route (datestamps that cannot be trusted) is read in full, ignoring {@code from} and
- * {@code until}, and only on Sundays (UTC) in live mode; on other days {@link HarvestOaiHandler} skips the job without a run. The host is spaced 2 seconds
+ * {@code until}, and only on Sundays (UTC) in live mode; on other days {@link HarvestOaiHandler} skips the job without
+ * a run. A {@code BACKFILL} job reads the whole repository too (datestamps are not publication dates; the age rule of
+ * {@link org.catalogueoflife.nametracker.indexer.layer.LayerWriter} sorts the records). The host is spaced 2 seconds
  * apart unless {@code nametracker.http.min-interval.<host>} says otherwise.
  */
 @Component
@@ -82,8 +84,9 @@ public class OaiLayer implements HarvestLayer {
     if (token != null && token.isEmpty()) token = null;
     URI uri = URI.create(base);
     space(uri.getHost());
-    OaiPmhClient.OaiPage page = client.listRecords(uri, prefix, set, fullRead ? null : job.from(),
-        fullRead ? null : job.until(), token);
+    boolean whole = fullRead || job.mode() == LayerMode.BACKFILL;
+    OaiPmhClient.OaiPage page = client.listRecords(uri, prefix, set, whole ? null : job.from(),
+        whole ? null : job.until(), token);
     List<HarvestedWork> works = new ArrayList<>();
     int skipped = 0;
     for (OaiRecord r : page.records()) {
@@ -103,6 +106,11 @@ public class OaiLayer implements HarvestLayer {
       return false;
     }
     return clock.instant().atOffset(ZoneOffset.UTC).getDayOfWeek() != DayOfWeek.SUNDAY;
+  }
+
+  /** Spaces the requests to an OAI endpoint like a harvest of it does (also for a route's verification). */
+  public void polite(URI base) {
+    space(base.getHost());
   }
 
   /** Registers the route's politeness once per host, unless the host has its own configured interval. */

@@ -14,6 +14,8 @@ import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.Task;
+import org.catalogueoflife.nametracker.store.task.TaskPriority;
+import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -49,6 +51,11 @@ public class ProbeEuropePmcHandler implements TaskHandler {
   @Override
   public String type() {
     return TYPE;
+  }
+
+  /** Asks Europe PMC about one source once it is onboarded (key {@code probe-europepmc:<sourceId>}). */
+  public static void enqueue(TaskQueue queue, long sourceId) {
+    queue.enqueue(TYPE, "{\"sourceId\":" + sourceId + "}", TaskPriority.REPROCESS, "probe-europepmc:" + sourceId);
   }
 
   @Override

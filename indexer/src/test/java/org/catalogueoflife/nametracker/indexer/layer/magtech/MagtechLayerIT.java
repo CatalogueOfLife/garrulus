@@ -18,6 +18,7 @@ import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
 import org.catalogueoflife.nametracker.indexer.layer.LayerHarvestHandler;
 import org.catalogueoflife.nametracker.indexer.layer.LayerMode;
 import org.catalogueoflife.nametracker.indexer.layer.LayerWriter;
+import org.catalogueoflife.nametracker.indexer.route.RouteLifecycle;
 import org.catalogueoflife.nametracker.store.harvest.HarvestRunMapper;
 import org.catalogueoflife.nametracker.store.ident.WorkIdentifierMapper;
 import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
@@ -45,6 +46,7 @@ class MagtechLayerIT extends AbstractPostgresIT {
   @Autowired HarvestOutage outage;
   @Autowired Clock clock;
   @Autowired JdbcTemplate jdbc;
+  @Autowired RouteLifecycle lifecycle;
 
   long sourceId;
   long routeId;
@@ -70,7 +72,8 @@ class MagtechLayerIT extends AbstractPostgresIT {
     PoliteHttp http = new PoliteHttp(HttpClient.newHttpClient(), Map.of("localhost", Duration.ZERO),
         PoliteHttp.userAgent(), Clock.systemUTC(), d -> { });
     MagtechLayer layer = new MagtechLayer(http, routes, identifiers);
-    return new HarvestMagtechHandler(writer, queue, runs, routes, outage, clock, new MockEnvironment(), layer);
+    return new HarvestMagtechHandler(writer, queue, runs, routes, outage, clock, new MockEnvironment(), layer,
+        lifecycle);
   }
 
   private void run(HarvestMagtechHandler h) throws Exception {

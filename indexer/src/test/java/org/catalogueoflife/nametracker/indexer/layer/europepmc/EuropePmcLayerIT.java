@@ -12,8 +12,10 @@ import java.util.Set;
 import org.catalogueoflife.nametracker.indexer.AbstractPostgresIT;
 import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.layer.LayerHarvestHandler;
+import org.catalogueoflife.nametracker.indexer.layer.LayerJob;
 import org.catalogueoflife.nametracker.indexer.layer.LayerMode;
 import org.catalogueoflife.nametracker.indexer.layer.LayerWriter;
+import org.catalogueoflife.nametracker.indexer.route.RouteLifecycle;
 import org.catalogueoflife.nametracker.store.harvest.HarvestRunMapper;
 import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
@@ -21,6 +23,7 @@ import org.catalogueoflife.nametracker.store.task.Task;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskState;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
+import org.catalogueoflife.nametracker.store.work.Layer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +43,7 @@ class EuropePmcLayerIT extends AbstractPostgresIT {
   @Autowired HarvestOutage outage;
   @Autowired Clock clock;
   @Autowired JdbcTemplate jdbc;
+  @Autowired RouteLifecycle lifecycle;
 
   long sourceId;
 
@@ -69,7 +73,7 @@ class EuropePmcLayerIT extends AbstractPostgresIT {
     long routeId = jdbc.queryForObject("INSERT INTO source_route (source_id, layer, config, status, origin) VALUES "
         + "(?, 'EUROPEPMC', '{\"issns\":[\"1313-2989\"]}'::jsonb, 'ACTIVE', 'SEED') RETURNING id", Long.class, sourceId);
     var h = new HarvestEuropePmcHandler(writer, queue, runs, routes, outage, clock, new MockEnvironment(),
-        new EuropePmcLayer(EuropePmcSearchClientTest.http(), routes, w.getHttpBaseUrl()));
+        new EuropePmcLayer(EuropePmcSearchClientTest.http(), routes, w.getHttpBaseUrl()), lifecycle);
     queue.enqueue(h.type(), LayerHarvestHandler.firstPayload("r" + routeId, routeId, List.of(sourceId),
         LocalDate.of(2023, 1, 1), LocalDate.of(2023, 12, 31), LayerMode.LIVE), TaskPriority.LIVE, "epmc-test");
     for (List<Task> t = queue.claim(Set.of(h.type()), "test", 1); !t.isEmpty();
@@ -91,6 +95,18 @@ class EuropePmcLayerIT extends AbstractPostgresIT {
     assertThat(runs.recent(1).getFirst().state()).isEqualTo("DONE");
     verify(1, getRequestedFor(urlPathEqualTo("/rest/search")).withQueryParam("cursorMark", equalTo("*"))
         .withQueryParam("query", containing("FIRST_IDATE:[2023-01-01 TO 2023-12-31]")));
+  }
+
+  @Test
+  void backfillAsksForPublicationDates(WireMockRuntimeInfo w) throws Exception {
+    stubSearch();
+    long routeId = jdbc.queryForObject("INSERT INTO source_route (source_id, layer, config, status, origin) VALUES "
+        + "(?, 'EUROPEPMC', '{\"issns\":[\"1313-2989\"]}'::jsonb, 'ACTIVE', 'SEED') RETURNING id", Long.class, sourceId);
+    var layer = new EuropePmcLayer(EuropePmcSearchClientTest.http(), routes, w.getHttpBaseUrl());
+    layer.page(new LayerJob(Layer.EUROPEPMC, "r" + routeId, routeId, List.of(sourceId), LocalDate.of(2000, 1, 1),
+        LocalDate.of(2026, 7, 22), LayerMode.BACKFILL, 0), null);
+    verify(1, getRequestedFor(urlPathEqualTo("/rest/search"))
+        .withQueryParam("query", containing("FIRST_PDATE:[2000-01-01 TO 2026-07-22]")));
   }
 
   @Test

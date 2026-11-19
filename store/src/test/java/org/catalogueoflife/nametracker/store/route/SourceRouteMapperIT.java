@@ -8,6 +8,8 @@ import java.util.List;
 import org.catalogueoflife.nametracker.store.AbstractPostgresIT;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
+import org.catalogueoflife.nametracker.store.task.TaskMapper;
+import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
@@ -16,6 +18,7 @@ class SourceRouteMapperIT extends AbstractPostgresIT {
 
   @Autowired SourceMapper sources;
   @Autowired SourceRouteMapper routes;
+  @Autowired TaskMapper tasks;
 
   private long source(String oa) {
     return sources.upsertSeed(new Source(null, oa, "1111-2222", List.of("1111-2222"), "T", "Pub", "host", true, true,
@@ -71,5 +74,32 @@ class SourceRouteMapperIT extends AbstractPostgresIT {
     assertThatThrownBy(() -> routes.insert(route(s, "OAI", "{\"a\":1}"))).isInstanceOf(DuplicateKeyException.class);
     routes.insert(route(s, "OAI", "{\"a\":2}"));
     routes.insert(route(s, "EUROPEPMC", "{\"a\":1}"));
+  }
+
+  @Test
+  void insertIfAbsentReturnsNullOnConflict() {
+    long s = source("S-route-4");
+    Long a = routes.insertIfAbsent(route(s, "OAI", "{\"a\": 1}"));
+    assertThat(a).isNotNull();
+    assertThat(routes.insertIfAbsent(route(s, "OAI", "{\"a\":1}"))).isNull();
+    assertThat(routes.forSource(s)).extracting(SourceRoute::id).containsExactly(a);
+  }
+
+  @Test
+  void rolloutListsVerifiedRoutesOfWantedSourcesWithoutLiveHarvest() {
+    long wanted = source("S-route-5");
+    long candidate = sources.upsertSeed(new Source(null, "S-route-6", "3333-4444", List.of("3333-4444"), "T", "Pub",
+        "host", true, true, "CANDIDATE", "SEED_TOPIC", "{}", true, List.of("sf"), "sf", null, List.of(), "{}",
+        List.of(), "GOLD", "DE", null, null, 50, null, null, null, null, "SEED"));
+    long ready = routes.insert(route(wanted, "OAI", "{\"r\":1}"));
+    long running = routes.insert(route(wanted, "OAI", "{\"r\":2}"));
+    long pending = routes.insert(route(wanted, "OAI", "{\"r\":3}"));
+    long unwanted = routes.insert(route(candidate, "OAI", "{\"r\":4}"));
+    for (long id : List.of(ready, running, unwanted)) routes.setStatus(id, "VERIFIED", null);
+    tasks.insert("HARVEST_OAI", "{\"routeId\":" + running + ",\"mode\":\"ONBOARDING\"}", TaskPriority.REPROCESS,
+        "rollout-test:" + running, null);
+    List<Long> got = routes.listRollout(1000).stream().map(SourceRoute::id).toList();
+    assertThat(got).contains(ready).doesNotContain(running, pending, unwanted);
+    assertThat(routes.listRollout(1)).hasSize(1);
   }
 }

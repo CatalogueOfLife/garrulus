@@ -22,7 +22,10 @@ import tools.jackson.databind.JsonNode;
  */
 public class CrossrefClient {
 
-  static final int ROWS = 1000;
+  /** Rows per page. */
+  public static final int ROWS = 1000;
+  /** The highest offset Crossref serves; deeper listings need a cursor. */
+  public static final int MAX_OFFSET = 10_000;
   static final String SELECT = "DOI,ISSN,title,abstract,published,container-title,volume,issue,page,author,license,type";
 
   /** {@code last}: the page has no items, so the cursor listing is complete. */
@@ -52,10 +55,22 @@ public class CrossrefClient {
 
   /** One page of the cursor listing; start with cursor {@code *}. */
   public Page works(String filter, String cursor) {
+    return list(filter, "cursor", cursor);
+  }
+
+  /**
+   * One page of the offset listing, from {@code offset} (at most {@link #MAX_OFFSET}). Unlike a cursor, an offset does
+   * not expire, so a page can wait in the queue for hours.
+   */
+  public Page worksAt(String filter, int offset) {
+    return list(filter, "offset", String.valueOf(offset));
+  }
+
+  private Page list(String filter, String pagingParam, String pagingValue) {
     Map<String, String> q = new LinkedHashMap<>();
     q.put("filter", filter);
     q.put("rows", String.valueOf(ROWS));
-    q.put("cursor", cursor);
+    q.put(pagingParam, pagingValue);
     q.put("select", SELECT);
     if (mailto != null) q.put("mailto", mailto);
     StringBuilder sb = new StringBuilder(base).append("/works");

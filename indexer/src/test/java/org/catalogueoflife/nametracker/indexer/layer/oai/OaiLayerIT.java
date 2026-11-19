@@ -20,6 +20,7 @@ import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
 import org.catalogueoflife.nametracker.indexer.layer.LayerHarvestHandler;
 import org.catalogueoflife.nametracker.indexer.layer.LayerMode;
 import org.catalogueoflife.nametracker.indexer.layer.LayerWriter;
+import org.catalogueoflife.nametracker.indexer.route.RouteLifecycle;
 import org.catalogueoflife.nametracker.store.harvest.HarvestRunMapper;
 import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
 import org.catalogueoflife.nametracker.store.task.Task;
@@ -48,6 +49,7 @@ class OaiLayerIT extends AbstractPostgresIT {
   @Autowired HarvestOutage outage;
   @Autowired Clock clock;
   @Autowired JdbcTemplate jdbc;
+  @Autowired RouteLifecycle lifecycle;
 
   long sourceId;
   long routeId;
@@ -75,7 +77,7 @@ class OaiLayerIT extends AbstractPostgresIT {
         PoliteHttp.userAgent(), Clock.systemUTC(), d -> { });
     MockEnvironment env = new MockEnvironment().withProperty("nametracker.http.min-interval.localhost", "0s");
     OaiLayer layer = new OaiLayer(http, routes, env, Clock.fixed(now, ZoneOffset.UTC));
-    return new HarvestOaiHandler(writer, queue, runs, routes, outage, clock, env, layer);
+    return new HarvestOaiHandler(writer, queue, runs, routes, outage, clock, env, layer, lifecycle);
   }
 
   private void enqueueFirst(HarvestOaiHandler h) {

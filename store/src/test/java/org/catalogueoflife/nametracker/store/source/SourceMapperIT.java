@@ -60,4 +60,15 @@ class SourceMapperIT extends AbstractPostgresIT {
       assertThat(((Number) r.get("n")).longValue()).isGreaterThanOrEqualTo(1);
     });
   }
+
+  @Test
+  void findByIssnMatchesLinkingAndOtherIssns() {
+    long a = sources.upsertSeed(new Source(null, "S-issn-a", "5555-666X", List.of("5555-666X", "7777-8888"), "A",
+        "Pub", "host", true, true, "CORE", "SEED_TOPIC", "{}", true, List.of("sf"), "sf", null, List.of(), "{}",
+        List.of(), "GOLD", "DE", null, null, 50, null, null, null, null, "SEED"));
+    assertThat(sources.findByIssn("5555-666X")).extracting(Source::id).containsExactly(a);
+    assertThat(sources.findByIssn("5555-666x")).extracting(Source::id).containsExactly(a);
+    assertThat(sources.findByIssn("7777-8888")).extracting(Source::id).containsExactly(a);
+    assertThat(sources.findByIssn("0000-0000")).isEmpty();
+  }
 }

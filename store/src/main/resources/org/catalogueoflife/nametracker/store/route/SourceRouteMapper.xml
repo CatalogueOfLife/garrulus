@@ -25,6 +25,13 @@
     RETURNING id
   </select>
 
+  <select id="insertIfAbsent" resultType="java.lang.Long" flushCache="true">
+    INSERT INTO source_route (source_id, layer, config, status, origin, verified_at, last_ok, last_error, onboarded_at, backfilled_at)
+    VALUES (#{o.sourceId}, #{o.layer}, #{o.config, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, #{o.status}, #{o.origin}, #{o.verifiedAt}, #{o.lastOk}, #{o.lastError}, #{o.onboardedAt}, #{o.backfilledAt})
+    ON CONFLICT (source_id, layer, config) DO NOTHING
+    RETURNING id
+  </select>
+
   <select id="get" resultMap="result">
     SELECT * FROM source_route WHERE id = #{id}
   </select>
@@ -37,6 +44,14 @@
     SELECT * FROM source_route WHERE status = #{status}
     <if test="layer != null">AND layer = #{layer}</if>
     ORDER BY id LIMIT #{limit}
+  </select>
+
+  <select id="listRollout" resultMap="result">
+    SELECT r.* FROM source_route r JOIN source s ON s.id = r.source_id
+    WHERE r.status = 'VERIFIED' AND s.active AND s.tier IN ('CORE','BROAD')
+      AND NOT EXISTS (SELECT 1 FROM task t WHERE t.type = 'HARVEST_' || r.layer AND t.state IN ('QUEUED','RUNNING')
+                      AND t.payload->>'routeId' = r.id::text)
+    ORDER BY r.id LIMIT #{limit}
   </select>
 
   <update id="setStatus">

@@ -1,0 +1,90 @@
+# Seed routes for SEED_ROUTES: issns<TAB>layer<TAB>config-json. ISSNs comma separated (print and electronic
+# where known); a journal is matched by any of them, and an ISSN no registered journal has is skipped.
+# Checked 2026-11-19: the Pensoft sets from https://zookeys.pensoft.net/oai.php?verb=ListSets (103 sets, oai_dc
+# and mods only), their ISSNs from OpenAlex; sets without an ISSN (books, preprints) or with an uncertain one are
+# left out. MNHN (sciencepress.mnhn.fr) is left out too: one endpoint for all its journals, without sets or any
+# journal field in the records, so a route per journal cannot tell its records apart.
+
+# Pensoft (ARPHA), one set per journal
+2412-1908	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"abs","prefix":"oai_dc","issns":["2412-1908"]}
+0137-1592,1734-1515	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"aiep","prefix":"oai_dc","issns":["0137-1592","1734-1515"]}
+3033-2117	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"apr","prefix":"oai_dc","issns":["3033-2117"]}
+1681-5556,2305-2562	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"africaninvertebrates","prefix":"oai_dc","issns":["1681-5556","2305-2562"]}
+2535-0889	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"alpineentomology","prefix":"oai_dc","issns":["2535-0889"]}
+1818-5487,1798-6540	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"aquaticinvasions","prefix":"oai_dc","issns":["1818-5487","1798-6540"]}
+2541-8416,2658-7173	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"aer","prefix":"oai_dc","issns":["2541-8416","2658-7173"]}
+2603-3925	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"aca","prefix":"oai_dc","issns":["2603-3925"]}
+2683-0183	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"ap","prefix":"oai_dc","issns":["2683-0183"]}
+1863-7221,1864-8312	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"arthropod-systematics","prefix":"oai_dc","issns":["1863-7221","1864-8312"]}
+2772-2570	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"atomiclayerdeposition","prefix":"oai_dc","issns":["2772-2570"]}
+2050-2966	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"biodiscovery","prefix":"oai_dc","issns":["2050-2966"]}
+1314-2828,1314-2836	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"bdj","prefix":"oai_dc","issns":["1314-2828","1314-2836"]}
+2535-0897	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"biss","prefix":"oai_dc","issns":["2535-0897"]}
+1313-2644,1313-2652	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"biorisk","prefix":"oai_dc","issns":["1313-2644","1313-2652"]}
+1026-4949,2710-298X	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"biosystecol","prefix":"oai_dc","issns":["1026-4949","2710-298X"]}
+1310-7488,2683-1015	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"bgcardio","prefix":"oai_dc","issns":["1310-7488","2683-1015"]}
+1721-8861,2283-0332	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"bulletinofinsectology","prefix":"oai_dc","issns":["1721-8861","2283-0332"]}
+1512-1720,2667-9809	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"caucasiana","prefix":"oai_dc","issns":["1512-1720","2667-9809"]}
+1809-127X	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"checklist","prefix":"oai_dc","issns":["1809-127X"]}
+1993-0771,1993-078X	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"compcytogen","prefix":"oai_dc","issns":["1993-0771","1993-078X"]}
+0005-805X,2511-6428	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"contributions-to-entomology","prefix":"oai_dc","issns":["0005-805X","2511-6428"]}
+1435-1951,1860-1324	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"dez","prefix":"oai_dc","issns":["1435-1951","1860-1324"]}
+3033-022X	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"emt","prefix":"oai_dc","issns":["3033-022X"]}
+2535-0730	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"evolsyst","prefix":"oai_dc","issns":["2535-0730"]}
+1435-1943,1860-1014,2193-0066,2193-0074	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"fr","prefix":"oai_dc","issns":["1435-1943","1860-1014","2193-0066","2193-0074"]}
+1948-6596	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"biogeography","prefix":"oai_dc","issns":["1948-6596"]}
+1617-8467,2750-8242	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"geologica-saxonica","prefix":"oai_dc","issns":["1617-8467","2750-8242"]}
+2666-5050	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"ijhmc","prefix":"oai_dc","issns":["2666-5050"]}
+1013-4425,2682-955X	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"herpetozoa","prefix":"oai_dc","issns":["1013-4425","2682-955X"]}
+2210-6340,2210-6359	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"imafungus","prefix":"oai_dc","issns":["2210-6340","2210-6359"]}
+3033-0947	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"ibe","prefix":"oai_dc","issns":["3033-0947"]}
+1875-2535,1875-2543	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"ijm","prefix":"oai_dc","issns":["1875-2535","1875-2543"]}
+2738-8972	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"icf","prefix":"oai_dc","issns":["2738-8972"]}
+2531-4033	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"italianbotanist","prefix":"oai_dc","issns":["2531-4033"]}
+1070-9428,1314-2607	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"jhr","prefix":"oai_dc","issns":["1070-9428","1314-2607"]}
+1082-6467,1937-2426	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"jor","prefix":"oai_dc","issns":["1082-6467","1937-2426"]}
+2738-8107,2738-8115	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"jbgs","prefix":"oai_dc","issns":["2738-8107","2738-8115"]}
+2534-9708	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"mbmg","prefix":"oai_dc","issns":["2534-9708"]}
+2452-1779,2452-2449	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"moem","prefix":"oai_dc","issns":["2452-1779","2452-2449"]}
+1314-4049,1314-4057	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"mycokeys","prefix":"oai_dc","issns":["1314-4049","1314-4057"]}
+3033-0955	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"nhcm","prefix":"oai_dc","issns":["3033-0955"]}
+1314-3301,1314-6947	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"natureconservation","prefix":"oai_dc","issns":["1314-3301","1314-6947"]}
+1314-2488,1619-0033	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"neobiota","prefix":"oai_dc","issns":["1314-2488","1619-0033"]}
+1809-9939,2236-3777	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"neotropical","prefix":"oai_dc","issns":["1809-9939","2236-3777"]}
+0342-7536,2367-5365	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"nl","prefix":"oai_dc","issns":["0342-7536","2367-5365"]}
+2452-3038	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"nucet","prefix":"oai_dc","issns":["2452-3038"]}
+2367-8194	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"oneecosystem","prefix":"oai_dc","issns":["2367-8194"]}
+3021-3576	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"papahou","prefix":"oai_dc","issns":["3021-3576"]}
+0428-0296,2603-557X	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"pharmacia","prefix":"oai_dc","issns":["0428-0296","2603-557X"]}
+1314-2003,1314-2011	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"phytokeys","prefix":"oai_dc","issns":["1314-2003","1314-2011"]}
+1310-7771,1314-0027	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"phytolbalcan","prefix":"oai_dc","issns":["1310-7771","1314-0027"]}
+2032-3913,2032-3921	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"plecevo","prefix":"oai_dc","issns":["2032-3913","2032-3921"]}
+2280-1855,2704-6192	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"plantsociology","prefix":"oai_dc","issns":["2280-1855","2704-6192"]}
+2658-3798	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"populationandeconomics","prefix":"oai_dc","issns":["2658-3798"]}
+2367-7163	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"rio","prefix":"oai_dc","issns":["2367-7163"]}
+2588-0535,2658-381X	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"rrpharmacology","prefix":"oai_dc","issns":["2588-0535","2658-381X"]}
+2534-9260	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"rethinkingecology","prefix":"oai_dc","issns":["2534-9260"]}
+1842-614X,2247-9902	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"saddi","prefix":"oai_dc","issns":["1842-614X","2247-9902"]}
+1311-8706,2815-2549	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"silvabalcanica","prefix":"oai_dc","issns":["1311-8706","2815-2549"]}
+3033-0211	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"soils4europe","prefix":"oai_dc","issns":["3033-0211"]}
+1768-1448,1314-2615	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"subtbiol","prefix":"oai_dc","issns":["1768-1448","1314-2615"]}
+1664-2376,1664-2384	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"sjp","prefix":"oai_dc","issns":["1664-2376","1664-2384"]}
+1223-2254,2247-0735	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"travaux","prefix":"oai_dc","issns":["1223-2254","2247-0735"]}
+1173-4337,2253-5861	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"tuhinga","prefix":"oai_dc","issns":["1173-4337","2253-5861"]}
+2683-0671	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"vcs","prefix":"oai_dc","issns":["2683-0671"]}
+3033-1447	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"ved","prefix":"oai_dc","issns":["3033-1447"]}
+1864-5755,2625-8498	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"vertebrate-zoology","prefix":"oai_dc","issns":["1864-5755","2625-8498"]}
+2603-431X	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"vdj","prefix":"oai_dc","issns":["2603-431X"]}
+2512-5338,2747-8106	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"zitteliana","prefix":"oai_dc","issns":["2512-5338","2747-8106"]}
+1313-2970,1313-2989	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"zookeys","prefix":"oai_dc","issns":["1313-2970","1313-2989"]}
+1984-4670,1984-4689	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"zoologia","prefix":"oai_dc","issns":["1984-4670","1984-4689"]}
+1435-1935,1860-0743	OAI	{"base":"https://zookeys.pensoft.net/oai.php","set":"zse","prefix":"oai_dc","issns":["1435-1935","1860-0743"]}
+
+# Single-journal OAI endpoints
+1175-5326,1175-5334	OAI	{"base":"https://www.mapress.com/zt/oai","prefix":"oai_dc","issns":["1175-5326","1175-5334"]}
+1179-3155,1179-3163	OAI	{"base":"https://phytotaxa.mapress.com/pt/oai","prefix":"oai_dc","issns":["1179-3155","1179-3163"]}
+2118-9773	OAI	{"base":"https://europeanjournaloftaxonomy.eu/index.php/ejt/oai","prefix":"oai_dc","issns":["2118-9773"]}
+0974-7893,0974-7907	OAI	{"base":"https://threatenedtaxa.org/index.php/JoTT/oai","prefix":"jats","issns":["0974-7893","0974-7907"]}
+
+# Magtech RSS (Chinese journals)
+1005-0094	MAGTECH	{"site":"https://www.biodiversity-science.net","issn":"1005-0094"}

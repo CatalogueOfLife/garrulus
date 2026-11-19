@@ -231,6 +231,20 @@ curl ... -d '{"type":"BACKFILL","payload":{"fromYear":2020,"toYear":2024,"files"
   promotion to CORE/BROAD of an active, not yet onboarded source enqueues its onboarding. 404 for an unknown id, 400
   for a bad tier.
 - `POST /api/admin/sources` with `{"openalexId":"S123","tier":"CORE"}` enqueues `ADD_SOURCE` (202).
+- Routes (M6, `source_route`): `GET /api/admin/sources/{id}/routes`; `POST /api/admin/sources/{id}/routes` with
+  `{"layer":"OAI"|"MAGTECH"|"EUROPEPMC","config":{…}}` stores the route PENDING (origin ADMIN) and enqueues
+  `VERIFY_ROUTE` (202; 409 if the source has that route); `PATCH /api/admin/sources/{id}/routes/{routeId}` with
+  `{"status":"PAUSED"|"ACTIVE"}`.
+  - Task types: `SEED_ROUTES` (`{}`, the routes of `indexer/src/main/resources/routes-seed.tsv` for the journals with
+    those ISSNs), `VERIFY_ROUTE` (`{"routeId":n}`: pass → VERIFIED, or ACTIVE when the route was onboarded before or
+    its journal has an OpenAlex id and is not onboarded yet; fail → BROKEN with the reason), `ROUTE_BACKFILL`
+    (`{"sourceId":n}`: the journal's ACTIVE routes not yet backfilled in `BACKFILL` mode from 2000 to 120 days ago,
+    plus `HARVEST_CROSSREF_HISTORY` by its ISSNs, one publication year per offset listing).
+  - The nightly rollout (`nametracker.layers.rollout-cron`, `0 30 0 * * *` UTC, behind the harvest switch) starts the
+    `ONBOARDING` pass (120 days, `REPROCESS`) of up to `nametracker.layers.rollout-per-night` (20) VERIFIED routes of
+    active CORE/BROAD journals. The pass's last page makes the route ACTIVE; for a journal without an OpenAlex id it
+    also onboards the journal (then `PROBE_EUROPEPMC`) and starts its route backfill. An OAI backfill reads the whole
+    repository (no `from`), a Europe PMC backfill asks by `FIRST_PDATE`.
 - `GET /api/admin/status`: task counts by type and state, work counts by state and text level, today's (UTC) `api_usage`
   rows, the last 20 harvest runs, source counts by tier, and (M5) `xrReleases` (key, alias, state, current, `keysTotal`,
   `keysLost`, `switchStarted`, `switchedAt`), `backfillRuns` (years, snapshot date, files total and done, records read and

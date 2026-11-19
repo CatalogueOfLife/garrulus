@@ -9,6 +9,7 @@ import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException;
 import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.harvest.WorksPager;
+import org.catalogueoflife.nametracker.indexer.layer.europepmc.ProbeEuropePmcHandler;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
@@ -25,7 +26,8 @@ import tools.jackson.databind.JsonNode;
  * {@code ONBOARD_SOURCE}, payload {@code {"sourceId":n}} (plus {@code from}, {@code cursor} and {@code page} in
  * continuations): imports the last 120 days of one source with origin ONBOARDING, its RESOLVE_CONTENT tasks at BACKFILL
  * priority. Paging works as in {@link org.catalogueoflife.nametracker.indexer.harvest.OpenAlexHarvestHandler}. After the
- * last page the source is marked onboarded, from when LIVE and SWEEP harvest it. An outage ({@link HarvestOutage})
+ * last page the source is marked onboarded, from when LIVE and SWEEP harvest it, and {@code PROBE_EUROPEPMC} asks
+ * Europe PMC about it. An outage ({@link HarvestOutage})
  * enqueues the same page again in 30 minutes. The page continuations run at REPROCESS priority, or at the priority of the task if that ranks higher (LIVE).
  */
 @Component
@@ -106,6 +108,7 @@ public class OnboardSourceHandler implements TaskHandler {
     Instant now = clock.instant();
     sources.setLastHarvested(sourceId, now);
     sources.setOnboarded(sourceId, now);
+    ProbeEuropePmcHandler.enqueue(queue, sourceId); // a Europe PMC route for the journal, if Europe PMC has it
   }
 
   static TaskPriority continuationPriority(Task task) {

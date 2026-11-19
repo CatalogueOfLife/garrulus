@@ -65,9 +65,9 @@ public class MagtechLayer implements HarvestLayer {
     String site = text(cfg, "site");
     String issn = text(cfg, "issn");
     if (site == null || issn == null) throw new IllegalArgumentException("Magtech route " + route.id() + " needs site and issn");
-    String base = site.endsWith("/") ? site.substring(0, site.length() - 1) : site;
+    String base = base(site);
     boolean first = FIRST.equals(position);
-    URI feed = URI.create(base + "/EN/" + (first ? "rss_first_" : "rss_dqml_") + issn + ".xml");
+    URI feed = feed(site, issn, first);
     List<MagtechClient.MagtechItem> items;
     try {
       items = client.feed(feed);
@@ -96,6 +96,15 @@ public class MagtechLayer implements HarvestLayer {
       works.add(toHarvested(item, meta, magtech, route.sourceId()));
     }
     return new LayerPage(works, first ? null : FIRST, calls, skipped);
+  }
+
+  /** The current-issue feed ({@code rss_dqml}) or the online-first feed ({@code rss_first}) of a journal. */
+  public static URI feed(String site, String issn, boolean first) {
+    return URI.create(base(site) + "/EN/" + (first ? "rss_first_" : "rss_dqml_") + issn + ".xml");
+  }
+
+  private static String base(String site) {
+    return site.endsWith("/") ? site.substring(0, site.length() - 1) : site;
   }
 
   private MagtechClient.ArticleMeta articleMeta(String base, URI link) {

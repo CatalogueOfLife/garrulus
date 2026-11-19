@@ -17,15 +17,15 @@ import org.catalogueoflife.nametracker.indexer.layer.HarvestedWork;
 import org.junit.jupiter.api.Test;
 
 @WireMockTest
-class EuropePmcSearchClientTest {
+public class EuropePmcSearchClientTest {
 
-  static String fixture(String name) throws IOException {
+  public static String fixture(String name) throws IOException {
     try (var in = EuropePmcSearchClientTest.class.getResourceAsStream("/europepmc/" + name)) {
       return new String(in.readAllBytes(), StandardCharsets.UTF_8);
     }
   }
 
-  static PoliteHttp http() {
+  public static PoliteHttp http() {
     return new PoliteHttp(HttpClient.newHttpClient(), Map.of("localhost", Duration.ZERO), PoliteHttp.userAgent(),
         Clock.systemUTC(), d -> { });
   }

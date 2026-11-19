@@ -12,6 +12,9 @@ public interface SourceRouteMapper {
   /** Inserts a route (id and created are ignored); unique per source, layer and config. Returns the id. */
   long insert(@Param("o") SourceRoute route);
 
+  /** As {@link #insert}, but returns null and changes nothing when the source has that layer and config already. */
+  @Nullable Long insertIfAbsent(@Param("o") SourceRoute route);
+
   SourceRoute get(@Param("id") long id);
 
   /** Oldest first. */
@@ -20,6 +23,12 @@ public interface SourceRouteMapper {
   /** Oldest first; a null layer means every layer. */
   List<SourceRoute> listByStatus(@Param("layer") @Nullable String layer, @Param("status") String status,
       @Param("limit") int limit);
+
+  /**
+   * VERIFIED routes of active CORE/BROAD sources with no QUEUED or RUNNING {@code HARVEST_<layer>} task of their own
+   * (an onboarding pass already under way), oldest first: the routes the nightly rollout starts.
+   */
+  List<SourceRoute> listRollout(@Param("limit") int limit);
 
   /** Sets the status and replaces the stored error (null clears it). */
   int setStatus(@Param("id") long id, @Param("status") String status, @Param("error") @Nullable String error);

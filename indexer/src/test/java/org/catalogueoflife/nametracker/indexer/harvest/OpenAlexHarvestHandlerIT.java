@@ -327,6 +327,9 @@ class OpenAlexHarvestHandlerIT extends AbstractPostgresIT {
         + TaskPriority.BACKFILL.code())).isEqualTo(1);
     assertThat(count("SELECT count(*) FROM task WHERE type = 'ONBOARD_SOURCE' AND priority = "
         + TaskPriority.REPROCESS.code())).isEqualTo(1);
+    // once onboarded, the journal is looked up in Europe PMC for a route
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'PROBE_EUROPEPMC' AND dedup_key = 'probe-europepmc:"
+        + id + "'")).isEqualTo(1);
   }
 
   @Test
