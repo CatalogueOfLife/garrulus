@@ -1,0 +1,89 @@
+{
+ "status": "ok",
+ "message-type": "work",
+ "message-version": "1.0.0",
+ "message": {
+  "DOI": "10.5852/ejt.2026.1123.3358",
+  "ISSN": [
+   "2118-9773"
+  ],
+  "title": [
+   "Aulacigastridae (Diptera) from Northeastern Brazil, with description of four new species"
+  ],
+  "abstract": "<jats:p>Four new species of Aulacigaster Macquart, 1835 (Diptera: Aulacigastridae) from Brazil are described and illustrated. They belong in the leucopeza (A. waynei sp. nov.) and the plesiomorphica (A. carmelitae sp. nov., A. franciscae sp. nov. and A. joaribeiroi sp. nov.) groups and represent the first records of the family in Northeastern Brazil. Although the plesiomorphica group had been previously known to occur in the country, A. waynei sp. nov. is the first record of the leucopeza group in Brazil. An updated identification key for the species groups within the genus is presented.</jats:p>",
+  "published": {
+   "date-parts": [
+    [
+     2026,
+     11,
+     17
+    ]
+   ]
+  },
+  "container-title": [
+   "European Journal of Taxonomy"
+  ],
+  "volume": "1123",
+  "author": [
+   {
+    "ORCID": "https://orcid.org/0000-0003-3288-9054",
+    "authenticated-orcid": false,
+    "given": "Geniana Alves",
+    "family": "Reis",
+    "sequence": "first",
+    "affiliation": [],
+    "role": [
+     {
+      "vocabulary": "crossref",
+      "role": "author"
+     }
+    ]
+   },
+   {
+    "given": "Alessandra",
+    "family": "Rung",
+    "sequence": "additional",
+    "affiliation": [],
+    "role": [
+     {
+      "vocabulary": "crossref",
+      "role": "author"
+     }
+    ]
+   },
+   {
+    "ORCID": "https://orcid.org/0000-0002-4980-5454",
+    "authenticated-orcid": false,
+    "given": "Francisco",
+    "family": "Limeira-de-Oliveira",
+    "sequence": "additional",
+    "affiliation": [],
+    "role": [
+     {
+      "vocabulary": "crossref",
+      "role": "author"
+     }
+    ]
+   }
+  ],
+  "license": [
+   {
+    "start": {
+     "date-parts": [
+      [
+       2026,
+       11,
+       17
+      ]
+     ],
+     "date-time": "2026-11-17T00:00:00Z",
+     "timestamp": 1794873600000
+    },
+    "content-version": "unspecified",
+    "delay-in-days": 0,
+    "URL": "https://creativecommons.org/licenses/by/4.0"
+   }
+  ],
+  "type": "journal-article"
+ }
+}

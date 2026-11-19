@@ -1,0 +1,690 @@
+{
+ "hits": {
+  "hits": [
+   {
+    "created": "2026-11-19T13:50:19.198068+00:00",
+    "modified": "2026-11-19T13:56:15.749190+00:00",
+    "id": 24370841,
+    "conceptrecid": "24370840",
+    "doi": "10.5281/zenodo.24370841",
+    "conceptdoi": "10.5281/zenodo.24370840",
+    "doi_url": "https://doi.org/10.5281/zenodo.24370841",
+    "metadata": {
+     "title": "Aulacigaster joaribeiroi Reis, Rung & Limeira-De-Oliveira, 2026, sp. nov.",
+     "doi": "10.5281/zenodo.24370841",
+     "publication_date": "2026-11-17",
+     "access_right": "open",
+     "creators": [
+      {
+       "name": "Reis, Geniana Alves",
+       "affiliation": "PhD Student at PPG BioNorte, CoE-Maranh\u00e3o, Universidade Estadual do Maranh\u00e3o (UEMA), Cole\u00e7\u00e3o Zool\u00f3gica do Maranh\u00e3o (CZMA), Laborat\u00f3rio de Estudos dos Invertebrados (LEI), 65604 - 380, Caxias, Maranh\u00e3o, Brazil."
+      },
+      {
+       "name": "Rung, Alessandra",
+       "affiliation": "Plant Pest Diagnostics Branch, California Department of Food and Agriculture, 3294 Meadowview Road, Sacramento, USA."
+      },
+      {
+       "name": "Limeira-De-Oliveira, Francisco",
+       "affiliation": "Cole\u00e7\u00e3o Zool\u00f3gica do Maranh\u00e3o (CZMA), Laborat\u00f3rio de Estudos dos Invertebrados (LEI), Universidade Estadual do Maranh\u00e3o, (UEMA) 65604 - 380, Caxias, Maranh\u00e3o, Brazil."
+      }
+     ],
+     "keywords": [
+      "Biodiversity",
+      "Taxonomy",
+      "Animalia",
+      "Arthropoda",
+      "Insecta",
+      "Diptera",
+      "Aulacigastridae",
+      "Aulacigaster",
+      "Aulacigaster joaribeiroi"
+     ],
+     "related_identifiers": [
+      {
+       "identifier": "10.5852/ejt.2026.1123.3358",
+       "relation": "isPartOf",
+       "resource_type": "publication-article",
+       "scheme": "doi"
+      },
+      {
+       "identifier": "http://zenodo.org/record/24370829",
+       "relation": "isPartOf",
+       "resource_type": "publication-article",
+       "scheme": "url"
+      },
+      {
+       "identifier": "http://publication.plazi.org/id/75087D3EFFC8FFC5DA32FFE5FF844000",
+       "relation": "isPartOf",
+       "resource_type": "publication-article",
+       "scheme": "url"
+      },
+      {
+       "identifier": "https://biodiversitypmc.sibils.org/collections/plazi/89310546FFD9FFD1D86BFC6FFD6D44F5",
+       "relation": "isSourceOf",
+       "scheme": "url"
+      },
+      {
+       "identifier": "10.5281/zenodo.24370861",
+       "relation": "cites",
+       "resource_type": "image-figure",
+       "scheme": "doi"
+      },
+      {
+       "identifier": "10.5281/zenodo.24370863",
+       "relation": "cites",
+       "resource_type": "image-figure",
+       "scheme": "doi"
+      }
+     ],
+     "locations": [
+      {
+       "place": "Trilha",
+       "description": "BRAZIL - Maranhao [MA] \u2022 \u2642 (pinned, good condition); Centro Novo do Maranhao, REBIO - Reserva Biologica Gurupi, Trilha 1; 3\u00b037'35.4\" S, 46\u00b048'55.8\" W; 1-31 Oct. 2023; F. Limeira-de-Oliveira, A. Torres and G.A. Reis leg.; Arm. [= Armadilha, trap] Malaise (agua 1) [water 1]; CZMA FLO 9164.",
+       "lon": -46.8155,
+       "lat": -3.6265001
+      }
+     ],
+     "custom": {
+      "dwc:collectionCode": [
+       "CZMA",
+       "REBIO, CZMA"
+      ],
+      "dwc:eventDate": [
+       "2023-09-01",
+       "2023-10-01"
+      ],
+      "dwc:family": [
+       "Aulacigastridae"
+      ],
+      "dwc:genus": [
+       "Aulacigaster"
+      ],
+      "dwc:kingdom": [
+       "Animalia"
+      ],
+      "dwc:materialSampleID": [
+       "FLO 10405",
+       "FLO 9160",
+       "FLO 9164"
+      ],
+      "dwc:order": [
+       "Diptera"
+      ],
+      "dwc:phylum": [
+       "Arthropoda"
+      ],
+      "dwc:scientificNameAuthorship": [
+       "Reis & Rung & Limeira-De-Oliveira"
+      ],
+      "dwc:specificEpithet": [
+       "joaribeiroi"
+      ],
+      "dwc:taxonRank": [
+       "species"
+      ],
+      "dwc:taxonomicStatus": [
+       "sp. nov."
+      ],
+      "dwc:typeStatus": [
+       "holotype",
+       "paratype"
+      ],
+      "dwc:verbatimEventDate": [
+       "2023-09-01/15",
+       "2023-10-01/31"
+      ],
+      "openbiodiv:TaxonomicConceptLabel": [
+       "Aulacigaster joaribeiroi Reis, Rung & Limeira-De-Oliveira, 2026"
+      ]
+     },
+     "resource_type": {
+      "title": "Taxonomic treatment",
+      "type": "publication",
+      "subtype": "taxonomictreatment"
+     },
+     "journal": {
+      "pages": "18-21",
+      "title": "Aulacigastridae (Diptera) from Northeastern Brazil, with description of four new species, pp. 1-25 in European Journal of Taxonomy",
+      "volume": "1123"
+     },
+     "alternate_identifiers": [
+      {
+       "identifier": "http://treatment.plazi.org/id/89310546FFD9FFD1D86BFC6FFD6D44F5"
+      }
+     ],
+     "license": {
+      "id": "cc-zero"
+     },
+     "communities": [
+      {
+       "id": "biosyslit"
+      }
+     ],
+     "relations": {
+      "version": [
+       {
+        "index": 0,
+        "is_last": true,
+        "parent": {
+         "pid_type": "recid",
+         "pid_value": "24370840"
+        }
+       }
+      ]
+     },
+     "notes": "Published as part of <i>Reis, Geniana Alves, Rung, Alessandra &amp; Limeira-De-Oliveira, Francisco, 2026, Aulacigastridae (Diptera) from Northeastern Brazil, with description of four new species, pp. 1-25 in European Journal of Taxonomy 1123</i> on pages 18-21, DOI: 10.5852/ejt.2026.1123.3358, <a href=\"http://zenodo.org/record/24370829\">http://zenodo.org/record/24370829</a>"
+    },
+    "title": "Aulacigaster joaribeiroi Reis, Rung & Limeira-De-Oliveira, 2026, sp. nov.",
+    "links": {
+     "self": "https://zenodo.org/api/records/24370841",
+     "self_html": "https://zenodo.org/records/24370841",
+     "preview_html": "https://zenodo.org/records/24370841?preview=1",
+     "doi": "https://doi.org/10.5281/zenodo.24370841",
+     "self_doi": "https://doi.org/10.5281/zenodo.24370841",
+     "self_doi_html": "https://zenodo.org/doi/10.5281/zenodo.24370841",
+     "reserve_doi": "https://zenodo.org/api/records/24370841/draft/pids/doi",
+     "parent": "https://zenodo.org/api/records/24370840",
+     "parent_html": "https://zenodo.org/records/24370840",
+     "parent_doi": "https://doi.org/10.5281/zenodo.24370840",
+     "parent_doi_html": "https://zenodo.org/doi/10.5281/zenodo.24370840",
+     "self_iiif_manifest": "https://zenodo.org/api/iiif/record:24370841/manifest",
+     "self_iiif_sequence": "https://zenodo.org/api/iiif/record:24370841/sequence/default",
+     "files": "https://zenodo.org/api/records/24370841/files",
+     "media_files": "https://zenodo.org/api/records/24370841/media-files",
+     "latest": "https://zenodo.org/api/records/24370841/versions/latest",
+     "latest_html": "https://zenodo.org/records/24370841/latest",
+     "versions": "https://zenodo.org/api/records/24370841/versions",
+     "draft": "https://zenodo.org/api/records/24370841/draft",
+     "access_links": "https://zenodo.org/api/records/24370841/access/links",
+     "access_grants": "https://zenodo.org/api/records/24370841/access/grants",
+     "access_users": "https://zenodo.org/api/records/24370841/access/users",
+     "access_request": "https://zenodo.org/api/records/24370841/access/request",
+     "access": "https://zenodo.org/api/records/24370841/access",
+     "communities": "https://zenodo.org/api/records/24370841/communities",
+     "communities-suggestions": "https://zenodo.org/api/records/24370841/communities-suggestions",
+     "request_deletion": "https://zenodo.org/api/records/24370841/request-deletion",
+     "file_modification": "https://zenodo.org/api/records/24370841/file-modification",
+     "quota_increase": "https://zenodo.org/api/records/24370841/quota-increase",
+     "requests": "https://zenodo.org/api/records/24370841/requests"
+    },
+    "updated": "2026-11-19T13:56:15.749190+00:00",
+    "recid": "24370841",
+    "revision": 7,
+    "swh": null,
+    "owners": [
+     {
+      "id": "1161"
+     }
+    ],
+    "status": "published",
+    "stats": {
+     "downloads": 0,
+     "unique_downloads": 0,
+     "views": 0,
+     "unique_views": 0,
+     "version_downloads": 0,
+     "version_unique_downloads": 0,
+     "version_unique_views": 0,
+     "version_views": 0
+    },
+    "state": "done",
+    "submitted": true
+   },
+   {
+    "created": "2026-11-19T13:39:01.611697+00:00",
+    "modified": "2026-11-19T13:53:49.980846+00:00",
+    "id": 24370544,
+    "conceptrecid": "24370543",
+    "doi": "10.1038/s41598-023-44908-8",
+    "doi_url": "https://doi.org/10.1038/s41598-023-44908-8",
+    "metadata": {
+     "title": "Integrating citizen science and environmental DNA metabarcoding to study biodiversity of groundwater amphipods in Switzerland",
+     "doi": "10.1038/s41598-023-44908-8",
+     "publication_date": "2023-10-23",
+     "access_right": "open",
+     "creators": [
+      {
+       "name": "Couton, Marjorie",
+       "affiliation": "Department of Aquatic Ecology, Eawag: Swiss Federal Institute of Aquatic Science and Technology, \u00dcberlandstrasse 133, 8600 D\u00fcbendorf, Switzerland"
+      },
+      {
+       "name": "Studer, Angela",
+       "affiliation": "Department of Aquatic Ecology, Eawag: Swiss Federal Institute of Aquatic Science and Technology, \u00dcberlandstrasse 133, 8600 D\u00fcbendorf, Switzerland"
+      },
+      {
+       "name": "H\u00fcrlemann, Samuel",
+       "affiliation": "Department of Aquatic Ecology, Eawag: Swiss Federal Institute of Aquatic Science and Technology, \u00dcberlandstrasse 133, 8600 D\u00fcbendorf, Switzerland"
+      },
+      {
+       "name": "Locher, Nadine",
+       "affiliation": "Department of Aquatic Ecology, Eawag: Swiss Federal Institute of Aquatic Science and Technology, \u00dcberlandstrasse 133, 8600 D\u00fcbendorf, Switzerland"
+      },
+      {
+       "name": "Kn\u00fcsel, Mara",
+       "affiliation": "Department of Aquatic Ecology, Eawag: Swiss Federal Institute of Aquatic Science and Technology, \u00dcberlandstrasse 133, 8600 D\u00fcbendorf, Switzerland & Department of Evolutionary Biology and Environmental Studies, University of Zurich, Winterthurerstrasse 190, 8057 Z\u00fcrich, Switzerland"
+      },
+      {
+       "name": "Alther, Roman",
+       "affiliation": "Department of Aquatic Ecology, Eawag: Swiss Federal Institute of Aquatic Science and Technology, \u00dcberlandstrasse 133, 8600 D\u00fcbendorf, Switzerland & Department of Evolutionary Biology and Environmental Studies, University of Zurich, Winterthurerstrasse 190, 8057 Z\u00fcrich, Switzerland"
+      },
+      {
+       "name": "Altermatt, Florian",
+       "affiliation": "Department of Aquatic Ecology, Eawag: Swiss Federal Institute of Aquatic Science and Technology, \u00dcberlandstrasse 133, 8600 D\u00fcbendorf, Switzerland & Department of Evolutionary Biology and Environmental Studies, University of Zurich, Winterthurerstrasse 190, 8057 Z\u00fcrich, Switzerland"
+      }
+     ],
+     "keywords": [
+      "Biodiversity",
+      "Taxonomy"
+     ],
+     "related_identifiers": [
+      {
+       "identifier": "https://www.gbif.org/dataset/5701eab3-7297-4782-b35f-5b77079eea27",
+       "relation": "isSourceOf",
+       "resource_type": "dataset",
+       "scheme": "url"
+      },
+      {
+       "identifier": "10.5281/zenodo.24370548",
+       "relation": "hasPart",
+       "resource_type": "image-figure",
+       "scheme": "doi"
+      },
+      {
+       "identifier": "10.5281/zenodo.24370552",
+       "relation": "hasPart",
+       "resource_type": "dataset",
+       "scheme": "doi"
+      },
+      {
+       "identifier": "10.5281/zenodo.24370554",
+       "relation": "hasPart",
+       "resource_type": "image-figure",
+       "scheme": "doi"
+      },
+      {
+       "identifier": "10.5281/zenodo.24370556",
+       "relation": "hasPart",
+       "resource_type": "image-figure",
+       "scheme": "doi"
+      },
+      {
+       "identifier": "10.5281/zenodo.24370558",
+       "relation": "hasPart",
+       "resource_type": "image-figure",
+       "scheme": "doi"
+      }
+     ],
+     "references": [
+      "1. Ferguson, G. et al.Crustal groundwater volumes greater than previously thought.Geophys.Res.Lett.48, e2021GL093549. https:// doi.org/10.1029/2021GL093549 (2021).",
+      "2. Deharveng, L. et al.Groundwater biodiversity in Europe. Freshw. Biol.54, 709-726 (2009).",
+      "3. Gibert, J. & Deharveng, L. Subterranean ecosystems: A truncated functional biodiversity: This article emphasizes the truncated nature of subterranean biodiversity at both the bottom (no primary producers) and the top (very few strict predators) of food webs and discusses the implications of this truncation both from functional and evolutionary perspectives. Bioscience 52, 473-481 (2002).",
+      "4. Borko, S, Altermatt, F., Zagmajster, M. & Fiser, C. A hotspot of groundwater amphipod diversity on a crossroad of evolutionary radiations. Divers.Distrib. 28, 2765-2777 (2022).",
+      "5. Sket, B. The nature of biodiversity in hypogean waters and how it is endangered. Biodivers.Conserv. 8, 1319-1338 (1999).",
+      "6. VAinolA, R. et al.Global diversity of amphipods (Amphipoda; Crustacea) in freshwater. Hydrobiologia 595, 241-255 (2008).",
+      "7. Horton, T. et al.World Amphipoda Database, https://doi.org/10.14284/368 (2023).",
+      "8. Boulton, A. J., Fenwick,G. D., Hancock, P.J. & Harvey, M. S. Biodiversity,functional roles and ecosystem services of groundwater invertebrates. Invertebr.Syst.22, 103-116 (2008).",
+      "9. Griebler, C. & Avramov, M. Groundwater ecosystem services: A review. Freshw.Sci.34, 355-367 (2015).",
+      "10. Ungherese, G., Cincinelli, A., Martellini, T. & Ugolini, A. Biomonitoring of polychlorinated byphenyls contamination in the supralittoral environment using the sandhopper Talitrus saltator (Montagu). Chem.Ecol. 32, 301-311 (2016).",
+      "11. Bundschuh, M., Zubrod, J. P. & Schulz, R.The functional and physiological status of Gammarus fossarum (Crustacea; Amphipoda) exposed to secondary treated wastewater. Environ.Pollut.159, 244-249 (2011).",
+      "12. Redzovic, Z. et al.Metal bioaccumulation in stygophilous amphipod Synurella ambulans in the hyporheic zone: The influence of environmental factors. Sci.Total Environ.866, 161350 (2023).",
+      "13. Ficetola, G. F., Canedoli, C. & Stoch, F. The Racovitzan impediment and the hidden biodiversity of unexplored environments. Conserv.Biol.33, 214-216 (2019).",
+      "14. Fiser, C. et al.Translating Niphargus barcodes from Switzerland into taxonomy with a description of two new species (Amphipoda, Niphargidae). ZooKeys 760, 113-141 (2018).",
+      "15. Gibert, J. et al.Assessing and conserving groundwater biodiversity: Synthesis and perspectives. Freshw.Biol.54, 930-941 (2009).",
+      "16. Trontelj, P. et al. A molecular test for cryptic diversity in ground water: How large are the ranges of macro-stygobionts?. Freshw. Biol.54, 727-744 (2009).",
+      "17. Eberhard, S. M. et al. Exploring the relationship between sampling efficiency and short-range endemism for groundwater fauna in the Pilbara region, Western Australia. Freshw.Biol.54, 885-901 (2009).",
+      "18. Rendos, M., Delic, T., Copilas- Ciocianu, D. & Fiser, C. First insight into cryptic diversity of a Caucasian subterranean amphipod of the genus Niphargus (Crustacea: Amphipoda: Niphargidae).Zool.Anz.290, 1-11 (2021).",
+      "19. Taberlet, P., Coissac, E., Hajibabaei, M. & Rieseberg, L. H. Environmental DNA. Mol. Ecol.21, 1789-1793 (2012).",
+      "20. Pawlowski, J., ApothEloz-Perret-Gentil, L. & Altermatt, F. Environmental DNA: What's behind the term? Clarifying the terminology and recommendations for its future use in biomonitoring. Mol.Ecol. 29, 4258-4264 (2020).",
+      "21. Deiner, K.et al.Environmental DNA metabarcoding:Transforming how we survey animal and plant communities.Mol.Ecol.26, 5872-5895 (2017).",
+      "22. Sacco, M. et al.eDNA in subterranean ecosystems: Applications, technical aspects, and future prospects. Sci. Total Environ.820, 153223. https://doi.org/10.1016/j.scitotenv.2022.153223 (2022).",
+      "23. Niemiller, M. L. et al.Evaluation of eDNA for groundwater invertebrate detection and monitoring:A case study with endangered Stygobromus (Amphipoda: Crangonyctidae). Conserv. Genet.Res.10, 247-257 (2018).",
+      "24. Goricki, S et al. Environmental DNA in subterranean biology: range extension and taxonomic implications for Proteus. Sci.Rep. 7, 1-11 (2017).",
+      "25. West, K. M. et al.Under the karst:detecting hidden subterranean assemblages using eDNA metabarcoding in the caves of Christmas Island, Australia. Sci. Rep. 10, 21479. https://doi.org/10.1038/s41598-020-78525-6 (2020).",
+      "26. Oberprieler, S. et al.Connectivity, not short-range endemism, characterises the groundwater biota of a northern Australian karst system. Sci.Total Environ.796, 148955. https://doi.org/10.1016/j.scitotenv.2021.148955 (2021).",
+      "27. Couton, M., HUrlemann, S., Studer,A., Alther, R. & Altermatt, F. Groundwater environmental DNA metabarcoding reveals hidden diversity and reflects land-use and geology.Mol.Ecol.32, 3497-3512 (2023).",
+      "28. Altermatt, F. et al.Diversity and distribution of freshwater amphipod species in switzerland (Crustacea:Amphipoda). PLOS ONE 9, e110328. https://doi.org/10.1371/journal.pone.0110328 (2014).",
+      "29. Altermatt,F.,Atlher,R., Fiser,C. & Svara, V.Amphipoda (Flohkrebse) der Schweiz.Checkliste,Bestimmung und Atlas. Fauna Helvetica Vol.32, 389 (info fauna CSCF, 2019).",
+      "30. Alther, R., Bongni, N., Borko, S, Fiser, C. & Altermatt, F. Citizen science approach reveals groundwater fauna in Switzerland and a new species of Niphargus (Amphipoda, Niphargidae).Subterranean Biol. 39, 1-31 (2021).",
+      "31. Couton, M., LEvEque, L., Daguin-ThiEbaut, C., Comtet, T. & Viard, F. Water eDNA metabarcoding is effective in detecting nonnative species in marinas, but detection errors still hinder its use for passive monitoring.Biofouling 38, 367-383 (2022).",
+      "32. Keck, F. et al.A triad of kicknet sampling, eDNA metabarcoding, and predictive modeling to assess richness of mayflies, stoneflies and caddisflies in rivers. Metabarcoding Metagenomics 6, e79351. https://doi.org/10.3897/mbmg.6.79351 (2022).",
+      "33. van der Heyde, M. et al. Taking eDNA underground: Factors affecting eDNA detection of subterranean fauna in groundwater. Mol. Ecol.Resour.23, 1257-1274 (2023).",
+      "34. Studer, A., KnUsel, M., Alther, R., HUrlemann, S. & Altermatt, F. Erfassung der Grundwasserflohkrebse. Aqua Gas 102, 14-19 (2022).",
+      "35. Keck,F.et al.Meta-analysis shows both congruence and complementarity of DNA and eDNA metabarcoding to traditional methods for biological community assessment. Mol. Ecol.31, 1820-1835 (2022).",
+      "36. Andruszkiewicz, E. A., Zhang, W. G., Lavery, A. C. & Govindarajan, A. F. Environmental DNA shedding and decay rates from diverse animal forms and thermal regimes. Environ. DNA 3, 492-514 (2021).",
+      "37. Brantschen, J., Pellissier, L., Walser, J.-C. & Altermatt, F.Evaluation of primer pairs for eDNA-based assessment of Ephemeroptera, Plecoptera, and Trichoptera across a biogeographically diverse region. Environ. DNA 4, 1356-1368 (2022).",
+      "38. Vamos, E.E., Elbrecht,V.& Leese, F.Short COI markers for freshwater macroinvertebrate metabarcoding.Metabarcoding Metagenomics 1, e14625.https://doi.org/10.3897/mbmg.1.14625 (2017).",
+      "39. Fiser, C., Sket, B. & Trontelj, P. A phylogenetic perspective on 160 years of troubled taxonomy of Niphargus (Crustacea: Amphipoda). Zool.Scr.37, 665-680 (2008).",
+      "40. Reinhardt, M. et al. Etat et Evolution des eaux souterraines en Suisse. REsultats de l'observation nationale des eaux souterraines NAQUA, Etat 2016.Report No. 1901, 144 (Federal office for the environment, Bern, 2019).",
+      "41. Alther, R., Bongni, N., Borko, S., Fiser, C. & Altermatt, F. Reiche Grundwasser-Fauna: Pilotstudie fordert Artenvielfalt zutage. Aqua Gas 100, 36-42 (2020).",
+      "42. Walsh, P. S., Metzger, D. A. & Higuchi, R. Chelex 100 as a medium for simple extraction of DNA for PCR-based typing from forensic material. BioTechniques 54, 134-139 (2013).",
+      "43. Astrin, J. J. & StUben, P. E. Phylogeny in cryptic weevils: molecules, morphology and new genera of western Palaearctic Cryptorhynchinae (Coleoptera: Curculionidae). Invertebr.Syst.22, 503-522 (2008).",
+      "44. Astrin, J. J. & StUben,P. E. Molecular phylogeny of Echinodera and Ruteria (Coleoptera : Curculionidae : Cryptorhynchinae) and the parallel speciation of Canary Island weevils along replicate environmental gradients. Invertebr.Syst.24, 434-455 (2011).",
+      "45. Schmid, S., Julian, T. R. & Tamminen, M. nsearch: An open source C++ library for processing and similarity searching of nextgeneration sequencing data. Preprint at https://doi.org/10.1101/399782 (2018).",
+      "46. Ratnasingham, S. & Hebert, P. D. N. BOLD: The barcode of life data system.Mol.Ecol.Notes 7, 355-364 (2007).",
+      "47. Altschul, S. F., Gish,W., Miller, W., Myers, E. W. & Lipman, D.J.Basic local alignment search tool. J.Mol.Biol.215, 403-410 (1990).",
+      "48. Benson, D. A. et al.GenBank.Nucleic Acids Res.41, D36-42 (2013).",
+      "49. Leray,M. et al.A new versatile primer set targeting a short fragment of the mitochondrial COI region for metabarcoding metazoan diversity: Application for characterizing coral reef fish gut contents. Front.Zool.10, 34. https://doi.org/10.1186/1742-9994-10-34 (2013).",
+      "50. Elbrecht, V. & Leese, F. Validation and development of COI metabarcoding primers for freshwater macroinvertebrate bioassessment. Front.Environ.Sci.5, 11. https://doi.org/10.3389/fenvs.2017.00011 (2017).",
+      "51. Martin, M. Cutadapt removes adapter sequences from high-throughput sequencing reads. EMBnet J. 17, 10-12 (2011).",
+      "52. Callahan, B. J. et al.DADA2:High-resolution sample inference from Illumina amplicon data. Nat.Methods 13, 581-583 (2016).",
+      "53. Taberlet, P., Bonin, A., Zinger,L. & Coissac, E. Environmental DNA: For Biodiversity Research and Monitoring (Oxford University Press, Oxford, 2018). https://doi.org/10.1093/oso/9780198767220.001.000 1.",
+      "54. Zafeiropoulos, H., Gargan, L., Hintikka, S., Pavloudi, C. & Carlsson, J. The Dark mAtteR iNvestigator (DARN) tool: Getting to know the known unknowns in COI amplicon data. Metabarcoding Metagenomics 5, e69657.https://doi.org/10.3897/mbmg.5.69657 (2021).",
+      "55. R Core Team. R: A language and environment for statistical computing. R Foundation for Statistical Computing, https://www.Rproject.org/, (Vienna, Austria, 2018).",
+      "56. Griffith, D. M., Veech, J.A. & Marsh, C. J. cooccur: Probabilistic Species Co-Occurrence Analysis in R. J.Stat.Softw.Code Snippets 69, 1-17 (2016)."
+     ],
+     "resource_type": {
+      "title": "Journal article",
+      "type": "publication",
+      "subtype": "article"
+     },
+     "journal": {
+      "pages": "1-13",
+      "title": "Scientific Reports",
+      "volume": "13"
+     },
+     "alternate_identifiers": [
+      {
+       "identifier": "urn:lsid:plazi.org:pub:DA0C493D27449C6F031BC6430257FF8B"
+      }
+     ],
+     "license": {
+      "id": "cc-by-nc-4.0"
+     },
+     "communities": [
+      {
+       "id": "biosyslit"
+      }
+     ],
+     "relations": {
+      "version": [
+       {
+        "index": 0,
+        "is_last": true,
+        "parent": {
+         "pid_type": "recid",
+         "pid_value": "24370543"
+        }
+       }
+      ]
+     }
+    },
+    "title": "Integrating citizen science and environmental DNA metabarcoding to study biodiversity of groundwater amphipods in Switzerland",
+    "links": {
+     "self": "https://zenodo.org/api/records/24370544",
+     "self_html": "https://zenodo.org/records/24370544",
+     "preview_html": "https://zenodo.org/records/24370544?preview=1",
+     "doi": "https://doi.org/10.1038/s41598-023-44908-8",
+     "self_doi": "https://doi.org/10.1038/s41598-023-44908-8",
+     "self_doi_html": "https://zenodo.org/doi/10.1038/s41598-023-44908-8",
+     "reserve_doi": "https://zenodo.org/api/records/24370544/draft/pids/doi",
+     "parent": "https://zenodo.org/api/records/24370543",
+     "parent_html": "https://zenodo.org/records/24370543",
+     "self_iiif_manifest": "https://zenodo.org/api/iiif/record:24370544/manifest",
+     "self_iiif_sequence": "https://zenodo.org/api/iiif/record:24370544/sequence/default",
+     "files": "https://zenodo.org/api/records/24370544/files",
+     "media_files": "https://zenodo.org/api/records/24370544/media-files",
+     "thumbnails": {
+      "10": "https://zenodo.org/api/iiif/record:24370544:source.pdf/full/%5E10,/0/default.jpg",
+      "50": "https://zenodo.org/api/iiif/record:24370544:source.pdf/full/%5E50,/0/default.jpg",
+      "100": "https://zenodo.org/api/iiif/record:24370544:source.pdf/full/%5E100,/0/default.jpg",
+      "250": "https://zenodo.org/api/iiif/record:24370544:source.pdf/full/%5E250,/0/default.jpg",
+      "750": "https://zenodo.org/api/iiif/record:24370544:source.pdf/full/%5E750,/0/default.jpg",
+      "1200": "https://zenodo.org/api/iiif/record:24370544:source.pdf/full/%5E1200,/0/default.jpg"
+     },
+     "latest": "https://zenodo.org/api/records/24370544/versions/latest",
+     "latest_html": "https://zenodo.org/records/24370544/latest",
+     "versions": "https://zenodo.org/api/records/24370544/versions",
+     "draft": "https://zenodo.org/api/records/24370544/draft",
+     "access_links": "https://zenodo.org/api/records/24370544/access/links",
+     "access_grants": "https://zenodo.org/api/records/24370544/access/grants",
+     "access_users": "https://zenodo.org/api/records/24370544/access/users",
+     "access_request": "https://zenodo.org/api/records/24370544/access/request",
+     "access": "https://zenodo.org/api/records/24370544/access",
+     "communities": "https://zenodo.org/api/records/24370544/communities",
+     "communities-suggestions": "https://zenodo.org/api/records/24370544/communities-suggestions",
+     "request_deletion": "https://zenodo.org/api/records/24370544/request-deletion",
+     "file_modification": "https://zenodo.org/api/records/24370544/file-modification",
+     "quota_increase": "https://zenodo.org/api/records/24370544/quota-increase",
+     "requests": "https://zenodo.org/api/records/24370544/requests"
+    },
+    "updated": "2026-11-19T13:53:49.980846+00:00",
+    "recid": "24370544",
+    "revision": 11,
+    "swh": null,
+    "owners": [
+     {
+      "id": "1161"
+     }
+    ],
+    "status": "published",
+    "stats": {
+     "downloads": 0,
+     "unique_downloads": 0,
+     "views": 0,
+     "unique_views": 0,
+     "version_downloads": 0,
+     "version_unique_downloads": 0,
+     "version_unique_views": 0,
+     "version_views": 0
+    },
+    "state": "done",
+    "submitted": true
+   },
+   {
+    "created": "2026-11-19T13:50:19.198068+00:00",
+    "modified": "2026-11-19T13:56:15.749190+00:00",
+    "id": 24370999,
+    "conceptrecid": "24370840",
+    "doi": "10.5281/zenodo.24370999",
+    "conceptdoi": "10.5281/zenodo.24370840",
+    "doi_url": "https://doi.org/10.5281/zenodo.24370841",
+    "metadata": {
+     "title": "Taxonomic treatment without an article DOI",
+     "doi": "10.5281/zenodo.24370999",
+     "publication_date": "2026-11-17",
+     "access_right": "open",
+     "creators": [
+      {
+       "name": "Reis, Geniana Alves",
+       "affiliation": "PhD Student at PPG BioNorte, CoE-Maranh\u00e3o, Universidade Estadual do Maranh\u00e3o (UEMA), Cole\u00e7\u00e3o Zool\u00f3gica do Maranh\u00e3o (CZMA), Laborat\u00f3rio de Estudos dos Invertebrados (LEI), 65604 - 380, Caxias, Maranh\u00e3o, Brazil."
+      },
+      {
+       "name": "Rung, Alessandra",
+       "affiliation": "Plant Pest Diagnostics Branch, California Department of Food and Agriculture, 3294 Meadowview Road, Sacramento, USA."
+      },
+      {
+       "name": "Limeira-De-Oliveira, Francisco",
+       "affiliation": "Cole\u00e7\u00e3o Zool\u00f3gica do Maranh\u00e3o (CZMA), Laborat\u00f3rio de Estudos dos Invertebrados (LEI), Universidade Estadual do Maranh\u00e3o, (UEMA) 65604 - 380, Caxias, Maranh\u00e3o, Brazil."
+      }
+     ],
+     "keywords": [
+      "Biodiversity",
+      "Taxonomy",
+      "Animalia",
+      "Arthropoda",
+      "Insecta",
+      "Diptera",
+      "Aulacigastridae",
+      "Aulacigaster",
+      "Aulacigaster joaribeiroi"
+     ],
+     "related_identifiers": [
+      {
+       "identifier": "http://zenodo.org/record/24370829",
+       "relation": "isPartOf",
+       "resource_type": "publication-article",
+       "scheme": "url"
+      },
+      {
+       "identifier": "http://publication.plazi.org/id/75087D3EFFC8FFC5DA32FFE5FF844000",
+       "relation": "isPartOf",
+       "resource_type": "publication-article",
+       "scheme": "url"
+      },
+      {
+       "identifier": "https://biodiversitypmc.sibils.org/collections/plazi/89310546FFD9FFD1D86BFC6FFD6D44F5",
+       "relation": "isSourceOf",
+       "scheme": "url"
+      }
+     ],
+     "locations": [
+      {
+       "place": "Trilha",
+       "description": "BRAZIL - Maranhao [MA] \u2022 \u2642 (pinned, good condition); Centro Novo do Maranhao, REBIO - Reserva Biologica Gurupi, Trilha 1; 3\u00b037'35.4\" S, 46\u00b048'55.8\" W; 1-31 Oct. 2023; F. Limeira-de-Oliveira, A. Torres and G.A. Reis leg.; Arm. [= Armadilha, trap] Malaise (agua 1) [water 1]; CZMA FLO 9164.",
+       "lon": -46.8155,
+       "lat": -3.6265001
+      }
+     ],
+     "custom": {
+      "dwc:collectionCode": [
+       "CZMA",
+       "REBIO, CZMA"
+      ],
+      "dwc:eventDate": [
+       "2023-09-01",
+       "2023-10-01"
+      ],
+      "dwc:family": [
+       "Aulacigastridae"
+      ],
+      "dwc:genus": [
+       "Aulacigaster"
+      ],
+      "dwc:kingdom": [
+       "Animalia"
+      ],
+      "dwc:materialSampleID": [
+       "FLO 10405",
+       "FLO 9160",
+       "FLO 9164"
+      ],
+      "dwc:order": [
+       "Diptera"
+      ],
+      "dwc:phylum": [
+       "Arthropoda"
+      ],
+      "dwc:scientificNameAuthorship": [
+       "Reis & Rung & Limeira-De-Oliveira"
+      ],
+      "dwc:specificEpithet": [
+       "joaribeiroi"
+      ],
+      "dwc:taxonRank": [
+       "species"
+      ],
+      "dwc:taxonomicStatus": [
+       "sp. nov."
+      ],
+      "dwc:typeStatus": [
+       "holotype",
+       "paratype"
+      ],
+      "dwc:verbatimEventDate": [
+       "2023-09-01/15",
+       "2023-10-01/31"
+      ],
+      "openbiodiv:TaxonomicConceptLabel": [
+       "Aulacigaster joaribeiroi Reis, Rung & Limeira-De-Oliveira, 2026"
+      ]
+     },
+     "resource_type": {
+      "title": "Taxonomic treatment",
+      "type": "publication",
+      "subtype": "taxonomictreatment"
+     },
+     "journal": {
+      "pages": "18-21",
+      "title": "Aulacigastridae (Diptera) from Northeastern Brazil, with description of four new species, pp. 1-25 in European Journal of Taxonomy",
+      "volume": "1123"
+     },
+     "alternate_identifiers": [
+      {
+       "identifier": "http://treatment.plazi.org/id/89310546FFD9FFD1D86BFC6FFD6D44F5"
+      }
+     ],
+     "license": {
+      "id": "cc-zero"
+     },
+     "communities": [
+      {
+       "id": "biosyslit"
+      }
+     ],
+     "relations": {
+      "version": [
+       {
+        "index": 0,
+        "is_last": true,
+        "parent": {
+         "pid_type": "recid",
+         "pid_value": "24370840"
+        }
+       }
+      ]
+     },
+     "notes": "Published as part of <i>Reis, Geniana Alves, Rung, Alessandra &amp; Limeira-De-Oliveira, Francisco, 2026, Aulacigastridae (Diptera) from Northeastern Brazil, with description of four new species, pp. 1-25 in European Journal of Taxonomy 1123</i> on pages 18-21, DOI: 10.5852/ejt.2026.1123.3358, <a href=\"http://zenodo.org/record/24370829\">http://zenodo.org/record/24370829</a>"
+    },
+    "title": "Aulacigaster joaribeiroi Reis, Rung & Limeira-De-Oliveira, 2026, sp. nov.",
+    "links": {
+     "self": "https://zenodo.org/api/records/24370841",
+     "self_html": "https://zenodo.org/records/24370841",
+     "preview_html": "https://zenodo.org/records/24370841?preview=1",
+     "doi": "https://doi.org/10.5281/zenodo.24370841",
+     "self_doi": "https://doi.org/10.5281/zenodo.24370841",
+     "self_doi_html": "https://zenodo.org/doi/10.5281/zenodo.24370841",
+     "reserve_doi": "https://zenodo.org/api/records/24370841/draft/pids/doi",
+     "parent": "https://zenodo.org/api/records/24370840",
+     "parent_html": "https://zenodo.org/records/24370840",
+     "parent_doi": "https://doi.org/10.5281/zenodo.24370840",
+     "parent_doi_html": "https://zenodo.org/doi/10.5281/zenodo.24370840",
+     "self_iiif_manifest": "https://zenodo.org/api/iiif/record:24370841/manifest",
+     "self_iiif_sequence": "https://zenodo.org/api/iiif/record:24370841/sequence/default",
+     "files": "https://zenodo.org/api/records/24370841/files",
+     "media_files": "https://zenodo.org/api/records/24370841/media-files",
+     "latest": "https://zenodo.org/api/records/24370841/versions/latest",
+     "latest_html": "https://zenodo.org/records/24370841/latest",
+     "versions": "https://zenodo.org/api/records/24370841/versions",
+     "draft": "https://zenodo.org/api/records/24370841/draft",
+     "access_links": "https://zenodo.org/api/records/24370841/access/links",
+     "access_grants": "https://zenodo.org/api/records/24370841/access/grants",
+     "access_users": "https://zenodo.org/api/records/24370841/access/users",
+     "access_request": "https://zenodo.org/api/records/24370841/access/request",
+     "access": "https://zenodo.org/api/records/24370841/access",
+     "communities": "https://zenodo.org/api/records/24370841/communities",
+     "communities-suggestions": "https://zenodo.org/api/records/24370841/communities-suggestions",
+     "request_deletion": "https://zenodo.org/api/records/24370841/request-deletion",
+     "file_modification": "https://zenodo.org/api/records/24370841/file-modification",
+     "quota_increase": "https://zenodo.org/api/records/24370841/quota-increase",
+     "requests": "https://zenodo.org/api/records/24370841/requests"
+    },
+    "updated": "2026-11-19T13:56:15.749190+00:00",
+    "recid": "24370841",
+    "revision": 7,
+    "swh": null,
+    "owners": [
+     {
+      "id": "1161"
+     }
+    ],
+    "status": "published",
+    "stats": {
+     "downloads": 0,
+     "unique_downloads": 0,
+     "views": 0,
+     "unique_views": 0,
+     "version_downloads": 0,
+     "version_unique_downloads": 0,
+     "version_unique_views": 0,
+     "version_views": 0
+    },
+    "state": "done",
+    "submitted": true
+   }
+  ],
+  "total": 484
+ },
+ "links": {
+  "self": "https://zenodo.org/api/records?communities=biosyslit&page=1&size=25"
+ }
+}

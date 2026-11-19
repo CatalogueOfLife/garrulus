@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
@@ -82,6 +83,27 @@ public class CrossrefClient {
     JsonNode nc = msg.path("next-cursor");
     String next = nc.isNull() || nc.isMissingNode() || nc.asString().isBlank() ? null : nc.asString();
     return new Page(items, next);
+  }
+
+  /** One work by DOI (a free single lookup); empty when Crossref does not know the DOI (404). */
+  public Optional<JsonNode> work(String doi) {
+    String path = base + "/works/" + URLEncoder.encode(doi, StandardCharsets.UTF_8).replace("+", "%20")
+        .replace("%2F", "/");
+    URI uri = URI.create(mailto == null ? path : path + "?mailto=" + enc(mailto));
+    HttpResponse<byte[]> resp = http.get(uri, Map.of("Accept", "application/json"));
+    int status = resp.statusCode();
+    if (status == 404) return Optional.empty();
+    URI safe = PoliteHttp.redact(uri);
+    if (status < 200 || status >= 300) {
+      throw new HttpProblem(safe, status, status >= 500 || status == 429, "HTTP " + status + " from Crossref: " + safe,
+          null);
+    }
+    try {
+      JsonNode msg = FinderJson.mapper().readTree(resp.body()).path("message");
+      return msg.isObject() ? Optional.of(msg) : Optional.empty();
+    } catch (RuntimeException e) {
+      throw new HttpProblem(safe, status, false, "Unreadable Crossref response: " + safe, e);
+    }
   }
 
   private static String enc(String s) {
