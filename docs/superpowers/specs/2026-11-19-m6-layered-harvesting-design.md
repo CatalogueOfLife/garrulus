@@ -50,6 +50,8 @@ work to the key services of the field, and a way for people to register journals
 12. **Where a name is mentioned, as a filter** (Markus, 2026-11-19: "Exposing a mentionedIn filter is worthwhile").
    Not harvesting, but small and on data that exists. Main subject and its salience scoring stay as they are ("the
    main subject design is good with the scoring, keep it").
+13. **Ceased journals** (Markus, 2026-11-19: journals that "went out of business": keep their history and reindex
+   their works when the finder improves, but mark them so no crawling happens, and show that to users).
 
 ## Non-goals
 
@@ -288,6 +290,32 @@ new services need no migration, and the same rows serve matching.
   ("Candidate sampling"); harvested journals by name-density feedback (proposals to promote or demote from distinct
   names per article and act rate). Both are shown on the admin journal page; neither changes a tier by itself.
 
+### Ceased journals
+
+- **`source.publication_status`**: `ACTIVE` (default) or `CEASED`, separate from `active` (the admin's on/off switch,
+  unchanged) and from the tier. A ceased journal has `ceased_reason` (`STOPPED`, `TITLE_CHANGE`, `MERGED`, `UNKNOWN`),
+  `last_issue_year`, `continued_by` (the successor source, for a title change or merger), `status_set_by` and
+  `status_changed`.
+- **No crawling.** Every harvest layer, `ONBOARD_*`, `ROUTE_BACKFILL`, `SAMPLE_SOURCE`, discovery re-adds and
+  `LINK_SOURCE` skip a ceased journal; its routes go to `PAUSED` with the reason. The registration of a ceased journal
+  reports it as ceased.
+- **History stays.** Its works stay `INDEXED`, listed, searchable, followable and part of every statistic. Finder
+  reprocessing (`REPROCESS_NAMES`), XR switches, `RESCORE_SALIENCE` and `LINK_WORK` treat them like any other work.
+  Open full text is retained in the blob store, so a reprocess re-reads it; closed text is re-fetched from its route,
+  and if the site is gone the reprocess keeps the stored names (the existing `refetched` rule of ADR-0007).
+- **Detection proposes, an admin decides.** `COVERAGE_CHECK` marks a journal **dormant** (a computed flag on the admin
+  journal page, never shown to users) when no layer brought a new work for 12 months or three times its usual gap
+  between papers, whichever is longer; broken routes, a DOAJ `discontinued_date` or a successor title found by
+  `IDENTIFY_SOURCE` strengthen it. The admin sets `CEASED` (with reason, last issue year and successor) or dismisses
+  it. If a ceased journal shows signs of life (new DOIs from L5, a discovery signal with a recent date), the admin page
+  proposes reactivation; setting `ACTIVE` again resumes its routes with an `ONBOARD_ROUTE` pass, so the gap is filled
+  without alerts outside the window.
+- **Users see it.** The journal page, journal lists and the follow list show "Ceased publication · last issue <year>"
+  and "Continued as <title>" (linked) where set. Followers of the journal get one line about it in their next digest;
+  the follow stays, for the back catalogue. `GET /api/sources` gains `publicationStatus` as a filter, and
+  `SourceDetail` returns `publicationStatus`, `ceasedReason`, `lastIssueYear` and `continuedBy` (OpenAPI).
+- (My call, proposed to Markus on 2026-11-19.)
+
 ### Journal registration
 
 - **Who:** signed-in users (`/api/me` session). Admins keep `POST /api/admin/sources`.
@@ -516,6 +544,9 @@ tail's history (expected to be small next to the OpenAlex snapshot backfill; mea
   there, and receives the layer mail of the OpenAlex block test; other accounts get 403 on `/api/admin/**`.
 - A promoted journal without an OpenAlex id gets its history back to 2000 through its routes, at `BACKFILL`, with no
   hits; records before 2000 are skipped and counted.
+- A journal marked `CEASED` gets no harvest calls of any layer from then on, keeps all its works listed, takes part in a
+  `REPROCESS_NAMES {"all":true}` run, and shows its badge (and successor, if set) on the journal page and in the follow
+  list; a journal with no new works for 12 months is proposed as dormant on the admin page.
 - The institutional route exists, is covered by tests against a stub, and is off.
 - `/api/works?taxon=…&mentionedIn=TITLE&mentionedIn=ABSTRACT` returns only papers with a name of that taxon in title or
   abstract; a follow with `mentioned_in = {TITLE}` gets hits only for such papers; existing follows behave as before.
