@@ -25,13 +25,16 @@ public final class WorkMerger {
 
     String title = frozen ? s.title() : pick(s.title(), in.title(), biblio);
 
-    // abstract: JATS and plain text are ranked separately
-    boolean takeJats = notBlank(in.abstractJats())
-        && (blank(s.abstractJats()) || jatsRank(in.abstractJatsSource()) <= jatsRank(s.abstractJatsSource()));
+    // abstract: JATS and plain text are ranked separately; a better kind replaces, an equal kind only from the
+    // abstract's own source (so two layers of the same kind with overlapping windows do not flip it every night)
+    boolean takeJats = notBlank(in.abstractJats()) && (blank(s.abstractJats())
+        || better(jatsRank(in.abstractJatsSource()), jatsRank(s.abstractJatsSource()), in.abstractJatsSource(),
+            s.abstractJatsSource()));
     String jats = takeJats ? in.abstractJats() : s.abstractJats();
     String jatsSource = takeJats ? in.abstractJatsSource() : s.abstractJatsSource();
-    boolean takeText = notBlank(in.abstractText())
-        && (blank(s.abstractText()) || textRank(in.abstractSource()) <= textRank(s.abstractSource()));
+    boolean takeText = notBlank(in.abstractText()) && (blank(s.abstractText())
+        || better(textRank(in.abstractSource()), textRank(s.abstractSource()), in.abstractSource(),
+            s.abstractSource()));
     String text = takeText ? in.abstractText() : s.abstractText();
     String textSource = takeText ? in.abstractSource() : s.abstractSource();
 
@@ -93,6 +96,11 @@ public final class WorkMerger {
 
   private static <T> T fill(T stored, T incoming) {
     return stored != null ? stored : incoming;
+  }
+
+  /** A lower rank wins; an equal rank only when it comes from the stored abstract's own source. */
+  private static boolean better(int inRank, int storedRank, String inSource, String storedSource) {
+    return inRank < storedRank || inRank == storedRank && java.util.Objects.equals(inSource, storedSource);
   }
 
   /** CROSSREF 0; every other JATS kind, also an unlabelled one, 1. */

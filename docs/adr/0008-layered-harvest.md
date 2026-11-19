@@ -95,15 +95,20 @@ fills nulls only. Ranks (`Layer.java`, `WorkMerger`):
 | OAI, MAGTECH | 3 | 2 |
 | BLR | 4 | 4 |
 
-- Bibliographic: title, authors, volume, issue, pages, date, type, language. Access: OA status, licence, best OA URL.
+- Bibliographic: title, authors, volume, issue, pages, date, type. Access: OA status, licence, best OA URL.
+  `language` is fill-only: the first layer that brings one sets it, no layer replaces it (layers spell languages
+  differently until M6c normalises them).
   The publisher's own deposit (Crossref) wins the first, OpenAlex's open-access analysis the second.
 - **Separate `access_layer`** (a ruling, not in the spec). With one owner, a Crossref-owned work would let Crossref's
   licence replace OpenAlex's. A layer claims `meta_layer` only when its record carries at least one bibliographic value
   and `access_layer` only when it carries an access value; otherwise Crossref's abstract-only merge would block OpenAlex.
 - V16 back-fills the owners of existing rows (OpenAlex where `openalex_id` is set, else Crossref; access owner only
   where an access value exists), else the first OAI re-harvest would overwrite about 100,000 titles and licences.
-- Abstract: replaced only by a better kind (Crossref JATS, other JATS, plain text, OpenAlex inverted index), never by
-  an empty one. A title stays frozen once the finder has named the work, except through `CLEAN_TITLES`.
+- Abstract: JATS and plain text are kept apart and ranked by kind (JATS: Crossref, then any other; plain text: from
+  Crossref JATS, from other JATS, other plain text, OpenAlex inverted index). A better kind replaces the stored one; an
+  equal kind only when it comes from the abstract's current source (`abstract_jats_source` / `abstract_source`), so
+  that two layers of the same kind with overlapping windows (Europe PMC 14 days, OAI 3 days) do not flip it every
+  night. An empty abstract never replaces one. A title stays frozen once the finder has named the work, except through `CLEAN_TITLES`.
 - `origin`, `first_seen_at`, `state`, `text_level` never change, as before.
 
 ### Routes and their lifecycle

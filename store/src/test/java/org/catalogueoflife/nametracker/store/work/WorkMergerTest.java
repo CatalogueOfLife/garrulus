@@ -87,6 +87,23 @@ class WorkMergerTest {
   }
 
   @Test
+  void equalKindReplacesOnlyFromTheSameSource() {
+    // OAI JATS and Europe PMC JATS rank the same: the other layer does not flip the stored abstract night after night
+    var other = WorkMerger.merge(abs(null, null, "<oai/>", "OAI"), abs(null, null, "<epmc/>", "EUROPEPMC"),
+        Layer.EUROPEPMC);
+    assertThat(other.work().abstractJats()).isEqualTo("<oai/>");
+    assertThat(other.changed()).isFalse();
+    // the abstract's own source may correct it
+    var same = WorkMerger.merge(abs(null, null, "<oai/>", "OAI"), abs(null, null, "<oai v2/>", "OAI"), Layer.OAI);
+    assertThat(same.work().abstractJats()).isEqualTo("<oai v2/>");
+    // plain text: OAI against PUBLISHER, both of the plain kind
+    var plain = WorkMerger.merge(abs("publisher", "PUBLISHER", null, null), abs("oai", "OAI", null, null), Layer.OAI);
+    assertThat(plain.work().abstractText()).isEqualTo("publisher");
+    var plainSame = WorkMerger.merge(abs("oai", "OAI", null, null), abs("oai fixed", "OAI", null, null), Layer.OAI);
+    assertThat(plainSame.work().abstractText()).isEqualTo("oai fixed");
+  }
+
+  @Test
   void emptyNeverReplaces() {
     Work stored = abs("text", "PUBLISHER", "<j/>", "OAI");
     var r = WorkMerger.merge(stored, abs("  ", "CROSSREF_JATS", "", "CROSSREF"), Layer.CROSSREF);
