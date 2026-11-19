@@ -1,0 +1,398 @@
+{
+ "version": "6.9",
+ "hitCount": 730,
+ "nextCursorMark": "AoIIP5Mnaig0OTc3OTI3MA==",
+ "nextPageUrl": "https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=ISSN%3A%221313-2989%22+AND+FIRST_IDATE%3A%5B2023-01-01+TO+2023-12-31%5D&cursorMark=AoIIP5Mnaig0OTc3OTI3MA%3D%3D&resultType=core&pageSize=3&format=json",
+ "request": {
+  "queryString": "ISSN:\"1313-2989\" AND FIRST_IDATE:[2023-01-01 TO 2023-12-31]",
+  "resultType": "core",
+  "cursorMark": "*",
+  "pageSize": 3,
+  "sort": "",
+  "synonym": false
+ },
+ "resultList": {
+  "result": [
+   {
+    "id": "38152061",
+    "source": "MED",
+    "pmid": "38152061",
+    "pmcid": "PMC10751944",
+    "doi": "10.3897/zookeys.1186.95203",
+    "title": "﻿A review of the anthidiine bees (Apoidea, Megachilidae) in Thailand.",
+    "authorString": "Nalinrachatakan P, Ascher JS, Kasparek M, Traiyasut P, Thanoosing C, Warrit N.",
+    "authorList": {
+     "author": [
+      {
+       "fullName": "Nalinrachatakan P",
+       "lastName": "Nalinrachatakan",
+       "firstName": "Pakorn",
+       "initials": "P"
+      },
+      {
+       "fullName": "Ascher JS",
+       "lastName": "Ascher",
+       "firstName": "John S",
+       "initials": "JS"
+      },
+      {
+       "fullName": "Kasparek M",
+       "lastName": "Kasparek",
+       "firstName": "Max",
+       "initials": "M"
+      },
+      {
+       "fullName": "Traiyasut P",
+       "lastName": "Traiyasut",
+       "firstName": "Prapun",
+       "initials": "P"
+      },
+      {
+       "fullName": "Thanoosing C",
+       "lastName": "Thanoosing",
+       "firstName": "Chawatat",
+       "initials": "C"
+      },
+      {
+       "fullName": "Warrit N",
+       "lastName": "Warrit",
+       "firstName": "Natapot",
+       "initials": "N"
+      }
+     ]
+    },
+    "journalInfo": {
+     "volume": "1186",
+     "journalIssueId": 3684016,
+     "dateOfPublication": "2023 ",
+     "monthOfPublication": 0,
+     "yearOfPublication": 2023,
+     "journal": {
+      "medlineAbbreviation": "Zookeys",
+      "title": "ZooKeys",
+      "essn": "1313-2970",
+      "issn": "1313-2989",
+      "nlmid": "101497933",
+      "isoabbreviation": "Zookeys"
+     },
+     "printPublicationDate": "2023-01-01"
+    },
+    "pubYear": "2023",
+    "pageInfo": "235-284",
+    "abstractText": "Bees of the tribe Anthidiini (Apoidea: Megachilidae) are notable pollinators consisting of resin bees, wool-carder bees, and cleptoparasitic bees. Twelve anthidiine species were historically reported in Thailand, though the taxonomic information of the group was needed revising. In this study, 165 (97♀, 68♂) anthidiine bee specimens deposited at the Chulalongkorn University Natural History Museum, Thailand, were examined with material obtained from various museum collections. Specimens were principally collected in Thailand with some from Laos and Myanmar. Here, at least eight genera and 15 species of anthidiine bees are recognized: <i>Anthidiellum</i> (5), <i>Bathanthidium</i> (1), <i>Eoanthidium</i> (1), <i>Euaspis</i> (4), <i>Pachyanthidium</i> (1), <i>Pseudoanthidium</i> (1), <i>Stelis</i> (1), and <i>Trachusa</i> (1). <i>Dianthidiumchinensis</i> Wu, 1962, <i>Eoanthidiumchinensis</i> (Wu, 1962), <i>Eoanthidiumsemicarinatum</i> Pasteels, 1972, and <i>Eoanthidiumpunjabensis</i> Gupta & Sharma, 1953 are relegated as junior synonyms of Eoanthidium (Hemidiellum) riparium (Cockerell, 1929), <b>stat. nov.</b> Both Anthidiellum (Pycnanthidium) latipes (Bingham, 1897) from Phang Nga and Euaspisaff.wegneri Baker, 1995 from Chumphon were identified as new records for Thailand. Trachusaaff.vietnamensis Flaminio & Quaranta, 2021 from Phitsanulok is a new record for the genus found in Thailand, whereas Pseudoanthidium (Pseudoanthidium) orientale (Bingham, 1897) is a new record for Laos. Annotated comments are provided for some taxa and identification keys for the Thai anthidiine bees is provided.",
+    "publicationStatus": "epublish",
+    "language": "eng",
+    "pubModel": "Electronic-eCollection",
+    "pubTypeList": {
+     "pubType": [
+      "research-article",
+      "Journal Article"
+     ]
+    },
+    "keywordList": {
+     "keyword": [
+      "Taxonomy",
+      "Southeast Asia",
+      "pollinator",
+      "Resin Bees",
+      "Wool Carder Bees"
+     ]
+    },
+    "fullTextUrlList": {
+     "fullTextUrl": [
+      {
+       "availability": "Open access",
+       "availabilityCode": "OA",
+       "documentStyle": "doi",
+       "site": "Unpaywall",
+       "url": "https://doi.org/10.3897/zookeys.1186.95203"
+      },
+      {
+       "availability": "Subscription required",
+       "availabilityCode": "S",
+       "documentStyle": "doi",
+       "site": "DOI",
+       "url": "https://doi.org/10.3897/zookeys.1186.95203"
+      },
+      {
+       "availability": "Open access",
+       "availabilityCode": "OA",
+       "documentStyle": "html",
+       "site": "Europe_PMC",
+       "url": "https://europepmc.org/articles/PMC10751944"
+      },
+      {
+       "availability": "Open access",
+       "availabilityCode": "OA",
+       "documentStyle": "pdf",
+       "site": "Europe_PMC",
+       "url": "https://europepmc.org/articles/PMC10751944?pdf=render"
+      }
+     ]
+    },
+    "isOpenAccess": "Y",
+    "inEPMC": "Y",
+    "inPMC": "Y",
+    "citedByCount": 1,
+    "hasReferences": "Y",
+    "hasTextMinedTerms": "Y",
+    "hasDbCrossReferences": "N",
+    "hasPDF": "Y",
+    "hasBook": "N",
+    "hasSuppl": "Y",
+    "hasLabsLinks": "Y",
+    "hasData": "Y",
+    "license": "cc by",
+    "authMan": "N",
+    "epmcAuthMan": "N",
+    "nihAuthMan": "N",
+    "hasTMAccessionNumbers": "Y",
+    "dateOfCreation": "2023-12-28",
+    "dateOfRevision": "2023-12-29",
+    "electronicPublicationDate": "2023-12-19",
+    "firstPublicationDate": "2023-12-19",
+    "firstIndexDate": "2023-12-28",
+    "fullTextReceivedDate": "2024-01-03",
+    "hasEvaluations": "N"
+   },
+   {
+    "id": "38152062",
+    "source": "MED",
+    "pmid": "38152062",
+    "pmcid": "PMC10751788",
+    "doi": "10.3897/zookeys.1186.112397",
+    "title": "﻿Larval polyphagy of <i>Cataspilatesmarceloi</i> (Lepidoptera, Geometridae), a Neotropical geometrid moth with flightless females.",
+    "authorString": "Vargas HA.",
+    "authorList": {
+     "author": [
+      {
+       "fullName": "Vargas HA",
+       "lastName": "Vargas",
+       "firstName": "Héctor A",
+       "initials": "HA"
+      }
+     ]
+    },
+    "journalInfo": {
+     "volume": "1186",
+     "journalIssueId": 3684016,
+     "dateOfPublication": "2023 ",
+     "monthOfPublication": 0,
+     "yearOfPublication": 2023,
+     "journal": {
+      "medlineAbbreviation": "Zookeys",
+      "title": "ZooKeys",
+      "essn": "1313-2970",
+      "issn": "1313-2989",
+      "nlmid": "101497933",
+      "isoabbreviation": "Zookeys"
+     },
+     "printPublicationDate": "2023-01-01"
+    },
+    "pubYear": "2023",
+    "pageInfo": "285-292",
+    "abstractText": "Surveys in the arid shrubland of the central Andes revealed larval polyphagy for <i>Cataspilatesmarceloi</i> Vargas, 2022 (Lepidoptera, Geometridae, Ennominae, Boarmiini), a geometrid moth with flightless females. This discovery suggests that, as well as in the Holarctic fauna, larval polyphagy would have been important for the evolution of flightlessness among Neotropical geometrid moths of the tribe Boarmiini.",
+    "publicationStatus": "epublish",
+    "language": "eng",
+    "pubModel": "Electronic-eCollection",
+    "pubTypeList": {
+     "pubType": [
+      "research-article",
+      "Journal Article"
+     ]
+    },
+    "keywordList": {
+     "keyword": [
+      "Solanaceae",
+      "Asteraceae",
+      "Andes",
+      "Brachyptery",
+      "Polyphagous Caterpillar"
+     ]
+    },
+    "fullTextUrlList": {
+     "fullTextUrl": [
+      {
+       "availability": "Subscription required",
+       "availabilityCode": "S",
+       "documentStyle": "doi",
+       "site": "DOI",
+       "url": "https://doi.org/10.3897/zookeys.1186.112397"
+      },
+      {
+       "availability": "Open access",
+       "availabilityCode": "OA",
+       "documentStyle": "html",
+       "site": "Europe_PMC",
+       "url": "https://europepmc.org/articles/PMC10751788"
+      },
+      {
+       "availability": "Open access",
+       "availabilityCode": "OA",
+       "documentStyle": "pdf",
+       "site": "Europe_PMC",
+       "url": "https://europepmc.org/articles/PMC10751788?pdf=render"
+      }
+     ]
+    },
+    "isOpenAccess": "Y",
+    "inEPMC": "Y",
+    "inPMC": "Y",
+    "citedByCount": 0,
+    "hasReferences": "Y",
+    "hasTextMinedTerms": "Y",
+    "hasDbCrossReferences": "N",
+    "hasPDF": "Y",
+    "hasBook": "N",
+    "hasSuppl": "N",
+    "hasLabsLinks": "Y",
+    "hasData": "Y",
+    "license": "cc by",
+    "authMan": "N",
+    "epmcAuthMan": "N",
+    "nihAuthMan": "N",
+    "hasTMAccessionNumbers": "Y",
+    "dateOfCreation": "2023-12-28",
+    "dateOfRevision": "2023-12-29",
+    "electronicPublicationDate": "2023-12-19",
+    "firstPublicationDate": "2023-12-19",
+    "firstIndexDate": "2023-12-28",
+    "fullTextReceivedDate": "2024-01-03",
+    "hasEvaluations": "N"
+   },
+   {
+    "id": "38115829",
+    "source": "MED",
+    "pmid": "38115829",
+    "pmcid": "PMC10729008",
+    "doi": "10.3897/zookeys.1186.112796",
+    "title": "﻿Another new species of the genus <i>Habrophlebia</i> Eaton, 1881 (Ephemeroptera, Leptophlebiidae) from the Maghreb.",
+    "authorString": "El Alami M, Vuataz L, El Yaagoubi S, Sartori M.",
+    "authorList": {
+     "author": [
+      {
+       "fullName": "El Alami M",
+       "lastName": "El Alami",
+       "firstName": "Majida",
+       "initials": "M"
+      },
+      {
+       "fullName": "Vuataz L",
+       "lastName": "Vuataz",
+       "firstName": "Laurent",
+       "initials": "L"
+      },
+      {
+       "fullName": "El Yaagoubi S",
+       "lastName": "El Yaagoubi",
+       "firstName": "Sara",
+       "initials": "S"
+      },
+      {
+       "fullName": "Sartori M",
+       "lastName": "Sartori",
+       "firstName": "Michel",
+       "initials": "M"
+      }
+     ]
+    },
+    "journalInfo": {
+     "volume": "1186",
+     "journalIssueId": 3684016,
+     "dateOfPublication": "2023 ",
+     "monthOfPublication": 0,
+     "yearOfPublication": 2023,
+     "journal": {
+      "medlineAbbreviation": "Zookeys",
+      "title": "ZooKeys",
+      "essn": "1313-2970",
+      "issn": "1313-2989",
+      "nlmid": "101497933",
+      "isoabbreviation": "Zookeys"
+     },
+     "printPublicationDate": "2023-01-01"
+    },
+    "pubYear": "2023",
+    "pageInfo": "47-70",
+    "abstractText": "A new species belonging to the genus <i>Habrophlebia</i> Eaton, 1881 is described at the nymphal stage from the Rif Mountains of Morocco. This species presents unique features, such as the chorionic arrangement of the egg and the ornamentation of the posterior margin of abdominal tergites. It is compared to all west European <i>Habrophlebia</i> species and a table with discriminating characters is given. A phylogenetic reconstruction based on COI sequences fully supports the hypothesis of a new species in the Rif Mountains, with possible further distribution in southern Spain.",
+    "publicationStatus": "epublish",
+    "language": "eng",
+    "pubModel": "Electronic-eCollection",
+    "pubTypeList": {
+     "pubType": [
+      "research-article",
+      "Journal Article"
+     ]
+    },
+    "keywordList": {
+     "keyword": [
+      "Systematics",
+      "COI",
+      "Spain",
+      "Morocco",
+      "Mayflies",
+      "West Palaearctic",
+      "Habrophlebiadakkii Sp. Nov.",
+      "Rif Mountains"
+     ]
+    },
+    "fullTextUrlList": {
+     "fullTextUrl": [
+      {
+       "availability": "Open access",
+       "availabilityCode": "OA",
+       "documentStyle": "doi",
+       "site": "Unpaywall",
+       "url": "https://doi.org/10.3897/zookeys.1186.112796"
+      },
+      {
+       "availability": "Subscription required",
+       "availabilityCode": "S",
+       "documentStyle": "doi",
+       "site": "DOI",
+       "url": "https://doi.org/10.3897/zookeys.1186.112796"
+      },
+      {
+       "availability": "Open access",
+       "availabilityCode": "OA",
+       "documentStyle": "html",
+       "site": "Europe_PMC",
+       "url": "https://europepmc.org/articles/PMC10729008"
+      },
+      {
+       "availability": "Open access",
+       "availabilityCode": "OA",
+       "documentStyle": "pdf",
+       "site": "Europe_PMC",
+       "url": "https://europepmc.org/articles/PMC10729008?pdf=render"
+      }
+     ]
+    },
+    "isOpenAccess": "Y",
+    "inEPMC": "Y",
+    "inPMC": "Y",
+    "citedByCount": 1,
+    "hasReferences": "Y",
+    "hasTextMinedTerms": "Y",
+    "hasDbCrossReferences": "N",
+    "hasPDF": "Y",
+    "hasBook": "N",
+    "hasSuppl": "Y",
+    "hasLabsLinks": "Y",
+    "hasData": "Y",
+    "license": "cc by",
+    "authMan": "N",
+    "epmcAuthMan": "N",
+    "nihAuthMan": "N",
+    "hasTMAccessionNumbers": "Y",
+    "dateOfCreation": "2023-12-20",
+    "dateOfRevision": "2023-12-21",
+    "electronicPublicationDate": "2023-12-11",
+    "firstPublicationDate": "2023-12-11",
+    "firstIndexDate": "2023-12-23",
+    "fullTextReceivedDate": "2023-12-21",
+    "hasEvaluations": "N"
+   }
+  ]
+ }
+}

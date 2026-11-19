@@ -15,7 +15,7 @@ import org.catalogueoflife.nametracker.store.work.TitleText;
  * {@code <jats:p>}, {@code <i>}/{@code <em>} {@code <jats:italic>}, {@code <sub>}/{@code <sup>} their JATS forms; every
  * other tag (strong, b, span, …) is dropped and its text kept. Entities are decoded and the text escaped again.
  */
-final class MagtechAbstracts {
+public final class MagtechAbstracts {
 
   private static final Pattern TAG = Pattern.compile("<(/?)([a-zA-Z][a-zA-Z0-9]*)\\b[^<>]*?(/?)>");
   private static final Set<String> BLOCKS = Set.of("br", "div", "li", "ul", "ol", "tr", "td", "th", "table", "tbody",
@@ -24,7 +24,7 @@ final class MagtechAbstracts {
   private MagtechAbstracts() {
   }
 
-  static String toJats(String html) {
+  public static String toJats(String html) {
     String jats = build(html);
     try {
       OaiPmhClient.parse(("<r xmlns:jats=\"http://jats.nlm.nih.gov\">" + jats + "</r>").getBytes(StandardCharsets.UTF_8));
