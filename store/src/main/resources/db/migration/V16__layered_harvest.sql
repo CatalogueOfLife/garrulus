@@ -72,9 +72,9 @@ ALTER TABLE work DROP CONSTRAINT work_abstract_source_check;
 ALTER TABLE work ADD CONSTRAINT work_abstract_source_check
   CHECK (abstract_source IN ('CROSSREF_JATS','OPENALEX_INVERTED','PUBLISHER','EUROPEPMC','OAI','MAGTECH'));
 
-INSERT INTO work_identifier (work_id, scheme, value, first_layer) SELECT id, 'DOI', doi, 'CROSSREF' FROM work WHERE doi IS NOT NULL;
-INSERT INTO work_identifier (work_id, scheme, value, first_layer) SELECT id, 'OPENALEX', openalex_id, 'OPENALEX' FROM work WHERE openalex_id IS NOT NULL;
-INSERT INTO work_identifier (work_id, scheme, value, first_layer) SELECT id, 'PMCID', pmcid, 'EUROPEPMC' FROM work WHERE pmcid IS NOT NULL;
+INSERT INTO work_identifier (work_id, scheme, value, first_layer) SELECT id, 'DOI', doi, 'CROSSREF' FROM work WHERE doi IS NOT NULL ORDER BY id ON CONFLICT DO NOTHING;
+INSERT INTO work_identifier (work_id, scheme, value, first_layer) SELECT id, 'OPENALEX', openalex_id, 'OPENALEX' FROM work WHERE openalex_id IS NOT NULL ORDER BY id ON CONFLICT DO NOTHING;
+INSERT INTO work_identifier (work_id, scheme, value, first_layer) SELECT id, 'PMCID', pmcid, 'EUROPEPMC' FROM work WHERE pmcid IS NOT NULL ORDER BY id ON CONFLICT DO NOTHING;
 
-INSERT INTO work_sighting (work_id, layer, source_id) SELECT id, 'OPENALEX', source_id FROM work WHERE openalex_id IS NOT NULL;
+INSERT INTO work_sighting (work_id, layer, source_id) SELECT id, 'OPENALEX', source_id FROM work WHERE openalex_id IS NOT NULL ORDER BY id ON CONFLICT DO NOTHING;
 INSERT INTO work_sighting (work_id, layer, source_id) SELECT id, 'CROSSREF', source_id FROM work WHERE doi IS NOT NULL AND openalex_id IS NULL;

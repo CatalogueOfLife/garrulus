@@ -78,8 +78,8 @@
       pmcid = #{o.pmcid},
       openalex_has_tei = COALESCE(#{o.openalexHasTei}, false),
       openalex_checked_at = #{o.openalexCheckedAt},
-      meta_layer = #{o.metaLayer},
-      abstract_jats_source = #{o.abstractJatsSource},
+      meta_layer = COALESCE(#{o.metaLayer}::text, meta_layer),
+      abstract_jats_source = COALESCE(#{o.abstractJatsSource}::text, abstract_jats_source),
       modified = now()
     WHERE id = #{o.id}
   </update>

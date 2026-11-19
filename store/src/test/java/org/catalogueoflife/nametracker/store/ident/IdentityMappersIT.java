@@ -84,13 +84,16 @@ class IdentityMappersIT extends AbstractPostgresIT {
     j.execute("INSERT INTO migcheck.work (openalex_id, doi, origin, abstract_jats, pmcid) "
         + "VALUES ('W-mig1', '10.16/mig1', 'LIVE', '<abstract/>', 'PMC1')");
     j.execute("INSERT INTO migcheck.work (doi, origin) VALUES ('10.16/mig2', 'LIVE')");
+    j.execute("INSERT INTO migcheck.work (doi, origin, pmcid) VALUES ('10.16/mig3', 'LIVE', 'PMC1')"); // same PMCID
     Flyway.configure().dataSource(ds).schemas("migcheck").target("16").load().migrate();
 
-    assertThat(j.queryForObject("SELECT count(*) FROM migcheck.work_identifier", Integer.class)).isEqualTo(4);
+    assertThat(j.queryForObject("SELECT count(*) FROM migcheck.work_identifier", Integer.class)).isEqualTo(5);
     assertThat(j.queryForList("SELECT scheme FROM migcheck.work_identifier WHERE value = 'PMC1'", String.class))
         .containsExactly("PMCID");
+    assertThat(j.queryForObject("SELECT work_id = (SELECT min(id) FROM migcheck.work) FROM migcheck.work_identifier "
+        + "WHERE value = 'PMC1'", Boolean.class)).isTrue();
     assertThat(j.queryForList("SELECT layer FROM migcheck.work_sighting ORDER BY layer", String.class))
-        .containsExactly("CROSSREF", "OPENALEX");
+        .containsExactly("CROSSREF", "CROSSREF", "OPENALEX");
     assertThat(j.queryForList("SELECT abstract_jats_source FROM migcheck.work WHERE abstract_jats IS NOT NULL",
         String.class)).containsExactly("CROSSREF");
     // a work with no DOI and no OpenAlex id is now allowed

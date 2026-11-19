@@ -77,4 +77,27 @@ class MapperIT extends AbstractPostgresIT {
     assertThat(u.textLevel()).isEqualTo("FULLTEXT");
     assertThat(u.hasActs()).isTrue();
   }
+
+  @Test
+  void updateKeepsLayerFieldsWhenNullAndSetsWhenGiven() {
+    long id = works.insert(new Work(null, "W-layer", null, null, "t", null, null, null, null, null, "[]", null, null,
+        null, null, null, null, null, "LIVE", "DISCOVERED", null, List.of(), List.of(), false, null, null, null, null,
+        false, null, "OPENALEX", "CROSSREF"));
+    Work got = works.get(id);
+    assertThat(got.metaLayer()).isEqualTo("OPENALEX");
+    works.update(withLayers(got, null, null));
+    assertThat(works.get(id).metaLayer()).isEqualTo("OPENALEX");
+    assertThat(works.get(id).abstractJatsSource()).isEqualTo("CROSSREF");
+    works.update(withLayers(got, "CROSSREF", "EUROPEPMC"));
+    assertThat(works.get(id).metaLayer()).isEqualTo("CROSSREF");
+    assertThat(works.get(id).abstractJatsSource()).isEqualTo("EUROPEPMC");
+  }
+
+  private static Work withLayers(Work g, String meta, String jats) {
+    return new Work(g.id(), g.openalexId(), g.doi(), g.sourceId(), g.title(), g.publicationDate(), g.year(), g.volume(),
+        g.issue(), g.pages(), g.authors(), g.type(), g.language(), g.oaStatus(), g.license(), g.bestOaUrl(),
+        g.abstractText(), g.abstractSource(), g.origin(), g.state(), g.textLevel(), g.codes(), g.taxgroups(),
+        g.hasActs(), g.firstSeenAt(), g.modified(), g.abstractJats(), g.pmcid(), g.openalexHasTei(),
+        g.openalexCheckedAt(), meta, jats);
+  }
 }
