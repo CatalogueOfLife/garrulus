@@ -26,7 +26,7 @@ import tools.jackson.databind.JsonNode;
  * transaction (both rows locked, older first) the younger is merged into the older with {@link WorkMerger} (the
  * younger's meta layer is its layer, BLR when unknown), its identifiers, sightings, content rows and hits move over
  * (a route, layer or (subscription, kind) the survivor has already is dropped, so nobody is notified twice) and the
- * younger is deleted, its mentions with it. When content moved, the survivor's document may differ: FIND_NAMES forced
+ * younger is deleted, its mentions with it. When content moved or the survivor's abstract changed (and it is past DISCOVERED), its document may differ: FIND_NAMES forced
  * at REPROCESS. A missing work (already merged) is a no-op; two different DOIs are never merged. Idempotent.
  */
 @Component
@@ -89,7 +89,14 @@ public class MergeWorksHandler implements TaskHandler {
     int movedHits = hits.moveHits(otherId, survivorId);
     works.deleteWork(otherId); // frees its DOI and OpenAlex id for the survivor
     if (merged.changed()) works.updateMerged(merged.work());
-    if (moved > 0) {
+    Work after = merged.work();
+    boolean abstractChanged = !java.util.Objects.equals(survivor.abstractText(), after.abstractText())
+        || !java.util.Objects.equals(survivor.abstractJats(), after.abstractJats())
+        || !java.util.Objects.equals(survivor.abstractSource(), after.abstractSource())
+        || !java.util.Objects.equals(survivor.abstractJatsSource(), after.abstractJatsSource());
+    // a survivor still DISCOVERED is named by its own RESOLVE_CONTENT -> FIND_NAMES chain
+    boolean resolved = survivor.state() != null && !"DISCOVERED".equals(survivor.state());
+    if (resolved && (moved > 0 || abstractChanged)) {
       queue.enqueue(FindNamesHandler.TYPE, "{\"workId\":" + survivorId + ",\"force\":true}", TaskPriority.REPROCESS,
           "merge-names:" + survivorId + ":" + otherId, task.runAfter());
     }

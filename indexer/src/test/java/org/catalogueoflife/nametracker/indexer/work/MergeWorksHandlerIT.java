@@ -109,7 +109,10 @@ class MergeWorksHandlerIT extends AbstractPostgresIT {
     handler.handle(task(a, b));
     assertThat(count("SELECT count(*) FROM content WHERE work_id = ?", a)).isEqualTo(1);
     assertThat(queued("FIND_NAMES")).hasSize(1);
-    assertThat(queued("FIND_NAMES").get(0)).contains("\"workId\": " + a).contains("true");
+    tools.jackson.databind.JsonNode n = org.catalogueoflife.nametracker.finder.api.FinderJson.mapper()
+        .readTree(queued("FIND_NAMES").get(0));
+    assertThat(n.path("workId").asLong()).isEqualTo(a);
+    assertThat(n.path("force").asBoolean()).isTrue();
 
     // without content to move nothing is enqueued
     jdbc.update("DELETE FROM task");
@@ -124,5 +127,30 @@ class MergeWorksHandlerIT extends AbstractPostgresIT {
     long b = work("10.1/b", null, "Younger", null);
     handler.handle(task(a, b));
     assertThat(count("SELECT count(*) FROM work")).isEqualTo(2);
+  }
+
+  private long withAbstract(String state, String text, String source) {
+    return jdbc.queryForObject("INSERT INTO work (title, abstract, abstract_source, origin, state, text_level) "
+        + "VALUES ('T', ?, ?, 'LIVE', ?, 'ABSTRACT_ONLY') RETURNING id", Long.class, text, source, state);
+  }
+
+  @Test
+  void abstractChangeOnNamedSurvivorEnqueuesFindNames() throws Exception {
+    long a = withAbstract("INDEXED", "Inverted abstract", "OPENALEX_INVERTED");
+    long b = withAbstract("DISCOVERED", "Better abstract", "CROSSREF_JATS");
+    handler.handle(task(a, b));
+    assertThat(jdbc.queryForObject("SELECT abstract FROM work WHERE id = ?", String.class, a))
+        .isEqualTo("Better abstract");
+    assertThat(queued("FIND_NAMES")).hasSize(1);
+  }
+
+  @Test
+  void discoveredSurvivorGetsNoForcedFindNames() throws Exception {
+    long a = withAbstract("DISCOVERED", "Inverted abstract", "OPENALEX_INVERTED");
+    long b = withAbstract("DISCOVERED", "Better abstract", "CROSSREF_JATS");
+    handler.handle(task(a, b));
+    assertThat(jdbc.queryForObject("SELECT abstract FROM work WHERE id = ?", String.class, a))
+        .isEqualTo("Better abstract");
+    assertThat(queued("FIND_NAMES")).isEmpty();
   }
 }
