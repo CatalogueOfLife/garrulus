@@ -36,8 +36,9 @@ import tools.jackson.databind.JsonNode;
  *
  * <p>The run is a {@code harvest_run} with the layer's adapter ({@code _ONBOARDING} or {@code _BACKFILL} appended in
  * those modes). An outage ({@link HarvestOutage}) leaves the run DEFERRED and enqueues the same page again after the
- * outage delay without using an attempt; any other failure marks the run FAILED and is thrown. The last page marks the
- * run DONE after {@link #lastPage}. The handler is off while {@code nametracker.layers.<layer>.enabled} is false; its
+ * outage delay without using an attempt; any other failure marks the run FAILED, is written to the route's
+ * {@code last_error} and is thrown; the attempt that makes the task DEAD also marks the route BROKEN. The last page
+ * marks the run DONE after {@link #lastPage}. The handler is off while {@code nametracker.layers.<layer>.enabled} is false; its
  * tasks then wait in the queue.
  */
 public abstract class LayerHarvestHandler implements TaskHandler {
@@ -112,6 +113,7 @@ public abstract class LayerHarvestHandler implements TaskHandler {
         return;
       }
       runs.setState(runId, "FAILED", WorksPager.error(e));
+      if (routeId != null) routeFailed(task, routeId, e);
       throw e;
     }
   }
@@ -142,6 +144,22 @@ public abstract class LayerHarvestHandler implements TaskHandler {
     } else {
       lastPage(job);
       runs.setState(job.runId(), "DONE", null);
+    }
+  }
+
+  /**
+   * A route job failed for another reason than an outage: the route's {@code last_error} says why, and the attempt
+   * that ends the task DEAD marks the route BROKEN, so the nightly schedule stops reading it, the rollout stops
+   * picking it, and {@code VERIFY_ROUTE} (or an admin) revives it.
+   */
+  private void routeFailed(Task task, long routeId, Exception e) {
+    String error = WorksPager.error(e);
+    int maxAttempts = env.getProperty("nametracker.indexer.max-attempts", Integer.class, 5);
+    if (TaskDispatcher.nonRetryable(e) || task.attempts() >= maxAttempts) {
+      routes.setStatus(routeId, "BROKEN", error);
+      LOG.warn("{} route {} is BROKEN: its harvest failed on its last attempt: {}", layer().layer(), routeId, error);
+    } else {
+      routes.setError(routeId, error);
     }
   }
 

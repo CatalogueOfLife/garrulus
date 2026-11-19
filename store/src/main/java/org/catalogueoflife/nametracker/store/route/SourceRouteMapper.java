@@ -27,7 +27,8 @@ public interface SourceRouteMapper {
 
   /**
    * VERIFIED routes of active CORE/BROAD sources with no QUEUED or RUNNING {@code HARVEST_<layer>} task of their own
-   * (an onboarding pass already under way), oldest first: the routes the nightly rollout starts.
+   * (an onboarding pass already under way) and no onboarding pass that went DEAD since the route was last verified,
+   * oldest first: the routes the nightly rollout starts.
    */
   List<SourceRoute> listRollout(@Param("limit") int limit);
 

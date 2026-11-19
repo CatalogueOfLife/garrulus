@@ -51,6 +51,9 @@
     WHERE r.status = 'VERIFIED' AND s.active AND s.tier IN ('CORE','BROAD')
       AND NOT EXISTS (SELECT 1 FROM task t WHERE t.type = 'HARVEST_' || r.layer AND t.state IN ('QUEUED','RUNNING')
                       AND t.payload->>'routeId' = r.id::text)
+      AND NOT EXISTS (SELECT 1 FROM task t WHERE t.type = 'HARVEST_' || r.layer AND t.state = 'DEAD'
+                      AND t.payload->>'routeId' = r.id::text AND t.payload->>'mode' = 'ONBOARDING'
+                      AND (r.verified_at IS NULL OR t.finished &gt; r.verified_at))
     ORDER BY r.id LIMIT #{limit}
   </select>
 

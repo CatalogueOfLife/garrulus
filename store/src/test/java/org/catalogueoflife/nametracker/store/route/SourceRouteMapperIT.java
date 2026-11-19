@@ -102,4 +102,22 @@ class SourceRouteMapperIT extends AbstractPostgresIT {
     assertThat(got).contains(ready).doesNotContain(running, pending, unwanted);
     assertThat(routes.listRollout(1)).hasSize(1);
   }
+
+  @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
+
+  @Test
+  void rolloutSkipsRoutesWhoseOnboardingDiedSinceTheirVerification() {
+    long wanted = source("S-route-7");
+    long dead = routes.insert(route(wanted, "OAI", "{\"d\":1}"));
+    routes.setStatus(dead, "VERIFIED", null);
+    routes.setVerified(dead, java.time.Instant.now().minusSeconds(3600));
+    tasks.insert("HARVEST_OAI", "{\"routeId\":" + dead + ",\"mode\":\"ONBOARDING\"}", TaskPriority.REPROCESS,
+        "rollout-dead:" + dead, null);
+    jdbc.update("UPDATE task SET state = 'DEAD', finished = now() WHERE dedup_key = ?", "rollout-dead:" + dead);
+    // a dead pass does not block the routes after it night after night
+    assertThat(routes.listRollout(1000)).extracting(SourceRoute::id).doesNotContain(dead);
+    // verified again since: rolled out again
+    routes.setVerified(dead, java.time.Instant.now().plusSeconds(60));
+    assertThat(routes.listRollout(1000)).extracting(SourceRoute::id).contains(dead);
+  }
 }

@@ -242,6 +242,16 @@ class LayerHarvestHandlerIT extends AbstractPostgresIT {
     HarvestRun run = runs.recent(1).getFirst();
     assertThat(run.state()).isEqualTo("FAILED");
     assertThat(run.error()).contains("HTTP 400");
+    // the route shows why; one failed attempt is no reason to give it up
+    assertThat(routes.get(routeId).lastError()).contains("HTTP 400");
+    assertThat(routes.get(routeId).status()).isEqualTo("ACTIVE");
+
+    // the attempt that makes the task DEAD marks the route BROKEN: no nightly re-read of a dead route
+    Task last = new Task(t.id(), t.type(), t.payload(), t.priority(), t.state(), 5, t.runAfter(), null, null, null,
+        t.dedupKey(), t.created());
+    assertThatThrownBy(() -> h.handle(last)).isInstanceOf(HttpProblem.class);
+    assertThat(routes.get(routeId).status()).isEqualTo("BROKEN");
+    assertThat(routes.get(routeId).lastError()).contains("HTTP 400");
   }
 
   @Test
