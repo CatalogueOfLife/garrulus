@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+import org.catalogueoflife.nametracker.indexer.layer.coverage.CoverageCheckHandler;
 import org.catalogueoflife.nametracker.indexer.layer.europepmc.ProbeEuropePmcHandler;
 import org.catalogueoflife.nametracker.store.harvest.HarvestRunMapper;
 import org.catalogueoflife.nametracker.store.route.SourceRoute;
@@ -35,7 +36,8 @@ import org.springframework.stereotype.Component;
  * <p>The window starts three days before the route's last good run (120 days back for a route that never ran) for OAI
  * and Magtech, and {@value #EUROPEPMC_DAYS} days back for Europe PMC. BLR has no route: one job from the end of its
  * last DONE run (two days back without one). The monthly Europe PMC probe is behind the master switch and the
- * Europe PMC switch.
+ * Europe PMC switch. The daily coverage check (\{@code nametracker.layers.coverage-cron}) is analysis and not behind the
+ * harvest switch.
  */
 @Component
 public class LayerScheduler {
@@ -139,5 +141,14 @@ public class LayerScheduler {
     if (!on(Layer.EUROPEPMC)) return;
     queue.enqueue(ProbeEuropePmcHandler.TYPE, "{}", TaskPriority.LIVE,
         "probe-europepmc:all:" + YearMonth.from(today()));
+  }
+
+  /** Daily, after the layers' harvests: judges yesterday's health and coverage. Analysis, not behind the harvest switch. */
+  @Scheduled(cron = "${nametracker.layers.coverage-cron:0 30 6 * * *}", zone = "UTC")
+  @SchedulerLock(name = "coverage-check", lockAtLeastFor = "PT1M")
+  public void coverage() {
+    LocalDate day = today().minusDays(1);
+    queue.enqueue(CoverageCheckHandler.TYPE, CoverageCheckHandler.payload(day), TaskPriority.LIVE,
+        "coverage-check:" + day);
   }
 }

@@ -32,4 +32,71 @@
       updated = now()
   </insert>
 
+  <select id="get" resultMap="result">
+    SELECT * FROM layer_health WHERE layer = #{layer} AND day = #{day}
+  </select>
+
+  <select id="missBaseline" resultType="double">
+    SELECT coalesce(avg(miss_share), 0)::float8 FROM layer_health
+    WHERE layer = #{layer} AND day &gt;= #{day}::date - #{days}::int AND day &lt; #{day}::date
+  </select>
+
+  <select id="runDays" resultType="map">
+    SELECT (started AT TIME ZONE 'UTC')::date AS day,
+      count(*) FILTER (WHERE state = 'FAILED')::int AS failed,
+      count(*) FILTER (WHERE state = 'DEFERRED')::int AS deferred,
+      count(*) FILTER (WHERE state = 'DONE')::int AS done
+    FROM harvest_run
+    WHERE adapter = #{adapter}
+      AND started &gt;= (#{from}::date)::timestamp AT TIME ZONE 'UTC'
+      AND started &lt; ((#{to}::date) + 1)::timestamp AT TIME ZONE 'UTC'
+    GROUP BY 1 ORDER BY 1
+  </select>
+
+  <select id="sightingDays" resultType="map">
+    SELECT (first_seen AT TIME ZONE 'UTC')::date AS day, count(*)::int AS n
+    FROM work_sighting
+    WHERE layer = #{layer}
+      AND first_seen &gt;= (#{from}::date)::timestamp AT TIME ZONE 'UTC'
+      AND first_seen &lt; ((#{to}::date) + 1)::timestamp AT TIME ZONE 'UTC'
+    GROUP BY 1 ORDER BY 1
+  </select>
+
+  <select id="sightingsBySource" resultType="map">
+    SELECT w.source_id, count(*)::int AS n
+    FROM work_sighting ws JOIN work w ON w.id = ws.work_id
+    WHERE ws.layer = #{layer} AND w.source_id IS NOT NULL
+      AND ws.first_seen &gt;= (#{from}::date)::timestamp AT TIME ZONE 'UTC'
+      AND ws.first_seen &lt; ((#{to}::date) + 1)::timestamp AT TIME ZONE 'UTC'
+    GROUP BY w.source_id
+  </select>
+
+  <select id="missesBySource" resultType="map">
+    WITH served AS (
+      <if test="routeLayer == null">
+        SELECT id AS source_id FROM source WHERE active AND tier IN ('CORE','BROAD') AND onboarded_at IS NOT NULL
+      </if>
+      <if test="routeLayer != null">
+        SELECT DISTINCT source_id FROM source_route WHERE layer = #{routeLayer} AND status = 'ACTIVE'
+      </if>
+    ), cand AS (
+      SELECT DISTINCT work_id FROM work_sighting
+      WHERE layer IN <foreach collection="others" item="l" open="(" separator="," close=")">#{l}</foreach>
+        AND first_seen &gt;= (#{from}::date)::timestamp AT TIME ZONE 'UTC'
+        AND first_seen &lt; ((#{to}::date) + 1)::timestamp AT TIME ZONE 'UTC'
+    )
+    SELECT w.source_id, count(*)::int AS total,
+      count(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM work_sighting m WHERE m.work_id = c.work_id AND m.layer = #{layer}))::int AS misses
+    FROM cand c
+    JOIN work w ON w.id = c.work_id
+    JOIN served s ON s.source_id = w.source_id
+    WHERE NOT EXISTS (SELECT 1 FROM work_sighting e WHERE e.work_id = c.work_id
+      AND e.first_seen &lt; (#{from}::date)::timestamp AT TIME ZONE 'UTC')
+    GROUP BY w.source_id
+  </select>
+
+  <delete id="deleteCoverage">
+    DELETE FROM source_layer_coverage WHERE layer = #{layer}
+  </delete>
+
 </mapper>

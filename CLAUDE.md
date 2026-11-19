@@ -107,6 +107,16 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
     its last DONE run (2 days back without one). The monthly `PROBE_EUROPEPMC` (`0 0 1 1 * *`) needs the harvest and
     the Europe PMC switch; its new route is VERIFIED for a journal without an OpenAlex id (the rollout onboards it),
     else ACTIVE.
+  - Coverage monitor (M6): `NAMETRACKER_LAYERS_COVERAGE_CRON` (`nametracker.layers.coverage-cron`, `0 30 6 * * *` UTC, not
+    behind the harvest switch) enqueues `COVERAGE_CHECK {"day":"<yesterday>"}` (key `coverage-check:<day>`; admin may
+    enqueue any day, a rerun overwrites that day). It writes `layer_health` (OK/DEGRADED/FAILING per layer and day) and
+    `source_layer_coverage` (28-day sightings and misses per journal). A miss is a work first sighted 3 to 17 days
+    before the day by another layer, in a journal the layer serves (OpenAlex, Crossref: harvestable sources; OAI,
+    Magtech, Europe PMC: sources with an ACTIVE route of it; BLR none), that the layer never saw. A layer turning
+    FAILING logs a WARN (no mail yet). Thresholds `nametracker.coverage.{fail-days=2, yield-ratio=0.5, miss-share=0.30,
+    miss-baseline=0.10}` (env `NAMETRACKER_COVERAGE_FAIL_DAYS`, `_YIELD_RATIO`, `_MISS_SHARE`, `_MISS_BASELINE`).
+    `GET /api/admin/status` adds `layers` (last 7 days), `routes` (layer, status, count) and the 28-day `contribution`
+    (first-found and only-found per layer, also `contributionByCountry`).
   - `NAMETRACKER_HARVEST_OUTAGE_DELAY` (30m): a harvest or onboarding page that meets an outage is enqueued again after
     this delay instead of failing.
 - `indexer` matching and index (ADR-0005):

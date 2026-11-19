@@ -61,10 +61,20 @@ nametracker:
     magtech-cron: ${NAMETRACKER_LAYERS_MAGTECH_CRON:0 45 4 * * *}
     europepmc-cron: ${NAMETRACKER_LAYERS_EUROPEPMC_CRON:0 0 5 * * *}
     blr-cron: ${NAMETRACKER_LAYERS_BLR_CRON:0 15 5 * * *}
+    # nightly COVERAGE_CHECK of yesterday (layer health, coverage); analysis, not behind the harvest switch
+    coverage-cron: ${NAMETRACKER_LAYERS_COVERAGE_CRON:0 30 6 * * *}
     oai.enabled: ${NAMETRACKER_LAYERS_OAI_ENABLED:true}
     magtech.enabled: ${NAMETRACKER_LAYERS_MAGTECH_ENABLED:true}
     europepmc.enabled: ${NAMETRACKER_LAYERS_EUROPEPMC_ENABLED:true}
     blr.enabled: ${NAMETRACKER_LAYERS_BLR_ENABLED:true}
+
+  coverage:
+    # layer health: FAILING at this many failed or zero-yield days in a row; DEGRADED under yield-ratio of the weekly
+    # median, or with a miss share over miss-share where the baseline was under miss-baseline
+    fail-days: ${NAMETRACKER_COVERAGE_FAIL_DAYS:2}
+    yield-ratio: ${NAMETRACKER_COVERAGE_YIELD_RATIO:0.5}
+    miss-share: ${NAMETRACKER_COVERAGE_MISS_SHARE:0.30}
+    miss-baseline: ${NAMETRACKER_COVERAGE_MISS_BASELINE:0.10}
 
   openalex:
     base-url: ${NAMETRACKER_OPENALEX_BASE_URL:https://api.openalex.org}

@@ -138,4 +138,12 @@ class LayerSchedulerTest {
     scheduler.probeEuropePmc();
     verify(queue).enqueue("PROBE_EUROPEPMC", "{}", TaskPriority.LIVE, "probe-europepmc:all:2026-11");
   }
+
+  @Test
+  void coverageCheckIsDailyAndNotBehindTheHarvestSwitch() {
+    env.setProperty("nametracker.harvest.enabled", "false");
+    scheduler.coverage();
+    verify(queue).enqueue("COVERAGE_CHECK", "{\"day\":\"2026-11-14\"}", TaskPriority.LIVE,
+        "coverage-check:2026-11-14");
+  }
 }

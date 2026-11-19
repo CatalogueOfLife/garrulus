@@ -1,5 +1,7 @@
 package org.catalogueoflife.nametracker.store.ident;
 
+import java.util.List;
+import java.util.Map;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.jspecify.annotations.Nullable;
@@ -15,4 +17,11 @@ public interface WorkSightingMapper {
    * duplicate is dropped. Returns the rows that ended up on the target.
    */
   int moveAll(@Param("fromWork") long fromWork, @Param("toWork") long toWork);
+
+  /**
+   * Contribution of the layers over the last 28 days, per journal country (null for none) and layer: sightings of
+   * works the layer saw first ({@code first_found}, ties by layer name) and of works only it has seen
+   * ({@code only_found}). {@code layers} bounds the scan to the layer index.
+   */
+  List<Map<String, Object>> contribution(@Param("layers") List<String> layers);
 }

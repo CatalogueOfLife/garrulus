@@ -146,4 +146,40 @@ class AdminStatusControllerIT extends AbstractPostgresIT {
     assertThat(get(null).statusCode()).isEqualTo(401);
     assertThat(get("wrong").statusCode()).isEqualTo(401);
   }
+
+  @Test
+  void statusListsLayersAndRoutes() throws Exception {
+    jdbc.update("DELETE FROM layer_health");
+    jdbc.update("DELETE FROM source_route");
+    long cn = jdbc.queryForObject("INSERT INTO source (openalex_id, title, origin, tier, country) "
+        + "VALUES ('SC','c','MANUAL','CORE','CN') RETURNING id", Long.class);
+    jdbc.update("INSERT INTO source_route (source_id, layer, config, status, origin) VALUES "
+        + "(?, 'MAGTECH', '{\"a\":1}', 'ACTIVE', 'SEED'), (?, 'MAGTECH', '{\"a\":2}', 'BROKEN', 'SEED'), "
+        + "(?, 'OAI', '{}', 'ACTIVE', 'SEED')", cn, cn, cn);
+    jdbc.update("INSERT INTO layer_health (layer, day, state, failed_runs, yield, median, miss_share) VALUES "
+        + "('OPENALEX', (now() AT TIME ZONE 'UTC')::date - 1, 'FAILING', 1, 10, 70, 0.4), "
+        + "('OPENALEX', (now() AT TIME ZONE 'UTC')::date - 30, 'OK', 0, 10, 70, 0)");
+    long w1 = jdbc.queryForObject("INSERT INTO work (doi, origin, state, source_id) VALUES ('10.9/a','LIVE','DISCOVERED',?) "
+        + "RETURNING id", Long.class, cn);
+    jdbc.update("INSERT INTO work_sighting (work_id, layer, source_id, first_seen) VALUES "
+        + "(?, 'MAGTECH', ?, now() - interval '3 days'), (?, 'OPENALEX', ?, now() - interval '2 days')", w1, cn, w1, cn);
+    long w2 = jdbc.queryForObject("INSERT INTO work (doi, origin, state, source_id) VALUES ('10.9/b','LIVE','DISCOVERED',?) "
+        + "RETURNING id", Long.class, cn);
+    jdbc.update("INSERT INTO work_sighting (work_id, layer, source_id, first_seen) VALUES (?, 'MAGTECH', ?, now() - interval '1 day')",
+        w2, cn);
+
+    JsonNode s = new ObjectMapper().readTree(get("test-token").body());
+
+    assertThat(s.path("layers").size()).isEqualTo(1); // the last 7 days only
+    assertThat(s.at("/layers/0/layer").asString()).isEqualTo("OPENALEX");
+    assertThat(s.at("/layers/0/state").asString()).isEqualTo("FAILING");
+    assertThat(s.at("/routes/MAGTECH/ACTIVE").asLong()).isEqualTo(1);
+    assertThat(s.at("/routes/MAGTECH/BROKEN").asLong()).isEqualTo(1);
+    assertThat(s.at("/routes/OAI/ACTIVE").asLong()).isEqualTo(1);
+    assertThat(s.at("/contribution/MAGTECH/first").asLong()).isEqualTo(2);
+    assertThat(s.at("/contribution/MAGTECH/only").asLong()).isEqualTo(1);
+    assertThat(s.at("/contribution/OPENALEX/first").asLong()).isEqualTo(0);
+    assertThat(s.at("/contributionByCountry/CN/MAGTECH/first").asLong()).isEqualTo(2);
+    assertThat(s.at("/contributionByCountry/CN/MAGTECH/only").asLong()).isEqualTo(1);
+  }
 }

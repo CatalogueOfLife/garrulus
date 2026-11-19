@@ -2,6 +2,7 @@ package org.catalogueoflife.nametracker.store.route;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.jspecify.annotations.Nullable;
@@ -40,4 +41,7 @@ public interface SourceRouteMapper {
   int setOnboarded(@Param("id") long id, @Param("at") Instant at);
 
   int setBackfilled(@Param("id") long id, @Param("at") Instant at);
+
+  /** Route counts per layer and status: {@code layer}, {@code status}, {@code n}. */
+  List<Map<String, Object>> countByLayerAndStatus();
 }

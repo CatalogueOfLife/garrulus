@@ -74,4 +74,8 @@
     UPDATE source_route SET backfilled_at = #{at} WHERE id = #{id}
   </update>
 
+  <select id="countByLayerAndStatus" resultType="map">
+    SELECT layer, status, count(*)::bigint AS n FROM source_route GROUP BY layer, status
+  </select>
+
 </mapper>

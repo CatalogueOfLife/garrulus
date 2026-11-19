@@ -19,4 +19,21 @@
     SELECT count(*)::int FROM moved
   </select>
 
+  <select id="contribution" resultType="map">
+    SELECT x.country, x.layer,
+      count(*) FILTER (WHERE x.is_first)::bigint AS first_found, count(*) FILTER (WHERE x.is_only)::bigint AS only_found
+    FROM (
+      SELECT s.country, ws.layer,
+        NOT EXISTS (SELECT 1 FROM work_sighting o WHERE o.work_id = ws.work_id
+          AND (o.first_seen &lt; ws.first_seen OR (o.first_seen = ws.first_seen AND o.layer &lt; ws.layer))) AS is_first,
+        NOT EXISTS (SELECT 1 FROM work_sighting o WHERE o.work_id = ws.work_id AND o.layer &lt;&gt; ws.layer) AS is_only
+      FROM work_sighting ws
+      JOIN work w ON w.id = ws.work_id
+      LEFT JOIN source s ON s.id = w.source_id
+      WHERE ws.layer IN <foreach collection="layers" item="l" open="(" separator="," close=")">#{l}</foreach>
+        AND ws.first_seen &gt; now() - interval '28 days'
+    ) x
+    GROUP BY x.country, x.layer
+  </select>
+
 </mapper>
