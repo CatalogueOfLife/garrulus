@@ -12,19 +12,30 @@ import tools.jackson.databind.JsonNode;
 /**
  * Checks the URL of an admin route config before it is stored, because the indexer fetches it: {@code base} of an OAI
  * route and {@code site} of a Magtech route must be http(s) URLs of a public host. Refused: other schemes, localhost
- * and {@code .localhost}/{@code .local}/{@code .internal} names, single-label names (internal service names) and IP
- * literals that are loopback, unspecified, link-local, private (site-local, IPv6 unique-local, shared 100.64/10) or
- * multicast. The web app makes no outbound call, so a public name that resolves to a private address is not caught.
+ * and {@code .localhost}/{@code .local}/{@code .internal} names, single-label names (internal service names), names
+ * that do not resolve, and hosts with any address that is loopback, unspecified, link-local, private (site-local,
+ * IPv6 unique-local, shared 100.64/10) or multicast. Literals are parsed without DNS; a name is resolved once, here
+ * (an admin-only, synchronous lookup: the only outbound request of the web app). The indexer resolves the name again
+ * when it fetches, so a name that changes its address afterwards is not caught.
  */
 final class RouteConfigCheck {
 
-  private static final Pattern IPV4 = Pattern.compile("^\\d{1,3}(\\.\\d{1,3}){3}$");
+  /** Digits and dots only: an IPv4 address, also in a short form such as 127.1. */
+  private static final Pattern NUMERIC = Pattern.compile("^[0-9.]+$");
 
-  private RouteConfigCheck() {
+  @FunctionalInterface
+  interface HostResolver {
+    InetAddress[] resolve(String host) throws UnknownHostException;
+  }
+
+  private final HostResolver resolver;
+
+  RouteConfigCheck(HostResolver resolver) {
+    this.resolver = resolver;
   }
 
   /** Why the config cannot be stored, or null. */
-  static @Nullable String problem(String layer, JsonNode config) {
+  @Nullable String problem(String layer, JsonNode config) {
     String field = switch (layer) {
       case "OAI" -> "base";
       case "MAGTECH" -> "site";
@@ -36,7 +47,7 @@ final class RouteConfigCheck {
     return url(field, v.asString().strip());
   }
 
-  private static @Nullable String url(String field, String value) {
+  private @Nullable String url(String field, String value) {
     URI uri;
     try {
       uri = new URI(value);
@@ -51,18 +62,22 @@ final class RouteConfigCheck {
         || host.endsWith(".internal")) {
       return field + " names a local host (" + host + ")";
     }
-    boolean v6 = host.startsWith("[");
-    if (!v6 && !IPV4.matcher(host).matches()) {
-      return host.contains(".") ? null : field + " names an internal host (" + host + ")";
-    }
+    boolean literal = host.startsWith("[") || NUMERIC.matcher(host).matches();
+    if (!literal && !host.contains(".")) return field + " names an internal host (" + host + ")";
+    InetAddress[] addresses;
     try {
-      InetAddress a = InetAddress.getByName(v6 ? host.substring(1, host.length() - 1) : host); // a literal: no DNS
+      // a literal is parsed without DNS; a name is resolved (admin only, synchronous)
+      addresses = literal ? new InetAddress[] {InetAddress.getByName(
+          host.startsWith("[") ? host.substring(1, host.length() - 1) : host)} : resolver.resolve(host);
+    } catch (UnknownHostException e) {
+      return field + " does not resolve (" + host + ")";
+    }
+    for (InetAddress a : addresses) {
       if (a.isLoopbackAddress() || a.isAnyLocalAddress() || a.isLinkLocalAddress() || a.isSiteLocalAddress()
           || a.isMulticastAddress() || privateV6(a) || sharedV4(a)) {
-        return field + " names a loopback, link-local or private address (" + host + ")";
+        return field + " names a loopback, link-local or private address (" + host + " is "
+            + a.getHostAddress() + ")";
       }
-    } catch (UnknownHostException e) {
-      return field + " has an unreadable address (" + host + ")";
     }
     return null;
   }

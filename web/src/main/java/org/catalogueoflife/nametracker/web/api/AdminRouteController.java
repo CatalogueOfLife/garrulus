@@ -1,5 +1,6 @@
 package org.catalogueoflife.nametracker.web.api;
 
+import java.net.InetAddress;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -10,6 +11,7 @@ import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.http.HttpStatus;
@@ -57,9 +59,11 @@ public class AdminRouteController {
   private final SourceRouteMapper routes;
   private final TaskQueue queue;
   private final AdminAuth auth;
+  private final RouteConfigCheck configCheck;
 
   public AdminRouteController(SourceMapper sources, SourceRouteMapper routes, TaskQueue queue,
-      @Value("${nametracker.admin.token}") String token) {
+      @Value("${nametracker.admin.token}") String token, ObjectProvider<RouteConfigCheck.HostResolver> resolver) {
+    this.configCheck = new RouteConfigCheck(resolver.getIfAvailable(() -> InetAddress::getAllByName));
     this.sources = sources;
     this.routes = routes;
     this.queue = queue;
@@ -86,7 +90,7 @@ public class AdminRouteController {
     if (req.config() == null || !req.config().isObject()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "config must be a JSON object");
     }
-    String problem = RouteConfigCheck.problem(req.layer(), req.config());
+    String problem = configCheck.problem(req.layer(), req.config());
     if (problem != null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, problem);
     requireSource(id);
     Long routeId = routes.insertIfAbsent(new SourceRoute(0, id, req.layer(), req.config().toString(), "PENDING",

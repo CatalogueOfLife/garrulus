@@ -265,7 +265,8 @@ curl ... -d '{"type":"BACKFILL","payload":{"fromYear":2020,"toYear":2024,"files"
 - Routes (M6, `source_route`): `GET /api/admin/sources/{id}/routes`; `POST /api/admin/sources/{id}/routes` with
   `{"layer":"OAI"|"MAGTECH"|"EUROPEPMC","config":{…}}` stores the route PENDING (origin ADMIN) and enqueues
   `VERIFY_ROUTE` (202; 409 if the source has that route; 400 unless the config's `base`/`site` is an http(s) URL of a
-  public host: no loopback, link-local, private or single-label host); `PATCH /api/admin/sources/{id}/routes/{routeId}`
+  public host: the name is resolved there, the only outbound request of `web`, and every address must be public, not
+  loopback, link-local or private; single-label and unresolvable names are refused too); `PATCH /api/admin/sources/{id}/routes/{routeId}`
   with `{"status":"PAUSED"|"ACTIVE"}`. ACTIVE is an admin override: it skips `VERIFY_ROUTE`, also for a PENDING or
   BROKEN route.
   - Task types: `SEED_ROUTES` (`{}`, the routes of `indexer/src/main/resources/routes-seed.tsv` for the journals with

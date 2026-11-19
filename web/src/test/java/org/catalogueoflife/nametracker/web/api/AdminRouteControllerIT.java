@@ -18,6 +18,15 @@ import tools.jackson.databind.ObjectMapper;
 
 class AdminRouteControllerIT extends AbstractPostgresIT {
 
+  /** No DNS in the tests: the route URLs' names resolve through the fake resolver. */
+  @org.springframework.boot.test.context.TestConfiguration
+  static class Resolver {
+    @org.springframework.context.annotation.Bean
+    RouteConfigCheck.HostResolver hostResolver() {
+      return RouteConfigCheckTest.FAKE;
+    }
+  }
+
   static final ObjectMapper JSON = new ObjectMapper();
 
   @LocalServerPort int port;
@@ -100,6 +109,10 @@ class AdminRouteControllerIT extends AbstractPostgresIT {
     assertThat(call("POST", base, "{\"layer\":\"OAI\",\"config\":{\"base\":\"http://169.254.169.254/oai\"}}",
         "test-token").statusCode()).isEqualTo(400);
     assertThat(call("POST", base, "{\"layer\":\"MAGTECH\",\"config\":{\"site\":\"file:///etc\",\"issn\":\"x\"}}",
+        "test-token").statusCode()).isEqualTo(400);
+    assertThat(call("POST", base, "{\"layer\":\"OAI\",\"config\":{\"base\":\"http://127.1/oai\"}}",
+        "test-token").statusCode()).isEqualTo(400);
+    assertThat(call("POST", base, "{\"layer\":\"OAI\",\"config\":{\"base\":\"http://10.1/oai\"}}",
         "test-token").statusCode()).isEqualTo(400);
     assertThat(call("POST", "/api/admin/sources/999999/routes", OAI, "test-token").statusCode()).isEqualTo(404);
     assertThat(call("GET", "/api/admin/sources/999999/routes", null, "test-token").statusCode()).isEqualTo(404);
