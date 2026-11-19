@@ -43,6 +43,10 @@ work to the key services of the field, and a way for people to register journals
 10. **University of Copenhagen access, prepared but off.** A content layer for subscription full text and abstracts
    through the publishers' text-mining APIs, reachable from the KU network, behind a switch that stays off until the
    licences are cleared (see "Institutional access").
+11. **Languages and English titles** (Markus, 2026-11-19: option C, and "capture the language of works so we can also
+   filter on them and do metrics"). Every work has a reliable language, usable as a filter, a facet and a metric; the
+   English title and abstract a source supplies are kept; titles with no English version get a stored machine
+   translation; abstracts are translated in the reader's browser on request.
 
 ## Non-goals
 
@@ -345,6 +349,54 @@ new services need no migration, and the same rows serve matching.
     layer when enabled. `abstract_source` gains `EUROPEPMC`, `SPRINGER`, `SCIELO`, `CINII`, `OAI`, `MAGTECH`, `INSTITUTIONAL`.
     A work whose abstract arrives later gets `FIND_NAMES` again (as a JATS abstract does today).
 
+### Languages and English titles
+
+Option C, decided by Markus on 2026-11-19: capture what the sources give in English, machine-translate and store
+titles only, translate abstracts in the browser. Paid translation services stay out.
+
+- **The language of a work** (`work.language`, ISO 639-1, else 639-3) becomes a decided value instead of OpenAlex's
+  guess (the dev DB has 148 works OpenAlex calls Uzbek, mostly mis-detections). It is decided in this order, first
+  that applies:
+  1. the language of the full-text document the finder read (detected on its body text);
+  2. the article language a source declares for the article: OAI `dc:language`, the `citation_language` meta tag of a
+     Magtech page, SciELO's original language, Europe PMC's `language`;
+  3. detection on the original title and abstract (a local detector library such as Lingua, Apache-2.0, offline),
+     ignoring any parallel English text, accepted only above a confidence threshold;
+  4. OpenAlex's `language`;
+  5. the journal's single publication language, if DOAJ or the ISSN record gives exactly one.
+
+  `work.language_source` records which rule decided it. `DETECT_LANGUAGE` re-decides it for existing works once (at
+  `BACKFILL`, batched) and whenever new evidence arrives (a full text, a declared language).
+- **`work_text`** (`work_id`, `field` TITLE or ABSTRACT, `lang`, `text`, `kind` ORIGINAL, PARALLEL or MACHINE,
+  `source` layer or engine, `model`, `created`) holds every language version of title and abstract. `work.title` and
+  the abstract columns stay the original (the finder's offsets point into them).
+  - **PARALLEL**: an English (or other) version the source supplies. Magtech feeds give English title and abstract;
+    SciELO, J-STAGE/CiNii, OAI records with several `dc:title`/`dc:description` in different `xml:lang`, and Crossref
+    `original-title` vs `title` often do too. Every layer stores these when it sees them.
+  - **MACHINE**: only for **titles**, only when the work's language is not English and no English PARALLEL title
+    exists. `TRANSLATE_TITLE` (enqueued after the language is decided, `BACKFILL` priority) calls a `TitleTranslator`
+    SPI; the default implementation calls a self-hosted open machine-translation service with open models (for
+    example LibreTranslate with Argos models, or OPUS-MT on CTranslate2), running natively on the VM like gnfinder.
+    Engine and model version are stored; a model upgrade can re-translate with `{"all":true}`. Off
+    (`nametracker.translation.enabled=false`) until the service is installed; then non-Latin scripts first (Chinese,
+    Japanese, Korean, Cyrillic, Arabic, Persian, Thai …), Latin-script languages after.
+  - Abstracts are never machine-translated on the server: storing translations of copyrighted abstracts is avoided.
+- **Display.** Lists, digests, feeds and the API show the original title plus the English one when it differs, labelled
+  "English title" (parallel) or "Machine translation" (machine). On the work page, title and abstract carry their
+  `lang` attribute; a "Translate" button next to a non-English abstract (and a non-English title without an English
+  version) uses the browser's on-device translator where available (Chrome's built-in Translator API) and otherwise
+  points to the browser's own page translation. The original keeps its name highlighting; a translation is shown
+  below it as plain text.
+- **Search.** `work.fts` also covers the English title from `work_text` (parallel or machine), so an English query finds
+  a Chinese paper by its English title.
+- **Filters and metrics.**
+  - `/api/works` gains `language` (repeatable) and the facet `language`, also on the taxon, name and journal pages'
+    lists; `/api/works/{id}` returns `language`, `languageSource` and `titles`/`abstracts` with their kind.
+  - `/api/taxa/{colId}/stats` and `/api/sources/{id}` gain a breakdown by language (works per language, per year).
+  - The admin Layers page and the contribution report break coverage down by language as well as country.
+  - A public `GET /api/stats/languages` gives works per language and year, filterable by `taxgroup`, `code`,
+    `country` and `yearFrom`/`yearTo`, for metrics on who publishes taxonomy in which language. All in the OpenAPI.
+
 ### Institutional access (University of Copenhagen)
 
 Garrulus will run in the KU network as part of COL and GBIF, which reaches many subscribed journals. M6 builds the
@@ -370,7 +422,7 @@ New task types (all idempotent, continuation pages, outage deferral as in ADR-00
 `HARVEST_BLR` (since, page), `DISCOVER_SOURCES` (origin), `IDENTIFY_SOURCE` (`sourceId` or `registrationId`),
 `VERIFY_ROUTE` (`routeId`), `LINK_SOURCE` (`sourceId`), `LINK_WORK` (`workId`), `COVERAGE_CHECK` (`day`),
 `MERGE_WORKS` (`survivor`, `other`), `ONBOARD_ROUTE` (`routeId`, the 120-day pass of a new route), `ROUTE_BACKFILL`
-(`sourceId`, `fromYear`, position per route), `SAMPLE_SOURCE` (`sourceId`). Admin:
+(`sourceId`, `fromYear`, position per route), `SAMPLE_SOURCE` (`sourceId`), `DETECT_LANGUAGE` (`afterId`, `batch`), `TRANSLATE_TITLE` (`workId`; or `{"all":true}`). Admin:
 `POST /api/admin/sources/{id}/routes` to add or pause a route (stored `PENDING`, verified by `VERIFY_ROUTE`).
 
 ### Admins and admin pages (Markus, 2026-11-19: 1a)
@@ -447,6 +499,11 @@ tail's history (expected to be small next to the OpenAlex snapshot backfill; mea
 - A promoted journal without an OpenAlex id gets its history back to 2000 through its routes, at `BACKFILL`, with no
   hits; records before 2000 are skipped and counted.
 - The institutional route exists, is covered by tests against a stub, and is off.
+- Every work has a decided language with its source; the 148 "Uzbek" works of the dev DB are re-decided; `/api/works`
+  filters and facets by language, and `GET /api/stats/languages` answers per year and taxgroup.
+- Magtech and SciELO works carry their parallel English titles and abstracts; with the translation service running,
+  non-English titles without an English version get a machine translation, labelled as such, and are found by an
+  English search; abstracts are translated only in the browser.
 - No call to a paid service in the logs of the week.
 
 ## Left to the builder
@@ -459,3 +516,6 @@ tail's history (expected to be small next to the OpenAlex snapshot backfill; mea
 - The admin pages' layout, within the brand tokens.
 - The exact candidate score formula (start: names per article and act share of the sample, weighted with Plazi and COL
   reference counts), tuned once a few hundred candidates are sampled.
+- The machine-translation runtime and models (LibreTranslate/Argos or OPUS-MT/CTranslate2): pick by licence, quality on
+  a sample of Chinese, Japanese and Russian taxonomic titles, and memory on the VM; and the language detector's
+  confidence threshold.
