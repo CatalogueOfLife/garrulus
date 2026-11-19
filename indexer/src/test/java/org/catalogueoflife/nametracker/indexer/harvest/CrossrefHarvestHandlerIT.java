@@ -299,6 +299,8 @@ class CrossrefHarvestHandlerIT extends AbstractPostgresIT {
     assertThat(a.sourceId()).isEqualTo(src);
     assertThat(a.abstractJats()).startsWith("<jats:p>A review of the ground beetles");
     assertThat(a.openalexHasTei()).isFalse();
+    assertThat(jdbc.queryForList("SELECT layer FROM work_sighting WHERE work_id = ? ORDER BY layer", String.class,
+        a.id())).containsExactly("CROSSREF", "OPENALEX");
 
     Work b = works.findByDoi(DOI2);
     assertThat(b.openalexId()).isNull();

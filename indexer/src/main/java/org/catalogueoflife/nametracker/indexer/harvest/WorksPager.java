@@ -12,6 +12,7 @@ import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexWorks;
 import org.catalogueoflife.nametracker.indexer.openalex.WorkRecord;
 import org.catalogueoflife.nametracker.store.ident.Identifier;
+import org.catalogueoflife.nametracker.store.ident.WorkSightingMapper;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.catalogueoflife.nametracker.store.work.Layer;
@@ -40,8 +41,11 @@ public class WorksPager {
   private final WorkUpsert upsert;
   private final TaskQueue queue;
   private final TransactionTemplate tx;
+  private final WorkSightingMapper sightings;
 
-  public WorksPager(OpenAlexClient client, WorkUpsert upsert, TaskQueue queue, TransactionTemplate tx) {
+  public WorksPager(OpenAlexClient client, WorkUpsert upsert, TaskQueue queue, TransactionTemplate tx,
+      WorkSightingMapper sightings) {
+    this.sightings = sightings;
     this.client = client;
     this.upsert = upsert;
     this.queue = queue;
@@ -79,8 +83,19 @@ public class WorksPager {
    * the work was created.
    */
   public boolean store(Work work, Layer layer, List<Identifier> ids, TaskPriority contentPriority) {
+    return store(work, layer, ids, contentPriority, null);
+  }
+
+  /**
+   * As {@link #store(Work, Layer, List, TaskPriority)}; {@code alsoSeenBy} (may be null) is a further layer that saw the
+   * work although the record's data is another layer's (Crossref saw a DOI whose metadata came from OpenAlex): its
+   * sighting is written in the same transaction.
+   */
+  public boolean store(Work work, Layer layer, List<Identifier> ids, TaskPriority contentPriority,
+      @Nullable Layer alsoSeenBy) {
     return Boolean.TRUE.equals(tx.execute(status -> {
       WorkUpsert.UpsertResult r = upsert.upsert(work, layer, ids);
+      if (alsoSeenBy != null) sightings.sight(r.id(), alsoSeenBy.name(), work.sourceId());
       if (r.created()) {
         queue.enqueue(RESOLVE_CONTENT, "{\"workId\":" + r.id() + "}", contentPriority, "content:" + r.id());
       } else if (r.abstractJatsAdded()) {

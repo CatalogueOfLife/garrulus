@@ -248,7 +248,7 @@ public class CrossrefHarvestHandler implements TaskHandler {
         String origin = origin(full.publicationDate() != null ? full.publicationDate() : crossrefLatest);
         // the metadata is OpenAlex's, so the record enters under that layer
         return pager.store(full.toWork(oaSource != null ? oaSource : sourceId, origin), Layer.OPENALEX,
-            full.identifiers(), priority(origin));
+            full.identifiers(), priority(origin), Layer.CROSSREF);
       } catch (IllegalArgumentException | IllegalStateException e) {
         LOG.warn("Unreadable OpenAlex record for {}, using the Crossref metadata: {}", doi, e.toString());
       }
