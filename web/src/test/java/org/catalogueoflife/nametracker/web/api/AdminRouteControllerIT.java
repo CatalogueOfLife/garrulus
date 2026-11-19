@@ -96,6 +96,11 @@ class AdminRouteControllerIT extends AbstractPostgresIT {
     assertThat(call("POST", base, "{\"layer\":\"BLR\",\"config\":{}}", "test-token").statusCode()).isEqualTo(400);
     assertThat(call("POST", base, "{\"layer\":\"OAI\",\"config\":\"x\"}", "test-token").statusCode()).isEqualTo(400);
     assertThat(call("POST", base, "{\"layer\":\"OAI\"}", "test-token").statusCode()).isEqualTo(400);
+    // the indexer fetches what the config names: http(s) only, no loopback, link-local or private hosts
+    assertThat(call("POST", base, "{\"layer\":\"OAI\",\"config\":{\"base\":\"http://169.254.169.254/oai\"}}",
+        "test-token").statusCode()).isEqualTo(400);
+    assertThat(call("POST", base, "{\"layer\":\"MAGTECH\",\"config\":{\"site\":\"file:///etc\",\"issn\":\"x\"}}",
+        "test-token").statusCode()).isEqualTo(400);
     assertThat(call("POST", "/api/admin/sources/999999/routes", OAI, "test-token").statusCode()).isEqualTo(404);
     assertThat(call("GET", "/api/admin/sources/999999/routes", null, "test-token").statusCode()).isEqualTo(404);
     assertThat(call("GET", base, null, null).statusCode()).isEqualTo(401);

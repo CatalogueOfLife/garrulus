@@ -28,7 +28,9 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * The harvest routes of a journal (token as {@link AdminSourceController}; not mapped without nametracker.admin.token).
  * The web app makes no outbound call: a new route is stored PENDING with origin ADMIN and the indexer's
- * {@code VERIFY_ROUTE} checks it. PATCH pauses a route or makes it ACTIVE again.
+ * {@code VERIFY_ROUTE} checks it. The URL in its config must be http(s) on a public host ({@link RouteConfigCheck}),
+ * else 400. PATCH pauses a route or makes it ACTIVE; ACTIVE is an admin override that skips {@code VERIFY_ROUTE} (also
+ * for a PENDING or BROKEN route): the route is harvested from the next night on as it is.
  */
 @RestController
 @Conditional(AdminTokenConfigured.class)
@@ -84,6 +86,8 @@ public class AdminRouteController {
     if (req.config() == null || !req.config().isObject()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "config must be a JSON object");
     }
+    String problem = RouteConfigCheck.problem(req.layer(), req.config());
+    if (problem != null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, problem);
     requireSource(id);
     Long routeId = routes.insertIfAbsent(new SourceRoute(0, id, req.layer(), req.config().toString(), "PENDING",
         "ADMIN", null, null, null, null, null, null));
