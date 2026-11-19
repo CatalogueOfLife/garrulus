@@ -38,16 +38,19 @@
     SELECT * FROM task WHERE id = #{id}
   </select>
 
+  <!-- The picked ids are a MATERIALIZED CTE: as an IN (subquery) the planner may rescan the LIMIT ... SKIP LOCKED
+       subquery per row (a semi-join), and the UPDATE then claims more than #{limit} tasks. -->
   <select id="claim" resultMap="taskResult" flushCache="true">
-    UPDATE task SET state = 'RUNNING', locked_by = #{workerId}, locked_at = now(), started = now(), attempts = attempts + 1
-    WHERE id IN (
+    WITH picked AS MATERIALIZED (
       SELECT id FROM task
       WHERE state = 'QUEUED' AND run_after &lt;= now()
         AND type IN <foreach collection="types" item="t" open="(" separator="," close=")">#{t}</foreach>
       ORDER BY priority, run_after, id
       LIMIT #{limit}
       FOR UPDATE SKIP LOCKED)
-    RETURNING *
+    UPDATE task SET state = 'RUNNING', locked_by = #{workerId}, locked_at = now(), started = now(), attempts = attempts + 1
+    FROM picked WHERE task.id = picked.id
+    RETURNING task.*
   </select>
 
   <update id="complete">
