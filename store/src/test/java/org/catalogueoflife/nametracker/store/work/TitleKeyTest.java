@@ -32,11 +32,25 @@ class TitleKeyTest {
     assertThat(TitleKey.of("Nachruf auf Hans Müller (1930–2026)")).isNull();
     assertThat(TitleKey.of("Nécrologie de Jean Dupont, entomologiste")).isNull();
     assertThat(TitleKey.of("Fe de erratas: una nueva especie de Aus")).isNull();
-    assertThat(TitleKey.of("Errata do artigo sobre uma espécie nova")).isNull();
+    assertThat(TitleKey.of("Errata: artigo sobre uma espécie nova do Brasil")).isNull();
     assertThat(TitleKey.of("Некролог памяти выдающегося энтомолога России")).isNull();
     assertThat(TitleKey.of("Aus bus allies")).isNull();
     assertThat(TitleKey.of("<i>Aus</i> bus, allies.")).isNull();
     // a generic word inside a title is fine
     assertThat(TitleKey.of("A correction of the type locality of Aus bus")).isNotNull();
+  }
+
+  @Test
+  void genericStartsBlockOnlyShortTitlesOrNoticeForms() {
+    // genuine taxonomic titles that merely start with a generic word keep their key
+    assertThat(TitleKey.of("Correction of the type locality of Aus bus (Coleoptera, Carabidae)")).isNotNull();
+    assertThat(TitleKey.of("Index to the genera and species of the family Aidae described since 1900")).isNotNull();
+    assertThat(TitleKey.of("Contents of the stomachs of deep-sea fishes from the Atlantic Ocean")).isNotNull();
+    // notices: short, with a colon, or "correction to" and its kin
+    assertThat(TitleKey.of("Correction to: A new species of Aus from the Andes of Chile")).isNull();
+    assertThat(TitleKey.of("Correction to the article A new species of Aus from the Andes of Chile")).isNull();
+    assertThat(TitleKey.of("Corrigendum to A new species of the genus Aus from the Andes of Chile")).isNull();
+    assertThat(TitleKey.of("Erratum to the paper on the beetles of the genus Aus in Chile")).isNull();
+    assertThat(TitleKey.of("Index to volume 12")).isNull();
   }
 }
