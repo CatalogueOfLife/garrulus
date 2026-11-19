@@ -282,18 +282,30 @@ new services need no migration, and the same rows serve matching.
 
 ### Crosslinks
 
-- **`source_identifier`** (`source_id`, `scheme`, `value`), unique on (`scheme`, `value`). Schemes: `ISSN`, `ISSN_L`,
-  `OPENALEX`, `WIKIDATA`, `IPNI_PUB`, `BPH`, `ZOOBANK_PUB`, `BHL_TITLE`, `DOAJ`, `OAI`.
+- **The list of identifier sources will grow** (Markus, 2026-11-19). A scheme is therefore data, not schema: one
+  `IdentifierScheme` registry in `store` (code, label, entity: work, journal or both, value normaliser, URL template,
+  sort order on the page) holds every scheme, and the `scheme` columns are plain text. Adding a source is one registry
+  entry plus, if its ids are not delivered by a harvest layer, one `IdentifierLookup` (an SPI with `scheme()`,
+  `appliesTo(work|source)`, `lookup(…)`) that `LINK_WORK` or `LINK_SOURCE` picks up; no migration, no API change (the
+  API lists whatever identifiers a work or journal has). A new lookup back-fills by enqueuing `LINK_*` for existing
+  works and journals at `BACKFILL` with `{"schemes":[…]}`.
+- **Crossref and OpenAlex stay among the links** (Markus, 2026-11-19), for works and journals alike: `OPENALEX` (W… and
+  S… ids, linking to openalex.org), `DOI` (doi.org) plus a `CROSSREF` link to Crossref's record of the DOI, and for
+  journals `CROSSREF_JOURNAL` (Crossref's record of the journal by ISSN). Both are filled by their harvest layers, and
+  `LINK_*` fills them for works and journals that arrived only through other layers.
+- **`source_identifier`** (`source_id`, `scheme`, `value`), unique on (`scheme`, `value`). Initial schemes: `ISSN`,
+  `ISSN_L`, `OPENALEX`, `CROSSREF_JOURNAL`, `WIKIDATA`, `IPNI_PUB`, `BPH`, `ZOOBANK_PUB`, `BHL_TITLE`, `DOAJ`, `OAI`.
 - **Journal links** come from `LINK_SOURCE` (on identification and monthly): Wikidata by ISSN (one SPARQL query per
   batch) gives the QID and, where present, IPNI publication (P2008), BPH (P829), ZooBank publication and BHL title ids;
   IPNI's publication search by ISSN fills IPNI and BPH where Wikidata has none.
-- **Work links**: the harvest layers add `DOI`, `OPENALEX`, `OAI`, `PMID`, `PMCID`, `BLR` as they go. `LINK_WORK` runs
+- **Work links**: the harvest layers add `DOI` (with its `CROSSREF` link), `OPENALEX`, `OAI`, `PMID`, `PMCID`, `BLR`
+  as they go. `LINK_WORK` runs
   for every `INDEXED` work at `BACKFILL` priority and adds, by DOI: Europe PMC (PMID, PMCID), Plazi
   (`Treatments/searchByDOI`), BLR (Zenodo records with `isPartOf` = DOI), ZooBank (`References.json` by DOI, best effort)
   and BHL (BHL API part lookup by DOI, free key). A miss is retried after 30 and 180 days (Plazi and BHL add papers
   late), then never again; a reprocess does not re-query.
-- **Display:** `WorkDetail` and `SourceDetail` get `identifiers` (scheme, value, url). URL templates live in one
-  registry class (`doi.org`, `openalex.org`, `europepmc.org/article/MED|PMC`, `zoobank.org/References/`,
+- **Display:** `WorkDetail` and `SourceDetail` get `identifiers` (scheme, label, value, url). URL templates live in
+  the scheme registry (`doi.org`, Crossref's record of a DOI or ISSN, `openalex.org`, `europepmc.org/article/MED|PMC`, `zoobank.org/References/`,
   `tb.plazi.org`, `zenodo.org/records/`, `biodiversitylibrary.org/part|bibliography/`, `ipni.org/p/`, `wikidata.org`,
   and Biodiversity PMC by DOI or PMCID). The work and journal pages show them as a row of labelled links under the
   bibliographic block. Public `GET /api/works?identifier=<scheme>:<value>` finds a work by any identifier (OpenAPI).
@@ -397,8 +409,9 @@ tail's history (expected to be small next to the OpenAlex snapshot backfill; mea
   passes ran as `ONBOARDING`.
 - A user registers a journal by ISSN and by article DOI; both appear as candidates with their signals and identified
   routes; registering a covered journal reports it as covered.
-- A ZooKeys work shows DOI, OpenAlex, PMID/PMCID, BLR, Plazi and Biodiversity PMC links; Phytotaxa shows IPNI and BPH
-  on its journal page; `GET /api/works?identifier=PMCID:…` finds the work.
+- A ZooKeys work shows DOI, Crossref, OpenAlex, PMID/PMCID, BLR, Plazi and Biodiversity PMC links; Phytotaxa shows
+  OpenAlex, Crossref, IPNI and BPH on its journal page; `GET /api/works?identifier=PMCID:…` finds the work.
+- A test adds a scheme and its lookup without a migration, and its links appear on the pages after the back-fill.
 - Discovery adds candidates from DOAJ, PKP Beacon, Plazi and COL references, each with its signal; candidates are
   sampled and sorted by their score on the admin journal page, and no sample paper appears in `work`.
 - An account whose ORCID is in `NAMETRACKER_ADMIN_ORCIDS` sees the admin pages, accepts a registered journal from
