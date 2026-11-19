@@ -153,4 +153,16 @@ class MagtechLayerIT extends AbstractPostgresIT {
     assertThat(jdbc.queryForObject("SELECT count(*) FROM harvest_run WHERE state = 'RUNNING'", Long.class)).isZero();
     assertThat(jdbc.queryForObject("SELECT count(*) FROM work", Long.class)).isZero();
   }
+
+  @Test
+  void htmlOnOptionalFirstFeedIsJustEmpty(WireMockRuntimeInfo w) throws Exception {
+    route(w, "1005-0094");
+    stubSite();
+    stubFor(get(urlPathEqualTo(FIRST)).willReturn(aResponse().withHeader("Content-Type", "text/html")
+        .withBody(MagtechClientTest.fixture("html-404-page.html"))));
+    run(handler());
+    assertThat(routes.get(routeId).status()).isEqualTo("ACTIVE");
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM work", Long.class)).isEqualTo(3);
+    assertThat(runs.recent(1).getFirst().state()).isEqualTo("DONE");
+  }
 }

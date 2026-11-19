@@ -1,9 +1,14 @@
 package org.catalogueoflife.nametracker.indexer.layer.magtech;
 
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Locale;
-import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.catalogueoflife.nametracker.indexer.layer.oai.OaiPmhClient;
+import org.catalogueoflife.nametracker.store.work.TitleText;
 
 /**
  * Turns the HTML abstract of a Magtech RSS item into the JATS the finder reads: {@code <p>} becomes
@@ -13,26 +18,31 @@ import java.util.regex.Pattern;
 final class MagtechAbstracts {
 
   private static final Pattern TAG = Pattern.compile("<(/?)([a-zA-Z][a-zA-Z0-9]*)\\b[^<>]*?(/?)>");
-  private static final Pattern ENTITY = Pattern.compile("&(?:#([0-9]{1,7})|#[xX]([0-9a-fA-F]{1,6})|([a-zA-Z][a-zA-Z0-9]{1,31}));");
-  private static final Map<String, String> NAMED = Map.ofEntries(Map.entry("amp", "&"), Map.entry("lt", "<"),
-      Map.entry("gt", ">"), Map.entry("quot", "\""), Map.entry("apos", "'"), Map.entry("nbsp", " "),
-      Map.entry("ndash", "–"), Map.entry("mdash", "—"), Map.entry("times", "×"),
-      Map.entry("deg", "°"), Map.entry("plusmn", "±"), Map.entry("micro", "µ"),
-      Map.entry("lsquo", "‘"), Map.entry("rsquo", "’"), Map.entry("ldquo", "“"),
-      Map.entry("rdquo", "”"), Map.entry("hellip", "…"), Map.entry("eacute", "é"),
-      Map.entry("egrave", "è"), Map.entry("uuml", "ü"), Map.entry("ouml", "ö"),
-      Map.entry("auml", "ä"), Map.entry("alpha", "α"), Map.entry("beta", "β"),
-      Map.entry("mu", "μ"), Map.entry("le", "≤"), Map.entry("ge", "≥"));
+  private static final Set<String> BLOCKS = Set.of("br", "div", "li", "ul", "ol", "tr", "td", "th", "table", "tbody",
+      "thead", "h1", "h2", "h3", "h4", "h5", "h6", "section", "blockquote", "pre", "hr", "dd", "dt", "dl");
 
   private MagtechAbstracts() {
   }
 
   static String toJats(String html) {
+    String jats = build(html);
+    try {
+      OaiPmhClient.parse(("<r xmlns:jats=\"http://jats.nlm.nih.gov\">" + jats + "</r>").getBytes(StandardCharsets.UTF_8));
+      return jats;
+    } catch (Exception e) { // the safety net: the plain text in one paragraph
+      String plain = TitleText.clean(html);
+      return plain == null ? "" : "<jats:p>" + escape(plain) + "</jats:p>";
+    }
+  }
+
+  /** Tags are paired on a stack: unmatched closers are dropped, open inline tags are closed at paragraph ends. */
+  private static String build(String html) {
     StringBuilder out = new StringBuilder();
+    Deque<String> open = new ArrayDeque<>(); // the open JATS elements, innermost first; "p" is the outermost
     int pos = 0;
     Matcher m = TAG.matcher(html);
     while (m.find()) {
-      text(out, html.substring(pos, m.start()));
+      text(out, open, html.substring(pos, m.start()));
       pos = m.end();
       boolean closing = !m.group(1).isEmpty();
       String name = m.group(2).toLowerCase(Locale.ROOT);
@@ -43,40 +53,58 @@ final class MagtechAbstracts {
         case "sup" -> "sup";
         default -> null;
       };
-      if (jats == null || !m.group(3).isEmpty()) continue; // dropped, or an empty element (<p/>)
-      out.append(closing ? "</jats:" : "<jats:").append(jats).append('>');
+      if (jats == null) {
+        if (BLOCKS.contains(name)) space(out, open);
+        continue;
+      }
+      if (!m.group(3).isEmpty()) continue; // an empty element (<p/>)
+      if (closing) {
+        if (open.contains(jats)) closeTo(out, open, jats);
+      } else if (jats.equals("p")) {
+        closeTo(out, open, "p");
+        open.push("p");
+        out.append("<jats:p>");
+      } else {
+        if (open.isEmpty()) {
+          open.push("p");
+          out.append("<jats:p>");
+        }
+        open.push(jats);
+        out.append("<jats:").append(jats).append('>');
+      }
     }
-    text(out, html.substring(pos));
+    text(out, open, html.substring(pos));
+    while (!open.isEmpty()) out.append("</jats:").append(open.pop()).append('>');
     return out.toString().strip();
   }
 
-  /** Decoded and escaped; whitespace-only text between paragraphs is dropped. */
-  private static void text(StringBuilder out, String raw) {
+  /** Closes elements up to and including the named one, when it is open. */
+  private static void closeTo(StringBuilder out, Deque<String> open, String name) {
+    if (!open.contains(name)) return;
+    while (true) {
+      String e = open.pop();
+      out.append("</jats:").append(e).append('>');
+      if (e.equals(name)) return;
+    }
+  }
+
+  private static void space(StringBuilder out, Deque<String> open) {
+    if (!open.isEmpty() && out.charAt(out.length() - 1) != ' ') out.append(' ');
+  }
+
+  /** Decoded and escaped; text outside a paragraph opens one, whitespace-only text there is dropped. */
+  private static void text(StringBuilder out, Deque<String> open, String raw) {
     if (raw.isEmpty()) return;
-    String s = decode(raw);
-    if (s.isBlank() && (out.isEmpty() || out.toString().endsWith("</jats:p>"))) {
-      return;
+    String s = TitleText.decode(raw);
+    if (s.isBlank() && open.isEmpty()) return;
+    if (open.isEmpty()) {
+      open.push("p");
+      out.append("<jats:p>");
     }
-    s = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
-    out.append(s.replaceAll("[ \\t\\r\\n]+", " "));
+    out.append(escape(s).replaceAll("[ \\t\\r\\n]+", " "));
   }
 
-  private static String decode(String s) {
-    if (s.indexOf('&') < 0) return s;
-    Matcher m = ENTITY.matcher(s);
-    StringBuilder sb = new StringBuilder();
-    while (m.find()) {
-      String r = null;
-      if (m.group(1) != null) r = codePoint(Integer.parseInt(m.group(1)));
-      else if (m.group(2) != null) r = codePoint(Integer.parseInt(m.group(2), 16));
-      else r = NAMED.get(m.group(3));
-      m.appendReplacement(sb, Matcher.quoteReplacement(r == null ? m.group() : r));
-    }
-    m.appendTail(sb);
-    return sb.toString();
-  }
-
-  private static String codePoint(int cp) {
-    return Character.isValidCodePoint(cp) && cp != 0 ? new String(Character.toChars(cp)) : null;
+  private static String escape(String s) {
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
   }
 }

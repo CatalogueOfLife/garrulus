@@ -76,7 +76,7 @@ public final class TitleText {
   }
 
   /** Decodes numeric and the known named entities; anything else stays as it is. */
-  static String decode(String s) {
+  public static String decode(String s) {
     if (s.indexOf('&') < 0) return s;
     Matcher m = ENTITY.matcher(s);
     StringBuilder sb = new StringBuilder(s.length());

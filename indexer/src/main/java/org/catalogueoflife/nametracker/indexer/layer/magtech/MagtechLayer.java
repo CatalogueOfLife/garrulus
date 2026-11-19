@@ -74,6 +74,12 @@ public class MagtechLayer implements HarvestLayer {
     } catch (HttpProblem e) {
       if (first && e.status() == 404) return new LayerPage(List.of(), null, 1, 0);
       throw e;
+    } catch (NotAFeedException e) { // only the main feed decides BROKEN; the optional one is just absent
+      if (first) {
+        LOG.info("Magtech route {} has no rss_first feed: {}", route.id(), e.getMessage());
+        return new LayerPage(List.of(), null, 1, 0);
+      }
+      throw e;
     }
     int calls = 1;
     int skipped = 0;
