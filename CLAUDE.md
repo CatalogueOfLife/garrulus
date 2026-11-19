@@ -16,7 +16,9 @@ notifies users who follow taxa, journals or names. It also builds a public nameâ
 index: ADR-0005), M4 (accounts and alerts: ADR-0006; local only, deployment comes last) and M5 (lifecycle and
 backfill: ADR-0007; M5a XR switch, reprocessing and pending re-index, M5b snapshot backfill) are built locally; the
 full backfill runs later on the GBIF VM. M2's week-long dev run continues (`docs/m2-dev-run.md`, M3 check in
-`docs/m3-dev-check.md`). Next: M6. Finder and salience tuning is a final stage after the milestones.
+`docs/m3-dev-check.md`). The curated gold is imported and its baselines are committed (`docs/tuning-stage.md`).
+Roadmap (2026-11-18): M6 reach (layered harvesting, design `docs/superpowers/specs/2026-11-19-m6-layered-harvesting-design.md`,
+research `docs/research/`), M7 judging (the next tuning step), M8 the portal widget. Next: M6.
 
 ## Commands
 

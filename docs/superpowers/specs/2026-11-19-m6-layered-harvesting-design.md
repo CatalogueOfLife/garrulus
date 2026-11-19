@@ -1,6 +1,6 @@
 # M6: layered harvesting, crosslinks and journal registration — design
 
-Date: 2026-11-19. Status: draft for Markus' review.
+Date: 2026-11-19. Status: draft for Markus' review (decisions of 2026-11-19 included: approach A, admins by ORCID with admin pages, route backfill, candidate sampling).
 
 Research input: `docs/research/2026-11-19-journal-harvesting-without-openalex.md` (live checks of 2026-11-19). The
 roadmap is renumbered (Markus, 2026-11-18): M6 is reach, M7 is judging (trained and optional LLM judge, the next
@@ -36,7 +36,11 @@ work to the key services of the field, and a way for people to register journals
    registers a journal by ISSN, article DOI or web address; Garrulus identifies it and files it as a `CANDIDATE`.
 7. **Abstract and full-text fallbacks.** A work without an abstract gets one from Europe PMC, the Springer Nature Meta
    API, SciELO ArticleMeta or CiNii; open full text arrives through OAI-PMH JATS where a journal offers it.
-8. **University of Copenhagen access, prepared but off.** A content layer for subscription full text and abstracts
+8. **Admins and admin pages.** Admins are named by ORCID; they get admin pages for journals (candidates,
+   registrations, routes), layer health and status, and the layer and registration mails.
+9. **History and ranking for the long tail.** Journals OpenAlex does not have get their history back to 2000 through
+   their own routes, and candidates are ranked by a small hidden sample of their recent papers.
+10. **University of Copenhagen access, prepared but off.** A content layer for subscription full text and abstracts
    through the publishers' text-mining APIs, reachable from the KU network, behind a switch that stays off until the
    licences are cleared (see "Institutional access").
 
@@ -221,9 +225,9 @@ new services need no migration, and the same rows serve matching.
   `source_layer_coverage` (source, layer, 28-day sightings, misses), shown on `GET /api/admin/status` (`layers`). A
   change to `FAILING`, and the recovery to `OK`, send one e-mail to the admins; a layer that stays bad is reminded
   weekly, not nightly. The indexer only writes `layer_health`; `web`, which already sends mail, sends these from the
-  rows it has not mailed yet (the indexer has no mail support). Who the admins are, and where an admin sees the layer
-  page: see "Open questions". Nothing is switched off automatically: the other layers keep harvesting, which is the
-  point of approach A.
+  rows it has not mailed yet (the indexer has no mail support), to the admins (see "Admins and admin pages"), whose
+  Layers page shows the same numbers. Nothing is switched off automatically: the other layers keep harvesting, which
+  is the point of approach A.
 - The same numbers give the **contribution report**: per layer, the works it found first and the works only it found,
   per journal and in total. That is how a layer that adds nothing, or a service turning paid, can be judged.
 
@@ -248,9 +252,10 @@ new services need no migration, and the same rows serve matching.
 - **Classification** stays OpenAlex-first: subfields and topics from OpenAlex where the journal is there (Markus likes
   the current classifications). For a journal OpenAlex does not know, discipline comes from DOAJ LCC subjects mapped to
   the harvested subfields, journal type from its act rate once indexed, taxonomic focus from the index as today.
-- Promotion to CORE or BROAD stays an admin decision; it starts the usual onboarding of every route of the journal.
-  Name-density feedback (proposals to promote or demote from distinct names per article and act rate) is listed on the
-  admin page; it never changes a tier by itself.
+- Promotion to CORE or BROAD stays an admin decision; it starts the usual onboarding of every route of the journal,
+  and for a journal OpenAlex does not have, its route backfill. Candidates are ranked by their sample and signals
+  ("Candidate sampling"); harvested journals by name-density feedback (proposals to promote or demote from distinct
+  names per article and act rate). Both are shown on the admin journal page; neither changes a tier by itself.
 
 ### Journal registration
 
@@ -328,26 +333,57 @@ New task types (all idempotent, continuation pages, outage deferral as in ADR-00
 `HARVEST_OAI` (route or platform, position = resumption token), `HARVEST_EUROPEPMC` (ISSN batch, cursor),
 `HARVEST_BLR` (since, page), `DISCOVER_SOURCES` (origin), `IDENTIFY_SOURCE` (`sourceId` or `registrationId`),
 `VERIFY_ROUTE` (`routeId`), `LINK_SOURCE` (`sourceId`), `LINK_WORK` (`workId`), `COVERAGE_CHECK` (`day`),
-`MERGE_WORKS` (`survivor`, `other`), `ONBOARD_ROUTE` (`routeId`, the 120-day pass of a new route). Admin:
+`MERGE_WORKS` (`survivor`, `other`), `ONBOARD_ROUTE` (`routeId`, the 120-day pass of a new route), `ROUTE_BACKFILL`
+(`sourceId`, `fromYear`, position per route), `SAMPLE_SOURCE` (`sourceId`). Admin:
 `POST /api/admin/sources/{id}/routes` to add or pause a route (stored `PENDING`, verified by `VERIFY_ROUTE`).
 
-## Open questions for Markus
+### Admins and admin pages (Markus, 2026-11-19: 1a)
 
-These change scope, so the builder must not guess them (from the builder check, 2026-11-19):
+- **Admins are named by ORCID** in `NAMETRACKER_ADMIN_ORCIDS` (comma-separated iDs), as design.md §8 and Blixa do. An
+  account signed in through ORCID whose iD is listed gets the role `ADMIN` in its session; e-mail sign-in alone never
+  makes an admin. The list is read at start, so a change needs a restart.
+- `/api/admin/**` accepts either the `X-Admin-Token` header (scripts, as today; still exempt from the XSRF check) or an
+  `ADMIN` session (the browser; XSRF required like every other session write). ADR-0006 gets an amendment saying so.
+- **Admin pages** in the SPA under `/admin`, shown in the menu only to admins:
+  - **Journals:** candidates and registrations, filterable by origin and tier, sorted by the candidate score (below),
+    with their signals, sample results and routes; accept (CORE or BROAD) and decline (EXCLUDED) are the existing tier
+    change; routes can be added or paused there.
+  - **Layers:** `layer_health` per layer and day, the contribution report and the per-journal coverage.
+  - **Status:** today's `GET /api/admin/status` rendered (tasks, works, runs, XR, backfill, rollouts).
+- **Admin mail** (layer alerts, a daily note when new registrations wait) goes to the verified e-mail addresses of the
+  admin accounts; with no admin e-mail known it is logged as suppressed, like other mails without SMTP.
 
-1. **Admins and an admin UI.** Today admin access is the `X-Admin-Token` header only (ADR-0006); `app_user` has no
-   role and there are no admin pages, although design.md §8 planned admins named by ORCID. M6 needs somewhere to send
-   layer mails and somewhere to accept registrations and read layer health.
-2. **History for journals OpenAlex does not have.** The backfill (M5b) reads only the OpenAlex snapshot, so a journal
-   that came from PKP Beacon, DOAJ or a registration starts with 120 days. Whether M6 backfills such journals through
-   their own routes, and how old a work that L5 or a full OAI read brings in may be, is open.
-3. **Ranking candidates.** Discovery may add thousands of candidates, but nothing is harvested before promotion, so
-   name density can rank only journals already harvested. Whether candidates get a small hidden sample harvest is open.
+### Route backfill for journals OpenAlex does not have (Markus, 2026-11-19: 2a)
+
+- **`ROUTE_BACKFILL`** (`sourceId`, `fromYear` 2000) runs the journal's own routes back to 2000 at `BACKFILL` priority:
+  OAI `ListRecords` without `from` (most endpoints serve their whole history), Crossref by every ISSN with
+  `from-pub-date:2000`, Europe PMC by ISSN and publication year. Works get origin `BACKFILL` and go through content,
+  finder and matching at `BACKFILL`, as the snapshot backfill's do.
+- It runs once after onboarding for every journal that has no OpenAlex id or that the snapshot backfill did not cover,
+  and an admin can start it for any journal (the dedup key holds one run per journal).
+- **Age rule for every layer:** a record published before 2000 is skipped and counted (pre-2000 stays a non-goal); a
+  record older than the layer's window gets origin `BACKFILL` (it is outside the alert window anyway). This covers L5
+  DOIs of old papers and the weekly full reads of endpoints with unreliable datestamps.
+
+### Candidate sampling (Markus, 2026-11-19: 3b)
+
+- **`SAMPLE_SOURCE`** (`sourceId`) ranks a candidate by what its papers contain, without listing or alerting anything:
+  it fetches up to 20 of the journal's most recent articles (last 2 years) through the cheapest route that serves it
+  (Crossref by ISSN, then OAI, then Europe PMC, then OpenAlex by source id), runs the finder over title and abstract,
+  and stores the result in `source_sample` (source, sampled_at, articles, articles with abstract, distinct names per
+  article, share of articles with an act, the top taxonomic groups by the COL dictionary's classification).
+- Sample papers are never written to `work`: they live only inside the task, so they can never be listed, matched or
+  alerted. Only the aggregate row is kept.
+- A **candidate score** combines the sample (names per article, act share) with the signals (number and kind, Plazi
+  article count, COL reference count); the admin journal list sorts by it. Sampling runs for new candidates and
+  registrations, at most 200 a night at `BACKFILL` priority, and again after a year; a journal without any reachable
+  route keeps a score from its signals only.
 
 ### Storage
 
 `work_identifier` about 4–7 rows per work and `work_sighting` about 2–4: at 5M works roughly 50M rows, 5–7 GB with
-indexes, on top of the 150–200 GB of the full backfill. `source_*` tables are small.
+indexes, on top of the 150–200 GB of the full backfill. `source_*` tables are small. Route backfills add the long
+tail's history (expected to be small next to the OpenAlex snapshot backfill; measured on the first runs).
 
 ## Done when
 
@@ -363,7 +399,12 @@ indexes, on top of the 150–200 GB of the full backfill. `source_*` tables are 
   routes; registering a covered journal reports it as covered.
 - A ZooKeys work shows DOI, OpenAlex, PMID/PMCID, BLR, Plazi and Biodiversity PMC links; Phytotaxa shows IPNI and BPH
   on its journal page; `GET /api/works?identifier=PMCID:…` finds the work.
-- Discovery adds candidates from DOAJ, PKP Beacon, Plazi and COL references, each with its signal.
+- Discovery adds candidates from DOAJ, PKP Beacon, Plazi and COL references, each with its signal; candidates are
+  sampled and sorted by their score on the admin journal page, and no sample paper appears in `work`.
+- An account whose ORCID is in `NAMETRACKER_ADMIN_ORCIDS` sees the admin pages, accepts a registered journal from
+  there, and receives the layer mail of the OpenAlex block test; other accounts get 403 on `/api/admin/**`.
+- A promoted journal without an OpenAlex id gets its history back to 2000 through its routes, at `BACKFILL`, with no
+  hits; records before 2000 are skipped and counted.
 - The institutional route exists, is covered by tests against a stub, and is off.
 - No call to a paid service in the logs of the week.
 
@@ -374,4 +415,6 @@ indexes, on top of the 150–200 GB of the full backfill. `source_*` tables are 
 - The Wikidata query shape and batch size; IPNI date filters are not needed (lookups by ISSN only).
 - URL templates: verify each against a live example before shipping; drop a scheme whose service does not answer.
 - Whether `LINK_WORK` runs per work or in batches per service (Europe PMC and Zenodo accept batched queries).
-- The admin layer page's layout, within the brand tokens.
+- The admin pages' layout, within the brand tokens.
+- The exact candidate score formula (start: names per article and act share of the sample, weighted with Plazi and COL
+  reference counts), tuned once a few hundred candidates are sampled.

@@ -556,7 +556,10 @@ Packages are `org.catalogueoflife.nametracker.*`. Configuration is through envir
 | M4 Accounts & alerts | ORCID + magic link, subscriptions, hit evaluator, digests, Atom feeds | Test user receives a correct digest; no hit outside its follow's alert window (90 days or `since_year`), no paper twice per follow. Built 2026-11-16 (ADR-0006); dev check pending |
 | M5a Lifecycle | Unthrottled matching, pending re-index with swap, finder reprocessing and rollout, automatic XR switch (pre-match, gate, flip, re-place, follow notes), dictionary per release | XR switch causes zero notifications; no work leaves the listings. Built locally 2026-11-17 (ADR-0007); dev check met (`docs/m5-dev-check.md`) |
 | M5b Backfill | Snapshot backfill 2000→now from the free OpenAlex snapshot | Index holds about 4–5M works. Built locally 2026-11-17 (ADR-0007); slice checked (`docs/m5-dev-check.md`), the full run happens later on the GBIF VM |
-| M6 Quality & reach | Trained judge, optional LLM judge, discovery/promotion, OAI-PMH/bioRxiv/Plazi adapters, nomenclator recall monitor, portal widget, deeper backfill incl. BHL | — |
+| M6 Reach | Layered harvest (OpenAlex, Crossref, OAI-PMH, Europe PMC, Plazi/BLR) merged on identifiers, coverage monitor, discovery beyond OpenAlex, crosslinks (IPNI, BPH, ZooBank, Plazi/BLR, BHL, Europe PMC, Biodiversity PMC), journal registration, admin pages, route backfill and candidate sampling, abstract fallbacks, KU institutional route (off). Spec `docs/superpowers/specs/2026-11-19-m6-layered-harvesting-design.md` (roadmap renumbered 2026-11-18) | — |
+| M7 Judging | Trained judge and optional LLM judge, as the next tuning step on the curated gold | — |
+| M8 Portal widget | portal-components "Literature" widget on COL taxon pages | — |
+| Later | Nomenclator recall monitor, pre-2000 backfill; no BHL content harvesting | — |
 
 M1 and M2 can run in parallel after M0.
 
