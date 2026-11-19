@@ -79,6 +79,9 @@ public interface WorkMapper {
   /** Sets the title and bumps modified; nothing else changes. */
   int setTitle(@Param("id") long id, @Param("title") @Nullable String title);
 
+  /** Deletes the work; mentions, identifiers, sightings, content and hits cascade. Returns the rows deleted. */
+  int deleteWork(@Param("id") long id);
+
   /** Rows state, text_level (may be null), n. */
   List<Map<String, Object>> countByStateAndTextLevel();
 }

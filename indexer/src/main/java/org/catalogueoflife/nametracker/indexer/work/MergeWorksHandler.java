@@ -1,0 +1,99 @@
+package org.catalogueoflife.nametracker.indexer.work;
+
+import org.catalogueoflife.nametracker.finder.api.FinderJson;
+import org.catalogueoflife.nametracker.indexer.finder.FindNamesHandler;
+import org.catalogueoflife.nametracker.indexer.harvest.WorksPager;
+import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
+import org.catalogueoflife.nametracker.store.account.HitMapper;
+import org.catalogueoflife.nametracker.store.content.ContentMapper;
+import org.catalogueoflife.nametracker.store.ident.WorkIdentifierMapper;
+import org.catalogueoflife.nametracker.store.ident.WorkSightingMapper;
+import org.catalogueoflife.nametracker.store.task.Task;
+import org.catalogueoflife.nametracker.store.task.TaskPriority;
+import org.catalogueoflife.nametracker.store.task.TaskQueue;
+import org.catalogueoflife.nametracker.store.work.Layer;
+import org.catalogueoflife.nametracker.store.work.Work;
+import org.catalogueoflife.nametracker.store.work.WorkMapper;
+import org.catalogueoflife.nametracker.store.work.WorkMerger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.databind.JsonNode;
+
+/**
+ * {@code MERGE_WORKS}, payload {@code {"survivor":min,"other":max}}: two rows turned out to be the same article. In one
+ * transaction (both rows locked, older first) the younger is merged into the older with {@link WorkMerger} (the
+ * younger's meta layer is its layer, BLR when unknown), its identifiers, sightings, content rows and hits move over
+ * (a route, layer or (subscription, kind) the survivor has already is dropped, so nobody is notified twice) and the
+ * younger is deleted, its mentions with it. When content moved, the survivor's document may differ: FIND_NAMES forced
+ * at REPROCESS. A missing work (already merged) is a no-op; two different DOIs are never merged. Idempotent.
+ */
+@Component
+public class MergeWorksHandler implements TaskHandler {
+
+  private static final Logger LOG = LoggerFactory.getLogger(MergeWorksHandler.class);
+
+  private final WorkMapper works;
+  private final WorkIdentifierMapper identifiers;
+  private final WorkSightingMapper sightings;
+  private final ContentMapper contents;
+  private final HitMapper hits;
+  private final TaskQueue queue;
+  private final TransactionTemplate tx;
+
+  public MergeWorksHandler(WorkMapper works, WorkIdentifierMapper identifiers, WorkSightingMapper sightings,
+      ContentMapper contents, HitMapper hits, TaskQueue queue, TransactionTemplate tx) {
+    this.works = works;
+    this.identifiers = identifiers;
+    this.sightings = sightings;
+    this.contents = contents;
+    this.hits = hits;
+    this.queue = queue;
+    this.tx = tx;
+  }
+
+  @Override
+  public String type() {
+    return WorksPager.MERGE_WORKS;
+  }
+
+  @Override
+  public void handle(Task task) throws Exception {
+    JsonNode p = FinderJson.mapper().readTree(task.payload());
+    long a = p.path("survivor").asLong();
+    long b = p.path("other").asLong();
+    long survivorId = Math.min(a, b);
+    long otherId = Math.max(a, b);
+    if (survivorId == otherId) return;
+    tx.executeWithoutResult(status -> merge(survivorId, otherId, task));
+  }
+
+  private void merge(long survivorId, long otherId, Task task) {
+    Work survivor = works.findForUpdate(survivorId); // id order: no deadlock with a concurrent upsert
+    Work other = works.findForUpdate(otherId);
+    if (survivor == null || other == null) {
+      LOG.info("Merge of works {} and {}: nothing to do, a row is gone", survivorId, otherId);
+      return;
+    }
+    if (survivor.doi() != null && other.doi() != null && !survivor.doi().equalsIgnoreCase(other.doi())) {
+      LOG.warn("Not merging works {} (DOI {}) and {} (DOI {}): the DOIs differ", survivorId, survivor.doi(), otherId,
+          other.doi());
+      return;
+    }
+    Layer layer = other.metaLayer() == null ? Layer.BLR : Layer.valueOf(other.metaLayer());
+    WorkMerger.Merged merged = WorkMerger.merge(survivor, other, layer);
+    int ids = identifiers.moveAll(otherId, survivorId);
+    int sights = sightings.moveAll(otherId, survivorId);
+    int moved = contents.moveContents(otherId, survivorId);
+    int movedHits = hits.moveHits(otherId, survivorId);
+    works.deleteWork(otherId); // frees its DOI and OpenAlex id for the survivor
+    if (merged.changed()) works.updateMerged(merged.work());
+    if (moved > 0) {
+      queue.enqueue(FindNamesHandler.TYPE, "{\"workId\":" + survivorId + ",\"force\":true}", TaskPriority.REPROCESS,
+          "merge-names:" + survivorId + ":" + otherId, task.runAfter());
+    }
+    LOG.info("Merged work {} into {}: {} identifiers, {} sightings, {} content rows, {} hits moved", otherId,
+        survivorId, ids, sights, moved, movedHits);
+  }
+}

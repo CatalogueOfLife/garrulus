@@ -233,4 +233,6 @@
     SELECT state, text_level, count(*) AS n FROM work GROUP BY state, text_level ORDER BY state, text_level
   </select>
 
+
+  <delete id="deleteWork">DELETE FROM work WHERE id = #{id}</delete>
 </mapper>

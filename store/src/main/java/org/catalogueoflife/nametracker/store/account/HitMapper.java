@@ -35,6 +35,12 @@ public interface HitMapper {
   /** Clears digest_id of every hit of the digest (rollback of a failed send). */
   int unmark(@Param("digestId") long digestId);
 
+  /**
+   * Re-points the hits of one work to another (a merge) unless the target has a hit of the same subscription and kind;
+   * those stay on the old work and go with it. Returns the rows moved.
+   */
+  int moveHits(@Param("fromWork") long fromWork, @Param("toWork") long toWork);
+
   /** The subscription's hits, newest first. */
   List<Hit> byFeed(@Param("subscriptionId") long subscriptionId, @Param("limit") int limit);
 }

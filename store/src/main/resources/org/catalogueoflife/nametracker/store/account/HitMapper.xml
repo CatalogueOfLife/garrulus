@@ -53,6 +53,11 @@
 
   <update id="unmark">UPDATE hit SET digest_id = NULL WHERE digest_id = #{digestId}</update>
 
+  <update id="moveHits">
+    UPDATE hit h SET work_id = #{toWork} WHERE h.work_id = #{fromWork} AND NOT EXISTS (
+      SELECT 1 FROM hit t WHERE t.work_id = #{toWork} AND t.subscription_id = h.subscription_id AND t.kind = h.kind)
+  </update>
+
   <select id="byFeed" resultMap="hit">
     SELECT <include refid="cols"/> FROM hit h WHERE h.subscription_id = #{subscriptionId}
     ORDER BY h.created DESC, h.id DESC LIMIT #{limit}

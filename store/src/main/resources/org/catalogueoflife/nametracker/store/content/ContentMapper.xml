@@ -27,6 +27,11 @@
     RETURNING id
   </select>
 
+  <update id="moveContents">
+    UPDATE content c SET work_id = #{toWork} WHERE c.work_id = #{fromWork}
+      AND NOT EXISTS (SELECT 1 FROM content t WHERE t.work_id = #{toWork} AND t.route = c.route)
+  </update>
+
   <select id="listByWork" resultMap="result">
     SELECT * FROM content WHERE work_id = #{workId} ORDER BY id
   </select>
