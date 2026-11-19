@@ -70,7 +70,7 @@
   </update>
 
   <update id="markOk">
-    UPDATE source_route SET last_ok = #{at} WHERE id = #{id}
+    UPDATE source_route SET last_ok = #{at}, last_error = NULL WHERE id = #{id}
   </update>
 
   <update id="setOnboarded">

@@ -255,6 +255,33 @@ class LayerHarvestHandlerIT extends AbstractPostgresIT {
   }
 
   @Test
+  void aDeadBackfillLeavesTheRouteActive() {
+    HarvestLayer broken = new HarvestLayer() {
+      @Override public Layer layer() {
+        return Layer.OAI;
+      }
+
+      @Override public LayerPage page(LayerJob job, @Nullable String position) {
+        throw new HttpProblem(URI.create("https://journal.example.org/oai"), 400, false, "HTTP 400", null);
+      }
+    };
+    LayerHarvestHandler h = new LayerHarvestHandler(writer, queue, runs, routes, outage, clock,
+        new MockEnvironment()) {
+      @Override protected HarvestLayer layer() {
+        return broken;
+      }
+    };
+    enqueueFirst(LayerMode.BACKFILL, TaskPriority.BACKFILL);
+    Task t = claim();
+    Task last = new Task(t.id(), t.type(), t.payload(), t.priority(), t.state(), 5, t.runAfter(), null, null, null,
+        t.dedupKey(), t.created());
+    // the history failed, the daily harvest still works: the route stays ACTIVE and says why
+    assertThatThrownBy(() -> h.handle(last)).isInstanceOf(HttpProblem.class);
+    assertThat(routes.get(routeId).status()).isEqualTo("ACTIVE");
+    assertThat(routes.get(routeId).lastError()).contains("HTTP 400");
+  }
+
+  @Test
   void redeliveredPageCreatesNoDuplicates() throws Exception {
     enqueueFirst(LayerMode.LIVE, TaskPriority.LIVE);
     Task first = claim();

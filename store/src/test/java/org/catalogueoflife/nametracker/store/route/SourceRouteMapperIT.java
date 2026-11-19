@@ -120,4 +120,14 @@ class SourceRouteMapperIT extends AbstractPostgresIT {
     routes.setVerified(dead, java.time.Instant.now().plusSeconds(60));
     assertThat(routes.listRollout(1000)).extracting(SourceRoute::id).contains(dead);
   }
+
+  @Test
+  void markOkClearsTheLastError() {
+    long s = source("S-route-8");
+    long id = routes.insert(route(s, "OAI", "{\"ok\":1}"));
+    routes.setError(id, "HTTP 400");
+    routes.markOk(id, java.time.Instant.now());
+    assertThat(routes.get(id).lastError()).isNull();
+    assertThat(routes.get(id).lastOk()).isNotNull();
+  }
 }

@@ -40,6 +40,7 @@ public interface SourceRouteMapper {
 
   int setVerified(@Param("id") long id, @Param("at") Instant at);
 
+  /** A job of the route ran to its end: sets {@code last_ok} and clears {@code last_error}. */
   int markOk(@Param("id") long id, @Param("at") Instant at);
 
   int setOnboarded(@Param("id") long id, @Param("at") Instant at);
