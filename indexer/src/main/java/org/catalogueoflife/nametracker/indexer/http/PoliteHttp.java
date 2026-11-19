@@ -91,6 +91,14 @@ public class PoliteHttp {
             sleeper));
   }
 
+  /**
+   * Overrides the spacing of requests to a host at runtime (a route's own politeness); it applies from the next request
+   * on. Thread-safe.
+   */
+  public void setMinInterval(String host, Duration minInterval) {
+    limiterFor(host).setMinInterval(minInterval);
+  }
+
   /** A local service (a CLB bundle) is not rate limited unless configured. */
   static boolean loopback(String host) {
     return host.equals("localhost") || host.equals("127.0.0.1") || host.equals("::1") || host.equals("[::1]");

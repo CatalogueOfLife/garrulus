@@ -40,7 +40,8 @@ public class OpenAlexHarvestHandler implements TaskHandler {
 
   public static final String TYPE = "HARVEST_OPENALEX";
   static final int BATCH_SIZE = 50;
-  static final int LIVE_DAYS = 120;
+  /** A work published within this many days (UTC) is news: origin LIVE. */
+  public static final int LIVE_DAYS = 120;
   static final int SWEEP_DAYS = 400;
   static final String TRUNCATED = "truncated at 10000 results (no API key)";
   private static final Logger LOG = LoggerFactory.getLogger(OpenAlexHarvestHandler.class);

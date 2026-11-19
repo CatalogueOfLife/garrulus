@@ -34,7 +34,7 @@ public class HarvestOutage {
    * (DNS), not a typo.
    */
   static final Set<String> API_HOSTS = Set.of("api.openalex.org", "content.openalex.org", "api.crossref.org",
-      "api.checklistbank.org", "openalex.s3.amazonaws.com");
+      "api.checklistbank.org", "openalex.s3.amazonaws.com", "www.ebi.ac.uk", "zenodo.org");
 
   /**
    * The retryable HttpProblem that is the exception or one of its causes, else null. A name that does not resolve

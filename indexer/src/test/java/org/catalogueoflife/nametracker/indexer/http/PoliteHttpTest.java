@@ -157,6 +157,26 @@ class PoliteHttpTest {
   }
 
   @Test
+  void minIntervalCanBeChangedAtRuntime() {
+    FakeTime t = new FakeTime();
+    PoliteHttp h = new PoliteHttp(HttpClient.newHttpClient(), Map.of(), PoliteHttp.userAgent(), t, t::sleep);
+    HostLimiter l = h.limiterFor("oai.example.org");
+    l.acquire();
+    h.setMinInterval("OAI.example.org", Duration.ofSeconds(5));
+    assertEquals(Duration.ofSeconds(5), h.intervalFor("oai.example.org"));
+    l.acquire(); // the next request already waits the new interval after the previous start
+    assertEquals(List.of(Duration.ofSeconds(5)), t.sleeps);
+    h.setMinInterval("oai.example.org", Duration.ofMillis(500));
+    l.acquire(); // and a shorter one takes effect at once too
+    assertEquals(List.of(Duration.ofSeconds(5), Duration.ofMillis(500)), t.sleeps);
+    // a host not seen yet starts with the override; Pensoft hosts share theirs
+    h.setMinInterval("new.example.org", Duration.ofSeconds(3));
+    assertEquals(Duration.ofSeconds(3), h.intervalFor("new.example.org"));
+    h.setMinInterval("pdfs.pensoft.net", Duration.ofSeconds(4));
+    assertEquals(Duration.ofSeconds(4), h.intervalFor("zookeys.pensoft.net"));
+  }
+
+  @Test
   void pensoftHostsShareOneLimiter() {
     FakeTime t = new FakeTime();
     PoliteHttp h = new PoliteHttp(HttpClient.newHttpClient(), PoliteHttp.defaultIntervals(),

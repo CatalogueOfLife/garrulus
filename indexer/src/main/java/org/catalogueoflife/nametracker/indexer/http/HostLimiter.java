@@ -13,7 +13,7 @@ public class HostLimiter {
     void sleep(Duration d) throws InterruptedException;
   }
 
-  private final Duration minInterval;
+  private Duration minInterval; // guarded by this
   private final Clock clock;
   private final Sleeper sleeper;
   private Instant nextSlot; // guarded by this
@@ -24,8 +24,14 @@ public class HostLimiter {
     this.sleeper = sleeper;
   }
 
-  public Duration minInterval() {
+  public synchronized Duration minInterval() {
     return minInterval;
+  }
+
+  /** Replaces the interval; the next request is spaced from the previous start by the new one. */
+  public synchronized void setMinInterval(Duration d) {
+    if (nextSlot != null) nextSlot = nextSlot.minus(minInterval).plus(d);
+    minInterval = d;
   }
 
   /** Blocks until minInterval has passed since the previous start. Each caller gets its own slot. */

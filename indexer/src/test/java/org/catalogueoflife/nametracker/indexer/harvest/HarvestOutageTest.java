@@ -17,7 +17,7 @@ class HarvestOutageTest {
   @Test
   void unknownApiHostIsAnOutage() {
     for (String host : new String[] {"api.crossref.org", "api.openalex.org", "content.openalex.org",
-        "api.checklistbank.org"}) {
+        "api.checklistbank.org", "www.ebi.ac.uk", "zenodo.org"}) {
       assertThat(HarvestOutage.retryable(unknownHost(host))).as(host).isNotNull();
       assertThat(HarvestOutage.retryable(new RuntimeException("wrapped", unknownHost(host)))).as(host).isNotNull();
     }
