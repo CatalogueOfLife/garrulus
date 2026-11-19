@@ -242,6 +242,48 @@ class CrossrefHarvestHandlerIT extends AbstractPostgresIT {
   }
 
   @Test
+  void crossrefStoresWorkWhenOpenalexIsDown() throws Exception {
+    long src = source();
+    stubCrossref();
+    stubFor(get(urlPathMatching("/works/doi:.*")).willReturn(aResponse().withStatus(503).withHeader("Retry-After", "0")));
+
+    harvestYesterday();
+
+    assertThat(runs.recent(1).getFirst().state()).isEqualTo("DONE");
+    assertThat(count("SELECT count(*) FROM task WHERE state IN ('DEAD','QUEUED') AND type = 'HARVEST_CROSSREF'"))
+        .isZero();
+    Work w = works.findByDoi(DOI1);
+    assertThat(w).isNotNull();
+    assertThat(w.openalexId()).isNull();
+    assertThat(w.origin()).isEqualTo("BACKFILL"); // a 2011 paper: the existing origin rule
+    assertThat(w.sourceId()).isEqualTo(src);
+    assertThat(w.abstractJatsSource()).isEqualTo("CROSSREF");
+    assertThat(works.findByDoi(DOI2)).isNotNull();
+    assertThat(jdbc.queryForList("SELECT scheme || ':' || value FROM work_identifier WHERE work_id = ?",
+        String.class, w.id())).containsExactly("DOI:" + DOI1);
+    assertThat(jdbc.queryForList("SELECT layer FROM work_sighting WHERE work_id = ?", String.class, w.id()))
+        .containsExactly("CROSSREF");
+  }
+
+  @Test
+  void crossrefSkipsPre2000Items() throws Exception {
+    source();
+    stubFor(get(urlPathEqualTo("/works")).atPriority(5).willReturn(okJson(fixture("works-empty.json"))));
+    stubFor(get(urlPathEqualTo("/works")).atPriority(1).withQueryParam("cursor", equalTo("*"))
+        .willReturn(okJson(fixture("works-page.json").replaceFirst(
+            "\"published\":\\{\"date-parts\":\\[\\[2011,5,20\\]\\]\\}",
+            "\"published\":{\"date-parts\":[[1998,5,20]]}"))));
+    stubFor(get(urlPathMatching("/works/doi:.*")).willReturn(aResponse().withStatus(404)));
+
+    harvestYesterday();
+
+    assertThat(works.findByDoi(DOI1)).isNull();
+    assertThat(works.findByDoi(DOI2)).isNotNull();
+    assertThat(count("SELECT count(*) FROM work")).isEqualTo(1);
+    assertThat(runs.recent(1).getFirst().state()).isEqualTo("DONE");
+  }
+
+  @Test
   void unknownDoiFoundInOpenAlexIsUpsertedWithOpenAlexId() throws Exception {
     long src = source();
     stubCrossref();

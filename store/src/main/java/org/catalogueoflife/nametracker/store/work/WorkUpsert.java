@@ -120,39 +120,6 @@ public class WorkUpsert {
     return Optional.of(id);
   }
 
-  /**
-   * The upsert of the layers before M6a: layer OPENALEX when the work has an OpenAlex id, else CROSSREF; identifiers
-   * from its DOI, OpenAlex id and PMCID; an abstract_jats without a source is Crossref's.
-   *
-   * @deprecated use {@link #upsert(Work, Layer, List)}.
-   */
-  @Deprecated(forRemoval = true)
-  public UpsertResult upsert(Work in) {
-    return upsert(legacy(in), legacyLayer(in), List.of());
-  }
-
-  /**
-   * The backfill insert before M6a, see {@link #upsert(Work)}.
-   *
-   * @deprecated use {@link #insertIfNew(Work, Layer, List)}.
-   */
-  @Deprecated(forRemoval = true)
-  public Optional<Long> insertIfNew(Work in) {
-    return insertIfNew(legacy(in), legacyLayer(in), List.of());
-  }
-
-  private static Layer legacyLayer(Work w) {
-    return w.openalexId() != null ? Layer.OPENALEX : Layer.CROSSREF;
-  }
-
-  private static Work legacy(Work w) {
-    if (w.abstractJats() == null || w.abstractJatsSource() != null) {
-      return w;
-    }
-    return copy(w, w.openalexId(), w.doi(), w.pmcid(), w.title(), w.authors(), "CROSSREF", w.metaLayer(),
-        w.accessLayer());
-  }
-
   /** Writes the identifiers and the sighting of the work; returns another work holding one of the identifiers. */
   private @Nullable Long record(long id, Work incoming, Layer layer, List<Identifier> all) {
     identifiers.insertAll(id, all, layer.name());

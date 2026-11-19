@@ -1,5 +1,7 @@
 package org.catalogueoflife.nametracker.store.work;
 
+import static org.catalogueoflife.nametracker.store.work.LegacyUpserts.legacyInsertIfNew;
+import static org.catalogueoflife.nametracker.store.work.LegacyUpserts.legacyUpsert;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
@@ -34,30 +36,30 @@ class WorkUpsertIT extends AbstractPostgresIT {
   @Test
   void insertIfNewInsertsOnlyUnknownWorksAndNeverTouchesExistingOnes() {
     WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
-    long live = upsert.upsert(work("W-live", "10.1/live", "Live title", "LIVE")).id();
+    long live = legacyUpsert(upsert, work("W-live", "10.1/live", "Live title", "LIVE")).id();
     Instant firstSeen = works.get(live).firstSeenAt();
 
     // same DOI (other spelling), other OpenAlex id; then same OpenAlex id, no DOI
-    assertThat(upsert.insertIfNew(work("W-other", "https://doi.org/10.1/LIVE", "Snapshot title", "BACKFILL"))).isEmpty();
-    assertThat(upsert.insertIfNew(work("W-live", null, "Snapshot title", "BACKFILL"))).isEmpty();
+    assertThat(legacyInsertIfNew(upsert, work("W-other", "https://doi.org/10.1/LIVE", "Snapshot title", "BACKFILL"))).isEmpty();
+    assertThat(legacyInsertIfNew(upsert, work("W-live", null, "Snapshot title", "BACKFILL"))).isEmpty();
     Work kept = works.get(live);
     assertThat(kept.title()).isEqualTo("Live title");
     assertThat(kept.origin()).isEqualTo("LIVE");
     assertThat(kept.firstSeenAt()).isEqualTo(firstSeen);
     assertThat(works.findByOpenalexId("W-other")).isNull();
 
-    var created = upsert.insertIfNew(work("W-new", "DOI:10.1/New", "A &amp; <i>B</i>", "BACKFILL"));
+    var created = legacyInsertIfNew(upsert, work("W-new", "DOI:10.1/New", "A &amp; <i>B</i>", "BACKFILL"));
     assertThat(created).isPresent();
     Work w = works.get(created.get());
     assertThat(w.doi()).isEqualTo("10.1/new");
     assertThat(w.title()).isEqualTo("A & B");
     assertThat(w.origin()).isEqualTo("BACKFILL");
-    assertThat(upsert.insertIfNew(work("W-new", "10.1/new", "Again", "BACKFILL"))).isEmpty();
+    assertThat(legacyInsertIfNew(upsert, work("W-new", "10.1/new", "Again", "BACKFILL"))).isEmpty();
   }
 
   @Test
   void setPmcidWritesOnlyWhenEmpty() {
-    long id = new WorkUpsert(works, identifiers, sightings).upsert(work(null, "10.1/pmcid", "T", "LIVE")).id();
+    long id = legacyUpsert(new WorkUpsert(works, identifiers, sightings), work(null, "10.1/pmcid", "T", "LIVE")).id();
     assertThat(works.setPmcid(id, "PMC1")).isEqualTo(1);
     assertThat(works.setPmcid(id, "PMC2")).isZero();
     assertThat(works.get(id).pmcid()).isEqualTo("PMC1");
@@ -66,13 +68,13 @@ class WorkUpsertIT extends AbstractPostgresIT {
   @Test
   void upsertMergesByDoiAndKeepsOriginAndFirstSeen() {
     WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
-    WorkUpsert.UpsertResult first = upsert.upsert(work(null, "10.3897/ZooKeys.1.2", null, "LIVE"));
+    WorkUpsert.UpsertResult first = legacyUpsert(upsert, work(null, "10.3897/ZooKeys.1.2", null, "LIVE"));
     assertThat(first.created()).isTrue();
     Work stored = works.get(first.id());
     Instant firstSeen = stored.firstSeenAt();
 
     WorkUpsert.UpsertResult second =
-        upsert.upsert(work("W1", "https://doi.org/10.3897/zookeys.1.2", "A title", "ONBOARDING"));
+        legacyUpsert(upsert, work("W1", "https://doi.org/10.3897/zookeys.1.2", "A title", "ONBOARDING"));
     assertThat(second.created()).isFalse();
     assertThat(second.id()).isEqualTo(first.id());
 
@@ -93,10 +95,10 @@ class WorkUpsertIT extends AbstractPostgresIT {
     Work full = new Work(null, "W-keep", "doi:10.1/KEEP", null, "Title", LocalDate.of(2026, 1, 2), (short) 2026, "1",
         "2", "3-4", "[{\"name\":\"Doe\"}]", "article", "en", "gold", "cc-by", "https://x", "abs", null, "LIVE",
         null, null, null, null, null, null, null, "<abstract/>", "PMC1", true, null, null, null, null);
-    long id = upsert.upsert(full).id();
+    long id = legacyUpsert(upsert, full).id();
     works.setState(id, "MATCHED", "FULLTEXT");
 
-    upsert.upsert(work("W-keep", "10.1/keep", null, "BACKFILL"));
+    legacyUpsert(upsert, work("W-keep", "10.1/keep", null, "BACKFILL"));
     Work w = works.get(id);
     assertThat(w.doi()).isEqualTo("10.1/keep");
     assertThat(w.title()).isEqualTo("Title");
@@ -109,7 +111,7 @@ class WorkUpsertIT extends AbstractPostgresIT {
     assertThat(w.textLevel()).isEqualTo("FULLTEXT");
     assertThat(w.origin()).isEqualTo("LIVE");
 
-    upsert.upsert(new Work(null, "W-keep", null, null, "New title", null, null, null, null, null, null, null, null,
+    legacyUpsert(upsert, new Work(null, "W-keep", null, null, "New title", null, null, null, null, null, null, null, null,
         null, null, null, null, null, "SWEEP", null, null, null, null, null, null, null, "<abstract2/>", null,
         false, null, null, null, null));
     Work w2 = works.get(id);
@@ -122,9 +124,9 @@ class WorkUpsertIT extends AbstractPostgresIT {
   @Test
   void doiFormsNormalise() {
     WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
-    long id = upsert.upsert(work(null, "http://dx.doi.org/10.5/ABC", null, "LIVE")).id();
+    long id = legacyUpsert(upsert, work(null, "http://dx.doi.org/10.5/ABC", null, "LIVE")).id();
     assertThat(works.get(id).doi()).isEqualTo("10.5/abc");
-    assertThat(upsert.upsert(work(null, "DOI:10.5/Abc", null, "LIVE"))).isEqualTo(
+    assertThat(legacyUpsert(upsert, work(null, "DOI:10.5/Abc", null, "LIVE"))).isEqualTo(
         new WorkUpsert.UpsertResult(id, false, false, null));
   }
 
@@ -135,7 +137,7 @@ class WorkUpsertIT extends AbstractPostgresIT {
     try {
       List<Future<WorkUpsert.UpsertResult>> fs = new ArrayList<>();
       for (int i = 0; i < 8; i++) {
-        fs.add(pool.submit(() -> upsert.upsert(work(null, "10.9999/Concurrent", "T", "LIVE"))));
+        fs.add(pool.submit(() -> legacyUpsert(upsert, work(null, "10.9999/Concurrent", "T", "LIVE"))));
       }
       long created = 0;
       long id = -1;
@@ -157,13 +159,13 @@ class WorkUpsertIT extends AbstractPostgresIT {
   @Test
   void listCrossrefOnlyHonoursCheckedAt() {
     WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
-    long id = upsert.upsert(work(null, "10.7/crossref-only", "T", "LIVE")).id();
+    long id = legacyUpsert(upsert, work(null, "10.7/crossref-only", "T", "LIVE")).id();
     assertThat(works.listCrossrefOnly(1000)).extracting(Work::id).contains(id);
   }
 
   @Test
   void countByStateAndTextLevel() {
-    long id = new WorkUpsert(works, identifiers, sightings).upsert(work(null, "10.1/count", "T", "LIVE")).id();
+    long id = legacyUpsert(new WorkUpsert(works, identifiers, sightings), work(null, "10.1/count", "T", "LIVE")).id();
     works.setState(id, "MATCHED", "FULLTEXT");
     assertThat(works.countByStateAndTextLevel()).anySatisfy(r -> {
       assertThat(r).containsEntry("state", "MATCHED").containsEntry("text_level", "FULLTEXT");
@@ -174,28 +176,28 @@ class WorkUpsertIT extends AbstractPostgresIT {
   @Test
   void abstractJatsAddedOnlyForAResolvedWorkWithoutOne() {
     WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
-    WorkUpsert.UpsertResult created = upsert.upsert(work(null, "10.1/late", "T", "LIVE"));
+    WorkUpsert.UpsertResult created = legacyUpsert(upsert, work(null, "10.1/late", "T", "LIVE"));
     assertThat(created.abstractJatsAdded()).isFalse();
     Work withJats = new Work(null, null, "10.1/late", null, null, null, null, null, null, null, null, null, null, null,
         null, null, null, null, null, null, null, null, null, null, null, null, "<abstract/>", null, null, null, null, null, null);
 
     // still DISCOVERED: the first RESOLVE_CONTENT has not run yet
-    assertThat(upsert.upsert(withJats).abstractJatsAdded()).isFalse();
+    assertThat(legacyUpsert(upsert, withJats).abstractJatsAdded()).isFalse();
     long id = created.id();
     jdbc.update("UPDATE work SET abstract_jats = NULL, state = 'CONTENT_RESOLVED' WHERE id = ?", id);
 
-    assertThat(upsert.upsert(withJats).abstractJatsAdded()).isTrue();
+    assertThat(legacyUpsert(upsert, withJats).abstractJatsAdded()).isTrue();
     assertThat(works.get(id).abstractJats()).isEqualTo("<abstract/>");
-    assertThat(upsert.upsert(withJats).abstractJatsAdded()).isFalse();
+    assertThat(legacyUpsert(upsert, withJats).abstractJatsAdded()).isFalse();
   }
 
   @Test
   void upsertCleansTitlesOnInsertAndMerge() {
     WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
-    long id = upsert.upsert(work("W-dirty", null, "A <i>Carabus</i>\n  of Mulsant &amp; Rey", "LIVE")).id();
+    long id = legacyUpsert(upsert, work("W-dirty", null, "A <i>Carabus</i>\n  of Mulsant &amp; Rey", "LIVE")).id();
     assertThat(works.get(id).title()).isEqualTo("A Carabus of Mulsant & Rey");
-    upsert.upsert(work(null, "10.1/dirty", "x", "LIVE"));
-    upsert.upsert(work("W-dirty", "10.1/dirty-2", "The <b>new</b>\ttitle", "LIVE"));
+    legacyUpsert(upsert, work(null, "10.1/dirty", "x", "LIVE"));
+    legacyUpsert(upsert, work("W-dirty", "10.1/dirty-2", "The <b>new</b>\ttitle", "LIVE"));
     assertThat(works.get(id).title()).isEqualTo("The new title");
   }
 

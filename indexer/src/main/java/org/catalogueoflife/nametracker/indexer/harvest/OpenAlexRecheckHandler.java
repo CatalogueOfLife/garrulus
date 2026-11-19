@@ -12,6 +12,8 @@ import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.Task;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
+import org.catalogueoflife.nametracker.store.ident.Identifier;
+import org.catalogueoflife.nametracker.store.work.Layer;
 import org.catalogueoflife.nametracker.store.work.Work;
 import org.catalogueoflife.nametracker.store.work.WorkMapper;
 import org.catalogueoflife.nametracker.store.work.WorkUpsert;
@@ -79,18 +81,24 @@ public class OpenAlexRecheckHandler implements TaskHandler {
       }
       Instant now = clock.instant();
       Work merge = null;
+      List<Identifier> ids = List.of();
       if (oa.isPresent()) {
         try {
           WorkRecord rec = OpenAlexWorks.parse(oa.get()).with(null, w.doi());
           Long sourceId = rec.sourceOpenalexId() == null ? null : bySourceOpenalexId.get(rec.sourceOpenalexId());
           merge = rec.toWork(sourceId, "LIVE");
+          ids = rec.identifiers();
         } catch (RuntimeException e) {
           LOG.warn("Unreadable OpenAlex record for {}: {}", w.doi(), e.toString());
         }
       }
       Work in = merge;
+      List<Identifier> inIds = ids;
       tx.executeWithoutResult(status -> {
-        if (in != null) upsert.upsert(in);
+        if (in != null) {
+          WorkUpsert.UpsertResult r = upsert.upsert(in, Layer.OPENALEX, inIds);
+          WorksPager.enqueueMerge(queue, r, task.priority());
+        }
         works.setOpenalexChecked(w.id(), now);
       });
       if (in != null) found++;

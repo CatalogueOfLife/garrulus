@@ -4,14 +4,17 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexWorks;
 import org.catalogueoflife.nametracker.indexer.openalex.WorkRecord;
+import org.catalogueoflife.nametracker.store.ident.Identifier;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
+import org.catalogueoflife.nametracker.store.work.Layer;
 import org.catalogueoflife.nametracker.store.work.Work;
 import org.catalogueoflife.nametracker.store.work.WorkUpsert;
 import org.jspecify.annotations.Nullable;
@@ -27,6 +30,7 @@ public class WorksPager {
 
   private static final Logger LOG = LoggerFactory.getLogger(WorksPager.class);
   public static final String RESOLVE_CONTENT = "RESOLVE_CONTENT";
+  public static final String MERGE_WORKS = "MERGE_WORKS";
 
   public record Outcome(int seen, int created, boolean last, @Nullable String nextCursor, int nextPage,
       boolean capped) {
@@ -63,7 +67,7 @@ public class WorksPager {
       }
       seen++;
       Long sourceId = rec.sourceOpenalexId() == null ? null : sourceIds.get(rec.sourceOpenalexId());
-      if (store(rec.toWork(sourceId, origin), contentPriority)) created++;
+      if (store(rec.toWork(sourceId, origin), Layer.OPENALEX, rec.identifiers(), contentPriority)) created++;
     }
     return new Outcome(seen, created, p.last(), p.nextCursor(), p.nextPage(), p.capped());
   }
@@ -71,19 +75,33 @@ public class WorksPager {
   /**
    * Upserts the work and, when it is new, queues its RESOLVE_CONTENT task, in one transaction: a crash cannot leave a
    * new work without its content task. A work that only now got a JATS abstract gets a second one, keyed
-   * {@code content:<id>:jats}. Returns whether the work was created.
+   * {@code content:<id>:jats}. A record whose identifiers hit a second work enqueues {@code MERGE_WORKS}. Returns whether
+   * the work was created.
    */
-  public boolean store(Work work, TaskPriority contentPriority) {
+  public boolean store(Work work, Layer layer, List<Identifier> ids, TaskPriority contentPriority) {
     return Boolean.TRUE.equals(tx.execute(status -> {
-      WorkUpsert.UpsertResult r = upsert.upsert(work);
+      WorkUpsert.UpsertResult r = upsert.upsert(work, layer, ids);
       if (r.created()) {
         queue.enqueue(RESOLVE_CONTENT, "{\"workId\":" + r.id() + "}", contentPriority, "content:" + r.id());
       } else if (r.abstractJatsAdded()) {
         // a JATS abstract that arrived after the content was resolved: resolve again, it may now be the full text
         queue.enqueue(RESOLVE_CONTENT, "{\"workId\":" + r.id() + "}", contentPriority, "content:" + r.id() + ":jats");
       }
+      enqueueMerge(queue, r, contentPriority);
       return r.created();
     }));
+  }
+
+  /**
+   * When the upserted record's identifiers also belong to another work, queues MERGE_WORKS for the pair: the older
+   * (lower id) work survives. Call it in the transaction of the upsert.
+   */
+  public static void enqueueMerge(TaskQueue queue, WorkUpsert.UpsertResult r, TaskPriority priority) {
+    if (r.duplicateOf() == null) return;
+    long survivor = Math.min(r.id(), r.duplicateOf());
+    long other = Math.max(r.id(), r.duplicateOf());
+    queue.enqueue(MERGE_WORKS, "{\"survivor\":" + survivor + ",\"other\":" + other + "}", priority,
+        "merge:" + survivor + ":" + other);
   }
 
   /** The position token of a dedup key: a short hash of the cursor, or the page number. */

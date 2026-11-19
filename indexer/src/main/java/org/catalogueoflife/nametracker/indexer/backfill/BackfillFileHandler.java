@@ -1,6 +1,7 @@
 package org.catalogueoflife.nametracker.indexer.backfill;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,11 +17,14 @@ import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.backfill.BackfillFile;
 import org.catalogueoflife.nametracker.store.backfill.BackfillMapper;
 import org.catalogueoflife.nametracker.store.backfill.BackfillRun;
+import org.catalogueoflife.nametracker.store.ident.Identifier;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.Task;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
+import org.catalogueoflife.nametracker.store.work.Layer;
+import org.catalogueoflife.nametracker.store.work.TitleKey;
 import org.catalogueoflife.nametracker.store.work.Work;
 import org.catalogueoflife.nametracker.store.work.WorkUpsert;
 import org.jspecify.annotations.Nullable;
@@ -35,7 +39,7 @@ import tools.jackson.databind.JsonNode;
  * ({@link SnapshotClient#stream}) and keeps a record when its {@code primary_location.source.id} is an active CORE or
  * BROAD source (onboarded or not; the map is read once per task), its {@code publication_year} lies in the run's years
  * and its {@code type} is {@code article} or {@code review}. A kept record is mapped like a harvested one
- * ({@link OpenAlexWorks#parse}, origin BACKFILL) and inserted only when the work is new ({@link WorkUpsert#insertIfNew}:
+ * ({@link OpenAlexWorks#parse}, origin BACKFILL) and inserted only when the work is new ({@link WorkUpsert#insertIfNew} (layer OPENALEX):
  * an existing work is never updated, the live harvest's copy is as new or newer); a new work gets {@code RESOLVE_CONTENT}
  * at BACKFILL priority, dedup {@code content:<id>}, in the transaction of its insert. Inserts are committed in chunks
  * of {@value #CHUNK} kept records.
@@ -125,6 +129,22 @@ public class BackfillFileHandler implements TaskHandler {
         pass.read, pass.kept, pass.created, last ? "; the run is DONE" : "");
   }
 
+  /** A kept work with its identifiers. */
+  private record Kept(Work work, List<Identifier> ids) {
+  }
+
+  /** The order in which {@link WorkUpsert} takes its title locks: source, year, title key, then DOI. */
+  private static final Comparator<Kept> LOCK_ORDER = Comparator
+      .comparing((Kept k) -> k.work().sourceId(), Comparator.nullsFirst(Comparator.<Long>naturalOrder()))
+      .thenComparing(k -> year(k.work()), Comparator.nullsFirst(Comparator.<Integer>naturalOrder()))
+      .thenComparing(k -> TitleKey.of(k.work().title()), Comparator.nullsFirst(Comparator.<String>naturalOrder()))
+      .thenComparing(k -> k.work().doi(), Comparator.nullsFirst(Comparator.<String>naturalOrder()));
+
+  private static @Nullable Integer year(Work w) {
+    return w.year() != null ? Integer.valueOf(w.year())
+        : w.publicationDate() == null ? null : Integer.valueOf(w.publicationDate().getYear());
+  }
+
   /** One read of the file: the counters and the kept works not yet inserted. */
   private final class Pass {
     final long runId;
@@ -132,7 +152,7 @@ public class BackfillFileHandler implements TaskHandler {
     final int fromYear;
     final int toYear;
     final Map<String, Long> sourceIds;
-    final List<Work> pending = new ArrayList<>(CHUNK);
+    final List<Kept> pending = new ArrayList<>(CHUNK);
     long read;
     long kept;
     long created;
@@ -147,7 +167,7 @@ public class BackfillFileHandler implements TaskHandler {
 
     void accept(JsonNode rec) {
       read++;
-      Work w = keep(rec);
+      Kept w = keep(rec);
       if (w == null) return;
       kept++;
       pending.add(w);
@@ -155,7 +175,7 @@ public class BackfillFileHandler implements TaskHandler {
     }
 
     /** The work of a record to keep, else null. The cheap tests come first: most records are dropped. */
-    @Nullable Work keep(JsonNode rec) {
+    @Nullable Kept keep(JsonNode rec) {
       String source = OpenAlexWorks.shortId(text(rec.path("primary_location").path("source").path("id")));
       Long sourceId = source == null ? null : sourceIds.get(source);
       if (sourceId == null) return null;
@@ -170,16 +190,21 @@ public class BackfillFileHandler implements TaskHandler {
         return null;
       }
       if (r.openalexId() == null && r.doi() == null) return null;
-      return r.toWork(sourceId, "BACKFILL");
+      return new Kept(r.toWork(sourceId, "BACKFILL"), r.identifiers());
     }
 
-    /** Inserts the pending works, enqueues their content tasks and adds them to works_created in one transaction. */
+    /**
+     * Inserts the pending works, enqueues their content tasks and adds them to works_created in one transaction. The
+     * chunk is sorted by source, year, title key and DOI first, so every transaction takes the title locks of
+     * {@link WorkUpsert} in the same order and two files (or a file and a live harvest) cannot deadlock on them.
+     */
     void flush() {
       if (pending.isEmpty()) return;
+      pending.sort(LOCK_ORDER);
       Integer n = tx.execute(status -> {
         int c = 0;
-        for (Work w : pending) {
-          Optional<Long> id = upsert.insertIfNew(w);
+        for (Kept k : pending) {
+          Optional<Long> id = upsert.insertIfNew(k.work(), Layer.OPENALEX, k.ids());
           if (id.isEmpty()) continue;
           queue.enqueue(WorksPager.RESOLVE_CONTENT, "{\"workId\":" + id.get() + "}", TaskPriority.BACKFILL,
               "content:" + id.get());

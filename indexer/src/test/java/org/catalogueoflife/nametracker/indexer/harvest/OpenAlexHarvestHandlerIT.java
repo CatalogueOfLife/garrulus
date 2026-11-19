@@ -19,11 +19,13 @@ import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
 import org.catalogueoflife.nametracker.indexer.source.OnboardSourceHandler;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.harvest.HarvestRun;
+import org.catalogueoflife.nametracker.store.ident.IdScheme;
 import org.catalogueoflife.nametracker.store.harvest.HarvestRunMapper;
 import org.catalogueoflife.nametracker.store.task.Task;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.catalogueoflife.nametracker.store.usage.ApiUsageMapper;
+import org.catalogueoflife.nametracker.store.work.Layer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -405,6 +407,51 @@ class OpenAlexHarvestHandlerIT extends AbstractPostgresIT {
   }
 
   @Test
+  void openalexHarvestWritesIdentifiersAndSighting() throws Exception {
+    long src = source("S802", true);
+    stubFor(get(urlPathEqualTo("/works")).withQueryParam("filter", containing("S802"))
+        .willReturn(okJson(works(null, "S802", "W111111").replace("10.1/", "10.1234/"))));
+    queue.enqueue("HARVEST_OPENALEX", "{\"window\":\"LIVE\"}", TaskPriority.LIVE, null);
+    drain();
+
+    long id = jdbc.queryForObject("SELECT id FROM work WHERE openalex_id = 'W111111'", Long.class);
+    assertThat(jdbc.queryForList("SELECT scheme || ':' || value FROM work_identifier WHERE work_id = ? ORDER BY 1",
+        String.class, id)).containsExactly("DOI:10.1234/w111111", "OPENALEX:W111111");
+    assertThat(jdbc.queryForList("SELECT layer FROM work_sighting WHERE work_id = ?", String.class, id))
+        .containsExactly("OPENALEX");
+    assertThat(jdbc.queryForObject("SELECT source_id FROM work_sighting WHERE work_id = ?", Long.class, id))
+        .isEqualTo(src);
+  }
+
+  @Test
+  void recordHoldingTwoWorksIdentifiersQueuesMergeWorks() {
+    var a = rec(null, "10.1234/m1");
+    var b = rec("W222222", null);
+    var both = rec("W222222", "10.1234/m1");
+    assertThat(pager.store(a, Layer.CROSSREF, List.of(IdScheme.id(IdScheme.DOI, "10.1234/m1")), TaskPriority.LIVE))
+        .isTrue();
+    assertThat(pager.store(b, Layer.OPENALEX, List.of(IdScheme.id(IdScheme.OPENALEX, "W222222")), TaskPriority.LIVE))
+        .isTrue();
+    long idA = jdbc.queryForObject("SELECT id FROM work WHERE doi = '10.1234/m1'", Long.class);
+    long idB = jdbc.queryForObject("SELECT id FROM work WHERE openalex_id = 'W222222'", Long.class);
+
+    pager.store(both, Layer.OPENALEX, List.of(IdScheme.id(IdScheme.DOI, "10.1234/m1"),
+        IdScheme.id(IdScheme.OPENALEX, "W222222")), TaskPriority.LIVE);
+
+    long lo = Math.min(idA, idB);
+    long hi = Math.max(idA, idB);
+    assertThat(jdbc.queryForObject("SELECT payload::text FROM task WHERE type = 'MERGE_WORKS' AND dedup_key = ?",
+        String.class, "merge:" + lo + ":" + hi).replace(" ", ""))
+        .isEqualTo("{\"other\":" + hi + ",\"survivor\":" + lo + "}");
+  }
+
+  private static org.catalogueoflife.nametracker.store.work.Work rec(String openalexId, String doi) {
+    return new org.catalogueoflife.nametracker.store.work.Work(null, openalexId, doi, null, null, null, null, null,
+        null, null, null, null, null, null, null, null, null, null, "LIVE", null, null, null, null, null, null, null,
+        null, null, null, null, null, null, null);
+  }
+
+  @Test
   void onboardingContinuationKeepsAHigherPriority() throws Exception {
     long id = source("S850", false);
     stubTwoPages("S850");
@@ -422,16 +469,16 @@ class OpenAlexHarvestHandlerIT extends AbstractPostgresIT {
     org.catalogueoflife.nametracker.store.work.Work withJats = new org.catalogueoflife.nametracker.store.work.Work(null,
         null, "10.1/late", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
         null, null, null, null, null, null, null, null, "<abstract>x</abstract>", null, null, null, null, null, null);
-    assertThat(pager.store(plain, TaskPriority.LIVE)).isTrue();
+    assertThat(pager.store(plain, Layer.CROSSREF, List.of(), TaskPriority.LIVE)).isTrue();
     long id = jdbc.queryForObject("SELECT id FROM work WHERE doi = '10.1/late'", Long.class);
     jdbc.update("UPDATE work SET state = 'CONTENT_RESOLVED'");
     jdbc.update("UPDATE task SET state = 'DONE', finished = now()");
 
-    assertThat(pager.store(withJats, TaskPriority.LIVE)).isFalse();
+    assertThat(pager.store(withJats, Layer.CROSSREF, List.of(), TaskPriority.LIVE)).isFalse();
     assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT' AND state = 'QUEUED' AND dedup_key = 'content:"
         + id + ":jats'")).isEqualTo(1);
 
-    assertThat(pager.store(withJats, TaskPriority.LIVE)).isFalse();
+    assertThat(pager.store(withJats, Layer.CROSSREF, List.of(), TaskPriority.LIVE)).isFalse();
     assertThat(count("SELECT count(*) FROM task WHERE dedup_key = 'content:" + id + ":jats'")).isEqualTo(1);
   }
 }

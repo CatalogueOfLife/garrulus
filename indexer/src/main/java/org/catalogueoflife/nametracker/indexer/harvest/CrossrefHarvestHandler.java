@@ -13,7 +13,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
-import org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException;
 import org.catalogueoflife.nametracker.indexer.crossref.CrossrefClient;
 import org.catalogueoflife.nametracker.indexer.crossref.CrossrefWorks;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient;
@@ -28,6 +27,7 @@ import org.catalogueoflife.nametracker.store.task.Task;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.catalogueoflife.nametracker.store.work.Work;
+import org.catalogueoflife.nametracker.store.work.Layer;
 import org.catalogueoflife.nametracker.store.work.WorkMapper;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -55,6 +55,8 @@ public class CrossrefHarvestHandler implements TaskHandler {
 
   public static final String TYPE = "HARVEST_CROSSREF";
   static final int ISSN_BATCH = 40;
+  /** Items published before this year are skipped. */
+  static final int MIN_YEAR = 2000;
   private static final Logger LOG = LoggerFactory.getLogger(CrossrefHarvestHandler.class);
 
   private final CrossrefClient crossref;
@@ -171,6 +173,8 @@ public class CrossrefHarvestHandler implements TaskHandler {
 
     int seen = 0;
     int created = 0;
+    int skipped = 0;
+    boolean[] openAlexDown = {false}; // one outage ends the OpenAlex lookups of this page
     for (JsonNode item : page.items()) {
       WorkRecord rec;
       try {
@@ -179,15 +183,21 @@ public class CrossrefHarvestHandler implements TaskHandler {
         LOG.warn("Skipping an unreadable Crossref item {}: {}", item.path("DOI").asString(""), e.toString());
         continue;
       }
+      if (rec.year() != null && rec.year() < MIN_YEAR) {
+        skipped++; // not news and not worth the full-text effort: Garrulus follows works from 2000 on
+        continue;
+      }
       seen++;
       Long sourceId = null;
       for (String i : CrossrefWorks.issns(item)) {
         sourceId = bySource.get(i);
         if (sourceId != null) break;
       }
-      if (store(rec, CrossrefWorks.latestPublished(item), sourceId, byOpenalexId)) created++;
+      if (store(rec, CrossrefWorks.latestPublished(item), sourceId, byOpenalexId, openAlexDown)) created++;
     }
     runs.addProgress(runId, 1, seen, created);
+    LOG.info("Crossref harvest of {}, batch {}: {} works seen, {} created, {} skipped (published before {})", date,
+        batch, seen, created, skipped, MIN_YEAR);
 
     if (!page.last() && page.nextCursor() != null) {
       continuation(task, date, batch, page.nextCursor(), slice, null, runId, WorksPager.pos(page.nextCursor(), 1));
@@ -199,37 +209,52 @@ public class CrossrefHarvestHandler implements TaskHandler {
     }
   }
 
-  /** Returns whether a new work was created. */
-  /** {@code crossrefLatest}: the latest day Crossref's (possibly partial) date allows, for the origin test. */
+  /**
+   * {@code crossrefLatest}: the latest day Crossref's (possibly partial) date allows, for the origin test.
+   * {@code openAlexDown[0]} is set by an OpenAlex outage and skips the lookups of the rest of the page. Returns whether a
+   * new work was created.
+   */
   private boolean store(WorkRecord rec, @Nullable LocalDate crossrefLatest, @Nullable Long sourceId,
-      Map<String, Long> bySourceOpenalexId) {
+      Map<String, Long> bySourceOpenalexId, boolean[] openAlexDown) {
     String doi = rec.doi();
     Work known = works.findByDoi(doi);
     if (known != null) {
-      if (known.abstractJats() == null && rec.abstractJats() != null) {
-        works.merge(known.id(), jatsOnly(doi, rec.abstractJats()));
-      }
+      // the Crossref layer saw the work; it only brings a JATS abstract when the work has none
+      String jats = known.abstractJats() == null ? rec.abstractJats() : null;
+      pager.store(jatsOnly(doi, jats), Layer.CROSSREF, rec.identifiers(), TaskPriority.LIVE);
       return false;
     }
     Optional<JsonNode> oa = Optional.empty();
-    try {
-      oa = openAlex.work("doi:" + doi);
-    } catch (BudgetExhaustedException e) {
-      // the Crossref record is stored on its own; OPENALEX_RECHECK merges it later
-      LOG.info("OpenAlex lookup of {} deferred to the re-check: {}", doi, e.getMessage());
+    if (!openAlexDown[0]) {
+      try {
+        oa = openAlex.work("doi:" + doi);
+      } catch (RuntimeException e) {
+        // OpenAlex is only an enrichment: the Crossref record is stored on its own and OPENALEX_RECHECK merges later
+        if (TaskDispatcher.budgetCause(e) != null) {
+          LOG.info("OpenAlex lookup of {} deferred to the re-check: {}", doi, e.getMessage());
+        } else if (HarvestOutage.retryable(e) != null) {
+          LOG.warn("OpenAlex is down ({}); the rest of the page is stored from Crossref and enriched by the re-check",
+              e.getMessage());
+          openAlexDown[0] = true;
+        } else {
+          throw e;
+        }
+      }
     }
     if (oa.isPresent()) {
       try {
         WorkRecord full = OpenAlexWorks.parse(oa.get()).with(rec.abstractJats(), doi);
         Long oaSource = full.sourceOpenalexId() == null ? null : bySourceOpenalexId.get(full.sourceOpenalexId());
         String origin = origin(full.publicationDate() != null ? full.publicationDate() : crossrefLatest);
-        return pager.store(full.toWork(oaSource != null ? oaSource : sourceId, origin), priority(origin));
+        // the metadata is OpenAlex's, so the record enters under that layer
+        return pager.store(full.toWork(oaSource != null ? oaSource : sourceId, origin), Layer.OPENALEX,
+            full.identifiers(), priority(origin));
       } catch (IllegalArgumentException | IllegalStateException e) {
         LOG.warn("Unreadable OpenAlex record for {}, using the Crossref metadata: {}", doi, e.toString());
       }
     }
     String origin = origin(crossrefLatest);
-    return pager.store(rec.toWork(sourceId, origin), priority(origin));
+    return pager.store(rec.toWork(sourceId, origin), Layer.CROSSREF, rec.identifiers(), priority(origin));
   }
 
   /**
@@ -248,7 +273,8 @@ public class CrossrefHarvestHandler implements TaskHandler {
 
   static Work jatsOnly(String doi, String jats) {
     return new Work(null, null, doi, null, null, null, null, null, null, null, null, null, null, null, null, null,
-        null, null, null, null, null, null, null, null, null, null, jats, null, null, null, null, null, null);
+        null, null, null, null, null, null, null, null, null, null, jats, null, null, null, null,
+        jats == null ? null : "CROSSREF", null);
   }
 
   private void continuation(Task task, LocalDate date, int batch, @Nullable String cursor, List<String> ids,
