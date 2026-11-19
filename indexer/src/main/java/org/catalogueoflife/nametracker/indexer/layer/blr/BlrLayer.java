@@ -1,5 +1,6 @@
 package org.catalogueoflife.nametracker.indexer.layer.blr;
 
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -8,10 +9,12 @@ import java.util.Map;
 import java.util.Optional;
 import org.catalogueoflife.nametracker.indexer.crossref.CrossrefClient;
 import org.catalogueoflife.nametracker.indexer.crossref.CrossrefWorks;
+import org.catalogueoflife.nametracker.indexer.harvest.WorksPager;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
 import org.catalogueoflife.nametracker.indexer.layer.HarvestLayer;
 import org.catalogueoflife.nametracker.indexer.layer.HarvestedWork;
 import org.catalogueoflife.nametracker.indexer.layer.LayerJob;
+import org.catalogueoflife.nametracker.indexer.layer.LayerMode;
 import org.catalogueoflife.nametracker.indexer.layer.LayerPage;
 import org.catalogueoflife.nametracker.store.ident.IdScheme;
 import org.catalogueoflife.nametracker.store.ident.Identifier;
@@ -20,10 +23,14 @@ import org.catalogueoflife.nametracker.store.ident.WorkSightingMapper;
 import org.catalogueoflife.nametracker.store.layer.LayerUnmatchedMapper;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
+import org.catalogueoflife.nametracker.store.task.TaskPriority;
+import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.catalogueoflife.nametracker.store.work.Layer;
 import org.catalogueoflife.nametracker.store.work.Work;
 import org.catalogueoflife.nametracker.store.work.WorkMapper;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
@@ -33,16 +40,21 @@ import tools.jackson.databind.JsonNode;
  * {@code all}). The article DOIs are the {@code isPartOf} DOIs of treatments and figures and the DOI of article
  * records; the BLR id is the article's Zenodo record id. For each distinct DOI:
  * <ul>
- *   <li>a work with that DOI exists: it only gets the {@code BLR} identifier and a BLR sighting;</li>
+ *   <li>a work with that DOI exists: it only gets the {@code BLR} identifier and a BLR sighting; when another work
+ *   holds that BLR id already, {@code MERGE_WORKS} joins the two;</li>
  *   <li>else one Crossref lookup: a journal of an onboarded source stores a {@link Layer#BLR} work with the {@code DOI}
  *   and {@code BLR} ids, any other journal is noted in {@code layer_unmatched}.</li>
  * </ul>
- * Records without an article DOI (Zenodo's own 10.5281 DOIs do not count) are ignored.
+ * Records without an article DOI (Zenodo's own 10.5281 DOIs do not count) are ignored. The position is the page
+ * number, with {@code @<day>} once a large window (a catch-up after a long outage) was cut at a day, see {@link #next}.
  */
 @Component
 public class BlrLayer implements HarvestLayer {
 
   static final String COMMUNITY = "biosyslit";
+  /** Records of one window read before it is split by day (Zenodo pages no further than 10,000). */
+  static final int SPLIT_AT = 9000;
+  private static final Logger LOG = LoggerFactory.getLogger(BlrLayer.class);
   private static final String ZENODO_PREFIX = "10.5281/";
 
   private final ZenodoClient zenodo;
@@ -52,9 +64,10 @@ public class BlrLayer implements HarvestLayer {
   private final WorkIdentifierMapper identifiers;
   private final WorkSightingMapper sightings;
   private final LayerUnmatchedMapper unmatched;
+  private final TaskQueue queue;
 
   public BlrLayer(PoliteHttp http, CrossrefClient crossref, SourceMapper sources, WorkMapper works,
-      WorkIdentifierMapper identifiers, WorkSightingMapper sightings, LayerUnmatchedMapper unmatched,
+      WorkIdentifierMapper identifiers, WorkSightingMapper sightings, LayerUnmatchedMapper unmatched, TaskQueue queue,
       @Value("${nametracker.zenodo.base-url:https://zenodo.org}") String baseUrl) {
     this.zenodo = new ZenodoClient(http, baseUrl);
     this.crossref = crossref;
@@ -63,6 +76,7 @@ public class BlrLayer implements HarvestLayer {
     this.identifiers = identifiers;
     this.sightings = sightings;
     this.unmatched = unmatched;
+    this.queue = queue;
   }
 
   @Override
@@ -72,9 +86,11 @@ public class BlrLayer implements HarvestLayer {
 
   @Override
   public LayerPage page(LayerJob job, @Nullable String position) {
-    int pageNo = position == null ? 1 : Integer.parseInt(position);
+    int at = position == null ? -1 : position.indexOf('@');
+    int pageNo = position == null ? 1 : Integer.parseInt(at < 0 ? position : position.substring(0, at));
+    LocalDate top = at < 0 ? job.until() : LocalDate.parse(position.substring(at + 1));
     ZenodoClient.ZenodoPage page = zenodo.records(COMMUNITY, job.from().atStartOfDay().toInstant(ZoneOffset.UTC),
-        job.until() == null ? null : job.until().atStartOfDay().toInstant(ZoneOffset.UTC), pageNo);
+        top == null ? null : top.atStartOfDay().toInstant(ZoneOffset.UTC), pageNo);
     Map<String, String> dois = articleDois(page.records());
     int skipped = page.records().size() - countRecordsWithDoi(page.records());
     List<Source> harvestable = null;
@@ -86,7 +102,13 @@ public class BlrLayer implements HarvestLayer {
       List<Long> known = identifiers.findWorkIds(List.of(new Identifier(IdScheme.DOI.code(), doi)));
       if (!known.isEmpty()) {
         long workId = known.getFirst();
-        if (blr != null) identifiers.insertAll(workId, List.of(blr), Layer.BLR.name());
+        if (blr != null) {
+          identifiers.insertAll(workId, List.of(blr), Layer.BLR.name());
+          // a BLR id another work holds already: the two rows are one article (no identifier is dropped)
+          for (long other : identifiers.findWorkIds(List.of(blr))) {
+            if (other != workId) WorksPager.enqueueMerge(queue, workId, other, priority(job.mode()));
+          }
+        }
         Work w = works.get(workId);
         sightings.sight(workId, Layer.BLR.name(), w == null ? null : w.sourceId());
         continue;
@@ -111,7 +133,41 @@ public class BlrLayer implements HarvestLayer {
       if (blr != null) ids.add(blr);
       out.add(new HarvestedWork(CrossrefWorks.parse(item.get()).toWork(source.id(), null), Layer.BLR, ids));
     }
-    return new LayerPage(out, page.hasNext() ? String.valueOf(pageNo + 1) : null, calls, skipped);
+    return new LayerPage(out, next(job, page, pageNo, top), calls, skipped);
+  }
+
+  /**
+   * The next position: the next page of the window, or, once {@value #SPLIT_AT} records of it have been read (Zenodo
+   * pages no further than 10,000), page 1 of the window cut at the day of the oldest record read (that day is read
+   * again; the upsert is idempotent). A window whose top day alone holds more is cut a day lower and the rest of that
+   * day is given up (WARN). Null after the last page.
+   */
+  private @Nullable String next(LayerJob job, ZenodoClient.ZenodoPage page, int pageNo, @Nullable LocalDate top) {
+    if (!page.hasNext()) return null;
+    String suffix = top == null ? "" : "@" + top;
+    if ((long) pageNo * ZenodoClient.PAGE_SIZE < SPLIT_AT) return (pageNo + 1) + suffix;
+    LocalDate oldest = null;
+    for (JsonNode r : page.records()) {
+      String c = r.path("created").asString("");
+      if (c.length() < 10) continue;
+      LocalDate d = LocalDate.parse(c.substring(0, 10));
+      if (oldest == null || d.isBefore(oldest)) oldest = d;
+    }
+    if (oldest == null) return (pageNo + 1) + suffix;
+    LocalDate cut = oldest;
+    if (top != null && !cut.isBefore(top)) {
+      cut = top.minusDays(1);
+      LOG.warn("BLR: more than {} records created on {}; the rest of that day is skipped", SPLIT_AT, top);
+    }
+    return cut.isBefore(job.from()) ? null : "1@" + cut;
+  }
+
+  private static TaskPriority priority(LayerMode mode) {
+    return switch (mode) {
+      case LIVE -> TaskPriority.LIVE;
+      case ONBOARDING -> TaskPriority.REPROCESS;
+      case BACKFILL -> TaskPriority.BACKFILL;
+    };
   }
 
   private static @Nullable Source match(List<Source> harvestable, List<String> issns) {

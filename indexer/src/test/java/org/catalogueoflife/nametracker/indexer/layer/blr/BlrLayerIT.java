@@ -92,10 +92,13 @@ class BlrLayerIT extends AbstractPostgresIT {
     stubFor(get(urlPathEqualTo("/works/" + SCI)).willReturn(aResponse().withStatus(404)));
   }
 
+  private BlrLayer layer(WireMockRuntimeInfo w) {
+    return new BlrLayer(http(), new CrossrefClient(http(), null, w.getHttpBaseUrl()), sources, works, identifiers,
+        sightings, unmatched, queue, w.getHttpBaseUrl());
+  }
+
   private void run(WireMockRuntimeInfo w) throws Exception {
-    var h = new HarvestBlrHandler(writer, queue, runs, routes, outage, clock, new MockEnvironment(),
-        new BlrLayer(http(), new CrossrefClient(http(), null, w.getHttpBaseUrl()), sources, works, identifiers,
-            sightings, unmatched, w.getHttpBaseUrl()));
+    var h = new HarvestBlrHandler(writer, queue, runs, routes, outage, clock, new MockEnvironment(), layer(w));
     queue.enqueue(h.type(), LayerHarvestHandler.firstPayload("all", null, List.of(), LocalDate.of(2026, 11, 18), null,
         LayerMode.LIVE), TaskPriority.LIVE, "blr-test");
     for (List<Task> t = queue.claim(Set.of(h.type()), "test", 1); !t.isEmpty();
@@ -171,5 +174,59 @@ class BlrLayerIT extends AbstractPostgresIT {
     assertThat(jdbc.queryForObject("SELECT count(*) FROM layer_unmatched", Long.class)).isZero();
     verify(0, getRequestedFor(urlPathMatching("/works/.*")));
     assertThat(runs.recent(1).getFirst().state()).isEqualTo("DONE");
+  }
+
+  @Test
+  void blrIdHeldByAnotherWorkMergesThem(WireMockRuntimeInfo w) throws Exception {
+    long src = source("2118-9773", "European Journal of Taxonomy");
+    long byDoi = jdbc.queryForObject("INSERT INTO work (doi, source_id, title, origin) VALUES (?, ?, 'By DOI', "
+        + "'LIVE') RETURNING id", Long.class, EJT, src);
+    identifiers.insertAll(byDoi, List.of(new Identifier("DOI", EJT)), "CROSSREF");
+    long byBlr = jdbc.queryForObject("INSERT INTO work (source_id, title, origin) VALUES (?, 'By BLR id', 'LIVE') "
+        + "RETURNING id", Long.class, src);
+    identifiers.insertAll(byBlr, List.of(new Identifier("BLR", "24370829")), "BLR");
+    stubZenodo(fixture("biosyslit-page.json"));
+    stubCrossref();
+    run(w);
+    // no identifier is lost: the two rows are one article, MERGE_WORKS joins them
+    var merge = jdbc.queryForMap("SELECT (payload->>'survivor')::bigint AS s, (payload->>'other')::bigint AS o "
+        + "FROM task WHERE type = 'MERGE_WORKS'");
+    assertThat(merge).containsEntry("s", Math.min(byDoi, byBlr)).containsEntry("o", Math.max(byDoi, byBlr));
+  }
+
+  private static String records(int n, LocalDate newest, LocalDate oldest) {
+    StringBuilder sb = new StringBuilder("{\"hits\":{\"hits\":[");
+    for (int i = 0; i < n; i++) {
+      LocalDate d = i == n - 1 ? oldest : newest;
+      if (i > 0) sb.append(',');
+      sb.append("{\"id\":").append(1000 + i).append(",\"created\":\"").append(d)
+          .append("T10:00:00+00:00\",\"metadata\":{\"resource_type\":{\"subtype\":\"figure\"}}}");
+    }
+    return sb.append("],\"total\":20000},\"links\":{\"next\":\"https://zenodo.org/api/records?page=x\"}}")
+        .toString();
+  }
+
+  @Test
+  void aWindowNearZenodosPagingCeilingIsSplitByDay(WireMockRuntimeInfo w) throws Exception {
+    // after a long outage the window holds more than 10,000 records: before the ceiling the window ends on the day
+    // of the oldest record read so far and paging starts again from page 1
+    stubFor(get(urlPathEqualTo("/api/records")).withQueryParam("page", equalTo("360"))
+        .willReturn(aResponse().withBody(records(25, LocalDate.of(2026, 11, 10), LocalDate.of(2026, 11, 5)))));
+    stubFor(get(urlPathEqualTo("/api/records")).withQueryParam("page", equalTo("1"))
+        .willReturn(aResponse().withBody(records(25, LocalDate.of(2026, 11, 5), LocalDate.of(2026, 11, 5)))));
+    BlrLayer layer = layer(w);
+    var job = new org.catalogueoflife.nametracker.indexer.layer.LayerJob(
+        org.catalogueoflife.nametracker.store.work.Layer.BLR, "all", null, List.of(), LocalDate.of(2026, 10, 1), null,
+        LayerMode.LIVE, 0);
+    var p = layer.page(job, "360");
+    assertThat(p.nextPosition()).isEqualTo("1@2026-11-05");
+    var first = layer.page(job, p.nextPosition());
+    verify(getRequestedFor(urlPathEqualTo("/api/records")).withQueryParam("page", equalTo("1"))
+        .withQueryParam("q", equalTo("created:[2026-10-01 TO 2026-11-05]")));
+    assertThat(first.nextPosition()).isEqualTo("2@2026-11-05");
+    // a single day beyond the ceiling cannot be split further: its rest is given up for the days before it
+    stubFor(get(urlPathEqualTo("/api/records")).withQueryParam("page", equalTo("380"))
+        .willReturn(aResponse().withBody(records(25, LocalDate.of(2026, 11, 5), LocalDate.of(2026, 11, 5)))));
+    assertThat(layer.page(job, "380@2026-11-05").nextPosition()).isEqualTo("1@2026-11-04");
   }
 }

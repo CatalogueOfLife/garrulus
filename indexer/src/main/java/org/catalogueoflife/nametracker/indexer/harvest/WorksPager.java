@@ -114,9 +114,13 @@ public class WorksPager {
    * (lower id) work survives. Call it in the transaction of the upsert.
    */
   public static void enqueueMerge(TaskQueue queue, WorkUpsert.UpsertResult r, TaskPriority priority) {
-    if (r.duplicateOf() == null) return;
-    long survivor = Math.min(r.id(), r.duplicateOf());
-    long other = Math.max(r.id(), r.duplicateOf());
+    if (r.duplicateOf() != null) enqueueMerge(queue, r.id(), r.duplicateOf(), priority);
+  }
+
+  /** Queues MERGE_WORKS for two works that turned out to be one article; the older (lower id) survives. */
+  public static void enqueueMerge(TaskQueue queue, long a, long b, TaskPriority priority) {
+    long survivor = Math.min(a, b);
+    long other = Math.max(a, b);
     queue.enqueue(MERGE_WORKS, "{\"survivor\":" + survivor + ",\"other\":" + other + "}", priority,
         "merge:" + survivor + ":" + other);
   }
