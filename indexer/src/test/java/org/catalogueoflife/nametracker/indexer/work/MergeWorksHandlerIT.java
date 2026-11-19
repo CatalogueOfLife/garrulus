@@ -101,24 +101,65 @@ class MergeWorksHandlerIT extends AbstractPostgresIT {
   }
 
   @Test
-  void enqueuesFindNamesWhenContentMoved() throws Exception {
+  void enqueuesResolveContentWhenContentMoved() throws Exception {
     long a = work(null, null, "Older", null);
     long b = work(null, null, "Younger", null);
     jdbc.update("INSERT INTO content (work_id, route, kind, license, retained, raw_sha256, doc_sha256) "
         + "VALUES (?, 'PMC', 'JATS', 'cc-by', true, 'r', ?)", b, "f".repeat(64));
-    handler.handle(task(a, b));
+    Task t = task(a, b);
+    handler.handle(t);
     assertThat(count("SELECT count(*) FROM content WHERE work_id = ?", a)).isEqualTo(1);
-    assertThat(queued("FIND_NAMES")).hasSize(1);
-    tools.jackson.databind.JsonNode n = org.catalogueoflife.nametracker.finder.api.FinderJson.mapper()
-        .readTree(queued("FIND_NAMES").get(0));
-    assertThat(n.path("workId").asLong()).isEqualTo(a);
-    assertThat(n.path("force").asBoolean()).isTrue();
+    // the survivor's text level and document are recomputed by RESOLVE_CONTENT, not named on its stale level
+    assertThat(queued("FIND_NAMES")).isEmpty();
+    java.util.Map<String, Object> r = jdbc.queryForMap("SELECT payload::text AS payload, priority, dedup_key, run_after "
+        + "FROM task WHERE type = 'RESOLVE_CONTENT' AND state = 'QUEUED'");
+    assertThat(org.catalogueoflife.nametracker.finder.api.FinderJson.mapper().readTree((String) r.get("payload"))
+        .path("workId").asLong()).isEqualTo(a);
+    assertThat(((Number) r.get("priority")).intValue()).isEqualTo(TaskPriority.REPROCESS.code());
+    assertThat(r.get("dedup_key")).isEqualTo("merge-content:" + a + ":" + b);
+    assertThat(((java.sql.Timestamp) r.get("run_after")).toInstant()).isEqualTo(t.runAfter());
 
     // without content to move nothing is enqueued
     jdbc.update("DELETE FROM task");
     long c = work(null, null, "Third", null);
     handler.handle(task(a, c));
-    assertThat(queued("FIND_NAMES")).isEmpty();
+    assertThat(queued("RESOLVE_CONTENT")).isEmpty();
+  }
+
+  @Autowired org.catalogueoflife.nametracker.indexer.content.ResolveContentHandler resolve;
+
+  private Task queuedTask(String type) {
+    java.util.Map<String, Object> t = jdbc.queryForMap("SELECT id, payload::text AS payload, dedup_key FROM task "
+        + "WHERE type = ? AND state = 'QUEUED' ORDER BY id DESC LIMIT 1", type);
+    return new Task(((Number) t.get("id")).longValue(), type, (String) t.get("payload"), TaskPriority.REPROCESS,
+        null, 1, Instant.now(), null, null, null, (String) t.get("dedup_key"), Instant.now());
+  }
+
+  @Test
+  void movedFullTextIsNamedOnTheSurvivor() throws Exception {
+    // an abstract-only survivor, named, receives the younger's full text: it is named on the full text
+    long a = work(null, null, "Older", null);
+    jdbc.update("UPDATE work SET state = 'INDEXED', abstract = 'An abstract.', abstract_source = 'OAI' WHERE id = ?", a);
+    long b = work(null, null, "Younger", null);
+    jdbc.update("INSERT INTO content (work_id, route, kind, license, retained, raw_sha256, doc_sha256) "
+        + "VALUES (?, 'PMC', 'JATS', 'cc-by', true, 'r', ?)", b, "f".repeat(64));
+    handler.handle(task(a, b));
+    resolve.handle(queuedTask("RESOLVE_CONTENT"));
+    assertThat(jdbc.queryForMap("SELECT state, text_level FROM work WHERE id = ?", a))
+        .containsEntry("state", "INDEXED").containsEntry("text_level", "FULLTEXT");
+    assertThat(queuedTask("FIND_NAMES").dedupKey()).isEqualTo("names:" + a + ":" + "f".repeat(12));
+  }
+
+  @Test
+  void anAbstractMovedToANoTextSurvivorIsNamed() throws Exception {
+    long a = jdbc.queryForObject("INSERT INTO work (doi, origin, state, text_level) "
+        + "VALUES ('10.1234/notext', 'LIVE', 'INDEXED', 'NO_TEXT') RETURNING id", Long.class);
+    long b = withAbstract("DISCOVERED", "Aus bus is described from Chile.", "OAI");
+    handler.handle(task(a, b));
+    resolve.handle(queuedTask("RESOLVE_CONTENT"));
+    assertThat(jdbc.queryForObject("SELECT text_level FROM work WHERE id = ?", String.class, a))
+        .isEqualTo("ABSTRACT_ONLY");
+    assertThat(queuedTask("FIND_NAMES").dedupKey()).startsWith("names:" + a + ":");
   }
 
   @Test
@@ -135,22 +176,24 @@ class MergeWorksHandlerIT extends AbstractPostgresIT {
   }
 
   @Test
-  void abstractChangeOnNamedSurvivorEnqueuesFindNames() throws Exception {
+  void abstractChangeOnNamedSurvivorEnqueuesResolveContent() throws Exception {
     long a = withAbstract("INDEXED", "Inverted abstract", "OPENALEX_INVERTED");
     long b = withAbstract("DISCOVERED", "Better abstract", "CROSSREF_JATS");
     handler.handle(task(a, b));
     assertThat(jdbc.queryForObject("SELECT abstract FROM work WHERE id = ?", String.class, a))
         .isEqualTo("Better abstract");
-    assertThat(queued("FIND_NAMES")).hasSize(1);
+    assertThat(queued("RESOLVE_CONTENT")).hasSize(1);
+    assertThat(queued("FIND_NAMES")).isEmpty();
   }
 
   @Test
-  void discoveredSurvivorGetsNoForcedFindNames() throws Exception {
+  void discoveredSurvivorGetsNoExtraResolve() throws Exception {
     long a = withAbstract("DISCOVERED", "Inverted abstract", "OPENALEX_INVERTED");
     long b = withAbstract("DISCOVERED", "Better abstract", "CROSSREF_JATS");
     handler.handle(task(a, b));
     assertThat(jdbc.queryForObject("SELECT abstract FROM work WHERE id = ?", String.class, a))
         .isEqualTo("Better abstract");
     assertThat(queued("FIND_NAMES")).isEmpty();
+    assertThat(queued("RESOLVE_CONTENT")).isEmpty();
   }
 }

@@ -1,7 +1,6 @@
 package org.catalogueoflife.nametracker.indexer.work;
 
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
-import org.catalogueoflife.nametracker.indexer.finder.FindNamesHandler;
 import org.catalogueoflife.nametracker.indexer.harvest.WorksPager;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.account.HitMapper;
@@ -26,8 +25,11 @@ import tools.jackson.databind.JsonNode;
  * transaction (both rows locked, older first) the younger is merged into the older with {@link WorkMerger} (the
  * younger's meta layer is its layer, BLR when unknown), its identifiers, sightings, content rows and hits move over
  * (a route, layer or (subscription, kind) the survivor has already is dropped, so nobody is notified twice) and the
- * younger is deleted, its mentions with it. When content moved or the survivor's abstract changed (and it is past DISCOVERED), its document may differ: FIND_NAMES forced
- * at REPROCESS. A missing work (already merged) is a no-op; two different DOIs are never merged. Idempotent.
+ * younger is deleted, its mentions with it. When content moved or the survivor's abstract changed (and it is past
+ * DISCOVERED), its text level and document may differ: RESOLVE_CONTENT at REPROCESS (key
+ * {@code merge-content:<survivor>:<other>}, this task's run_after), which recomputes the level and names the work
+ * again when its document changed. A missing work (already merged) is a no-op; two different DOIs are never merged.
+ * Idempotent.
  */
 @Component
 public class MergeWorksHandler implements TaskHandler {
@@ -97,8 +99,11 @@ public class MergeWorksHandler implements TaskHandler {
     // a survivor still DISCOVERED is named by its own RESOLVE_CONTENT -> FIND_NAMES chain
     boolean resolved = survivor.state() != null && !"DISCOVERED".equals(survivor.state());
     if (resolved && (moved > 0 || abstractChanged)) {
-      queue.enqueue(FindNamesHandler.TYPE, "{\"workId\":" + survivorId + ",\"force\":true}", TaskPriority.REPROCESS,
-          "merge-names:" + survivorId + ":" + otherId, task.runAfter());
+      // the text level decides the document the finder reads: RESOLVE_CONTENT recomputes it from the content rows
+      // (moved full text counts), fetches closed full text again (its spool entry was keyed by the younger) and
+      // enqueues FIND_NAMES when the document differs from the one named
+      queue.enqueue(WorksPager.RESOLVE_CONTENT, "{\"workId\":" + survivorId + "}", TaskPriority.REPROCESS,
+          "merge-content:" + survivorId + ":" + otherId, task.runAfter());
     }
     LOG.info("Merged work {} into {}: {} identifiers, {} sightings, {} content rows, {} hits moved", otherId,
         survivorId, ids, sights, moved, movedHits);
