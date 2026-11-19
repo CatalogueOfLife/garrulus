@@ -10,6 +10,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
+import org.catalogueoflife.nametracker.store.blob.BlobStore;
 import org.catalogueoflife.nametracker.store.ident.IdScheme;
 import org.catalogueoflife.nametracker.store.ident.Identifier;
 import org.catalogueoflife.nametracker.store.ident.WorkIdentifierMapper;
@@ -32,11 +33,14 @@ import org.jspecify.annotations.Nullable;
 public class WorkUpsert {
 
   /**
-   * {@code abstractJatsAdded}: the stored work had no abstract_jats, the incoming one has, and the work is already past
-   * DISCOVERED, so the content resolution that ran before has not seen it and should run again. {@code duplicateOf}:
-   * another work that holds one of the incoming identifiers (the lowest such id); the caller enqueues MERGE_WORKS.
+   * {@code abstractChanged}: the effective abstract (the JATS one, else the plain text) of a work already past
+   * DISCOVERED changed, so the content resolution that ran before has not seen it and should run again;
+   * {@code abstractSha} is then the first 12 hex digits of the SHA-256 of the new effective abstract, else null.
+   * {@code duplicateOf}: another work that holds one of the incoming identifiers (the lowest such id); the caller
+   * enqueues MERGE_WORKS.
    */
-  public record UpsertResult(long id, boolean created, boolean abstractJatsAdded, @Nullable Long duplicateOf) {
+  public record UpsertResult(long id, boolean created, boolean abstractChanged, @Nullable String abstractSha,
+      @Nullable Long duplicateOf) {
   }
 
   private static final List<String> FIRST_SCHEMES = List.of(IdScheme.DOI.code(), IdScheme.OPENALEX.code());
@@ -83,7 +87,7 @@ public class WorkUpsert {
         if (id == null) {
           continue; // lost a race against a concurrent insert: re-read and merge
         }
-        return new UpsertResult(id, true, false, record(id, incoming, layer, all));
+        return new UpsertResult(id, true, false, null, record(id, incoming, layer, all));
       }
       Work existing = mapper.findForUpdate(found);
       if (existing == null) {
@@ -94,9 +98,11 @@ public class WorkUpsert {
       if (merged.changed()) {
         mapper.updateMerged(merged.work());
       }
-      boolean jatsAdded = blank(stored.abstractJats()) && !blank(merged.work().abstractJats())
-          && !"DISCOVERED".equals(stored.state());
-      return new UpsertResult(found, false, jatsAdded, record(found, incoming, layer, all));
+      String before = effectiveAbstract(stored);
+      String after = effectiveAbstract(merged.work());
+      String sha = after != null && !after.equals(before) && !"DISCOVERED".equals(stored.state())
+          ? BlobStore.sha256(after).substring(0, 12) : null;
+      return new UpsertResult(found, false, sha != null, sha, record(found, incoming, layer, all));
     }
     throw new IllegalStateException("Could not upsert work " + all);
   }
@@ -281,6 +287,11 @@ public class WorkUpsert {
 
   private static @Nullable Long id(@Nullable Work w) {
     return w == null ? null : w.id();
+  }
+
+  /** The abstract the finder reads: the JATS one, else the plain text, else null. */
+  static @Nullable String effectiveAbstract(Work w) {
+    return !blank(w.abstractJats()) ? w.abstractJats() : !blank(w.abstractText()) ? w.abstractText() : null;
   }
 
   private static boolean blank(@Nullable String s) {

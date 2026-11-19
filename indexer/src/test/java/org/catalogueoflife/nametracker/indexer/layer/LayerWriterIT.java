@@ -21,6 +21,8 @@ class LayerWriterIT extends AbstractPostgresIT {
 
   @Autowired LayerWriter writer;
   @Autowired JdbcTemplate jdbc;
+  @Autowired org.catalogueoflife.nametracker.indexer.content.ResolveContentHandler resolve;
+  @Autowired org.catalogueoflife.nametracker.store.work.WorkMapper works;
 
   @BeforeEach
   void clean() {
@@ -115,5 +117,38 @@ class LayerWriterIT extends AbstractPostgresIT {
 
     assertThat(count("SELECT count(*) FROM work")).isEqualTo(1);
     assertThat(count("SELECT count(*) FROM task")).isEqualTo(1);
+  }
+
+  private org.catalogueoflife.nametracker.store.task.Task queued(String type) {
+    Map<String, Object> t = jdbc.queryForMap("SELECT id, payload::text AS payload, dedup_key FROM task "
+        + "WHERE type = ? AND state = 'QUEUED' ORDER BY id DESC LIMIT 1", type);
+    return new org.catalogueoflife.nametracker.store.task.Task(((Number) t.get("id")).longValue(), type,
+        (String) t.get("payload"), TaskPriority.LIVE, org.catalogueoflife.nametracker.store.task.TaskState.RUNNING, 1,
+        java.time.Instant.now(), null, null, null, (String) t.get("dedup_key"), java.time.Instant.now());
+  }
+
+  @Test
+  void aLateAbstractOfANamedWorkIsNamedAgain() throws Exception {
+    // Crossref (or OpenAlex) brings the paper without an abstract; it is resolved and named on its title alone
+    Work titleOnly = new Work(null, null, "10.5555/late-abs", null, "A new species of Aus from the Andes of Chile",
+        today().minusDays(2), null, null, null, null, null, "article", null, null, null, null, null, null, null, null,
+        null, null, null, null, null, null, null, null, null, null, null, null, null);
+    writer.store(new HarvestedWork(titleOnly, Layer.CROSSREF, List.of(IdScheme.id(IdScheme.DOI, "10.5555/late-abs"))),
+        LayerMode.LIVE, TaskPriority.LIVE);
+    long id = count("SELECT id FROM work WHERE doi = '10.5555/late-abs'");
+    resolve.handle(queued("RESOLVE_CONTENT"));
+    String named = org.catalogueoflife.nametracker.indexer.finder.DocumentLoader.abstractSha(works.get(id));
+    jdbc.update("UPDATE work SET state = 'INDEXED', names_doc_sha = ? WHERE id = ?", named, id);
+    jdbc.update("UPDATE task SET state = 'DONE', finished = now()");
+
+    // the OAI layer brings the abstract later that night
+    assertThat(writer.store(harvested("10.5555/late-abs", today().minusDays(2)), LayerMode.LIVE, TaskPriority.LIVE))
+        .isEqualTo(LayerWriter.Stored.MERGED);
+    org.catalogueoflife.nametracker.store.task.Task again = queued("RESOLVE_CONTENT");
+    assertThat(again.dedupKey()).startsWith("content:" + id + ":abs:");
+    resolve.handle(again);
+    String now = org.catalogueoflife.nametracker.indexer.finder.DocumentLoader.abstractSha(works.get(id));
+    assertThat(now).isNotEqualTo(named);
+    assertThat(queued("FIND_NAMES").dedupKey()).isEqualTo("names:" + id + ":" + now.substring(0, 12));
   }
 }

@@ -78,9 +78,9 @@ public class WorksPager {
 
   /**
    * Upserts the work and, when it is new, queues its RESOLVE_CONTENT task, in one transaction: a crash cannot leave a
-   * new work without its content task. A work that only now got a JATS abstract gets a second one, keyed
-   * {@code content:<id>:jats}. A record whose identifiers hit a second work enqueues {@code MERGE_WORKS}. Returns whether
-   * the work was created.
+   * new work without its content task. A work past DISCOVERED whose effective abstract (JATS, else plain text) changed
+   * gets another one, keyed {@code content:<id>:abs:<sha12>} (the first 12 hex digits of the new abstract's SHA-256).
+   * A record whose identifiers hit a second work enqueues {@code MERGE_WORKS}. Returns whether the work was created.
    */
   public boolean store(Work work, Layer layer, List<Identifier> ids, TaskPriority contentPriority) {
     return store(work, layer, ids, contentPriority, null);
@@ -98,9 +98,11 @@ public class WorksPager {
       if (alsoSeenBy != null) sightings.sight(r.id(), alsoSeenBy.name(), work.sourceId());
       if (r.created()) {
         queue.enqueue(RESOLVE_CONTENT, "{\"workId\":" + r.id() + "}", contentPriority, "content:" + r.id());
-      } else if (r.abstractJatsAdded()) {
-        // a JATS abstract that arrived after the content was resolved: resolve again, it may now be the full text
-        queue.enqueue(RESOLVE_CONTENT, "{\"workId\":" + r.id() + "}", contentPriority, "content:" + r.id() + ":jats");
+      } else if (r.abstractChanged()) {
+        // an abstract that arrived or changed after the content was resolved: resolve again; the text level is
+        // recomputed and the document's sha decides whether the names are found again
+        queue.enqueue(RESOLVE_CONTENT, "{\"workId\":" + r.id() + "}", contentPriority,
+            "content:" + r.id() + ":abs:" + r.abstractSha());
       }
       enqueueMerge(queue, r, contentPriority);
       return r.created();

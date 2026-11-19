@@ -478,10 +478,10 @@ class OpenAlexHarvestHandlerIT extends AbstractPostgresIT {
     jdbc.update("UPDATE task SET state = 'DONE', finished = now()");
 
     assertThat(pager.store(withJats, Layer.CROSSREF, List.of(), TaskPriority.LIVE)).isFalse();
-    assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT' AND state = 'QUEUED' AND dedup_key = 'content:"
-        + id + ":jats'")).isEqualTo(1);
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT' AND state = 'QUEUED' AND dedup_key LIKE 'content:"
+        + id + ":abs:%'")).isEqualTo(1);
 
     assertThat(pager.store(withJats, Layer.CROSSREF, List.of(), TaskPriority.LIVE)).isFalse();
-    assertThat(count("SELECT count(*) FROM task WHERE dedup_key = 'content:" + id + ":jats'")).isEqualTo(1);
+    assertThat(count("SELECT count(*) FROM task WHERE dedup_key LIKE 'content:" + id + ":abs:%'")).isEqualTo(1);
   }
 }

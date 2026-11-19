@@ -127,7 +127,7 @@ class WorkUpsertIT extends AbstractPostgresIT {
     long id = legacyUpsert(upsert, work(null, "http://dx.doi.org/10.5/ABC", null, "LIVE")).id();
     assertThat(works.get(id).doi()).isEqualTo("10.5/abc");
     assertThat(legacyUpsert(upsert, work(null, "DOI:10.5/Abc", null, "LIVE"))).isEqualTo(
-        new WorkUpsert.UpsertResult(id, false, false, null));
+        new WorkUpsert.UpsertResult(id, false, false, null, null));
   }
 
   @Test
@@ -174,21 +174,48 @@ class WorkUpsertIT extends AbstractPostgresIT {
   }
 
   @Test
-  void abstractJatsAddedOnlyForAResolvedWorkWithoutOne() {
+  void abstractChangedOnlyForAResolvedWork() {
     WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
     WorkUpsert.UpsertResult created = legacyUpsert(upsert, work(null, "10.1/late", "T", "LIVE"));
-    assertThat(created.abstractJatsAdded()).isFalse();
+    assertThat(created.abstractChanged()).isFalse();
     Work withJats = new Work(null, null, "10.1/late", null, null, null, null, null, null, null, null, null, null, null,
         null, null, null, null, null, null, null, null, null, null, null, null, "<abstract/>", null, null, null, null, null, null);
 
     // still DISCOVERED: the first RESOLVE_CONTENT has not run yet
-    assertThat(legacyUpsert(upsert, withJats).abstractJatsAdded()).isFalse();
+    assertThat(legacyUpsert(upsert, withJats).abstractChanged()).isFalse();
     long id = created.id();
     jdbc.update("UPDATE work SET abstract_jats = NULL, state = 'CONTENT_RESOLVED' WHERE id = ?", id);
 
-    assertThat(legacyUpsert(upsert, withJats).abstractJatsAdded()).isTrue();
+    WorkUpsert.UpsertResult added = legacyUpsert(upsert, withJats);
+    assertThat(added.abstractChanged()).isTrue();
+    assertThat(added.abstractSha()).hasSize(12);
     assertThat(works.get(id).abstractJats()).isEqualTo("<abstract/>");
-    assertThat(legacyUpsert(upsert, withJats).abstractJatsAdded()).isFalse();
+    WorkUpsert.UpsertResult again = legacyUpsert(upsert, withJats);
+    assertThat(again.abstractChanged()).isFalse();
+    assertThat(again.abstractSha()).isNull();
+  }
+
+  @Test
+  void aPlainAbstractArrivingLateIsAChange() {
+    // a title-only work, named already; the OAI layer brings the plain-text abstract later
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
+    long id = upsert.upsert(work(null, "10.1234/plain-late", "A new species of Aus from Chile", "LIVE"),
+        Layer.CROSSREF, List.of()).id();
+    jdbc.update("UPDATE work SET state = 'INDEXED', text_level = 'ABSTRACT_ONLY' WHERE id = ?", id);
+    Work withText = new Work(null, null, "10.1234/plain-late", null, null, null, null, null, null, null, null, null,
+        null, null, null, null, "Aus bus is described.", "OAI", null, null, null, null, null, null, null, null, null,
+        null, null, null, null, null, null);
+
+    WorkUpsert.UpsertResult r = upsert.upsert(withText, Layer.OAI, List.of());
+    assertThat(r.abstractChanged()).isTrue();
+    assertThat(works.get(id).abstractText()).isEqualTo("Aus bus is described.");
+    assertThat(upsert.upsert(withText, Layer.OAI, List.of()).abstractChanged()).isFalse();
+
+    // a better plain text replacing an inverted index changes it too, with another sha
+    jdbc.update("UPDATE work SET abstract = 'aus bus', abstract_source = 'OPENALEX_INVERTED' WHERE id = ?", id);
+    WorkUpsert.UpsertResult better = upsert.upsert(withText, Layer.OAI, List.of());
+    assertThat(better.abstractChanged()).isTrue();
+    assertThat(better.abstractSha()).isEqualTo(r.abstractSha());
   }
 
   @Test
