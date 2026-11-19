@@ -48,8 +48,8 @@ CGO_ENABLED=0 go install -ldflags "-X github.com/gnames/gnfinder/pkg.Version=v1.
 gnfinder -p 8778        # GNFINDER_URL default http://localhost:8778; check: curl localhost:8778/api/v1/version
 ```
 
-- On a Mac it can run as a launchd agent (`~/Library/LaunchAgents/org.catalogueoflife.gnfinder.plist`: `~/go/bin/gnfinder
-  -p 8778`, RunAtLoad and KeepAlive, log `~/Library/Logs/gnfinder.log`; `launchctl bootstrap gui/$(id -u) <plist>`).
+- Locally it is started by hand when needed, never as a login service: `nohup gnfinder -p 8778 > data/run/gnfinder.log
+  2>&1 &` (stop with `pkill -f 'gnfinder -p 8778'`). Only production runs it as a service (systemd).
 - gnfinder has no bind-address option and listens on all interfaces: keep port 8778 closed to other hosts (macOS
   firewall locally, a firewall rule on the VM).
 - A version change: bump `GNFINDER_VERSION` in the Dockerfile, the image tag in `GnfinderClientIT` and the tag above,
