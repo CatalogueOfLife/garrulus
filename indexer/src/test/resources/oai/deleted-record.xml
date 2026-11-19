@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/">
+  <responseDate>2026-11-19T13:00:00Z</responseDate>
+  <request verb="ListRecords" metadataPrefix="oai_dc">https://journal.example.org/oai</request>
+  <ListRecords>
+    <record>
+      <header status="deleted">
+        <identifier>oai:journal.example.org:article/99</identifier>
+        <datestamp>2026-11-10T08:00:00Z</datestamp>
+        <setSpec>art</setSpec>
+      </header>
+    </record>
+  </ListRecords>
+</OAI-PMH>

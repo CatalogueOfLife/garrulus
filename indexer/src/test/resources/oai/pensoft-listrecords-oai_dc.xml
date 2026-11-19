@@ -1,0 +1,217 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="/oai.xsl" ?>
+<OAI-PMH xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.openarchives.org/OAI/2.0/" xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd">
+  <responseDate>2026-11-19T13:11:31Z</responseDate>
+  <request verb="ListRecords" from="2026-11-01">https://zookeys.pensoft.net/oai.php</request>
+  <ListRecords>
+    <record>
+      <header>
+        <identifier>10.3897/BDJ.14.e211502</identifier>
+        <datestamp>2026-11-02</datestamp>
+        <setSpec>bdj</setSpec>
+      </header>
+      <metadata>
+        <oai-dc:dc xmlns:oai-dc="http://www.openarchives.org/OAI/2.0/oai_dc/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/oai_dc/ http://www.openarchives.org/OAI/2.0/oai_dc.xsd">
+          <dc:title>Calendula L. (Asteraceae) specimens held at AVE (Herbarium of the University of Aveiro)</dc:title>
+          <dc:creator>Silveira,Paulo</dc:creator>
+          <dc:subject>Algeria</dc:subject>
+          <dc:subject>Calendula</dc:subject>
+          <dc:subject>Canary Islands</dc:subject>
+          <dc:subject>Lebanon</dc:subject>
+          <dc:subject>Morocco</dc:subject>
+          <dc:subject>occurrence dataset</dc:subject>
+          <dc:subject>Portugal</dc:subject>
+          <dc:subject>Spain</dc:subject>
+          <dc:subject>Tunisia</dc:subject>
+          <dc:source>Biodiversity Data Journal 14: e211502</dc:source>
+          <dc:description>Recently, P. Silveira et al. published partial taxonomic revisions of the genus Calendula, covering the Iberian Peninsula, Morocco, the Canary Islands and some taxa from Algeria and Tunisia. In these studies, achene morphology and genome size estimates were considered particularly relevant for taxonomic purposes, alongside chromosome number, leaf and flower/capitula morphology and life span. The taxonomic concept previously proposed by C. Heyn et al. for the annual plants with 44 chromosomes was adopted, but a mixed approach was preferred for the perennial plants with 32 chromosomes: most of the subspecies recognised by H. Ohle were adopted, but all were placed under C. suffruticosa rather than split between this taxon and C. incana. This approach was preferred because a gradient of morphological variation and DNA content was observed amongst the plants that H. Ohle had included in the two species, rather than a clear and consistent separation between the two groups. Furthermore, O. Plume, who studied the genus using molecular markers, found no evidence of closer phylogenetic relationships amongst the taxa within these two species. Overall, these recent taxonomic revisions expanded and consolidated knowledge of the genus' taxonomy and diversity.The dataset includes Calendula specimens held at AVE (Herbarium of the University of Aveiro). It comprises 406 occurrence records (specimen metadata), together with images of 77 specimens, which were used in the recent taxonomic revisions by P. Silveira et al., eight of which being type specimens. Data for most of these specimens had already been published in those papers, but in a more abbreviated form, lacking the completeness of the Darwin Core format adopted here, which facilitates use by other researchers. Most of the specimens were collected by P. Silveira and his team, but numerous donated specimens are disclosed here for the first time, such as those received from BH herbarium that were collected by O. Plume in regions not sampled by P. Silveira, like Sicily (Italy) and Lebanon, which were also used during her PhD research. In addition, the dataset contains many duplicates from the HAL herbarium, collected by H. Ecklerlein, H. Meusel, H. Ohle and K.H. Rechinger and used by H. Ohle in his taxonomic revisions of the perennial Calendula taxa and which have not been cited in our previous publications.</dc:description>
+          <dc:relation>info:eu-repo/semantics/altIdentifier/eissn/1314-2828</dc:relation>
+          <dc:relation>info:eu-repo/semantics/altIdentifier/pissn/1314-2836</dc:relation>
+          <dc:rights>info:eu-repo/semantics/openAccess</dc:rights>
+          <dc:rights>CC BY 4.0</dc:rights>
+          <dc:publisher>Pensoft Publishers</dc:publisher>
+          <dc:date>2026</dc:date>
+          <dc:type>Data Paper</dc:type>
+          <dc:format>text/html</dc:format>
+          <dc:identifier>info:doi:10.3897/BDJ.14.e211502</dc:identifier>
+          <dc:identifier>https://doi.org/10.3897/BDJ.14.e211502</dc:identifier>
+          <dc:identifier>https://bdj.pensoft.net/article/211502/</dc:identifier>
+          <dc:identifier>https://bdj.pensoft.net/article/211502/download/pdf/</dc:identifier>
+          <dc:language>en</dc:language>
+        </oai-dc:dc>
+      </metadata>
+    </record>
+<record>
+      <header>
+        <identifier>10.3897/BDJ.14.e205769</identifier>
+        <datestamp>2026-11-02</datestamp>
+        <setSpec>bdj</setSpec>
+      </header>
+      <metadata>
+        <oai-dc:dc xmlns:oai-dc="http://www.openarchives.org/OAI/2.0/oai_dc/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/oai_dc/ http://www.openarchives.org/OAI/2.0/oai_dc.xsd">
+          <dc:title>Global review of bull shark Carcharhinus leucas (Valenciennes, 1839) museum specimens: summary of records, geographic analysis, and assessment of their scientific value</dc:title>
+          <dc:creator id="https://orcid.org/0000-0002-8790-594X">Haueisen,Mariana</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-5942-7071">Salvador-Jr.,Luiz Fernando</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0003-3577-7349">Gausmann,Peter</dc:creator>
+          <dc:subject>Chondrichthyes</dc:subject>
+          <dc:subject>Elasmobranchii</dc:subject>
+          <dc:subject>Carcharhinidae</dc:subject>
+          <dc:subject>cosmopolitan species</dc:subject>
+          <dc:subject>data gaps</dc:subject>
+          <dc:subject>distribution</dc:subject>
+          <dc:subject>ichthyological collections</dc:subject>
+          <dc:subject>natural history</dc:subject>
+          <dc:subject>review</dc:subject>
+          <dc:source>Biodiversity Data Journal 14: e205769</dc:source>
+          <dc:description>BackgroundMuseum specimens provide critical data for taxonomy, systematics, biogeography, and conservation. Well-preserved vouchers are essential for documenting both historical and contemporary distributional records, supporting a better understanding on species distribution in a world undergoing constant environmental changes. Regarding the euryhaline bull shark, Carcharhinus leucas, voucher specimens reliably confirm occurrences in areas where the species' status was previously unclear and clarify the identity of morphologically similar shark species found in freshwater environments. This study aims to provide a synthesis of C. leucas voucher specimens, assessing their scientific significance and identifying priority regions for future sampling to address knowledge gaps in the occurrence and distribution of the bull shark.New informationThis study is one of the few available comprehensive global reviews of museum specimens for an extant shark species. By reviewing public databases and the primary literature, we collated information on 964 Carcharhinus leucas voucher specimens housed in ichthyological collections worldwide, of which 830 (86.1%) were associated with spatial metadata that allowed for geolocating of specimens. Among the specimens with spatial information, 6.3% (n = 52) were collected in freshwater, 49.0% (n = 407) in brackish estuarine habitats, 43.9% (n = 364) in marine environments, and 0.8% (n = 7) lacked precise locality so were not attributable to one of these categories. Our spatial analysis revealed several regions where collection efforts for C. leucas should be prioritized, including the Pacific and Atlantic coasts of South America, the Southwest Atlantic region of Africa, and the entirety of the Indian Ocean coast. The examination of this material confirmed the species' presence in locations where its occurrence was previously uncertain, and pre-dated its known occurrence in the Brazilian Amazon. Furthermore, our investigation revealed that some vouchers are imprecisely geolocated, either by the original collectors or during subsequent curation, highlighting the need for optimized spatial precision and caution when utilizing these data for scientific studies.Key findings of our study new to science:1. A total of 964 Carcharhinus leucas vouchers (excluding fossils and genetic samples) were identified across global natural history collections.2. Critical sampling gaps were identified in the Global South, particularly along the Atlantic and Pacific coasts of Central and South America, the Atlantic and Indian Ocean coasts of Africa, and vast regions of Asia (Indian and West Pacific).3. Distributional data do not support the presence of C. leucas north of Bah&#xED;a Magdalena (southern Baja California, Mexico); records north of this limit remain unconfirmed.4. Direct examination of material verified the species' presence in Samoa (Polynesia, Southwest Pacific Ocean) and the Azores Archipelago (Portugal, North Central Atlantic Ocean).5. Three previously undocumented estuarine/riverine records were identified for Puerto Rico (n = 2) and Colombia (n = 1).6. The first record of C. leucas in the Amazon River (Bel&#xE9;m, Par&#xE1;, Brazil) was pre-dated to 1903, ten years earlier than previously reported in the scientific literature (1913). Simultaneously, this specimen also represents the first documented record of the species for Brazil.7. Historical vouchers from riverine locations currently inaccessible to migratory fish (due to anthropogenic barriers) provide empirical evidence of habitat degradation and loss of fish biodiversity.</dc:description>
+          <dc:relation>info:eu-repo/semantics/altIdentifier/eissn/1314-2828</dc:relation>
+          <dc:relation>info:eu-repo/semantics/altIdentifier/pissn/1314-2836</dc:relation>
+          <dc:rights>info:eu-repo/semantics/openAccess</dc:rights>
+          <dc:rights>CC BY 4.0</dc:rights>
+          <dc:publisher>Pensoft Publishers</dc:publisher>
+          <dc:date>2026</dc:date>
+          <dc:type>Research Article</dc:type>
+          <dc:format>text/html</dc:format>
+          <dc:identifier>info:doi:10.3897/BDJ.14.e205769</dc:identifier>
+          <dc:identifier>https://doi.org/10.3897/BDJ.14.e205769</dc:identifier>
+          <dc:identifier>https://bdj.pensoft.net/article/205769/</dc:identifier>
+          <dc:identifier>https://bdj.pensoft.net/article/205769/download/pdf/</dc:identifier>
+          <dc:language>en</dc:language>
+        </oai-dc:dc>
+      </metadata>
+    </record>
+<record>
+      <header>
+        <identifier>10.3897/arphapreprints.e221484</identifier>
+        <datestamp>2026-11-02</datestamp>
+        <setSpec>preprints</setSpec>
+      </header>
+      <metadata>
+        <oai-dc:dc xmlns:oai-dc="http://www.openarchives.org/OAI/2.0/oai_dc/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/oai_dc/ http://www.openarchives.org/OAI/2.0/oai_dc.xsd">
+          <dc:title>A decade of open biodiversity data in the Azores: closing knowledge gaps and building a foundation for long-term monitoring</dc:title>
+          <dc:creator id="https://orcid.org/0000-0001-7332-9788">Oyarzabal,Guilherme</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-6452-436X">Costa,Ricardo</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-3550-8010">Gabriel,Rosalina</dc:creator>
+          <dc:creator>Afonso,Pedro</dc:creator>
+          <dc:creator id="https://orcid.org/0009-0008-9208-514X">Ah-Peng,Claudine</dc:creator>
+          <dc:creator id="https://orcid.org/https://orcid.org/0000-0002-6967-7170">Vaz &#xC1;lvaro,Nuno</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0001-6847-3320">R. Amorim,Isabel</dc:creator>
+          <dc:creator id="https://orcid.org/https://orcid.org/0009-0007-2090-0494">Andrade,Rui</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0003-2573-1371">Azevedo,Jos&#xE9;</dc:creator>
+          <dc:creator>Ballesteros,Enric</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0001-5947-679X">Barcelos,Lu&#xED;s</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0003-4531-6685">Barreiros,Jo&#xE3;o Pedro</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-9087-091X">Boieiro,M&#xE1;rio</dc:creator>
+          <dc:creator>Borges,Isabel</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0001-5688-2979">Botelho,Andrea Z.</dc:creator>
+          <dc:creator>Brito,Mariana</dc:creator>
+          <dc:creator>Cacabelos,Eva</dc:creator>
+          <dc:creator>Calado,Hugo</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0001-8119-9960">Cardoso,Pedro</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0003-3070-3009">Carvalho,Rui</dc:creator>
+          <dc:creator>M&#xE1;rcia,Coelho</dc:creator>
+          <dc:creator>Coelho,R&#xFA;ben</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0001-8713-6370">Cordeiro,Rita</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-0258-3460">Costa,Ana</dc:creator>
+          <dc:creator>Costa,Carina</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-5388-5661">Crespo,Lu&#xED;s Carlos</dc:creator>
+          <dc:creator>Cuesta,Eva</dc:creator>
+          <dc:creator id="https://orcid.org/0009-0001-2364-1877">Dal Lago,Alexandra</dc:creator>
+          <dc:creator id="https://orcid.org/https://orcid.org/0009-0006-4833-073X">Duenas-Rojas,Almudena</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0003-2397-2438">Elias,Rui</dc:creator>
+          <dc:creator>Farnham,William</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-3740-6069">Ferreira,Maria Teresa</dc:creator>
+          <dc:creator>Fletcher,Robert</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-1668-2363">Fonseca,Am&#xE9;lia</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0003-1373-6060">Frias,Jorge</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0001-7353-0983">Gonz&#xE1;lez Garc&#xED;a,Laura</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0003-4450-8167">Gil,Artur</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-5737-296X">Gon&#xE7;alves,V&#xED;tor</dc:creator>
+          <dc:creator>Goulart,Sofia</dc:creator>
+          <dc:creator>Heleno,Ruben</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-2529-6720">Henriques,D&#xE9;bora</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-2230-7033">Lamelas-Lopez,Lucas</dc:creator>
+          <dc:creator>Leite,Abr&#xE3;o</dc:creator>
+          <dc:creator id="https://orcid.org/0009-0006-7241-6269">Lhoumeau,S&#xE9;bastien</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-3057-5871">Lopes,David</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-6467-9812">L&#xF6;vei,G&#xE1;bor</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0001-8223-5943">Luz,R&#xFA;ben</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-6878-5719">Malumbres-Olarte,Jagoba</dc:creator>
+          <dc:creator>Marcelino,Jos&#xE9;</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0003-0691-6725">Melo,Catarina</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0001-5368-2664">Milla-Figueras,David</dc:creator>
+          <dc:creator>Monjardino,Paulo</dc:creator>
+          <dc:creator>Monteiro,Sandra</dc:creator>
+          <dc:creator>Moreu,Ignacio</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-0561-1666">Morgado,Leila Nunes</dc:creator>
+          <dc:creator>Mota,Jos&#xE9;</dc:creator>
+          <dc:creator>Neto,Raul M. A.</dc:creator>
+          <dc:creator>Nogueira,Elisabete</dc:creator>
+          <dc:creator>Nunes,Rui</dc:creator>
+          <dc:creator>Parente,Manuela I.</dc:creator>
+          <dc:creator id="https://orcid.org/0009-0001-5633-710X">Parmentier,Laurine M.</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-3743-9063">Patarra,Rita F.</dc:creator>
+          <dc:creator>Pereira,En&#xE9;sima</dc:creator>
+          <dc:creator>Pereira,Fernando</dc:creator>
+          <dc:creator>Pereira,Maria</dc:creator>
+          <dc:creator>Petrone,Andrea</dc:creator>
+          <dc:creator>Pimentel,C&#xE9;sar</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-5196-9730">Poponessi,Silvia</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-2300-6558">Pozsgai,Gabor</dc:creator>
+          <dc:creator>Prestes,Afonso C. L.</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-7461-0851">Raposeiro,Pedro</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0003-1505-651X">Resendes,Roberto</dc:creator>
+          <dc:creator>Rigal,Fran&#xE7;ois</dc:creator>
+          <dc:creator>Rodrigues,Ana</dc:creator>
+          <dc:creator>Rodrigues,Ant&#xF3;nio F&#xE9;lix</dc:creator>
+          <dc:creator>Ros-Prieto,Alejandra</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-9197-792X">Coelho dos Santos,Ana Margarida</dc:creator>
+          <dc:creator>Sch&#xFC;lke,Michael</dc:creator>
+          <dc:creator>S&#xE9;rgio,Cec&#xED;lia</dc:creator>
+          <dc:creator>Silva,Lu&#xED;s</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-4185-733X">Borges Silva,Lurdes</dc:creator>
+          <dc:creator id="https://orcid.org/0009-0002-8684-7204">Silveira,Gabriela</dc:creator>
+          <dc:creator>Simoes,Nelson</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0001-9039-4450">Sim-Sim,Manuela</dc:creator>
+          <dc:creator id="https://orcid.org/https://orcid.org/0000-0001-7922-6296">Soares,Ant&#xF3;nio O.</dc:creator>
+          <dc:creator id="https://orcid.org/0009-0007-9829-3014">Sousa,Mariana</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-5739-3090">Souto,Martin</dc:creator>
+          <dc:creator id="https://orcid.org/https://orcid.org/0009-0005-7811-0757">St&#xFC;ben,Peter</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0003-2924-1206">Suciu,Stephanie</dc:creator>
+          <dc:creator>Tavares,Jo&#xE3;o</dc:creator>
+          <dc:creator>Teixeira,M&#xE1;rio</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0003-3154-6295">Tsafack,Noelline</dc:creator>
+          <dc:creator>Toubarro,Duarte</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-3638-1795">Vieira,Virg&#xED;lio</dc:creator>
+          <dc:creator>Vounatsi,Martha</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-1116-1788">Wallon,Sophie</dc:creator>
+          <dc:creator id="https://orcid.org/0000-0002-8448-7623">Borges,Paulo</dc:creator>
+          <dc:subject>Biodiversity database</dc:subject>
+          <dc:subject>Darwin Core</dc:subject>
+          <dc:subject>FAIR data</dc:subject>
+          <dc:subject>GBIF</dc:subject>
+          <dc:subject>island biodiversity</dc:subject>
+          <dc:subject>occurrence data</dc:subject>
+          <dc:subject>open data</dc:subject>
+          <dc:subject>Prestonian Shortfall</dc:subject>
+          <dc:subject>species accumulation</dc:subject>
+          <dc:subject>Wallacean Shortfall</dc:subject>
+          <dc:source>ARPHA Preprints</dc:source>
+          <dc:description>Ten years of dedicated biodiversity research and coordinated open-data publication have built an extensive, reusable knowledge base for the Azores. We synthesize this collective achievement through the AZORES BIOTA and BioMonI-Plot collections, evaluating its contribution to addressing the Wallacean and Prestonian shortfalls and identifying priorities for future research and monitoring. Focusing on the nine islands of this North Atlantic archipelago, we review publications issued between 2016 and May 2026, encompassing terrestrial and marine organisms across six kingdoms. We combine curated publication and dataset metadata with Darwin Core occurrenceID-linked species and subspecies records to assess spatial, taxonomic, temporal and methodological coverage, species accumulation by colonization status, and island species&#x2013;area relationships. Across 91 publications, the collections document 931 animal, 1,185 plant and 742 fungal species and subspecies, alongside taxa from three additional kingdoms, and identify 598 additions to the Azorean Biodiversity Portal reference list. This sustained effort has substantially expanded accessible knowledge of species distributions, contributing to reducing the Wallacean shortfall. Arthropod abundance datasets and repeated standardized surveys also alleviate the Prestonian shortfall by enabling assessments of population and community change. Together, these resources establish valuable baselines for biodiversity assessment, invasion surveillance and conservation planning. The synthesis also reveals uneven coverage among islands, taxa and habitats, with spatial differences in research effort complicating interpretation of species&#x2013;area relationships. The Azorean experience demonstrates the substantial scientific value of sustained regional expertise, collaboration and standardized open-data publication for understanding island biodiversity. By consolidating achievements and making remaining gaps explicit, this synthesis provides a foundation for targeted investment in underrepresented biota, spatially balanced surveys and sustained abundance monitoring, strengthening the evidence base for future biodiversity research and conservation.</dc:description>
+          <dc:rights>info:eu-repo/semantics/openAccess</dc:rights>
+          <dc:rights>CC BY 4.0</dc:rights>
+          <dc:publisher>Pensoft Publishers</dc:publisher>
+          <dc:date>2026</dc:date>
+          <dc:type>Research Article</dc:type>
+          <dc:format>text/html</dc:format>
+          <dc:identifier>info:doi:10.3897/arphapreprints.e221484</dc:identifier>
+          <dc:identifier>https://doi.org/10.3897/arphapreprints.e221484</dc:identifier>
+          <dc:identifier>https://preprints.arphahub.com/article/221484/</dc:identifier>
+          <dc:identifier>https://preprints.arphahub.com/article/221484/download/pdf/</dc:identifier>
+          <dc:language>en</dc:language>
+        </oai-dc:dc>
+      </metadata>
+    </record>
+    <resumptionToken completeListSize="195" cursor="0">cGFnZT0xJnNldD0mZnJvbT0yMDI2LTExLTAxJnVudGlsPSZtZXRhZGF0YV9wcmVmaXg9b2FpX2Rj</resumptionToken>
+  </ListRecords>
+</OAI-PMH>

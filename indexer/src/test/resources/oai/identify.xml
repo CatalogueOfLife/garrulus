@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="/oai.xsl" ?>
+<OAI-PMH xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.openarchives.org/OAI/2.0/" xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd">
+  <responseDate>2026-11-19T13:11:31Z</responseDate>
+  <request verb="Identify">https://zookeys.pensoft.net/oai.php</request>
+  <Identify>
+    <repositoryName>ARPHA OAI-PMH Endpoint</repositoryName>
+    <baseURL>https://zookeys.pensoft.net/oai.php</baseURL>
+    <protocolVersion>2.0</protocolVersion>
+    <adminEmail>development@pensoft.net</adminEmail>
+    <earliestDatestamp>1924-01-01</earliestDatestamp>
+    <deletedRecord>persistent</deletedRecord>
+    <granularity>YYYY-MM-DD</granularity>
+  </Identify>
+</OAI-PMH>

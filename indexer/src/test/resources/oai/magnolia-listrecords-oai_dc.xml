@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://www.mapress.com/lib/pkp/xml/oai2.xsl" ?>
+<OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/
+		http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd">
+	<responseDate>2026-11-19T13:31:25Z</responseDate>
+	<request verb="ListRecords" metadataPrefix="oai_dc" from="2026-01-01">https://www.mapress.com/zt/oai</request>
+	<ListRecords>
+		<record>
+			<header>
+				<identifier>oai:https://mapress.com/oai/:article/56563</identifier>
+				<datestamp>2026-01-04T22:53:17Z</datestamp>
+				<setSpec>zt:ART</setSpec>
+			</header>
+			<metadata>
+<oai_dc:dc
+	xmlns:oai_dc="http://www.openarchives.org/OAI/2.0/oai_dc/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/oai_dc/
+	http://www.openarchives.org/OAI/2.0/oai_dc.xsd">
+	<dc:title xml:lang="en-US">New genera and species of bamboo leafhopper tribes Mukariini and Punctulini (Hemiptera: Cicadellidae: Deltocephalinae) in Thailand</dc:title>
+	<dc:creator>VIRAKTAMATH, C.A.</dc:creator>
+	<dc:creator>DIETRICH, C.H.</dc:creator>
+	<dc:creator>YESHWANTH, H.M.</dc:creator>
+	<dc:subject xml:lang="en-US">Hemiptera</dc:subject>
+	<dc:subject xml:lang="en-US">Auchenorrhyncha</dc:subject>
+	<dc:subject xml:lang="en-US">Membracoidea</dc:subject>
+	<dc:subject xml:lang="en-US">morphology</dc:subject>
+	<dc:subject xml:lang="en-US">generic key</dc:subject>
+	<dc:subject xml:lang="en-US">Hemiptera</dc:subject>
+	<dc:description xml:lang="en-US">Leafhoppers of the tribes Mukariini and Punctulini of the subfamily Deltocephalinae collected using Malaise traps in National Parks of Thailand were studied. This resulted in the discovery of several new genera and species of these two tribes. New taxa of Mukriini discovered include Advita gen. nov. with its type species A. maculata sp. nov., Flatfronta thaiensis sp. nov., Mohunia qudripunctata sp. nov., Myittana (Myittana) fuscovenosa sp. nov., Myittana (Savasa) alata sp. nov., M. (S.) duvidha sp. nov., M. (S.) tuberculata sp. nov., M. (S.) unica sp. nov., Scaphotettix chaturdanta sp. nov., Setubandha gen. nov., with its type species S. attenuata sp. nov. and Thaimukaria gen. nov. with its type species T. spinosa sp. nov.. New taxa recognised in the tribe Punctulini include Clavoreticula gen. nov. with its type species Clavoreticula (Clavoreticula) biprocessa sp. nov., C. (C.) triprocessa sp. nov., Clavoreticula (Radana) subgen. nov. with its type species C. (R.) circinantis sp. nov., Cornutipyga gen. nov. with its type species C. ventriprocessa sp. nov., Thaipunctulus gen. nov. with its type species T. bidentis sp. nov.. The following species of Mukariini are new records for Thailand: Myittana (Benglebra) alami (Mahmood &amp;amp; Ahmed), Myittana (Myittana) modesta Distant and Scaphotettix striatus Dai &amp;amp; Zhang. All the taxa dealt with are described and or diagnosed and illustrated. Keys to identify the world genera of Mukariini and Punculini are also provided. 
+ </dc:description>
+	<dc:publisher xml:lang="en-US">Magnolia Press</dc:publisher>
+	<dc:date>2026-01-05</dc:date>
+	<dc:type>info:eu-repo/semantics/article</dc:type>
+	<dc:type>info:eu-repo/semantics/publishedVersion</dc:type>
+	<dc:format>application/pdf</dc:format>
+	<dc:identifier>https://www.mapress.com/zt/article/view/zootaxa.5741.1.1</dc:identifier>
+	<dc:identifier>10.11646/zootaxa.5741.1.1</dc:identifier>
+	<dc:source xml:lang="en-US">Zootaxa; Vol. 5741 No. 1: 5 Jan. 2026; 1-48 </dc:source>
+	<dc:source>1175-5334</dc:source>
+	<dc:source>1175-5326</dc:source>
+	<dc:source>10.11646/zootaxa.5741.1</dc:source>
+	<dc:language>eng</dc:language>
+	<dc:relation>https://www.mapress.com/zt/article/view/zootaxa.5741.1.1/58116</dc:relation>
+</oai_dc:dc>
+			</metadata>
+		</record>
+<record>
+			<header>
+				<identifier>oai:https://mapress.com/oai/:article/56564</identifier>
+				<datestamp>2026-01-04T22:53:17Z</datestamp>
+				<setSpec>zt:ART</setSpec>
+			</header>
+			<metadata>
+<oai_dc:dc
+	xmlns:oai_dc="http://www.openarchives.org/OAI/2.0/oai_dc/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/oai_dc/
+	http://www.openarchives.org/OAI/2.0/oai_dc.xsd">
+	<dc:title xml:lang="en-US">A new species of the genus Calamaria H. Boie in F. Boie, 1827 (Squamata: Calamariidae) from Mizoram State, India</dc:title>
+	<dc:creator>LALREMSANGA, HMAR TLAWMTE</dc:creator>
+	<dc:creator>MALSAWMDAWNGLIANA, FANAI</dc:creator>
+	<dc:creator>BAL, AMIT KUMAR</dc:creator>
+	<dc:creator>VABEIRYUREILAI, MATHIPI</dc:creator>
+	<dc:creator>HRUAIA, VANLAL</dc:creator>
+	<dc:creator>KOROLEV, ALEXEY M.</dc:creator>
+	<dc:creator>VOGEL, GERNOT</dc:creator>
+	<dc:creator>POYARKOV, NIKOLAY A.</dc:creator>
+	<dc:creator>NGUYEN, TAN VAN</dc:creator>
+	<dc:subject xml:lang="en-US">Reptilia</dc:subject>
+	<dc:subject xml:lang="en-US">Calamaria mizoramensis sp. nov.</dc:subject>
+	<dc:subject xml:lang="en-US">morphology</dc:subject>
+	<dc:subject xml:lang="en-US">mtDNA</dc:subject>
+	<dc:subject xml:lang="en-US">taxonomy</dc:subject>
+	<dc:subject xml:lang="en-US">Indo-Burma Region</dc:subject>
+	<dc:subject xml:lang="en-US">Reptilia</dc:subject>
+	<dc:description xml:lang="en-US">We describe a new species of the genus Calamaria from Mizoram State, Northeast India, based on a combination of morphological and molecular evidence. Calamaria mizoramensis sp. nov. is distinguished from its congeners by a unique combination of morphological characters, including: 8–11 enlarged maxillary teeth; rostral higher than wide; prefrontal shorter than frontal and contacting the first two supralabials; mental not in contact with anterior chin shields; dorsal scales in 13–13–13 rows, smooth throughout; a single preocular and postocular; four supralabials, with the 2nd and 3rd ones contacting the eye; five infralabials; six scales surrounding the paraparietal; 147–175 ventrals; 13–27 paired subcaudals; a relatively short tail (10.3–13.1% in males, 4.7–6.5% of total length), thick and nearly cylindrical, terminating in an obtuse tip; dark brown to blackish-brown, with three to six longitudinal rows of slightly paler or dark-edged scales forming indistinct stripes of variable clarity along the body and a faint pale nuchal ring; a yellow ventral surface with dark outer corners on the ventral scales; and a broad, distinct median black stripe on the ventral surface of the tail. Phylogenetic analysis of the mitochondrial cytochrome b gene suggests that the new species represents a deeply divergent lineage within the genus Calamaria, with sister relationships to a clade that includes the remaining species from Indochina and East Asia. The genetic divergence of the new species from all its congeners for which the homologous sequences are available is also very high (minimal uncorrected p-distance of 15.3%). The new species is currently known from montane evergreen forests of Mizoram State, India (from elevations of 670–1,295 m asl.). This discovery adds to the growing number of herpetological findings in the Indo-Burma biodiversity hotspot and reinforces the need to reassess the complex taxonomy of the genus Calamaria. In addition, we provide the first comprehensive and updated checklist of the herpetofauna of Mizoram State, documenting 169 species, including 52 amphibians and 117 reptiles. 
+ </dc:description>
+	<dc:publisher xml:lang="en-US">Magnolia Press</dc:publisher>
+	<dc:date>2026-01-05</dc:date>
+	<dc:type>info:eu-repo/semantics/article</dc:type>
+	<dc:type>info:eu-repo/semantics/publishedVersion</dc:type>
+	<dc:format>application/pdf</dc:format>
+	<dc:identifier>https://www.mapress.com/zt/article/view/zootaxa.5741.1.2</dc:identifier>
+	<dc:identifier>10.11646/zootaxa.5741.1.2</dc:identifier>
+	<dc:source xml:lang="en-US">Zootaxa; Vol. 5741 No. 1: 5 Jan. 2026; 49-86 </dc:source>
+	<dc:source>1175-5334</dc:source>
+	<dc:source>1175-5326</dc:source>
+	<dc:source>10.11646/zootaxa.5741.1</dc:source>
+	<dc:language>eng</dc:language>
+	<dc:relation>https://www.mapress.com/zt/article/view/zootaxa.5741.1.2/58117</dc:relation>
+</oai_dc:dc>
+			</metadata>
+		</record>
+<record>
+			<header>
+				<identifier>oai:https://mapress.com/oai/:article/56565</identifier>
+				<datestamp>2026-01-04T22:53:17Z</datestamp>
+				<setSpec>zt:ART</setSpec>
+			</header>
+			<metadata>
+<oai_dc:dc
+	xmlns:oai_dc="http://www.openarchives.org/OAI/2.0/oai_dc/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/oai_dc/
+	http://www.openarchives.org/OAI/2.0/oai_dc.xsd">
+	<dc:title xml:lang="en-US">The signipennis-group and testaceiceps-group of Rhaconotus (Hymenoptera: Braconidae: Doryctinae) in Vietnam, with descriptions of new species</dc:title>
+	<dc:creator>OANH, NGUYEN THI</dc:creator>
+	<dc:creator>DZUONG, NGUYEN VAN</dc:creator>
+	<dc:creator>LONG, KHUAT DANG</dc:creator>
+	<dc:creator>PHAM, NHI THI</dc:creator>
+	<dc:subject xml:lang="en-US">Hymenoptera</dc:subject>
+	<dc:subject xml:lang="en-US">Icheumonoidea</dc:subject>
+	<dc:subject xml:lang="en-US">parasitoid</dc:subject>
+	<dc:subject xml:lang="en-US">Neotropical</dc:subject>
+	<dc:subject xml:lang="en-US">Palaearctic</dc:subject>
+	<dc:subject xml:lang="en-US">Oriental</dc:subject>
+	<dc:subject xml:lang="en-US">Hymenoptera</dc:subject>
+	<dc:description xml:lang="en-US">A total of 14 species of Rhaconotus signipennis group and R. testaceiceps group from Vietnam were treated, including seven new species from the R. signipennis group, viz. Rhaconotus bachmanus Long, sp. nov.; R. elongatus Long, sp. nov.; R. expinus Long, sp. nov.; R. flavicorpus Long, sp. nov.; R. hatinh Long, sp. nov.; R. laithieu Long, sp. nov., R. logoxamat Long, sp. nov. and one species from the R. testaceiceps group, namely R. tamchuc Long &amp;amp; Pham, sp. nov. are described and illustrated. A key to species of R. signipennis group and R. testaceiceps group from the Oriental region is also provided. 
+ </dc:description>
+	<dc:publisher xml:lang="en-US">Magnolia Press</dc:publisher>
+	<dc:date>2026-01-05</dc:date>
+	<dc:type>info:eu-repo/semantics/article</dc:type>
+	<dc:type>info:eu-repo/semantics/publishedVersion</dc:type>
+	<dc:format>application/pdf</dc:format>
+	<dc:identifier>https://www.mapress.com/zt/article/view/zootaxa.5741.1.3</dc:identifier>
+	<dc:identifier>10.11646/zootaxa.5741.1.3</dc:identifier>
+	<dc:source xml:lang="en-US">Zootaxa; Vol. 5741 No. 1: 5 Jan. 2026; 87-114 </dc:source>
+	<dc:source>1175-5334</dc:source>
+	<dc:source>1175-5326</dc:source>
+	<dc:source>10.11646/zootaxa.5741.1</dc:source>
+	<dc:language>eng</dc:language>
+	<dc:relation>https://www.mapress.com/zt/article/view/zootaxa.5741.1.3/58118</dc:relation>
+</oai_dc:dc>
+			</metadata>
+		</record>
+		<resumptionToken expirationDate="2026-11-20T13:31:25Z"
+			completeListSize="1912"
+			cursor="0">6faacb1a7269d0c6b5763dc30d6aac7f</resumptionToken>
+	</ListRecords>
+</OAI-PMH>
