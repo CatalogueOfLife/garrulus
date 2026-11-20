@@ -14,8 +14,4 @@ public record TranslationProperties(
     @Value("${nametracker.translation.url:}") String url,
     @Value("${nametracker.translation.model:libretranslate-1.9.6/argos}") String model,
     @Value("${nametracker.translation.timeout:30s}") Duration timeout) {
-
-  public boolean configured() {
-    return enabled && url != null && !url.isBlank();
-  }
 }

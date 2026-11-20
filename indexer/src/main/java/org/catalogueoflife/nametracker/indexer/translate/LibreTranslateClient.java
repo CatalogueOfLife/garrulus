@@ -28,6 +28,7 @@ public class LibreTranslateClient implements TitleTranslator {
 
   public static final String SERVICE = "libretranslate";
   static final Duration OUTAGE_DELAY = Duration.ofMinutes(30);
+  static final int MAX_RESPONSE = 64 * 1024;
   static final Duration LANGUAGES_TTL = Duration.ofHours(1);
 
   private final URI base;
@@ -94,9 +95,9 @@ public class LibreTranslateClient implements TitleTranslator {
   }
 
   private String send(HttpRequest req) throws IOException {
-    HttpResponse<String> resp;
+    HttpResponse<java.io.InputStream> resp;
     try {
-      resp = http.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      resp = http.send(req, HttpResponse.BodyHandlers.ofInputStream());
     } catch (HttpTimeoutException e) {
       throw outage(e);
     } catch (IOException e) {
@@ -107,9 +108,15 @@ public class LibreTranslateClient implements TitleTranslator {
       throw new IOException("Interrupted while calling LibreTranslate", e);
     }
     int s = resp.statusCode();
-    if (s >= 500) throw outage(new IOException("HTTP " + s));
-    if (s != 200) throw new IOException("LibreTranslate " + req.uri().getPath() + " returned HTTP " + s);
-    return resp.body();
+    try (java.io.InputStream in = resp.body()) {
+      if (s >= 500) throw outage(new IOException("HTTP " + s));
+      if (s != 200) throw new IOException("LibreTranslate " + req.uri().getPath() + " returned HTTP " + s);
+      byte[] b = in.readNBytes(MAX_RESPONSE + 1);
+      if (b.length > MAX_RESPONSE) {
+        throw new IOException("LibreTranslate " + req.uri().getPath() + " answered more than " + MAX_RESPONSE + " bytes");
+      }
+      return new String(b, StandardCharsets.UTF_8);
+    }
   }
 
   private ServiceOutageException outage(IOException cause) {

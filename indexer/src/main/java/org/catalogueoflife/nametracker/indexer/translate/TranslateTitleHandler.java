@@ -1,5 +1,6 @@
 package org.catalogueoflife.nametracker.indexer.translate;
 
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -51,6 +52,7 @@ public class TranslateTitleHandler implements TaskHandler {
   private final SearchMapper search;
   private final TaskQueue queue;
   private final AtomicLong dropped = new AtomicLong();
+  private final AtomicLong failed = new AtomicLong();
   private final AtomicBoolean warned = new AtomicBoolean();
 
   public TranslateTitleHandler(TranslationProperties props, ObjectProvider<TitleTranslator> translator,
@@ -83,7 +85,7 @@ public class TranslateTitleHandler implements TaskHandler {
     boolean force = p.path("force").asBoolean(false);
     if (p.has("workId")) {
       Work w = works.get(p.path("workId").asLong());
-      if (w != null) translate(t, w, force);
+      if (w != null) translateOrSkip(t, w, force);
       return;
     }
     if (!p.path("all").asBoolean(false)) return;
@@ -97,7 +99,7 @@ public class TranslateTitleHandler implements TaskHandler {
     List<Long> ids = texts.namedWithTitleLanguageAfter(afterId, batch, langs);
     for (long id : ids) {
       Work w = works.get(id);
-      if (w != null) translate(t, w, force);
+      if (w != null) translateOrSkip(t, w, force);
     }
     LOG.info("Translated titles of {} {} works after work id {}", ids.size(), nonLatin ? "NON_LATIN" : "LATIN", afterId);
     String prefix = ",\"batch\":" + batch + (force ? ",\"force\":true" : "") + "}";
@@ -109,6 +111,16 @@ public class TranslateTitleHandler implements TaskHandler {
     } else if (nonLatin) {
       queue.enqueue(TYPE, "{\"all\":true,\"afterId\":0,\"script\":\"LATIN\"" + prefix, task.priority(),
           "translate-all:LATIN:0", task.runAfter());
+    }
+  }
+
+  /** A failure of this one title (not an outage) is logged and counted; the work is skipped. */
+  private void translateOrSkip(TitleTranslator t, Work w, boolean force) throws Exception {
+    try {
+      translate(t, w, force);
+    } catch (java.io.IOException e) {
+      LOG.warn("Could not translate the title of work {} ({} failures so far): {}", w.id(), failed.incrementAndGet(),
+          e.getMessage());
     }
   }
 
@@ -138,10 +150,24 @@ public class TranslateTitleHandler implements TaskHandler {
   private String rejection(Work w, String out) {
     if (out == null || out.isBlank()) return "empty";
     if (fold(out).equalsIgnoreCase(fold(w.title()))) return "echo";
+    String nfc = Normalizer.normalize(out, Normalizer.Form.NFC);
     for (TitleMentionRow m : search.titleMentions(Set.of(w.id()))) {
-      if (latin(m.verbatim()) && !out.contains(m.verbatim())) return "drops the name " + m.verbatim();
+      if (latin(m.verbatim()) && !containsWord(nfc, Normalizer.normalize(m.verbatim(), Normalizer.Form.NFC))) {
+        return "drops the name " + m.verbatim();
+      }
     }
     return null;
+  }
+
+  /** The name occurs verbatim with no letter or digit right before or after it. */
+  static boolean containsWord(String text, String name) {
+    for (int i = text.indexOf(name); i >= 0; i = text.indexOf(name, i + 1)) {
+      int end = i + name.length();
+      boolean before = i > 0 && Character.isLetterOrDigit(text.codePointBefore(i));
+      boolean after = end < text.length() && Character.isLetterOrDigit(text.codePointAt(end));
+      if (!before && !after) return true;
+    }
+    return false;
   }
 
   private static String fold(String s) {

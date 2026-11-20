@@ -71,4 +71,13 @@ class LibreTranslateClientIT {
     assertThatThrownBy(() -> c.translate("x", "zh")).isInstanceOf(java.io.IOException.class)
         .isNotInstanceOf(ServiceOutageException.class);
   }
+
+  @Test
+  void oversizedResponseIsAFailure(WireMockRuntimeInfo wm) {
+    wm.getWireMock().register(post(urlEqualTo("/translate")).willReturn(aResponse()
+        .withBody("{\"translatedText\":\"" + "x".repeat(70_000) + "\"}")));
+    LibreTranslateClient c = client(wm.getHttpBaseUrl(), Clock.systemUTC());
+    assertThatThrownBy(() -> c.translate("x", "zh")).isInstanceOf(java.io.IOException.class)
+        .isNotInstanceOf(ServiceOutageException.class);
+  }
 }

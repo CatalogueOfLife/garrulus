@@ -7,7 +7,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.function.BiFunction;
 import org.catalogueoflife.nametracker.indexer.AbstractPostgresIT;
 import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
@@ -28,16 +27,18 @@ import org.springframework.test.context.TestPropertySource;
 @TestPropertySource(properties = {"nametracker.translation.enabled=true"})
 class TranslateTitleHandlerIT extends AbstractPostgresIT {
 
+  interface ThrowingFn { String apply(String t, String from) throws java.io.IOException; }
+
   /** A translator whose behaviour and calls the tests control. */
   static class FakeTranslator implements TitleTranslator {
     volatile String model = "fake/1";
-    volatile BiFunction<String, String, String> fn = (t, from) -> "EN: " + t;
+    volatile ThrowingFn fn = (t, from) -> "EN: " + t;
     final List<String> calls = new ArrayList<>();
 
     @Override public String engine() { return "fake"; }
     @Override public String model() { return model; }
     @Override public Set<String> sources() { return Set.of("zh", "ru", "es", "fr"); }
-    @Override public synchronized String translate(String text, String from) {
+    @Override public synchronized String translate(String text, String from) throws java.io.IOException {
       calls.add(from + ":" + text);
       return fn.apply(text, from);
     }
@@ -226,6 +227,61 @@ class TranslateTitleHandlerIT extends AbstractPostgresIT {
     assertThat(fake.calls).hasSize(2);
     handler.handle(task("{\"workId\":" + id + ",\"force\":true}")); // force: again, though the model is current
     assertThat(fake.calls).hasSize(3);
+  }
+
+  @Test
+  void clientErrorOnOneTitleSkipsItAndContinues() throws Exception {
+    long a = work("一新种甲", "zh", true);
+    long bad = work("一新种乙", "zh", true);
+    long c = work("一新种丙", "zh", true);
+    fake.fn = (t, from) -> {
+      if (t.endsWith("乙")) throw new java.io.IOException("LibreTranslate /translate returned HTTP 400");
+      return "EN: " + t;
+    };
+    handler.handle(task("{\"all\":true,\"batch\":3,\"script\":\"NON_LATIN\"}"));
+    assertThat(machineRows(a)).isEqualTo(1);
+    assertThat(machineRows(bad)).isZero();
+    assertThat(machineRows(c)).isEqualTo(1);
+    assertThat(jdbc.queryForList("SELECT dedup_key FROM task WHERE type = 'TRANSLATE_TITLE'", String.class))
+        .containsExactly("translate-all:NON_LATIN:" + c);
+    run(bad); // a single-work task ends DONE with a WARN
+  }
+
+  @Test
+  void nameCheckUsesWordBoundariesAndNfc() throws Exception {
+    long diacritic = work("中国一新种 Hylobates müllerı", "zh", true);
+    titleMention(diacritic, "Hylobates m\u00fcller\u0131");
+    fake.fn = (t, f) -> "New species Hylobates mu\u0308ller\u0131 here"; // decomposed form
+    run(diacritic);
+    assertThat(machineRows(diacritic)).isEqualTo(1);
+
+    long recased = work("一新种 Carabus", "zh", true);
+    titleMention(recased, "Carabus");
+    fake.fn = (t, f) -> "A new species of CARABUS";
+    run(recased);
+    assertThat(machineRows(recased)).isZero();
+
+    long inWord = work("一新种 Rana", "zh", true);
+    titleMention(inWord, "Rana");
+    fake.fn = (t, f) -> "A new species from Granada";
+    run(inWord);
+    assertThat(machineRows(inWord)).isZero();
+    fake.fn = (t, f) -> "A new species Rana, from Spain";
+    run(inWord);
+    assertThat(machineRows(inWord)).isEqualTo(1);
+  }
+
+  @Test
+  void droppedRetranslationLeavesOlderRow() throws Exception {
+    long id = work("Una especie nueva", "es", true);
+    run(id);
+    handler.handle(task("{\"workId\":" + id + ",\"force\":true}")); // same model, echo -> dropped
+    String before = jdbc.queryForObject("SELECT text FROM work_text WHERE work_id = ? AND kind = 'MACHINE'", String.class, id);
+    fake.fn = (t, f) -> t;
+    handler.handle(task("{\"workId\":" + id + ",\"force\":true}"));
+    assertThat(jdbc.queryForObject("SELECT text FROM work_text WHERE work_id = ? AND kind = 'MACHINE'", String.class, id))
+        .isEqualTo(before);
+    assertThat(jdbc.queryForObject("SELECT title_en FROM work WHERE id = ?", String.class, id)).isEqualTo(before);
   }
 
   @Test
