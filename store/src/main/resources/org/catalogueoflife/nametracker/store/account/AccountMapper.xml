@@ -69,5 +69,11 @@
     ORDER BY id
   </select>
 
+  <select id="withOrcidAndVerifiedEmail" resultMap="user">
+    SELECT <include refid="cols"/> FROM app_user
+    WHERE orcid IS NOT NULL AND email IS NOT NULL AND email_verified IS NOT NULL
+    ORDER BY id
+  </select>
+
   <delete id="delete">DELETE FROM app_user WHERE id = #{id}</delete>
 </mapper>

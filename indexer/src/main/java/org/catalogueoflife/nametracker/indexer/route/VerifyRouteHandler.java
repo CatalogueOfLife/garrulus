@@ -107,6 +107,7 @@ public class VerifyRouteHandler implements TaskHandler {
       return;
     }
     routes.setVerified(route.id(), clock.instant());
+    routes.resetLongRestarts(route.id());
     String status = passed(route);
     if (!status.equals(route.status()) || route.lastError() != null) routes.setStatus(route.id(), status, null);
     LOG.info("Route {} ({} of source {}) verified: {}", route.id(), route.layer(), route.sourceId(), status);

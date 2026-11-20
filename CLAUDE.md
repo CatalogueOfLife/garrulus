@@ -72,7 +72,10 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   `X-Admin-Token` header, no XSRF). `NAMETRACKER_ADMIN_ORCIDS` (comma-separated ORCID iDs, read at start) makes an ORCID
   sign-in of a listed iD an admin session, which the admin endpoints also accept (XSRF needed for writes; the list is
   re-checked per request; email sign-in never grants admin; ADR-0006, amendment M6b). With neither set, none of them is
-  mapped (404). `NAMETRACKER_WEB_ADDRESS` is the bind address
+  mapped (404). Admin notices the indexer writes (`admin_notice`: layer failing, still failing, recovered, OAI route
+  restart cap) are mailed by `web` (`NAMETRACKER_ADMIN_MAIL_CRON`, `0 */5 * * * *`, `-` = off, ShedLock `admin-mail`): up
+  to 20 per run, once each, to every verified address of an account whose ORCID iD is in the admin list; without such an
+  address or `spring.mail.host` the outcome is `SUPPRESSED` and it is logged (notice id only). `NAMETRACKER_WEB_ADDRESS` is the bind address
   (default `127.0.0.1`, loopback only like the indexer; `0.0.0.0` to serve other hosts).
 - `indexer`: `NAMETRACKER_INDEXER_PORT` (8081), `NAMETRACKER_INDEXER_WORKERS`, `NAMETRACKER_INDEXER_POLL_INTERVAL`,
   `NAMETRACKER_INDEXER_MAX_ATTEMPTS`, `NAMETRACKER_INDEXER_BACKOFF`, `NAMETRACKER_INDEXER_STALE_AFTER` (1h),
@@ -143,6 +146,16 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
     task → the whole task is deferred as an outage and nothing is written.
   - A task deferred by an outage that was first enqueued more than 24 hours ago is logged as a WARN on every deferral.
   - `NAMETRACKER_SPOOL_MAX_AGE` (14d) bounds the spool; it is purged daily at 05:30 UTC.
+  - Layer health (`nametracker.coverage.*`, properties and `NAMETRACKER_COVERAGE_*`, start values to tune after a month):
+    `fail-days` 2 (failed run days), `zero-fail-days` 3 (zero-yield days, counted only on days with a DONE run whose
+    expected yield, the median of that weekday over 8 weeks, is at least `zero-yield-min-expected` 3.0; quiet days are
+    transparent, a day without a DONE run breaks the streak), `yield-min-median` 14 (the 7-day yield ratio rule applies
+    from this weekly median), `yield-ratio` 0.5, `miss-share` 0.30, `miss-baseline` 0.10. `nametracker.public-url`
+    (`NAMETRACKER_PUBLIC_URL`, `http://localhost:5173`) is the link base of admin notices. A layer turning FAILING, still
+    FAILING after 7 days and OK again after failing writes an `admin_notice`; `nametracker.layers.oai.max-long-restarts`
+    (3): an ONBOARDING/BACKFILL OAI pass restarts a day later at most that many times after losing its resumption token
+    again, the next loss makes the route BROKEN and writes a `ROUTE_RESTART_CAP` notice (the count resets on the route's
+    last page and on a passing `VERIFY_ROUTE`).
   - `NAMETRACKER_STATS_CRON` (`0 30 4 * * *`): nightly `REBUILD_STATS` (ubiquity, taxon stats) at `LIVE` priority, which
     then enqueues `CATEGORISE_SOURCES`. `XR_CHECK` runs daily at `0 0 6 * * *`. Neither is behind the harvest switch.
 - `indexer` lifecycle and backfill (ADR-0007):
@@ -313,7 +326,7 @@ proxy targets `http://localhost:18080` on another port (never edit `vite.config.
 
 - `/api/me/**` (session; `GET /api/me`, `PATCH`, `POST /api/me/email`, `DELETE`, `/export`, `/subscriptions`,
   `/subscriptions/{id}/feed-token`, `/hits`), `/api/auth/**` (`POST /link`, `GET /config`, `POST /verify-email`,
-  `POST /api/auth/logout`), `/api/unsubscribe` and ORCID under `/oauth2`, `/login`. XSRF cookie only on those paths.
+  `POST /api/auth/logout`), `/api/unsubscribe` and ORCID under `/oauth2`, `/login`, and `/api/admin/**`. XSRF cookie only on those paths.
   Public reads carry no cache headers; `/api/me/**`, `/api/auth/**`, `/login/**` and `/api/admin/**` send
   `Cache-Control: no-store` (ADR-0006).
 - Feeds: `/feeds/{taxon,source,name,taxgroup}/<id>.atom` (public) and `/feeds/s/<token>.atom` (private, per follow).

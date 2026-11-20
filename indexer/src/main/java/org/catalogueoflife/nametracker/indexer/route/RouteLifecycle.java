@@ -5,6 +5,7 @@ import java.time.Instant;
 import org.catalogueoflife.nametracker.indexer.layer.LayerJob;
 import org.catalogueoflife.nametracker.indexer.layer.LayerMode;
 import org.catalogueoflife.nametracker.indexer.layer.europepmc.ProbeEuropePmcHandler;
+import org.catalogueoflife.nametracker.store.notice.AdminNoticeMapper;
 import org.catalogueoflife.nametracker.store.route.SourceRoute;
 import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
 import org.catalogueoflife.nametracker.store.source.Source;
@@ -13,6 +14,7 @@ import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.catalogueoflife.nametracker.store.work.Layer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -43,9 +45,14 @@ public class RouteLifecycle {
   private final RouteBackfill backfill;
   private final TaskQueue queue;
   private final Clock clock;
+  private final AdminNoticeMapper notices;
+  private final int maxLongRestarts;
 
   public RouteLifecycle(SourceRouteMapper routes, SourceMapper sources, RouteBackfill backfill, TaskQueue queue,
-      Clock clock) {
+      Clock clock, AdminNoticeMapper notices,
+      @Value("${nametracker.layers.oai.max-long-restarts:3}") int maxLongRestarts) {
+    this.notices = notices;
+    this.maxLongRestarts = maxLongRestarts;
     this.routes = routes;
     this.sources = sources;
     this.backfill = backfill;
@@ -62,6 +69,7 @@ public class RouteLifecycle {
       return;
     }
     routes.markOk(job.routeId(), now);
+    routes.resetLongRestarts(job.routeId());
     SourceRoute route = routes.get(job.routeId());
     if (route == null) return;
     switch (job.mode()) {
@@ -69,6 +77,29 @@ public class RouteLifecycle {
       case BACKFILL -> routes.setBackfilled(route.id(), now);
       case LIVE -> { }
     }
+  }
+
+  /**
+   * An ONBOARDING or BACKFILL pass lost its resumption token again after a restart: counts the loss. Returns false when
+   * that was one loss too many ({@code max-long-restarts}, then the route is BROKEN and a {@code ROUTE_RESTART_CAP}
+   * notice names it, so the pass must not start again), true when the pass may start again.
+   */
+  public boolean longPassLost(long routeId, LayerMode mode) {
+    int count = routes.incrementLongRestarts(routeId);
+    if (count <= maxLongRestarts) return true;
+    String reason = "resumption tokens rejected in " + (maxLongRestarts + 1) + " long passes";
+    routes.setStatus(routeId, "BROKEN", reason);
+    SourceRoute route = routes.get(routeId);
+    Source s = route == null ? null : sources.get(route.sourceId());
+    String title = s == null ? "?" : s.title();
+    LOG.warn("Route {} ({}): {}; the route is BROKEN", routeId, title, reason);
+    notices.insert("ROUTE_RESTART_CAP", "route-restart-cap:" + routeId + ":" + clock.instant().atZone(
+        java.time.ZoneOffset.UTC).toLocalDate(), "Garrulus: OAI route " + routeId + " is broken",
+        "The OAI route " + routeId + " of the source \"" + title + "\" (source " + (route == null ? "?" : route.sourceId())
+            + ") lost its resumption token in " + (maxLongRestarts + 1) + " " + mode + " passes in a row. " + reason
+            + "; the route is BROKEN and its pass is not started again. Check the repository, then verify the route "
+            + "again.\n");
+    return false;
   }
 
   private void onboarded(SourceRoute route, Instant now) {

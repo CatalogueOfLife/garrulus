@@ -1,6 +1,7 @@
 package org.catalogueoflife.nametracker.indexer.layer.coverage;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -11,11 +12,14 @@ import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.layer.LayerHealth;
 import org.catalogueoflife.nametracker.store.layer.LayerHealthMapper;
+import org.catalogueoflife.nametracker.store.notice.AdminNotice;
+import org.catalogueoflife.nametracker.store.notice.AdminNoticeMapper;
 import org.catalogueoflife.nametracker.store.task.Task;
 import org.catalogueoflife.nametracker.store.work.Layer;
 import org.catalogueoflife.nametracker.store.ident.WorkSightingMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
@@ -28,7 +32,14 @@ import tools.jackson.databind.JsonNode;
  * {@code source_layer_coverage} rows. Works of a backfill or an onboarding pass (origin BACKFILL or ONBOARDING) count
  * for neither. A V16 seed sighting of a LIVE work, or an onboarding pass sighting an existing LIVE work, does add yield
  * on its day; neither is ever a miss (a seed sighting is younger than its row, so it is no creating sighting). Running it again for a day overwrites that day's rows. A layer that
- * turns {@code FAILING} (the day before it was not) is logged as a WARN; mails come with M6b.
+ * turns {@code FAILING} is logged as a WARN and written as an {@code admin_notice} ({@code web} mails it): {@code
+ * LAYER_FAILING} when its latest {@code layer-} notice is none or a recovery, {@code LAYER_STILL_FAILING} a week after
+ * the latest notice, {@code LAYER_RECOVERED} when it is OK again after a failing notice. The keys carry the day, so a
+ * redelivered check adds nothing.
+ *
+ * <p>A zero-yield day needs a DONE run that day and an expected yield of at least {@code zero-yield-min-expected} (the
+ * median of the same weekday's sightings over the last 8 weeks): a weekday publisher's weekend and a sparse issue
+ * feed's quiet days are neither counted nor do they break the streak; a day without a DONE run breaks it.
  */
 @Component
 public class CoverageCheckHandler implements TaskHandler {
@@ -43,9 +54,17 @@ public class CoverageCheckHandler implements TaskHandler {
   private final LayerHealthCalculator calculator;
   private final WorkSightingMapper sightings;
   private final TransactionTemplate tx;
+  private final AdminNoticeMapper notices;
+  private final double zeroYieldMinExpected;
+  private final String layersUrl;
 
   public CoverageCheckHandler(LayerHealthMapper mapper, LayerHealthCalculator calculator,
-      WorkSightingMapper sightings, TransactionTemplate tx) {
+      WorkSightingMapper sightings, TransactionTemplate tx, AdminNoticeMapper notices,
+      @Value("${nametracker.coverage.zero-yield-min-expected:3.0}") double zeroYieldMinExpected,
+      @Value("${nametracker.public-url:http://localhost:5173}") String publicUrl) {
+    this.notices = notices;
+    this.zeroYieldMinExpected = zeroYieldMinExpected;
+    this.layersUrl = publicUrl.strip().replaceAll("/+$", "") + "/admin/layers";
     this.mapper = mapper;
     this.calculator = calculator;
     this.sightings = sightings;
@@ -106,9 +125,12 @@ public class CoverageCheckHandler implements TaskHandler {
     int yield7d = 0;
     for (int i = 0; i < 7; i++) yield7d += daily.getOrDefault(day.minusDays(i), 0);
     int zeroDays = 0;
-    // a zero-yield day needs a DONE run that day: a day without a run was not expected to yield and ends the streak
+    // a zero-yield day needs a DONE run that day (a day without one ends the streak) and an expected yield of
+    // zero-yield-min-expected: quiet days (expected less) are transparent
     for (LocalDate d = day; !d.isBefore(sightFrom); d = d.minusDays(1)) {
-      if (runs.getOrDefault(d, none)[2] > 0 && daily.getOrDefault(d, 0) == 0) zeroDays++;
+      if (runs.getOrDefault(d, none)[2] == 0) break;
+      if (expected(daily, d, sightFrom) < zeroYieldMinExpected) continue;
+      if (daily.getOrDefault(d, 0) == 0) zeroDays++;
       else break;
     }
     List<Integer> weeks = new ArrayList<>();
@@ -129,10 +151,66 @@ public class CoverageCheckHandler implements TaskHandler {
         baseline, recovered));
     LayerHealth previous = mapper.get(name, day.minusDays(1));
     mapper.upsert(new LayerHealth(name, day, state, today[0], yield7d, median, missShare));
+    notify(layer, day, state, failedDays, zeroDays, yield7d, median, missShare);
     if ("FAILING".equals(state) && (previous == null || !"FAILING".equals(previous.state()))) {
       LOG.warn("Layer {} is FAILING on {}: {} failed days, {} days without new works (weekly median {}, 7-day yield {})",
           name, day, failedDays, zeroDays, median, yield7d);
     }
+  }
+
+  /** The median of the same weekday's daily sightings of the up to 8 weeks before the day (those inside the window). */
+  private static double expected(Map<LocalDate, Integer> daily, LocalDate day, LocalDate from) {
+    List<Integer> same = new ArrayList<>();
+    for (int w = 1; w <= WEEKS; w++) {
+      LocalDate d = day.minusDays(7L * w);
+      if (!d.isBefore(from)) same.add(daily.getOrDefault(d, 0));
+    }
+    if (same.isEmpty()) return 0;
+    Collections.sort(same);
+    int n = same.size();
+    return n % 2 == 1 ? same.get(n / 2) : (same.get(n / 2 - 1) + same.get(n / 2)) / 2.0;
+  }
+
+  private void notify(Layer layer, LocalDate day, String state, int failedDays, int zeroDays, int yield7d,
+      double median, double missShare) {
+    String name = layer.name();
+    AdminNotice latest = notices.latestForLayer(name);
+    boolean failingBefore = latest != null && !"LAYER_RECOVERED".equals(latest.kind());
+    String kind;
+    String key;
+    String subject;
+    if ("FAILING".equals(state)) {
+      if (!failingBefore) {
+        kind = "LAYER_FAILING";
+        key = "layer-failing:" + name + ":" + day;
+        subject = "Garrulus: layer " + name + " is failing";
+      } else if (ChronoUnit.DAYS.between(noticeDay(latest), day) >= 7) {
+        kind = "LAYER_STILL_FAILING";
+        key = "layer-still:" + name + ":" + day;
+        subject = "Garrulus: layer " + name + " is still failing";
+      } else {
+        return;
+      }
+    } else if ("OK".equals(state) && failingBefore) {
+      kind = "LAYER_RECOVERED";
+      key = "layer-recovered:" + name + ":" + day;
+      subject = "Garrulus: layer " + name + " has recovered";
+    } else {
+      return;
+    }
+    String body = "Layer " + name + " on " + day + ": " + state + "\n"
+        + "Failed run days in a row: " + failedDays + "\n"
+        + "Zero-yield days in a row: " + zeroDays + "\n"
+        + "New works in the last 7 days: " + yield7d + "\n"
+        + "Weekly median of the last 8 weeks: " + median + "\n"
+        + "Share of works the layer missed: " + String.format(java.util.Locale.ROOT, "%.2f", missShare) + "\n\n"
+        + layersUrl + "\n";
+    notices.insert(kind, key, subject, body);
+  }
+
+  /** The day a layer notice is about: the last part of its key. */
+  private static LocalDate noticeDay(AdminNotice n) {
+    return LocalDate.parse(n.dedupKey().substring(n.dedupKey().lastIndexOf(':') + 1));
   }
 
   /** Rewrites the layer's coverage rows and returns its overall miss share. */

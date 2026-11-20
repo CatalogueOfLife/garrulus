@@ -3,7 +3,6 @@ package org.catalogueoflife.nametracker.web.auth;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Clock;
-import org.catalogueoflife.nametracker.web.api.AdminAccess;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -60,7 +59,7 @@ public class SecurityConfig {
 
   /** An admin request that sends the token header: exempt from XSRF by the same test that AdminAccess applies. */
   static final RequestMatcher ADMIN_BY_TOKEN = new AndRequestMatcher(
-      PathPatternRequestMatcher.withDefaults().matcher("/api/admin/**"), AdminAccess::tokenSent);
+      PathPatternRequestMatcher.withDefaults().matcher("/api/admin/**"), AdminOrcids::tokenSent);
 
   /** 401 with the {status, error} body of the public API; never a redirect to a login page. */
   static final AuthenticationEntryPoint JSON_401 = (request, response, e) -> EmailLinkLoginHandler.write(

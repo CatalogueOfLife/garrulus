@@ -22,6 +22,7 @@ import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.TaskMapper;
 import org.catalogueoflife.nametracker.store.usage.ApiUsageMapper;
 import org.catalogueoflife.nametracker.store.work.WorkMapper;
+import org.catalogueoflife.nametracker.web.auth.AdminOrcids;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -90,7 +91,7 @@ public class AdminStatusController {
   }
 
   @GetMapping("/api/admin/status")
-  public Status status(@RequestHeader(name = AdminAccess.TOKEN_HEADER, required = false) @Nullable String given) {
+  public Status status(@RequestHeader(name = AdminOrcids.TOKEN_HEADER, required = false) @Nullable String given) {
     access.check(given);
     LocalDate today = LocalDate.now(clock.withZone(ZoneOffset.UTC));
     List<Map<String, Object>> usageRows = new ArrayList<>();

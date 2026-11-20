@@ -57,6 +57,7 @@ class OaiLayerIT extends AbstractPostgresIT {
   @BeforeEach
   void clean() {
     jdbc.update("DELETE FROM task");
+    jdbc.update("DELETE FROM admin_notice");
     jdbc.update("DELETE FROM harvest_run");
     jdbc.update("DELETE FROM work");
     jdbc.update("DELETE FROM source_route");
@@ -234,6 +235,62 @@ class OaiLayerIT extends AbstractPostgresIT {
         java.sql.Timestamp.class).toInstant();
     assertThat(runAfter).isAfter(Instant.now().plus(Duration.ofHours(23)));
     assertThat(count("SELECT count(*) FROM task WHERE state = 'DEAD'")).isZero();
+  }
+
+  @Test
+  void fourthLongPassRestartBreaksRouteAndNotifies(WireMockRuntimeInfo w) throws Exception {
+    route(w, false);
+    jdbc.update("UPDATE source_route SET status = 'VERIFIED' WHERE id = ?", routeId);
+    stubFor(get(urlPathEqualTo("/oai")).withQueryParam("metadataPrefix", equalTo("oai_dc"))
+        .willReturn(xml("pensoft-listrecords-oai_dc.xml")));
+    stubFor(get(urlPathEqualTo("/oai")).withQueryParam("resumptionToken", equalTo(TOKEN_2))
+        .willReturn(xml("bad-resumption-token.xml")));
+    HarvestOaiHandler h = handler(WEDNESDAY);
+    enqueueFirst(h, LayerMode.ONBOARDING);
+    for (int i = 0; i < 4; i++) handleOne(h); // first loss restarts at once, the second is long pass loss 1
+    for (int loss = 2; loss <= 3; loss++) {
+      assertThat(routes.get(routeId).status()).isEqualTo("VERIFIED");
+      assertThat(count("SELECT count(*) FROM admin_notice")).isZero();
+      jdbc.update("UPDATE task SET run_after = now() - interval '1 hour' WHERE state = 'QUEUED'");
+      handleOne(h);
+      handleOne(h);
+    }
+    assertThat(routes.get(routeId).status()).isEqualTo("VERIFIED"); // three restarts are allowed
+    jdbc.update("UPDATE task SET run_after = now() - interval '1 hour' WHERE state = 'QUEUED'");
+    handleOne(h);
+    handleOne(h); // the fourth loss
+    var route = routes.get(routeId);
+    assertThat(route.status()).isEqualTo("BROKEN");
+    assertThat(route.lastError()).isEqualTo("resumption tokens rejected in 4 long passes");
+    assertThat(count("SELECT count(*) FROM task WHERE state = 'QUEUED' AND type = 'HARVEST_OAI'")).isZero();
+    var notice = jdbc.queryForMap("SELECT kind, dedup_key, subject, body FROM admin_notice");
+    assertThat(notice.get("kind")).isEqualTo("ROUTE_RESTART_CAP");
+    assertThat(notice.get("dedup_key")).isEqualTo("route-restart-cap:" + routeId + ":"
+        + LocalDate.now(ZoneOffset.UTC));
+    assertThat((String) notice.get("body")).contains("Fake Journal", "ONBOARDING", "route " + routeId);
+  }
+
+  @Test
+  void lastPageResetsRestartCount(WireMockRuntimeInfo w) throws Exception {
+    route(w, false);
+    jdbc.update("UPDATE source_route SET long_restarts = 2 WHERE id = ?", routeId);
+    stubFor(get(urlPathEqualTo("/oai")).withQueryParam("metadataPrefix", equalTo("oai_dc"))
+        .willReturn(xml("pensoft-listrecords-oai_dc.xml")));
+    stubFor(get(urlPathEqualTo("/oai")).withQueryParam("resumptionToken", equalTo(TOKEN_2))
+        .willReturn(xml("magnolia-listrecords-oai_dc.xml")));
+    stubFor(get(urlPathEqualTo("/oai")).withQueryParam("resumptionToken", equalTo(TOKEN_3))
+        .willReturn(xml("deleted-record.xml")));
+    HarvestOaiHandler h = handler(WEDNESDAY);
+    enqueueFirst(h, LayerMode.ONBOARDING);
+    drain(h);
+    assertThat(count("SELECT long_restarts FROM source_route WHERE id = ?", routeId)).isZero();
+  }
+
+  private void handleOne(HarvestOaiHandler h) throws Exception {
+    Task t = claim(h);
+    assertThat(t).isNotNull();
+    h.handle(t);
+    queue.complete(t.id(), t.attempts());
   }
 
   @Test

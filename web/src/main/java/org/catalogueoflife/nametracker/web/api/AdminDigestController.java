@@ -1,5 +1,6 @@
 package org.catalogueoflife.nametracker.web.api;
 
+import org.catalogueoflife.nametracker.web.auth.AdminOrcids;
 import org.catalogueoflife.nametracker.web.digest.DigestJob;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.annotation.Conditional;
@@ -30,7 +31,7 @@ public class AdminDigestController {
   }
 
   @PostMapping("/api/admin/digests/run")
-  public DigestJob.Result run(@RequestHeader(name = AdminAccess.TOKEN_HEADER, required = false) @Nullable String given,
+  public DigestJob.Result run(@RequestHeader(name = AdminOrcids.TOKEN_HEADER, required = false) @Nullable String given,
       @RequestBody RunRequest req) {
     access.check(given);
     if (req.userId() == null) {

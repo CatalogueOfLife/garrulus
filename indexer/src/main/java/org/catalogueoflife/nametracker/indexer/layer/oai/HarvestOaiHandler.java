@@ -31,7 +31,8 @@ import tools.jackson.databind.node.ObjectNode;
  * {@code from}, a new run, the task's own run_after), so the task ends DONE. A second lost token of the restarted job
  * marks the route BROKEN in {@code LIVE} mode. An {@code ONBOARDING} or {@code BACKFILL} pass may have outlived its
  * tokens in a busy queue: it starts again a day later and records the reason in the route's
- * {@code last_error}, keeping its status (at most one restart a day).
+ * {@code last_error}, keeping its status (at most one restart a day); after {@code max-long-restarts} such restarts
+ * the route is BROKEN and an admin notice is written ({@link RouteLifecycle#longPassLost}).
  */
 @Component
 public class HarvestOaiHandler extends LayerHarvestHandler {
@@ -92,7 +93,9 @@ public class HarvestOaiHandler extends LayerHarvestHandler {
           LOG.warn("OAI route {}: resumption tokens rejected twice; the route is BROKEN", routeId);
           return;
         }
-        // a long onboarding or backfill pass may simply have outlived the tokens: start it again tomorrow
+        // a long onboarding or backfill pass may simply have outlived the tokens: start it again tomorrow, at most
+        // max-long-restarts times, then the route is BROKEN and the admins are told
+        if (!lifecycle.longPassLost(routeId, mode)) return;
         runAfter = clock.instant().plus(RETRY_LONG_PASS);
         routes.setError(routeId, "resumption tokens rejected twice in the " + mode + " pass; it starts again at "
             + runAfter);

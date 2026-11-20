@@ -34,6 +34,7 @@ class CoverageCheckHandlerIT extends AbstractPostgresIT {
     jdbc.update("DELETE FROM layer_contribution");
     jdbc.update("DELETE FROM source_layer_coverage");
     jdbc.update("DELETE FROM harvest_run");
+    jdbc.update("DELETE FROM admin_notice");
     jdbc.update("DELETE FROM work");
     jdbc.update("DELETE FROM source");
     source = src("S1", "DE");
@@ -201,13 +202,17 @@ class CoverageCheckHandlerIT extends AbstractPostgresIT {
 
   @Test
   void zeroYieldWithDoneRunsTurnsFailing() throws Exception {
-    for (int i = 2; i < 63; i++) {
+    for (int i = 3; i < 63; i++) {
       for (int k = 0; k < 10; k++) sight(work("10.6/z" + i + "-" + k, source), Layer.OPENALEX, source, DAY.minusDays(i) + "T12:00:00Z");
     }
-    run("OPENALEX_LIVE", "DONE", DAY);
-    run("OPENALEX_LIVE", "DONE", DAY.minusDays(1));
+    for (int i = 0; i < 3; i++) run("OPENALEX_LIVE", "DONE", DAY.minusDays(i));
     check(DAY);
     assertThat(row(Layer.OPENALEX, DAY).state()).isEqualTo("FAILING");
+    // two days in a row are not enough
+    jdbc.update("DELETE FROM layer_health");
+    jdbc.update("DELETE FROM harvest_run WHERE started < ?::timestamptz", DAY.minusDays(1) + "T00:00:00Z");
+    check(DAY);
+    assertThat(row(Layer.OPENALEX, DAY).state()).isEqualTo("DEGRADED");
   }
 
   @Test
@@ -266,5 +271,92 @@ class CoverageCheckHandlerIT extends AbstractPostgresIT {
         Integer.class, noIssn)).isZero();
     assertThat(row(Layer.OPENALEX, DAY).missShare()).isEqualTo(1.0); // the ISSN-less journal it does serve
     assertThat(row(Layer.CROSSREF, DAY).missShare()).isEqualTo(1.0); // the journal without OpenAlex id
+  }
+
+  private void history(Layer layer, long src, int fromDay, java.util.function.Predicate<LocalDate> on, int perDay) {
+    for (int i = fromDay; i < 63; i++) {
+      LocalDate d = DAY.plusDays(1).minusDays(i);
+      if (!on.test(d)) continue;
+      for (int k = 0; k < perDay; k++) sight(work("10.9/" + layer + d + "-" + k, src), layer, src, d + "T12:00:00Z");
+    }
+  }
+
+  private List<String> noticeKeys() {
+    return jdbc.queryForList("SELECT dedup_key FROM admin_notice ORDER BY id", String.class);
+  }
+
+  @Test
+  void weekdayPublisherQuietWeekendIsOk() throws Exception {
+    LocalDate sunday = DAY.plusDays(1); // 2026-11-15; Saturday and Sunday produce nothing, with DONE runs
+    history(Layer.OPENALEX, source, 1, d -> d.getDayOfWeek().getValue() <= 5, 10);
+    for (int i = 0; i < 3; i++) run("OPENALEX_LIVE", "DONE", sunday.minusDays(i));
+    check(sunday);
+    assertThat(row(Layer.OPENALEX, sunday).state()).isEqualTo("OK");
+    assertThat(noticeKeys()).isEmpty();
+  }
+
+  @Test
+  void magtechIssueFeedQuietDaysAreOk() throws Exception {
+    // an issue feed: 20 works on one Wednesday a week; the quiet days in between have DONE runs and no works
+    history(Layer.MAGTECH, source, 0, d -> d.getDayOfWeek() == java.time.DayOfWeek.WEDNESDAY, 20);
+    for (int i = 0; i < 3; i++) run(Layer.MAGTECH.adapter(), "DONE", DAY.minusDays(i));
+    check(DAY);
+    assertThat(row(Layer.MAGTECH, DAY).state()).isEqualTo("OK");
+  }
+
+  private void blocked() {
+    for (int i = 2; i < 63; i++) {
+      for (int k = 0; k < 10; k++) sight(work("10.8/b" + i + "-" + k, source), Layer.OPENALEX, source, DAY.minusDays(i) + "T12:00:00Z");
+    }
+    run("OPENALEX_LIVE", "FAILED", DAY);
+    run("OPENALEX_LIVE", "FAILED", DAY.minusDays(1));
+  }
+
+  @Test
+  void openalexBlockTwoNightsGivesDegradedThenFailingNotice() throws Exception {
+    blocked();
+    check(DAY.minusDays(1));
+    assertThat(row(Layer.OPENALEX, DAY.minusDays(1)).state()).isEqualTo("DEGRADED");
+    assertThat(noticeKeys()).isEmpty();
+    check(DAY);
+    assertThat(noticeKeys()).containsExactly("layer-failing:OPENALEX:" + DAY);
+  }
+
+  @Test
+  void failingWritesOneNoticeAndRedeliveryAddsNone() throws Exception {
+    blocked();
+    check(DAY);
+    check(DAY);
+    assertThat(noticeKeys()).containsExactly("layer-failing:OPENALEX:" + DAY);
+    var n = jdbc.queryForMap("SELECT kind, subject, body FROM admin_notice");
+    assertThat(n.get("kind")).isEqualTo("LAYER_FAILING");
+    assertThat(n.get("subject")).isEqualTo("Garrulus: layer OPENALEX is failing");
+    assertThat((String) n.get("body")).contains("FAILING", "Failed run days in a row: 2", "7 days: 50",
+        "http://localhost:5173/admin/layers");
+  }
+
+  @Test
+  void recoveryAfterFailingWritesRecoveredNotice() throws Exception {
+    blocked();
+    check(DAY);
+    LocalDate next = DAY.plusDays(1);
+    run("OPENALEX_LIVE", "DONE", next);
+    for (int k = 0; k < 10; k++) sight(work("10.8/r" + k, source), Layer.OPENALEX, source, next + "T12:00:00Z");
+    check(next);
+    assertThat(row(Layer.OPENALEX, next).state()).isEqualTo("OK");
+    check(next);
+    assertThat(noticeKeys()).containsExactly("layer-failing:OPENALEX:" + DAY, "layer-recovered:OPENALEX:" + next);
+    assertThat(jdbc.queryForObject("SELECT subject FROM admin_notice WHERE kind = 'LAYER_RECOVERED'", String.class))
+        .isEqualTo("Garrulus: layer OPENALEX has recovered");
+  }
+
+  @Test
+  void stillFailingRemindsWeekly() throws Exception {
+    blocked();
+    for (int i = 1; i <= 8; i++) run("OPENALEX_LIVE", "FAILED", DAY.plusDays(i));
+    for (int i = 0; i <= 8; i++) check(DAY.plusDays(i));
+    assertThat(noticeKeys()).containsExactly("layer-failing:OPENALEX:" + DAY, "layer-still:OPENALEX:" + DAY.plusDays(7));
+    check(DAY.plusDays(8));
+    assertThat(noticeKeys()).hasSize(2);
   }
 }

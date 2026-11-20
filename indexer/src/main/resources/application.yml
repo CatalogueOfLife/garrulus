@@ -64,14 +64,26 @@ nametracker:
     # nightly COVERAGE_CHECK of yesterday (layer health, coverage); analysis, not behind the harvest switch
     coverage-cron: ${NAMETRACKER_LAYERS_COVERAGE_CRON:0 30 6 * * *}
     oai.enabled: ${NAMETRACKER_LAYERS_OAI_ENABLED:true}
+    # an ONBOARDING/BACKFILL OAI pass that loses its resumption token again restarts a day later at most this many
+    # times; the next loss makes the route BROKEN and writes an admin notice
+    oai.max-long-restarts: ${NAMETRACKER_LAYERS_OAI_MAX_LONG_RESTARTS:3}
     magtech.enabled: ${NAMETRACKER_LAYERS_MAGTECH_ENABLED:true}
     europepmc.enabled: ${NAMETRACKER_LAYERS_EUROPEPMC_ENABLED:true}
     blr.enabled: ${NAMETRACKER_LAYERS_BLR_ENABLED:true}
 
+  # base URL of the SPA, for the links in admin notices
+  public-url: ${NAMETRACKER_PUBLIC_URL:http://localhost:5173}
+
   coverage:
     # layer health: FAILING at this many failed or zero-yield days in a row; DEGRADED under yield-ratio of the weekly
     # median, or with a miss share over miss-share where the baseline was under miss-baseline
+    # (failed run days: fail-days; zero-yield days: zero-fail-days, counted only on days with a DONE run whose expected
+    # yield, the median of that weekday over 8 weeks, is at least zero-yield-min-expected); the yield-ratio rule
+    # applies only from a weekly median of yield-min-median. Start values, tuned after a month.
     fail-days: ${NAMETRACKER_COVERAGE_FAIL_DAYS:2}
+    zero-fail-days: ${NAMETRACKER_COVERAGE_ZERO_FAIL_DAYS:3}
+    zero-yield-min-expected: ${NAMETRACKER_COVERAGE_ZERO_YIELD_MIN_EXPECTED:3.0}
+    yield-min-median: ${NAMETRACKER_COVERAGE_YIELD_MIN_MEDIAN:14}
     yield-ratio: ${NAMETRACKER_COVERAGE_YIELD_RATIO:0.5}
     miss-share: ${NAMETRACKER_COVERAGE_MISS_SHARE:0.30}
     miss-baseline: ${NAMETRACKER_COVERAGE_MISS_BASELINE:0.10}

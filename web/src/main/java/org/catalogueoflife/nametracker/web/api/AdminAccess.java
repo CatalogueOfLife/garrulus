@@ -1,6 +1,5 @@
 package org.catalogueoflife.nametracker.web.api;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import org.catalogueoflife.nametracker.store.account.AccountMapper;
@@ -32,7 +31,6 @@ import org.springframework.web.server.ResponseStatusException;
 @Component
 public class AdminAccess {
 
-  public static final String TOKEN_HEADER = "X-Admin-Token";
   private static final Logger LOG = LoggerFactory.getLogger(AdminAccess.class);
 
   private final byte @Nullable [] token;
@@ -46,11 +44,6 @@ public class AdminAccess {
     this.orcids = orcids;
     this.accounts = accounts;
     this.currentUser = currentUser;
-  }
-
-  /** Header present ({@link #TOKEN_HEADER}, any value): the token path, the only one exempt from XSRF. */
-  public static boolean tokenSent(HttpServletRequest request) {
-    return request.getHeader(TOKEN_HEADER) != null;
   }
 
   /**
@@ -83,7 +76,7 @@ public class AdminAccess {
 
   private static @Nullable String rawHeader() {
     if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes a) {
-      return a.getRequest().getHeader(TOKEN_HEADER);
+      return a.getRequest().getHeader(AdminOrcids.TOKEN_HEADER);
     }
     return null;
   }

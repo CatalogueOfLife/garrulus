@@ -75,6 +75,9 @@ nametracker:
     # ORCID iDs (comma-separated) whose ORCID sign-in makes an admin; read at start. Without token and iDs the admin
     # endpoints do not exist (404).
     orcids: ${NAMETRACKER_ADMIN_ORCIDS:}
+    # mails the admin notices of the indexer (layer failing/recovered, route restart cap) to the admins' verified
+    # addresses (UTC, six fields); "-" switches it off
+    mail-cron: ${NAMETRACKER_ADMIN_MAIL_CRON:0 */5 * * * *}
   blobs:
     dir: ${NAMETRACKER_BLOBS_DIR:./data/blobs}
   web:

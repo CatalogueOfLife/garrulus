@@ -43,6 +43,9 @@ public interface AccountMapper {
   /** Accounts that may get digests: a verified address and a frequency other than OFF; by id. */
   java.util.List<AppUser> digestCandidates();
 
+  /** Accounts with an ORCID iD and a verified address, by id: the candidates for admin mail (web filters by iD). */
+  java.util.List<AppUser> withOrcidAndVerifiedEmail();
+
   /** Hard delete; subscriptions, hits, digests and email tokens go with it (cascade), sessions do not. */
   int delete(@Param("id") long id);
 }

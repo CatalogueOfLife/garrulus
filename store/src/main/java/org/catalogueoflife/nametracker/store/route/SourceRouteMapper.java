@@ -47,6 +47,11 @@ public interface SourceRouteMapper {
 
   int setBackfilled(@Param("id") long id, @Param("at") Instant at);
 
+  /** Counts one more lost long pass of the route and returns the new count. */
+  int incrementLongRestarts(@Param("id") long id);
+
+  int resetLongRestarts(@Param("id") long id);
+
   /** Route counts per layer and status: {@code layer}, {@code status}, {@code n}. */
   List<Map<String, Object>> countByLayerAndStatus();
 }

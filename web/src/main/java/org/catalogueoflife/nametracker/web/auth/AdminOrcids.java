@@ -21,6 +21,8 @@ import org.springframework.stereotype.Component;
 public class AdminOrcids {
 
   public static final String PROPERTY = "nametracker.admin.orcids";
+  /** The header of the script access to {@code /api/admin/**}. */
+  public static final String TOKEN_HEADER = "X-Admin-Token";
   private static final Logger LOG = LoggerFactory.getLogger(AdminOrcids.class);
   private static final Pattern ORCID = Pattern.compile("\\d{4}-\\d{4}-\\d{4}-\\d{3}[\\dX]");
   private static final Pattern PREFIX = Pattern.compile("^https?://(www\\.)?orcid\\.org/", Pattern.CASE_INSENSITIVE);
@@ -32,6 +34,11 @@ public class AdminOrcids {
     if (!ids.isEmpty()) {
       LOG.info("{} admin ORCID iD(s) configured", ids.size());
     }
+  }
+
+  /** Header present ({@link #TOKEN_HEADER}, any value): the token path, the only one exempt from XSRF. */
+  public static boolean tokenSent(jakarta.servlet.http.HttpServletRequest request) {
+    return request.getHeader(TOKEN_HEADER) != null;
   }
 
   /** True if the iD, normalised, is listed. */

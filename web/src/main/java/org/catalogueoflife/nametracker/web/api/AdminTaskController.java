@@ -3,6 +3,7 @@ package org.catalogueoflife.nametracker.web.api;
 import java.util.Map;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
+import org.catalogueoflife.nametracker.web.auth.AdminOrcids;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.http.HttpStatus;
@@ -36,7 +37,7 @@ public class AdminTaskController {
   @PostMapping("/api/admin/tasks")
   @ResponseStatus(HttpStatus.ACCEPTED)
   public Map<String, Long> enqueue(
-      @RequestHeader(name = AdminAccess.TOKEN_HEADER, required = false) @Nullable String given,
+      @RequestHeader(name = AdminOrcids.TOKEN_HEADER, required = false) @Nullable String given,
       @RequestBody EnqueueRequest req) {
     // checked here, not in a path-matching filter: whatever path variant reached this handler is checked
     access.check(given);

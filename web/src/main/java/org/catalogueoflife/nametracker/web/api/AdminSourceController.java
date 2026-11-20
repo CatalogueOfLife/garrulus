@@ -9,6 +9,7 @@ import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
+import org.catalogueoflife.nametracker.web.auth.AdminOrcids;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.http.HttpStatus;
@@ -61,7 +62,7 @@ public class AdminSourceController {
 
   @GetMapping("/api/admin/sources")
   public List<SourceView> list(
-      @RequestHeader(name = AdminAccess.TOKEN_HEADER, required = false) @Nullable String given,
+      @RequestHeader(name = AdminOrcids.TOKEN_HEADER, required = false) @Nullable String given,
       @RequestParam(required = false) @Nullable String tier,
       @RequestParam(required = false) @Nullable Boolean active,
       @RequestParam(required = false) @Nullable String q,
@@ -79,7 +80,7 @@ public class AdminSourceController {
 
   @PatchMapping("/api/admin/sources/{id}")
   public SourceView patch(
-      @RequestHeader(name = AdminAccess.TOKEN_HEADER, required = false) @Nullable String given,
+      @RequestHeader(name = AdminOrcids.TOKEN_HEADER, required = false) @Nullable String given,
       @PathVariable long id, @RequestBody PatchRequest req) {
     access.check(given);
     if (req.tier() == null && req.active() == null) {
@@ -107,7 +108,7 @@ public class AdminSourceController {
   @PostMapping("/api/admin/sources")
   @ResponseStatus(HttpStatus.ACCEPTED)
   public Map<String, Long> add(
-      @RequestHeader(name = AdminAccess.TOKEN_HEADER, required = false) @Nullable String given,
+      @RequestHeader(name = AdminOrcids.TOKEN_HEADER, required = false) @Nullable String given,
       @RequestBody AddRequest req) {
     access.check(given);
     String openalexId = req.openalexId() == null ? "" : req.openalexId().strip();

@@ -134,4 +134,11 @@ public class MailService {
         """.formatted(href);
     return send(to, userId, "Confirm your address for Garrulus", text, html);
   }
+
+  /** A notice for the admins (plain text; the html part repeats it); the body's line breaks are kept. */
+  public Outcome sendAdminNotice(String to, long userId, String subject, String body) {
+    String html = "<!doctype html>\n<html><body style=\"font-family: sans-serif; line-height: 1.5\">\n<p>"
+        + HtmlUtils.htmlEscape(body).replace("\n\n", "</p>\n<p>").replace("\n", "<br>") + "</p>\n</body></html>\n";
+    return deliver(to, userId, subject, body, html, Map.of());
+  }
 }
