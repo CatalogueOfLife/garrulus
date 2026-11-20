@@ -245,6 +245,7 @@ class SourceSeederTest {
 
     ArgumentCaptor<Source> cap = ArgumentCaptor.forClass(Source.class);
     verify(sources).upsertSeed(cap.capture());
+    assertThat(cap.getValue().issns()).containsExactly("1313-2989", "1175-5326"); // OpenAlex's, then the DOAJ-only one
     verify(sources).updateIdentity(eq(5L), org.mockito.ArgumentMatchers.isNull(),
         org.mockito.ArgumentMatchers.argThat(l -> l.containsAll(List.of("1313-2989", "1175-5326"))), any(), any(), any(),
         eq("S1"), any());

@@ -33,14 +33,14 @@ class SourceMapperIT extends AbstractPostgresIT {
   }
 
   @Test
-  void upsertSeedKeepsIssnsAlreadyHeld() {
-    long id = sources.upsertSeed(new Source(null, "S-keep", null, List.of("1313-2989"), "A", null, null, null, null,
-        "CORE", "SEED_TOPIC", "{}", true, List.of(), null, null, List.of(), "{}", List.of(), null, null, null, null, null,
-        null, null, null, null, "SEED"));
-    sources.upsertSeed(new Source(null, "S-keep", null, List.of("1175-5326"), "A", null, null, null, null, "CORE",
+  void reSeedReplacesIssnsWithOpenAlexsList() {
+    long id = sources.upsertSeed(new Source(null, "S-drop", null, List.of("1313-2989", "1175-5326"), "A", null, null, null,
+        null, "CORE", "SEED_TOPIC", "{}", true, List.of(), null, null, List.of(), "{}", List.of(), null, null, null, null,
+        null, null, null, null, null, "SEED"));
+    sources.upsertSeed(new Source(null, "S-drop", null, List.of("1313-2989"), "A", null, null, null, null, "CORE",
         "SEED_TOPIC", "{}", true, List.of(), null, null, List.of(), "{}", List.of(), null, null, null, null, null, null,
         null, null, null, "SEED"));
-    assertThat(sources.get(id).issns()).containsExactlyInAnyOrder("1313-2989", "1175-5326");
+    assertThat(sources.get(id).issns()).containsExactly("1313-2989");
   }
 
   @Test

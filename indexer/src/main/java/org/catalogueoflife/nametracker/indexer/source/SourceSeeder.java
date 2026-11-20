@@ -105,7 +105,10 @@ public class SourceSeeder {
       long total = totals.get(id);
       Source row = build(node, id, tier, "SEED_TOPIC", "SEED", (int) (total / YEARS));
       Source existing = sources.findByOpenalexId(id);
-      if (existing == null) existing = adoptCandidate(id, row);
+      if (existing == null) {
+        existing = adoptCandidate(id, row);
+        if (existing != null) row = build(node, id, tier, "SEED_TOPIC", "SEED", (int) (total / YEARS), existing.issns());
+      }
       long sourceId = sources.upsertSeed(row);
       disciplines.applyOpenAlex(sourceId, node);
       signals.upsert(sourceId, "SEED_TOPIC", "", FinderJson.mapper().createObjectNode()
@@ -143,9 +146,7 @@ public class SourceSeeder {
     if (issns.isEmpty()) return null;
     Source hit = identity.find(issns, null);
     if (hit == null || hit.openalexId() != null) return null;
-    List<String> union = new ArrayList<>(issns);
-    for (String i : hit.issns()) if (!union.contains(i)) union.add(i); // keeps the candidate's own (a DOAJ-only ISSN)
-    sources.updateIdentity(hit.id(), null, union, null, null, null, openalexId, null);
+    sources.updateIdentity(hit.id(), null, union(issns, hit.issns()), null, null, null, openalexId, null);
     return hit;
   }
 
@@ -178,9 +179,16 @@ public class SourceSeeder {
    */
   public static Source build(JsonNode n, String id, String tier, String origin, String tierSetBy,
       @Nullable Integer worksPerYear) {
+    return build(n, id, tier, origin, tierSetBy, worksPerYear, List.of());
+  }
+
+  /** As above; {@code keepIssns} (those of an adopted candidate, a DOAJ-only ISSN) follow OpenAlex's own. */
+  static Source build(JsonNode n, String id, String tier, String origin, String tierSetBy,
+      @Nullable Integer worksPerYear, List<String> keepIssns) {
     String issnL = text(n, "issn_l");
-    List<String> issns = new ArrayList<>();
-    n.path("issn").forEach(i -> issns.add(i.asString()));
+    List<String> own = new ArrayList<>();
+    n.path("issn").forEach(i -> own.add(i.asString()));
+    List<String> issns = union(own, keepIssns);
     Boolean isOa = bool(n, "is_oa");
     Boolean inDoaj = bool(n, "is_in_doaj");
     JsonNode apc = n.path("apc_usd");
@@ -190,6 +198,12 @@ public class SourceSeeder {
         List.of(), null, "CORE".equals(tier) ? "TAXONOMIC" : "GENERAL", null,
         null, null, oaModel(isOa, inDoaj, apcUsd), text(n, "country_code"), null, null, worksPerYear, null, null, null,
         null, tierSetBy);
+  }
+
+  private static List<String> union(List<String> first, List<String> more) {
+    List<String> u = new ArrayList<>(first);
+    for (String i : more) if (!u.contains(i)) u.add(i);
+    return u;
   }
 
   /** DIAMOND: in DOAJ without a charge; GOLD: open access with a charge; otherwise unknown. */
