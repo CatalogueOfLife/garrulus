@@ -5,7 +5,33 @@ below) and the checklist for the GBIF VM, the first always-on installation, wher
 runs. The dev-run laptop is often offline, so its nights are not counted (same reasoning as `docs/m6a-dev-check.md`).
 Paths are relative to the run directory; `data/run/psql.sh -c "..."` is the psql helper of the dev run.
 
-## Local run (pending)
+## Local run (2026-11-20, done except the browser steps)
+
+**Results.** Deployed at 10:08 UTC from `main` (indexer/web jars of `e1363b8`; frontend `b5dc021` served by Vite on
+127.0.0.1:5173). `mvn -B verify` and the frontend tests were green in the fix wave.
+- Flyway applied V19 and V20 on the dev DB (about 104k works, 313 sources before) in under 0.2 s.
+- Web started with `NAMETRACKER_ADMIN_ORCIDS` = the dev DB's one ORCID account, Mailpit on 1025/8025, the public URL
+  127.0.0.1:5173. `REFRESH_ISSNL` not run (switch off).
+- `DISCOVER_SOURCES` by hand for DOAJ, PKP_BEACON, PLAZI and BLR (COL references skipped: the XR zip over a travel
+  connection): 15 tasks incl. continuations, all DONE.
+  - New candidates: DOAJ 375, PKP Beacon 219, Plazi 59, BLR 0 (`layer_unmatched` is empty on the dev run; BLR runs
+    nightly and the laptop's nights do not count). Signals: DOAJ 406, PKP Beacon 265, Plazi 119 (one per source).
+  - Candidate countries: GB 88, none 76, BR 51, US 51, CH 48, ID 40, NL 30, **IN 24**, DE 21 … **CN 14**.
+  - Routes: 265 OAI routes from Beacon hints stay PENDING (the route gate: candidates are not verified before
+    promotion); the 18 ACTIVE and 1 BROKEN routes are M6a's seed.
+  - 653 `IDENTIFY_SOURCE` queued at BACKFILL behind the dev run's backlog.
+- `SAMPLE_SOURCE` (admin POST, forced) for three DOAJ/Plazi candidates: one 20 Crossref articles, all with abstracts,
+  2.4 names per article, acts 0, groups Chordates 0.28 / Protists 0.15 / Crustacea 0.15 …, score 0.16; one 2 articles
+  (below 5: counted as no sample), score 0.07 from signals; one with no reachable route (empty row), score 0.32 from
+  signals. Nothing was written to `work`.
+- An `admin_notice` inserted by hand was claimed by the 5-minute mail job and ended `SUPPRESSED`: the admin account
+  (ORCID sign-in) has no e-mail address, and admin mail goes only to verified addresses of admin accounts (by design).
+  To see it reach Mailpit, Markus adds and verifies an e-mail on his account first (B-steps below).
+
+**Still Markus'**: the browser steps B1 to B5, plus adding a verified e-mail to the ORCID account and re-inserting a
+notice to see the admin mail arrive in Mailpit (http://127.0.0.1:8025).
+
+### The procedure
 
 Runs once, after the final review's fix wave, so the dev run gets the final code. What a laptop can show. Steps 1 to 6
 are for the controller or Markus at the terminal; the browser steps (B1 to B5) are **Markus' to do**.
