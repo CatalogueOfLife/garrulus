@@ -93,10 +93,14 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
   }
 
   private IdentifySourceHandler handler(WireMockRuntimeInfo w, OpenAlexBudget budget) {
+    return handler(w, budget, w.getHttpBaseUrl() + "/doaj");
+  }
+
+  private IdentifySourceHandler handler(WireMockRuntimeInfo w, OpenAlexBudget budget, String doajBase) {
     PoliteHttp http = EuropePmcSearchClientTest.http();
     String base = w.getHttpBaseUrl();
     JournalCompletion completion = new JournalCompletion(new CrossrefClient(http, null, base + "/crossref"),
-        new OpenAlexClient(http, budget, null, base + "/openalex"), new DoajClient(http, base + "/doaj"), true,
+        new OpenAlexClient(http, budget, null, base + "/openalex"), new DoajClient(http, doajBase), true,
         sources, links, raw, routes, beacon, registry, fold, disciplines, queue, tx);
     return new IdentifySourceHandler(completion, sources, outage);
   }
@@ -128,6 +132,18 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
         .willReturn(okJson(DoajClientTest.fixture("openalex-source-issn.json"))));
   }
 
+  private OpenAlexBudget budget() {
+    return new OpenAlexBudget(usage, new BigDecimal("1.00"), new BigDecimal("0.30"), clock);
+  }
+
+  /** The DOAJ record of EJT, rewritten to list Zootaxa's print and electronic ISSN. */
+  private static String doajZootaxa() throws Exception {
+    String json = DoajClientTest.fixture("doaj-journal-2118-9773.json");
+    assertThat(json).contains("\"eissn\": \"2118-9773\"");
+    return json.replace("\"eissn\": \"2118-9773\"",
+        "\"pissn\": \"" + ZOOTAXA_P + "\", \"eissn\": \"" + ZOOTAXA_E + "\"");
+  }
+
   private long tasks(String type) {
     return jdbc.queryForObject("SELECT count(*) FROM task WHERE type = ?", Long.class, type);
   }
@@ -144,8 +160,7 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
     jdbc.update("INSERT INTO issn_link VALUES (?, ?), (?, ?)", ZOOTAXA_P, ZOOTAXA_P, ZOOTAXA_E, ZOOTAXA_P);
     stubNothingKnown();
     stubZootaxa(ZOOTAXA_P, ZOOTAXA_P);
-    stubFor(get(urlPathEqualTo("/doaj/search/journals/issn:" + ZOOTAXA_P))
-        .willReturn(okJson(DoajClientTest.fixture("doaj-journal-2118-9773.json"))));
+    stubFor(get(urlPathEqualTo("/doaj/search/journals/issn:" + ZOOTAXA_P)).willReturn(okJson(doajZootaxa())));
     long id = candidate(ZOOTAXA_E);
     assertThat(sources.get(id).title()).isEqualTo(ZOOTAXA_E);
 
@@ -375,17 +390,111 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
         + "VALUES ('{1175-5334}', 'https://mapress.example/oai', 'zt', false, now())");
     stubNothingKnown();
     stubZootaxa(ZOOTAXA_P, ZOOTAXA_P);
-    stubFor(get(urlPathEqualTo("/doaj/search/journals/issn:" + ZOOTAXA_P))
-        .willReturn(okJson(DoajClientTest.fixture("doaj-journal-2118-9773.json"))));
+    stubFor(get(urlPathEqualTo("/doaj/search/journals/issn:" + ZOOTAXA_P)).willReturn(okJson(doajZootaxa())));
+    stubFor(get(urlPathEqualTo("/openalex/sources/" + ZOOTAXA_OA))
+        .willReturn(okJson(DoajClientTest.fixture("openalex-source-issn.json"))));
     long id = candidate(ZOOTAXA_E);
     IdentifySourceHandler h = handler(w);
 
     h.handle(task(id));
     Map<String, Object> first = snapshot(id);
+    assertThat(sources.get(id).inDoaj()).isTrue();
     h.handle(task(id));
 
+    verify(1, getRequestedFor(urlPathEqualTo("/openalex/sources/" + ZOOTAXA_OA))); // the OpenAlex step ran again
     assertThat(snapshot(id)).isEqualTo(first);
     assertThat(routes.forSource(id)).hasSize(1);
+  }
+
+  @Test
+  void crossrefIssnsFoldDuplicateCandidates(WireMockRuntimeInfo w) throws Exception {
+    stubNothingKnown();
+    stubFor(get(urlPathMatching("/crossref/journals/1175-53(26|34)"))
+        .willReturn(okJson(DoajClientTest.fixture("crossref-journal-1175-5326.json"))));
+    long p = candidate(ZOOTAXA_P);
+    signals.upsert(p, "DOAJ", "", "{}");
+    long e = candidate(ZOOTAXA_E);
+    signals.upsert(e, "PKP_BEACON", "", "{}");
+
+    handler(w).handle(task(e)); // the younger candidate folds into the older one
+
+    assertThat(sources.get(e)).isNull();
+    Source s = sources.get(p);
+    assertThat(s.issns()).containsExactly(ZOOTAXA_P, ZOOTAXA_E);
+    assertThat(s.title()).isEqualTo("Zootaxa"); // the folded candidate's real title replaces the placeholder
+    assertThat(signals.forSource(p)).extracting(SourceSignal::origin).containsExactlyInAnyOrder("DOAJ", "PKP_BEACON");
+    assertThat(tasks("PROBE_EUROPEPMC")).isZero();
+  }
+
+  @Test
+  void doajIssnsFoldYoungerCandidateIntoIdentifiedSource(WireMockRuntimeInfo w) throws Exception {
+    stubNothingKnown();
+    stubFor(get(urlPathEqualTo("/doaj/search/journals/issn:" + ZOOTAXA_P)).willReturn(okJson(doajZootaxa())));
+    long p = candidate(ZOOTAXA_P);
+    signals.upsert(p, "DOAJ", "", "{}");
+    long e = candidate(ZOOTAXA_E);
+    signals.upsert(e, "PKP_BEACON", "", "{}");
+
+    handler(w).handle(task(p)); // the identified source is the older one: the younger candidate folds into it
+
+    assertThat(sources.get(e)).isNull();
+    Source s = sources.get(p);
+    assertThat(s.issns()).containsExactly(ZOOTAXA_P, ZOOTAXA_E);
+    assertThat(s.inDoaj()).isTrue();
+    assertThat(signals.forSource(p)).extracting(SourceSignal::origin).containsExactlyInAnyOrder("DOAJ", "PKP_BEACON");
+    assertThat(tasks("PROBE_EUROPEPMC")).isEqualTo(1); // its completion went on
+  }
+
+  @Test
+  void curatedCandidateIsNotFolded(WireMockRuntimeInfo w) throws Exception {
+    stubNothingKnown();
+    stubFor(get(urlPathEqualTo("/doaj/search/journals/issn:" + ZOOTAXA_P)).willReturn(okJson(doajZootaxa())));
+    long p = candidate(ZOOTAXA_P);
+    long tiered = candidate(ZOOTAXA_E);
+    jdbc.update("UPDATE source SET tier_set_by = 'ADMIN' WHERE id = ?", tiered);
+    long disciplined = candidate(ZOOTAXA_E);
+    jdbc.update("UPDATE source SET discipline_set_by = 'ADMIN' WHERE id = ?", disciplined);
+
+    handler(w).handle(task(p));
+
+    assertThat(sources.get(tiered)).isNotNull();
+    assertThat(sources.get(disciplined)).isNotNull();
+    assertThat(sources.get(p).issns()).containsExactly(ZOOTAXA_P, ZOOTAXA_E);
+  }
+
+  @Test
+  void olderSourceTakesOverTheOpenalexIdOfAYoungerCandidate(WireMockRuntimeInfo w) throws Exception {
+    stubNothingKnown();
+    stubFor(get(urlPathEqualTo("/openalex/sources/issn:" + ZOOTAXA_P))
+        .willReturn(okJson(DoajClientTest.fixture("openalex-source-issn.json"))));
+    long older = candidate(ZOOTAXA_P);
+    long younger = jdbc.queryForObject("INSERT INTO source (openalex_id, issns, title, tier, origin) "
+        + "VALUES (?, '{}', 'Zootaxa', 'CANDIDATE', 'SEED_TOPIC') RETURNING id", Long.class, ZOOTAXA_OA);
+    signals.upsert(younger, "SEED_TOPIC", "", "{}");
+
+    handler(w).handle(task(older));
+
+    assertThat(sources.get(younger)).isNull();
+    Source s = sources.get(older);
+    assertThat(s.openalexId()).isEqualTo(ZOOTAXA_OA); // deleted first, then set: the column is unique
+    assertThat(s.country()).isEqualTo("NZ");
+    assertThat(signals.forSource(older)).extracting(SourceSignal::origin).containsExactly("SEED_TOPIC");
+  }
+
+  @Test
+  void doajOutageDefersAndKeepsDoajData(WireMockRuntimeInfo w) throws Exception {
+    stubNothingKnown();
+    stubFor(get(urlPathMatching("/doaj/search/journals/.*")).willReturn(aResponse().withStatus(502)));
+    long id = candidate(EJT);
+    jdbc.update("UPDATE source SET in_doaj = true WHERE id = ?", id);
+    raw.replace(id, "DOAJ_LCC", List.of(new RawClassification("DOAJ_LCC", "QL1-991", "Zoology", null, 0)));
+
+    assertThatThrownBy(() -> handler(w).handle(task(id))).isInstanceOf(ServiceOutageException.class);
+    assertThatThrownBy(() -> handler(w, budget(), UNROUTABLE + "/doaj").handle(task(id)))
+        .isInstanceOf(ServiceOutageException.class);
+
+    assertThat(sources.get(id).inDoaj()).isTrue();
+    assertThat(rawCodes(id, "DOAJ_LCC")).containsExactly("QL1-991");
   }
 
   private Map<String, Object> snapshot(long id) {

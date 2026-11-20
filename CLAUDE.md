@@ -189,13 +189,15 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   Crossref `/journals/{issn}` (ISSNs, the title while it is still an ISSN, a missing publisher); OpenAlex by id or
   `/sources/issn:` (id, ISSN-L, ISSNs, country, host, OA flags, raw subfields/topics; a spent budget skips the step);
   DOAJ (`NAMETRACKER_DOAJ_BASE_URL`, default `https://doaj.org/api/v4`; switch `nametracker.discovery.doaj.enabled`,
-  env `NAMETRACKER_DISCOVERY_DOAJ_ENABLED`, true: `in_doaj`, raw `DOAJ_LCC`, `doaj_discontinued`, `successor_issns`,
-  a missing country); a PKP Beacon row of its ISSNs gives a PENDING OAI route (`VERIFY_ROUTE`) unless an OAI route with
-  that base and set exists; then `PROBE_EUROPEPMC` and the derived disciplines. A CEASED or deleted source is skipped;
-  an outage defers the whole task. When OpenAlex names an id another source holds, a `CANDIDATE` without works and
-  without an `ACTIVE` route is folded into that holder (`SourceFold`: ISSNs, signals, routes, raw rows, samples,
-  registrations, follows move; duplicates dropped; the candidate is deleted); otherwise WARN and both stay, the
-  candidate without the id.
+  env `NAMETRACKER_DISCOVERY_DOAJ_ENABLED`, true: its ISSNs, `in_doaj` (DOAJ alone sets it while switched on), raw
+  `DOAJ_LCC`, `doaj_discontinued`, `successor_issns`, a missing country); a PKP Beacon row of its ISSNs gives a PENDING
+  OAI route (`VERIFY_ROUTE`) unless an OAI route with that base and set exists; then `PROBE_EUROPEPMC` and the derived
+  disciplines. A CEASED or deleted source is skipped; an outage defers the whole task. After every identity write
+  (locked transaction) any other source sharing an ISSN, the ISSN-L or the OpenAlex id is a duplicate (`SourceFold`):
+  the younger folds into the older (ISSNs, OpenAlex id, signals, routes, raw rows, samples, registrations, follows move;
+  duplicates dropped; the younger is deleted) if it is a `CANDIDATE` without works, without an `ACTIVE` route, without
+  admin curation (`tier_set_by`/`discipline_set_by` ADMIN) and without a different OpenAlex id; otherwise WARN and both
+  stay (a held OpenAlex id is then not written). A source folded away ends its completion.
 - `indexer` salience (properties only, no env variables; set them in `application.yml`, `.env` or as `-D`/args):
   `nametracker.salience.{title=0.40, abstract=0.20, act=0.35, heading=0.15, share=0.25, repeat=0.15, ubiquity=0.50,
   ubiquity-full-share=0.02, threshold=0.35}`. A name with salience >= threshold is a main subject of the work.
