@@ -52,7 +52,7 @@ class RegistryDeadlockTest {
         "CANDIDATE", "DOAJ", null, true, null, null, null, null, null, null, null, null, null, null, null, null, null,
         null, null, "SEED"));
     doThrow(new PessimisticLockingFailureException("deadlock detected")).when(completion).complete(anyLong(), any());
-    IdentifySourceHandler h = new IdentifySourceHandler(completion, sources, new HarvestOutage(Duration.ofMinutes(30),
+    IdentifySourceHandler h = new IdentifySourceHandler(completion, null, sources, new HarvestOutage(Duration.ofMinutes(30),
         CLOCK), CLOCK);
     Task task = new Task(1, IdentifySourceHandler.TYPE, "{\"sourceId\":7}", TaskPriority.BACKFILL, TaskState.RUNNING,
         1, null, null, null, null, null, null);

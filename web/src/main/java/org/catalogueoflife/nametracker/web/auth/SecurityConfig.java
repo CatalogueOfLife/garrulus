@@ -31,9 +31,9 @@ import org.springframework.security.web.util.matcher.AndRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
 /**
- * Security of web: public reads stay open, {@code /api/me/**} needs a session (401 JSON, never a redirect), the admin
- * endpoints take the {@code X-Admin-Token} header or an admin session, checked in the controllers
- * ({@link AdminAccess}). Sessions live in Postgres (Spring Session JDBC). Sign-in is by email link through Spring's
+ * Security of web: public reads stay open, {@code /api/me/**} and {@code POST /api/sources/register} need a session
+ * (401 JSON, never a redirect), the admin endpoints take the {@code X-Admin-Token} header or an admin session, checked
+ * in the controllers ({@link AdminAccess}). Sessions live in Postgres (Spring Session JDBC). Sign-in is by email link through Spring's
  * one-time-token login: {@code POST /api/auth/link} (SignInLinkController) generates and mails the token,
  * {@code POST /login/ott} with the form parameter {@code token} signs in. Spring's own token
  * generation endpoint and its default pages are switched off. ORCID sign-in ({@code /oauth2/authorization/orcid},
@@ -80,6 +80,8 @@ public class SecurityConfig {
         .authorizeHttpRequests(auth -> auth
             .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
             .requestMatchers("/api/me", "/api/me/**", "/api/auth/verify-email").authenticated()
+            // journal registration: a signed-in user (session, XSRF)
+            .requestMatchers(HttpMethod.POST, "/api/sources/register").authenticated()
             // AdminAccess checks the X-Admin-Token header or the admin session in the controllers
             .requestMatchers("/api/admin/**").permitAll()
             .requestMatchers("/api/auth/**", "/api/unsubscribe", "/login/**", "/oauth2/**", "/feeds/**",

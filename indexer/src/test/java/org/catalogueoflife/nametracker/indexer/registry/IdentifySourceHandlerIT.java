@@ -102,7 +102,7 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
     JournalCompletion completion = new JournalCompletion(new CrossrefClient(http, null, base + "/crossref"),
         new OpenAlexClient(http, budget, null, base + "/openalex"), new DoajClient(http, doajBase), true,
         sources, links, raw, routes, beacon, locks, fold, disciplines, queue, tx);
-    return new IdentifySourceHandler(completion, sources, outage, clock);
+    return new IdentifySourceHandler(completion, null, sources, outage, clock);
   }
 
   private static Task task(long sourceId) {

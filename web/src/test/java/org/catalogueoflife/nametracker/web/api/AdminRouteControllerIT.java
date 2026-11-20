@@ -22,7 +22,7 @@ class AdminRouteControllerIT extends AbstractPostgresIT {
   @org.springframework.boot.test.context.TestConfiguration
   static class Resolver {
     @org.springframework.context.annotation.Bean
-    RouteConfigCheck.HostResolver hostResolver() {
+    org.catalogueoflife.nametracker.store.net.PublicHost.Resolver hostResolver() {
       return RouteConfigCheckTest.FAKE;
     }
   }

@@ -12,9 +12,10 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @SpringBootTest(
     classes = WebApplication.class,
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-    // no scheduled digests or admin mails in tests: the ITs call the jobs directly
+    // no scheduled digests, admin or registration mails in tests: the ITs call the jobs directly
     properties = {"nametracker.admin.token=test-token", "nametracker.digest.cron=-",
-        "nametracker.admin.mail-cron=-"})
+        "nametracker.admin.mail-cron=-", "nametracker.registrations.mail-cron=-",
+        "nametracker.registrations.admin-note-cron=-"})
 public abstract class AbstractPostgresIT {
 
   @ServiceConnection

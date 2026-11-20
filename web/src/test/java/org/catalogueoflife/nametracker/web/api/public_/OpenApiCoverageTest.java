@@ -19,7 +19,7 @@ import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import org.yaml.snakeyaml.Yaml;
 
-/** The hand-written OpenAPI file must list every public GET under /api (not /api/admin). */
+/** The hand-written OpenAPI file must list every public GET under /api (not /api/admin), and only mapped paths. */
 class OpenApiCoverageTest extends AbstractPostgresIT {
 
   @Autowired @org.springframework.beans.factory.annotation.Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping mapping;
@@ -42,20 +42,22 @@ class OpenApiCoverageTest extends AbstractPostgresIT {
     Set<String> missing = new TreeSet<>();
     Set<String> mapped = new TreeSet<>();
     for (RequestMappingInfo info : mapping.getHandlerMethods().keySet()) {
-      if (!info.getMethodsCondition().getMethods().contains(RequestMethod.GET) || info.getPathPatternsCondition() == null) {
+      if (info.getPathPatternsCondition() == null) {
         continue;
       }
+      boolean get = info.getMethodsCondition().getMethods().contains(RequestMethod.GET);
       for (String p : info.getPathPatternsCondition().getPatternValues()) {
         if (p.startsWith("/api/") && !p.startsWith("/api/admin")) {
           mapped.add(p);
-          if (!documented.contains(p)) {
+          if (get && !documented.contains(p)) {
             missing.add(p);
           }
         }
       }
     }
     assertThat(missing).as("public GET mappings missing from openapi.yaml").isEmpty();
-    // nothing documented that does not exist as a GET mapping, nothing admin
+    // nothing documented that is not mapped (by any method: POST /api/sources/register is documented too), nothing
+    // admin
     assertThat(documented).as("documented but not mapped").allMatch(mapped::contains);
     assertThat(documented).noneMatch(p -> p.startsWith("/api/admin"));
   }

@@ -135,6 +135,46 @@ public class MailService {
     return send(to, userId, "Confirm your address for Garrulus", text, html);
   }
 
+  /**
+   * The one mail about a registered journal: an admin accepted it ({@code accepted}: it is now harvested) or declined
+   * it. The title (from the journal services) and the input (typed by the user) are escaped in the html part and kept
+   * to one line in the subject.
+   */
+  public Outcome sendRegistrationDecision(String to, long userId, @Nullable String title, String input,
+      boolean accepted, String link) {
+    String name = oneLine(title == null || title.isBlank() ? input : title, 150);
+    String subject = "Your registered journal " + name + (accepted ? " is now harvested" : " will not be harvested");
+    String what = accepted
+        ? "is now harvested: Garrulus names and indexes its new papers, and you can follow it."
+        : "will not be harvested: the editors decided against it for now. Thank you for the suggestion.";
+    String text = """
+        Hello,
+
+        the journal you registered, %s (%s), %s
+
+        %s
+
+        Garrulus, the name-literature index of the Catalogue of Life
+        """.formatted(name, oneLine(input, 2000), what, link);
+    String html = """
+        <!doctype html>
+        <html><body style="font-family: sans-serif; line-height: 1.5">
+        <p>Hello,</p>
+        <p>the journal you registered, %s (%s), %s</p>
+        <p><a href="%s">%s</a></p>
+        <p>Garrulus, the name-literature index of the Catalogue of Life</p>
+        </body></html>
+        """.formatted(HtmlUtils.htmlEscape(name), HtmlUtils.htmlEscape(oneLine(input, 2000)), what,
+        HtmlUtils.htmlEscape(link), HtmlUtils.htmlEscape(name));
+    return deliver(to, userId, subject, text, html, Map.of());
+  }
+
+  /** Control characters (line breaks included) as spaces, whitespace collapsed, at most {@code max} code points. */
+  static String oneLine(String s, int max) {
+    String t = s.replaceAll("[\\p{Cntrl}\\s]+", " ").strip();
+    return t.codePointCount(0, t.length()) <= max ? t : t.substring(0, t.offsetByCodePoints(0, max - 1)) + "\u2026";
+  }
+
   /** A notice for the admins (plain text; the html part repeats it); the body's line breaks are kept. */
   public Outcome sendAdminNotice(String to, long userId, String subject, String body) {
     String html = "<!doctype html>\n<html><body style=\"font-family: sans-serif; line-height: 1.5\">\n<p>"

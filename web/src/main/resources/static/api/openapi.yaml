@@ -197,6 +197,50 @@ paths:
             application/json:
               schema: {$ref: "#/components/schemas/SourceDetail"}
         "404": {$ref: "#/components/responses/NotFound"}
+  /api/sources/register:
+    post:
+      tags: [sources, account]
+      summary: Register a journal that Garrulus is missing
+      description: >
+        For a signed-in user (session cookie and X-XSRF-TOKEN header). Exactly one of issn, doi (of an article in the
+        journal) or url (an address of the journal's website), plus an optional note of at most 500 characters. The
+        ISSN is accepted as people type it ("1175 5326", "ISSN 1175-5326", "0002-936x") and stored in the form
+        NNNN-NNNC; a wrong check digit is a 400. The url must be http(s) with a host and no user name or password, at
+        most 2000 characters. The answer comes at once: the registration is stored as IDENTIFYING and Garrulus
+        identifies the journal in the background; poll GET /api/me/registrations/{id} for the result. Nothing is
+        harvested before an editor accepts the journal. At most 20 registrations per user in 24 hours (429).
+      operationId: registerSource
+      security: [{cookieAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                issn: {type: string, examples: ["1175-5326"]}
+                doi: {type: string, examples: ["10.11646/zootaxa.5200.1.1"]}
+                url: {type: string, maxLength: 2000, examples: ["https://www.biodiversity-science.net/EN/"]}
+                note: {type: string, maxLength: 500}
+      responses:
+        "202":
+          description: Stored; the journal is identified in the background.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id: {type: integer, format: int64}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {description: No or a wrong X-XSRF-TOKEN header.}
+        "429":
+          description: 20 registrations in the last 24 hours.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
   /api/xr:
     get:
       tags: [reference]
@@ -432,6 +476,52 @@ paths:
                   hits: {type: array, items: {type: object}}
                   digests: {type: array, items: {type: object}}
         "401": {$ref: "#/components/responses/Unauthorized"}
+  /api/me/registrations:
+    get:
+      tags: [account]
+      summary: The signed-in user's journal registrations, newest first (at most 100)
+      operationId: listMyRegistrations
+      security: [{cookieAuth: []}]
+      responses:
+        "200":
+          description: The registrations.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/Registration"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+  /api/me/registrations/{id}:
+    get:
+      tags: [account]
+      summary: One of the signed-in user's journal registrations
+      description: The registration dialog polls this until state is no longer IDENTIFYING. Another user's id is 404.
+      operationId: getMyRegistration
+      security: [{cookieAuth: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, format: int64}}
+      responses:
+        "200":
+          description: The registration.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Registration"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/NotFound"}
+    delete:
+      tags: [account]
+      summary: Withdraw a registration
+      description: >
+        The registration becomes WITHDRAWN and no longer counts for its journal; the journal itself stays. Needs the
+        X-XSRF-TOKEN header. Another user's id is 404.
+      operationId: withdrawMyRegistration
+      security: [{cookieAuth: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, format: int64}}
+      responses:
+        "204": {description: Withdrawn (also when it was withdrawn before).}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/NotFound"}
 components:
   securitySchemes:
     cookieAuth:
@@ -870,3 +960,49 @@ components:
         parents: {type: array, items: {type: string}}
         codes: {type: array, items: {type: string}}
         icon: {type: string, format: uri}
+    Registration:
+      type: object
+      required: [id, kind, input, state, status, created]
+      properties:
+        id: {type: integer, format: int64}
+        kind: {type: string, enum: [ISSN, DOI, URL]}
+        input: {type: string, description: "The ISSN, DOI or address as stored (ISSN and DOI normalised)."}
+        note: {type: [string, "null"]}
+        state: {type: string, enum: [IDENTIFYING, IDENTIFIED, NOT_IDENTIFIED, WITHDRAWN]}
+        outcome:
+          type: [string, "null"]
+          enum: [NEW_CANDIDATE, EXISTING, CEASED, null]
+          description: "Of an identified registration: a new candidate journal, one Garrulus knew already, or a
+            journal that has ceased publication."
+        reason:
+          type: [string, "null"]
+          description: "Why a registration was not identified: DOI_UNKNOWN (neither Crossref nor OpenAlex knows the
+            DOI, or it names no journal), ADDRESS_NOT_PUBLIC (the address, or an address it redirects to, is not a
+            public web host), ADDRESS_UNKNOWN (the host name does not resolve), PAGE_UNREACHABLE (no page could be
+            read there) or NO_ISSN_FOUND (the page names no ISSN)."
+        status:
+          type: string
+          enum: [IDENTIFYING, COVERED, CANDIDATE, DECLINED, CEASED, NOT_IDENTIFIED, WITHDRAWN]
+          description: "Read from the journal's current tier: COVERED (harvested: CORE or BROAD), CANDIDATE (waits for
+            an editor), DECLINED (will not be harvested), CEASED (no longer published)."
+        journal:
+          oneOf:
+            - {$ref: "#/components/schemas/RegistrationJournal"}
+            - {type: "null"}
+        created: {type: string, format: date-time}
+        identifiedAt: {type: [string, "null"], format: date-time}
+    RegistrationJournal:
+      type: object
+      required: [id, issns, tier, publicationStatus, routes]
+      properties:
+        id: {type: integer, format: int64}
+        title: {type: [string, "null"]}
+        issns: {type: array, items: {type: string}}
+        publisher: {type: [string, "null"]}
+        country: {type: [string, "null"]}
+        tier: {type: string, enum: [CORE, BROAD, CANDIDATE, EXCLUDED]}
+        publicationStatus: {type: string, enum: [ACTIVE, CEASED]}
+        routes:
+          type: array
+          items: {type: string}
+          description: "The harvest layers known for the journal (OAI, MAGTECH, EUROPEPMC, ...)."

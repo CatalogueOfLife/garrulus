@@ -126,6 +126,14 @@ public class PoliteHttp {
     return host.equals("localhost") || host.equals("127.0.0.1") || host.equals("::1") || host.equals("[::1]");
   }
 
+  /**
+   * Waits for the host's next slot, for a request that cannot go through {@link #get} (a fetch pinned to checked
+   * addresses, {@code JournalPage}): it is spaced like every other request to the host.
+   */
+  public void space(String host) {
+    limiterFor(host).acquire();
+  }
+
   /** The spacing of requests to a host (after the defaults and configuration). */
   public Duration intervalFor(String host) {
     return limiterFor(host).minInterval();

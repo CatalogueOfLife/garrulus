@@ -11,7 +11,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 /** Small JSON error bodies {status, error}, error being the reason, for the public API and the account API. */
 @RestControllerAdvice(basePackageClasses = {ApiErrors.class, MeController.class, org.catalogueoflife.nametracker.web.me.SubscriptionController.class,
-    org.catalogueoflife.nametracker.web.digest.UnsubscribeController.class})
+    org.catalogueoflife.nametracker.web.digest.UnsubscribeController.class,
+    org.catalogueoflife.nametracker.web.registry.RegistrationController.class})
 public class ApiErrors {
 
   @ExceptionHandler(ResponseStatusException.class)

@@ -78,6 +78,11 @@ nametracker:
     # mails the admin notices of the indexer (layer failing/recovered, route restart cap) to the admins' verified
     # addresses (UTC, six fields); "-" switches it off
     mail-cron: ${NAMETRACKER_ADMIN_MAIL_CRON:0 */5 * * * *}
+  registrations:
+    # the users' mails about accepted or declined registered journals (UTC, six fields); "-" switches them off
+    mail-cron: ${NAMETRACKER_REGISTRATIONS_MAIL_CRON:0 */5 * * * *}
+    # the daily admin notice when registered journals wait for a decision (UTC); "-" switches it off
+    admin-note-cron: ${NAMETRACKER_REGISTRATIONS_ADMIN_NOTE_CRON:0 0 7 * * *}
   blobs:
     dir: ${NAMETRACKER_BLOBS_DIR:./data/blobs}
   web:

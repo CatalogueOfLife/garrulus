@@ -17,7 +17,8 @@ import tools.jackson.databind.JsonNode;
 /**
  * {@code IDENTIFY_SOURCE}, payload {@code {"sourceId":n}}: completes a source, usually a new candidate, through
  * {@link JournalCompletion} (Crossref, OpenAlex, DOAJ, the PKP Beacon and a Europe PMC probe). A CEASED or unknown
- * (folded) source is skipped. Any service that is down defers the whole task without using an attempt, and a lost
+ * (folded) source is skipped. Payload {@code {"registrationId":n}}: identifies a user's registration
+ * ({@link RegistrationIdentifier}). Any service that is down defers the whole task without using an attempt, and a lost
  * database deadlock defers it for a minute; the steps already written are upserts, so the repeat changes nothing.
  */
 @Component
@@ -27,13 +28,15 @@ public class IdentifySourceHandler implements TaskHandler {
   private static final Logger LOG = LoggerFactory.getLogger(IdentifySourceHandler.class);
 
   private final JournalCompletion completion;
+  private final RegistrationIdentifier registrations;
   private final SourceMapper sources;
   private final HarvestOutage outage;
   private final Clock clock;
 
-  public IdentifySourceHandler(JournalCompletion completion, SourceMapper sources, HarvestOutage outage,
-      Clock clock) {
+  public IdentifySourceHandler(JournalCompletion completion, RegistrationIdentifier registrations,
+      SourceMapper sources, HarvestOutage outage, Clock clock) {
     this.completion = completion;
+    this.registrations = registrations;
     this.sources = sources;
     this.outage = outage;
     this.clock = clock;
@@ -47,7 +50,14 @@ public class IdentifySourceHandler implements TaskHandler {
   @Override
   public void handle(Task task) {
     JsonNode p = FinderJson.mapper().readTree(task.payload());
-    if (!p.hasNonNull("sourceId")) throw new IllegalArgumentException("IDENTIFY_SOURCE needs a sourceId: " + task.payload());
+    if (p.hasNonNull("registrationId")) {
+      long rid = p.path("registrationId").asLong();
+      guarded(() -> registrations.identify(rid));
+      return;
+    }
+    if (!p.hasNonNull("sourceId")) {
+      throw new IllegalArgumentException("IDENTIFY_SOURCE needs a sourceId or registrationId: " + task.payload());
+    }
     long id = p.path("sourceId").asLong();
     Source s = sources.get(id);
     if (s == null) {
@@ -58,8 +68,13 @@ public class IdentifySourceHandler implements TaskHandler {
       LOG.info("IDENTIFY_SOURCE: source {} ({}) has ceased publication, skipped", id, s.title());
       return;
     }
+    guarded(() -> completion.complete(id, task.priority()));
+  }
+
+  /** A lost deadlock defers shortly, a service that is down defers until the outage delay; both use no attempt. */
+  private void guarded(Runnable step) {
     try {
-      completion.complete(id, task.priority());
+      step.run();
     } catch (RuntimeException e) {
       if (Deadlock.is(e)) throw Deadlock.defer(e, clock);
       HttpProblem down = HarvestOutage.retryable(e);

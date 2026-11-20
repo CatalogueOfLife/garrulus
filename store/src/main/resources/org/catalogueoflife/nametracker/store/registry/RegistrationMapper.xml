@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.nametracker.store.registry.RegistrationMapper">
+
+  <resultMap id="result" type="org.catalogueoflife.nametracker.store.registry.SourceRegistration">
+    <constructor>
+      <idArg column="id" javaType="_long"/>
+      <arg column="user_id" javaType="_long"/>
+      <arg column="kind" javaType="string"/>
+      <arg column="input" javaType="string"/>
+      <arg column="note" javaType="string"/>
+      <arg column="state" javaType="string"/>
+      <arg column="outcome" javaType="string"/>
+      <arg column="reason" javaType="string"/>
+      <arg column="source_id" javaType="java.lang.Long"/>
+      <arg column="tier_at_identification" javaType="string"/>
+      <arg column="decision" javaType="string"/>
+      <arg column="decision_at" javaType="java.time.Instant"/>
+      <arg column="created" javaType="java.time.Instant"/>
+      <arg column="identified_at" javaType="java.time.Instant"/>
+    </constructor>
+  </resultMap>
+
+  <resultMap id="decision" type="org.catalogueoflife.nametracker.store.registry.RegistrationMapper$Decision">
+    <constructor>
+      <idArg column="id" javaType="_long"/>
+      <arg column="user_id" javaType="_long"/>
+      <arg column="input" javaType="string"/>
+      <arg column="decision" javaType="string"/>
+      <arg column="source_id" javaType="_long"/>
+      <arg column="title" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <resultMap id="waiting" type="org.catalogueoflife.nametracker.store.registry.RegistrationMapper$Waiting">
+    <constructor>
+      <idArg column="id" javaType="_long"/>
+      <arg column="input" javaType="string"/>
+      <arg column="source_id" javaType="_long"/>
+      <arg column="title" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <select id="insert" resultType="long" flushCache="true">
+    INSERT INTO source_registration (user_id, kind, input, note) VALUES (#{userId}, #{kind}, #{input}, #{note})
+    RETURNING id
+  </select>
+
+  <select id="lockUser" resultType="int" flushCache="true">
+    SELECT count(*) FROM (SELECT 1 FROM app_user WHERE id = #{userId} FOR UPDATE) u
+  </select>
+
+  <select id="countSince" resultType="int">
+    SELECT count(*) FROM source_registration WHERE user_id = #{userId} AND created &gt; #{since}
+  </select>
+
+  <select id="get" resultMap="result">
+    SELECT * FROM source_registration WHERE id = #{id}
+  </select>
+
+  <select id="lock" resultMap="result" flushCache="true">
+    SELECT * FROM source_registration WHERE id = #{id} FOR UPDATE
+  </select>
+
+  <select id="getForUser" resultMap="result">
+    SELECT * FROM source_registration WHERE id = #{id} AND user_id = #{userId}
+  </select>
+
+  <select id="listByUser" resultMap="result">
+    SELECT * FROM source_registration WHERE user_id = #{userId} ORDER BY created DESC, id DESC LIMIT #{limit}
+  </select>
+
+  <update id="identified">
+    UPDATE source_registration SET state = 'IDENTIFIED', outcome = #{outcome}, source_id = #{sourceId},
+      tier_at_identification = #{tier}, identified_at = now(), reason = NULL
+    WHERE id = #{id} AND state = 'IDENTIFYING'
+  </update>
+
+  <update id="notIdentified">
+    UPDATE source_registration SET state = 'NOT_IDENTIFIED', reason = #{reason}, identified_at = now()
+    WHERE id = #{id} AND state = 'IDENTIFYING'
+  </update>
+
+  <update id="withdraw">
+    UPDATE source_registration SET state = 'WITHDRAWN'
+    WHERE id = #{id} AND user_id = #{userId} AND state &lt;&gt; 'WITHDRAWN'
+  </update>
+
+  <select id="claimDecisions" resultMap="decision" flushCache="true">
+    WITH due AS (
+      SELECT r.id, CASE WHEN s.tier = 'EXCLUDED' THEN 'DECLINED' ELSE 'ACCEPTED' END AS decision
+      FROM source_registration r JOIN source s ON s.id = r.source_id
+      WHERE r.state = 'IDENTIFIED' AND r.tier_at_identification = 'CANDIDATE' AND r.decision IS NULL
+        AND s.tier IN ('CORE','BROAD','EXCLUDED')
+      ORDER BY r.id LIMIT #{limit}
+      FOR UPDATE OF r SKIP LOCKED)
+    UPDATE source_registration r SET decision = due.decision, decision_at = now()
+    FROM due, source s
+    WHERE r.id = due.id AND s.id = r.source_id
+    RETURNING r.id, r.user_id, r.input, r.decision, r.source_id, s.title
+  </select>
+
+  <sql id="waiting">
+    FROM source_registration r JOIN source s ON s.id = r.source_id
+    WHERE r.state = 'IDENTIFIED' AND r.tier_at_identification = 'CANDIDATE' AND s.tier = 'CANDIDATE'
+    <if test="since != null">AND r.identified_at &gt; #{since}</if>
+  </sql>
+
+  <select id="waitingSince" resultMap="waiting">
+    SELECT r.id, r.input, r.source_id, s.title <include refid="waiting"/>
+    ORDER BY r.identified_at, r.id LIMIT #{limit}
+  </select>
+
+  <select id="countWaitingSince" resultType="int">
+    SELECT count(*) <include refid="waiting"/>
+  </select>
+
+</mapper>

@@ -1,10 +1,10 @@
 package org.catalogueoflife.nametracker.web.api;
 
-import java.net.InetAddress;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.catalogueoflife.nametracker.store.net.PublicHost;
 import org.catalogueoflife.nametracker.store.route.SourceRoute;
 import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
@@ -63,8 +63,8 @@ public class AdminRouteController {
   private final RouteConfigCheck configCheck;
 
   public AdminRouteController(SourceMapper sources, SourceRouteMapper routes, TaskQueue queue,
-      AdminAccess access, ObjectProvider<RouteConfigCheck.HostResolver> resolver) {
-    this.configCheck = new RouteConfigCheck(resolver.getIfAvailable(() -> InetAddress::getAllByName));
+      AdminAccess access, ObjectProvider<PublicHost.Resolver> resolver) {
+    this.configCheck = new RouteConfigCheck(resolver.getIfAvailable(() -> PublicHost.DNS));
     this.sources = sources;
     this.routes = routes;
     this.queue = queue;

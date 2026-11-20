@@ -1,0 +1,65 @@
+package org.catalogueoflife.nametracker.store.registry;
+
+import java.time.Instant;
+import java.util.List;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.jspecify.annotations.Nullable;
+
+/** {@code source_registration}: written by {@code web} (insert, withdraw, decisions) and the indexer (identification). */
+@Mapper
+public interface RegistrationMapper {
+
+  /** A decision that was just claimed for the user's mail. */
+  record Decision(long id, long userId, String input, String decision, long sourceId, @Nullable String title) {}
+
+  /** A registration identified as a candidate whose source still waits for an admin. */
+  record Waiting(long id, String input, long sourceId, @Nullable String title) {}
+
+  /** Inserts an IDENTIFYING registration and returns its id. */
+  long insert(@Param("userId") long userId, @Param("kind") String kind, @Param("input") String input,
+      @Param("note") @Nullable String note);
+
+  /** Locks the account row until the end of the transaction (serialises the daily count of one user). */
+  int lockUser(@Param("userId") long userId);
+
+  /** Registrations of the user created after {@code since}, whatever their state. */
+  int countSince(@Param("userId") long userId, @Param("since") Instant since);
+
+  @Nullable SourceRegistration get(@Param("id") long id);
+
+  /** As {@link #get}, locked until the end of the transaction. */
+  @Nullable SourceRegistration lock(@Param("id") long id);
+
+  /** The registration if it belongs to the user, else null. */
+  @Nullable SourceRegistration getForUser(@Param("id") long id, @Param("userId") long userId);
+
+  /** The user's registrations, newest first. */
+  List<SourceRegistration> listByUser(@Param("userId") long userId, @Param("limit") int limit);
+
+  /** IDENTIFYING → IDENTIFIED with the source, outcome and the source's tier; 0 if it was not IDENTIFYING. */
+  int identified(@Param("id") long id, @Param("outcome") String outcome, @Param("sourceId") long sourceId,
+      @Param("tier") String tier);
+
+  /** IDENTIFYING → NOT_IDENTIFIED with the reason; 0 if it was not IDENTIFYING. */
+  int notIdentified(@Param("id") long id, @Param("reason") String reason);
+
+  /** Any state but WITHDRAWN → WITHDRAWN; 0 if it was withdrawn already or is not the user's. */
+  int withdraw(@Param("id") long id, @Param("userId") long userId);
+
+  /**
+   * Sets {@code decision} (ACCEPTED for a CORE or BROAD source, DECLINED for an EXCLUDED one) and {@code decision_at}
+   * on up to {@code limit} identified registrations whose tier at identification was CANDIDATE and that have no
+   * decision yet (oldest first, skipping locked rows), and returns them. WITHDRAWN registrations are never claimed.
+   */
+  List<Decision> claimDecisions(@Param("limit") int limit);
+
+  /**
+   * Registrations identified as candidates after {@code since} (all if null) whose source is still a CANDIDATE, oldest
+   * first, at most {@code limit}.
+   */
+  List<Waiting> waitingSince(@Param("since") @Nullable Instant since, @Param("limit") int limit);
+
+  /** The count of {@link #waitingSince}, unlimited. */
+  int countWaitingSince(@Param("since") @Nullable Instant since);
+}
