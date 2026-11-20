@@ -3,6 +3,7 @@ package org.catalogueoflife.nametracker.web.api.public_.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDate;
 import java.util.List;
+import org.catalogueoflife.nametracker.store.ident.IdentifierLink;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -16,4 +17,4 @@ public record WorkDetail(long id, @Nullable String doi, @Nullable String title, 
     @Nullable String licence, boolean retained, @Nullable String textLevel, boolean hasActs, List<String> codes,
     List<String> taxgroups, List<NameDetail> names, List<ContextDto> contexts, @Nullable List<TextBlock> text,
     List<MentionSpan> titleMentions, List<MentionSpan> abstractMentions, List<ActSpan> abstractActs,
-    List<Snippet> snippets) {}
+    List<Snippet> snippets, List<IdentifierLink> identifiers) {}

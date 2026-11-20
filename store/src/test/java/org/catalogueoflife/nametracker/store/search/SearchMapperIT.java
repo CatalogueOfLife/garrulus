@@ -45,8 +45,8 @@ class SearchMapperIT extends AbstractPostgresIT {
     Builder main() { mainSubjectOnly = true; return this; }
 
     WorkFilter build() {
-      return new WorkFilter(taxon, null, code, taxgroup, null, journalType, null, null, null, source, yearFrom, yearTo,
-          hasActs, actType, mainSubjectOnly, q);
+      return WorkFilter.builder().taxon(taxon).code(code).taxgroup(taxgroup).journalType(journalType).source(source)
+          .yearFrom(yearFrom).yearTo(yearTo).hasActs(hasActs).actType(actType).mainSubjectOnly(mainSubjectOnly).q(q).build();
     }
   }
 
@@ -181,24 +181,24 @@ class SearchMapperIT extends AbstractPostgresIT {
         + "in_heading, only_reference, best_snippet, placement_method, salience, main_subject) "
         + "VALUES (?, ?, 1, 1, false, false, false, true, 's', 'NONE', 0.5, false)", b, ns);
     WorkFilter none = filter(x -> x);
-    assertThat(ids(new WorkFilter(null, null, null, null, null, null, null, null, null, null, null, null, null, "sp. nov.", false, null)))
+    assertThat(ids(WorkFilter.builder().actType("sp. nov.").mainSubjectOnly(false).build()))
         .containsExactly(a);
-    assertThat(ids(new WorkFilter(null, null, null, null, null, null, null, null, null, null, null, null, null, "comb. nov.", false, null)))
+    assertThat(ids(WorkFilter.builder().actType("comb. nov.").mainSubjectOnly(false).build()))
         .isEmpty();
-    assertThat(ids(new WorkFilter(null, null, null, null, null, null, null, null, null, null, null, null, true, null, false, null)))
+    assertThat(ids(WorkFilter.builder().hasActs(true).mainSubjectOnly(false).build()))
         .containsExactly(a);
-    assertThat(ids(new WorkFilter(null, null, null, null, null, null, null, null, null, null, null, null, false, null, false, null)))
+    assertThat(ids(WorkFilter.builder().hasActs(false).mainSubjectOnly(false).build()))
         .containsExactly(b);
-    assertThat(ids(new WorkFilter(null, null, null, null, null, null, null, null, null, null, 2025, null, null, null, false, null)))
+    assertThat(ids(WorkFilter.builder().yearFrom(2025).mainSubjectOnly(false).build()))
         .containsExactly(b);
-    assertThat(ids(new WorkFilter(null, null, null, null, null, null, null, null, null, null, null, 2025, null, null, false, null)))
+    assertThat(ids(WorkFilter.builder().yearTo(2025).mainSubjectOnly(false).build()))
         .containsExactly(a);
-    assertThat(ids(new WorkFilter(null, null, null, null, null, null, null, null, null, null, 2024, 2026, null, null, false, null)))
+    assertThat(ids(WorkFilter.builder().yearFrom(2024).yearTo(2026).mainSubjectOnly(false).build()))
         .containsExactlyInAnyOrder(a, b);
     // the name filter keeps reference-only occurrences
-    assertThat(ids(new WorkFilter(null, ns, null, null, null, null, null, null, null, null, null, null, null, null, false, null)))
+    assertThat(ids(WorkFilter.builder().name(ns).mainSubjectOnly(false).build()))
         .containsExactlyInAnyOrder(b);
-    assertThat(ids(new WorkFilter(null, ns, null, null, null, null, null, null, null, null, null, null, null, null, true, null)))
+    assertThat(ids(WorkFilter.builder().name(ns).mainSubjectOnly(true).build()))
         .isEmpty();
     assertThat(ids(none)).hasSize(2);
   }

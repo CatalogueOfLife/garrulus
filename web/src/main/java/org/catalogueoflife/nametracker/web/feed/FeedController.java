@@ -127,8 +127,7 @@ public class FeedController {
   }
 
   private static WorkFilter filter(String taxon, Long name, String taxgroup, Long source, boolean mainSubjectOnly) {
-    return new WorkFilter(taxon, name, null, taxgroup, null, null, null, null, null, source, null, null, null, null,
-        mainSubjectOnly, null);
+    return WorkFilter.builder().taxon(taxon).name(name).taxgroup(taxgroup).source(source).mainSubjectOnly(mainSubjectOnly).build();
   }
 
   private ResponseEntity<byte[]> publicFeed(String path, String label, WorkFilter f) {

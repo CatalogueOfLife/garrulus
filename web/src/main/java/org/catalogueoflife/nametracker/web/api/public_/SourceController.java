@@ -34,8 +34,10 @@ public class SourceController {
   private final SourceMapper sources;
   private final WorkController works;
   private final SearchMapper search;
+  private final IdentifierViews identifiers;
 
-  public SourceController(SourceMapper sources, WorkController works, SearchMapper search) {
+  public SourceController(SourceMapper sources, WorkController works, SearchMapper search, IdentifierViews identifiers) {
+    this.identifiers = identifiers;
     this.search = search;
     this.sources = sources;
     this.works = works;
@@ -68,12 +70,11 @@ public class SourceController {
     if (s == null || !Boolean.TRUE.equals(s.active()) || !PUBLIC_TIERS.contains(s.tier())) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "no source " + id);
     }
-    WorkFilter f = new WorkFilter(null, null, null, null, null, null, null, null, null, id, null, null, null, null,
-        false, null);
+    WorkFilter f = WorkFilter.builder().source(id).build();
     return new SourceDetail(s.id(), s.title(), s.publisher(), s.issnL(), s.tier(), s.journalType(), s.primarySubfield(),
         nn(s.subfields()), nn(s.taxgroups()), shares(s), nn(s.codes()), s.oaModel(), s.country(), s.nameDensity(),
         s.actRate(), s.worksPerYear(), s.publicationStatus(), s.ceasedReason(), s.lastIssueYear(), ref(sources, s),
-        search.yearCounts(f), works.page(f, RECENT, 0, List.of()).results());
+        search.yearCounts(f), works.page(f, RECENT, 0, List.of()).results(), identifiers.source(s));
   }
 
   /** The continuing journal of a ceased source as a reference; null when none is set or it is not itself public. */

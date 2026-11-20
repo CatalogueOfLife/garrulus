@@ -129,4 +129,25 @@ class SourceControllerIT extends AbstractPostgresIT {
     JsonNode works = JSON.readTree(get("/api/works?source=" + ceased).body());
     assertThat(works.path("total").asInt()).isEqualTo(1);
   }
+
+  @Test
+  void journalIdentifiers() throws Exception {
+    long s = source("Phytotaxa", "CORE", true, "TAXONOMIC");
+    jdbc.update("UPDATE source SET issns = '{1179-3155,1179-3163}', issn_l = '1179-3155', openalex_id = 'S123' WHERE id = ?", s);
+    jdbc.update("INSERT INTO source_identifier (source_id, scheme, value, origin) VALUES (?, 'IPNI_PUB', '20011462-1', 'T')", s);
+    jdbc.update("INSERT INTO source_identifier (source_id, scheme, value, origin) VALUES (?, 'BPH', '999', 'T')", s);
+    JsonNode ids = JSON.readTree(get("/api/sources/" + s).body()).path("identifiers");
+    java.util.Map<String, String> urls = new java.util.LinkedHashMap<>();
+    for (JsonNode n : ids) {
+      urls.put(n.path("scheme").asString() + ":" + n.path("value").asString(), n.path("url").isNull() ? null : n.path("url").asString());
+    }
+    assertThat(urls).containsEntry("ISSN:1179-3155", "https://portal.issn.org/resource/ISSN/1179-3155")
+        .containsEntry("ISSN:1179-3163", "https://portal.issn.org/resource/ISSN/1179-3163")
+        .containsEntry("ISSN_L:1179-3155", "https://portal.issn.org/resource/ISSN/1179-3155")
+        .containsEntry("OPENALEX:S123", "https://openalex.org/sources/S123")
+        .containsEntry("IPNI_PUB:20011462-1", "https://www.ipni.org/p/20011462-1")
+        .containsEntry("BPH:999", null);
+    assertThat(ids.valueStream().map(n -> n.path("scheme").asString()).toList())
+        .containsExactly("ISSN", "ISSN", "ISSN_L", "OPENALEX", "IPNI_PUB", "BPH");
+  }
 }

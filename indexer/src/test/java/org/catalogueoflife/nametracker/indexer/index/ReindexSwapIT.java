@@ -176,8 +176,7 @@ class ReindexSwapIT extends AbstractPostgresIT {
   }
 
   private boolean listed(long id) {
-    WorkFilter all = new WorkFilter(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-        false, null);
+    WorkFilter all = WorkFilter.builder().build();
     return search.search(all, 100, 0).stream().map(WorkHit::id).anyMatch(w -> w == id);
   }
 

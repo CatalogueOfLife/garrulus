@@ -26,6 +26,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+@org.springframework.context.annotation.Import(WorkControllerIT.ExtraScheme.class)
 class WorkControllerIT extends AbstractPostgresIT {
 
   static final ObjectMapper JSON = new ObjectMapper();
@@ -42,6 +43,18 @@ class WorkControllerIT extends AbstractPostgresIT {
   @DynamicPropertySource
   static void blobs(DynamicPropertyRegistry r) {
     r.add("nametracker.blobs.dir", BLOBS::toString);
+  }
+
+  /** An extra scheme bean, as a lookup module would define one. */
+  @org.springframework.boot.test.context.TestConfiguration
+  static class ExtraScheme {
+    @org.springframework.context.annotation.Bean
+    org.catalogueoflife.nametracker.store.ident.IdScheme testdb() {
+      return org.catalogueoflife.nametracker.store.ident.IdScheme.define("TESTDB", "Test DB",
+          java.util.EnumSet.of(org.catalogueoflife.nametracker.store.ident.IdScheme.Entity.WORK),
+          raw -> raw.strip().isEmpty() ? null : raw.strip(),
+          Map.of(org.catalogueoflife.nametracker.store.ident.IdScheme.Entity.WORK, "https://testdb.example/{v}"), 500, true);
+    }
   }
 
   @LocalServerPort int port;
@@ -395,5 +408,81 @@ class WorkControllerIT extends AbstractPostgresIT {
   @Test
   void conflictingSubfieldAndDisciplineIs400() throws Exception {
     assertThat(get("/api/works?subfield=1105&discipline=1109").statusCode()).isEqualTo(400);
+  }
+
+  void ident(long work, String scheme, String value) {
+    jdbc.update("INSERT INTO work_identifier (work_id, scheme, value, first_layer) VALUES (?, ?, ?, 'TEST')", work, scheme, value);
+  }
+
+  @Test
+  void detailListsIdentifiersInOrder() throws Exception {
+    long w = work("10.1/ids", "Ids");
+    ident(w, "PLAZI", "A1B2C3D4E5F60718293A4B5C6D7E8F90");
+    ident(w, "OAI", "oai:example.org:1");
+    ident(w, "BLR", "1234567");
+    ident(w, "BIODIVERSITY_PMC", "pmc/PMC10768028");
+    ident(w, "PMCID", "PMC10768028");
+    ident(w, "PMID", "38163000");
+    ident(w, "OPENALEX", "W123");
+    ident(w, "CROSSREF", "10.1/ids");
+    ident(w, "DOI", "10.1/ids");
+    JsonNode ids = JSON.readTree(get("/api/works/" + w).body()).path("identifiers");
+    assertThat(ids.valueStream().map(n -> n.path("scheme").asString()).toList())
+        .containsExactly("DOI", "CROSSREF", "OPENALEX", "PMID", "PMCID", "BIODIVERSITY_PMC", "BLR", "PLAZI");
+    assertThat(ids.valueStream().map(n -> n.path("url").asString()).toList()).containsExactly(
+        "https://doi.org/10.1/ids", "https://api.crossref.org/works/10.1/ids", "https://openalex.org/works/W123",
+        "https://europepmc.org/article/MED/38163000", "https://europepmc.org/articles/PMC10768028",
+        "https://biodiversitypmc.sibils.org/pmc/PMC10768028", "https://zenodo.org/records/1234567",
+        "https://tb.plazi.org/GgServer/summary/A1B2C3D4E5F60718293A4B5C6D7E8F90");
+    assertThat(ids.get(0).path("label").asString()).isEqualTo("DOI");
+    assertThat(ids.get(0).path("value").asString()).isEqualTo("10.1/ids");
+  }
+
+  @Test
+  void identifierSearchFindsByPmcid() throws Exception {
+    long a = work("10.1/a", "A");
+    long b = work("10.1/b", "B");
+    ident(a, "PMCID", "PMC10768028");
+    ident(b, "PMCID", "PMC1");
+    JsonNode r = JSON.readTree(get("/api/works?identifier=PMCID:10768028").body());
+    assertThat(r.path("total").asLong()).isEqualTo(1);
+    assertThat(r.path("results").get(0).path("id").asLong()).isEqualTo(a);
+    assertThat(JSON.readTree(get("/api/works?identifier=pmcid:PMC10768028&hasActs=false").body()).path("total").asLong())
+        .isEqualTo(1);
+    assertThat(JSON.readTree(get("/api/works?identifier=PMCID:PMC10768028&yearTo=2000").body()).path("total").asLong())
+        .isZero();
+    // unlisted works are never found
+    jdbc.update("UPDATE work SET state = 'MATCHED' WHERE id = ?", a);
+    assertThat(JSON.readTree(get("/api/works?identifier=PMCID:PMC10768028").body()).path("total").asLong()).isZero();
+  }
+
+  @Test
+  void identifierSearchSplitsAtFirstColon() throws Exception {
+    String sici = "10.1002/(SICI)1097-4571(199806)49:7<627::AID-ASI4>3.0.CO;2-X";
+    long w = work(sici, "Review Focus 1");
+    ident(w, "DOI", sici.toLowerCase());
+    String q = java.net.URLEncoder.encode("DOI:" + sici, java.nio.charset.StandardCharsets.UTF_8);
+    JsonNode r = JSON.readTree(get("/api/works?identifier=" + q).body());
+    assertThat(r.path("total").asLong()).isEqualTo(1);
+    assertThat(r.path("results").get(0).path("id").asLong()).isEqualTo(w);
+  }
+
+  @Test
+  void unknownSchemeIs400() throws Exception {
+    assertThat(get("/api/works?identifier=NOPE:1").statusCode()).isEqualTo(400);
+    assertThat(get("/api/works?identifier=PMCID:abc").statusCode()).isEqualTo(400);
+    assertThat(get("/api/works?identifier=nocolon").statusCode()).isEqualTo(400);
+    assertThat(get("/api/works?identifier=ISSN:1234-5679").statusCode()).isEqualTo(400);
+  }
+
+  @Test
+  void extraSchemeRowsAreListed() throws Exception {
+    long w = work("10.1/x", "X");
+    ident(w, "TESTDB", "42");
+    ident(w, "UNREGISTERED", "7");
+    JsonNode ids = JSON.readTree(get("/api/works/" + w).body()).path("identifiers");
+    assertThat(ids.valueStream().filter(n -> n.path("scheme").asString().equals("TESTDB")).findFirst().orElseThrow()
+        .path("url").asString()).isEqualTo("https://testdb.example/42");
+    assertThat(JSON.readTree(get("/api/works?identifier=TESTDB:42").body()).path("total").asLong()).isEqualTo(1);
   }
 }

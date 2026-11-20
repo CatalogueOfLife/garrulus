@@ -67,6 +67,7 @@ paths:
         - {name: actType, in: query, schema: {type: string}}
         - {name: mainSubjectOnly, in: query, schema: {type: boolean, default: false}}
         - {name: q, in: query, description: "Full-text query over title and abstract.", schema: {type: string}}
+        - {name: identifier, in: query, description: "An external identifier of the work as `SCHEME:value`, split at the first colon (e.g. `PMCID:PMC10768028`, `DOI:10.1/x`); the value is normalised through its scheme. 400 for an unknown or non-work scheme or an invalid value.", schema: {type: string}}
         - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
         - {name: offset, in: query, schema: {type: integer, minimum: 0, maximum: 10000, default: 0}}
         - name: facet
@@ -792,11 +793,20 @@ components:
         scope: {type: string}
         blockId: {type: string}
         untilBlockId: {type: [string, "null"]}
+    IdentifierLink:
+      type: object
+      required: [scheme, label, value]
+      properties:
+        scheme: {type: string, description: "Scheme code, e.g. DOI, PMCID, ISSN."}
+        label: {type: string}
+        value: {type: string, description: Normalised value.}
+        url: {type: [string, "null"], description: "The page of the identifier, if the scheme has one."}
     WorkDetail:
       type: object
       description: text is null unless the work has a retained full-text document; snippets is empty when text is served.
-      required: [id, authors, retained, hasActs, codes, taxgroups, names, contexts, titleMentions, abstractMentions, abstractActs, snippets]
+      required: [id, authors, retained, hasActs, codes, taxgroups, names, contexts, titleMentions, abstractMentions, abstractActs, snippets, identifiers]
       properties:
+        identifiers: {type: array, description: "External identifiers in scheme order; url is null for a scheme without a page.", items: {$ref: "#/components/schemas/IdentifierLink"}}
         id: {type: integer, format: int64}
         doi: {type: [string, "null"]}
         title: {type: [string, "null"]}
@@ -958,8 +968,9 @@ components:
       allOf:
         - {$ref: "#/components/schemas/SourceItem"}
         - type: object
-          required: [years, recentWorks]
+          required: [years, recentWorks, identifiers]
           properties:
+            identifiers: {type: array, description: "ISSN, ISSN-L, OpenAlex id and the looked-up ones, in scheme order.", items: {$ref: "#/components/schemas/IdentifierLink"}}
             issnL: {type: [string, "null"]}
             years:
               type: array

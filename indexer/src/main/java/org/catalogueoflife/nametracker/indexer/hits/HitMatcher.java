@@ -82,9 +82,8 @@ public class HitMatcher {
   private static WorkFilter filter(Subscription s) {
     JsonNode f = FinderJson.mapper().readTree(s.filters());
     if (f == null || !f.isObject() || f.isEmpty()) return null;
-    return new WorkFilter(null, null, text(f, "code"), text(f, "taxgroup"), text(f, "subfield"),
-        text(f, "journalType"), text(f, "tier"), text(f, "oa"), text(f, "country"), null, null, null, null, null,
-        false, null);
+    return WorkFilter.builder().code(text(f, "code")).taxgroup(text(f, "taxgroup")).subfield(text(f, "subfield"))
+        .journalType(text(f, "journalType")).tier(text(f, "tier")).oa(text(f, "oa")).country(text(f, "country")).build();
   }
 
   private static String text(JsonNode f, String key) {

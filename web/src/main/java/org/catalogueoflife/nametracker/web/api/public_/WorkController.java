@@ -78,9 +78,11 @@ public class WorkController {
   private final IndexMapper index;
   private final BlobStore blobs;
   private final DisciplineMapper disciplines;
+  private final IdentifierViews identifiers;
 
   public WorkController(SearchMapper search, WorkMapper works, SourceMapper sources, ContentMapper contents,
-      IndexMapper index, BlobStore blobs, DisciplineMapper disciplines) {
+      IndexMapper index, BlobStore blobs, DisciplineMapper disciplines, IdentifierViews identifiers) {
+    this.identifiers = identifiers;
     this.disciplines = disciplines;
     this.search = search;
     this.works = works;
@@ -113,6 +115,7 @@ public class WorkController {
       @RequestParam(required = false) @Nullable String actType,
       @RequestParam(defaultValue = "false") boolean mainSubjectOnly,
       @RequestParam(required = false) @Nullable String q,
+      @RequestParam(required = false) @Nullable String identifier,
       @RequestParam(defaultValue = "20") int limit,
       @RequestParam(defaultValue = "0") int offset,
       @RequestParam(name = "facet", required = false) @Nullable List<String> facet) {
@@ -126,9 +129,11 @@ public class WorkController {
     for (String f : facets) {
       requireOneOf("facet", f, SearchMapper.FACETS);
     }
-    WorkFilter f = new WorkFilter(blankToNull(taxon), name, code, taxgroup, discipline(subfield, discipline),
-        journalType, tier, oa,
-        blankToNull(country), source, yearFrom, yearTo, hasActs, blankToNull(actType), mainSubjectOnly, blankToNull(q));
+    WorkFilter f = WorkFilter.builder().taxon(blankToNull(taxon)).name(name).code(code).taxgroup(taxgroup)
+        .subfield(discipline(subfield, discipline)).journalType(journalType).tier(tier).oa(oa)
+        .country(blankToNull(country)).source(source).yearFrom(yearFrom).yearTo(yearTo).hasActs(hasActs)
+        .actType(blankToNull(actType)).mainSubjectOnly(mainSubjectOnly).q(blankToNull(q))
+        .identifier(identifiers.parseWorkFilter(identifier)).build();
     return page(f, limit, offset, facets);
   }
 
@@ -210,7 +215,7 @@ public class WorkController {
         w.taxgroups() == null ? List.of() : w.taxgroups(), names, contexts, text,
         TextSpans.locate(w.title(), search.titleMentions(List.of(id))),
         abstractMentions, ActSpans.locate(abstractText, abstractMentions),
-        text == null ? WorkMentions.bodySnippets(names, mentions) : List.of());
+        text == null ? WorkMentions.bodySnippets(names, mentions) : List.of(), identifiers.work(id, w.doi()));
   }
 
   /**

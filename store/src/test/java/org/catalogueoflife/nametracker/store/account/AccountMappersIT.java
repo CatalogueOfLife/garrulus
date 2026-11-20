@@ -356,12 +356,9 @@ class AccountMappersIT extends AbstractPostgresIT {
   void workMatchesAppliesFilter() {
     long w = work();
     index.setIndexed(w, new String[] {"ZOOLOGICAL"}, new String[] {}, false, 1);
-    WorkFilter all = new WorkFilter(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-        false, null);
-    WorkFilter zoo = new WorkFilter(null, null, "ZOOLOGICAL", null, null, null, null, null, null, null, null, null,
-        null, null, false, null);
-    WorkFilter bot = new WorkFilter(null, null, "BOTANICAL", null, null, null, null, null, null, null, null, null,
-        null, null, false, null);
+    WorkFilter all = WorkFilter.builder().build();
+    WorkFilter zoo = WorkFilter.builder().code("ZOOLOGICAL").build();
+    WorkFilter bot = WorkFilter.builder().code("BOTANICAL").build();
     assertThat(search.workMatches(w, all)).isTrue();
     assertThat(search.workMatches(w, zoo)).isTrue();
     assertThat(search.workMatches(w, bot)).isFalse();

@@ -101,6 +101,8 @@
     <if test="f.yearTo != null"> <![CDATA[ AND w.year <= #{f.yearTo} ]]></if>
     <if test="f.hasActs != null"> AND COALESCE(w.has_acts, false) = #{f.hasActs}</if>
     <if test="f.actType != null"> AND EXISTS (SELECT 1 FROM mention m WHERE m.work_id = w.id AND m.act_type = #{f.actType})</if>
+    <if test="f.identifier != null"> AND EXISTS (SELECT 1 FROM work_identifier wi WHERE wi.work_id = w.id
+      AND wi.scheme = #{f.identifier.scheme} AND wi.value = #{f.identifier.value})</if>
     <if test="f.q != null"> AND w.fts @@ websearch_to_tsquery('simple', #{f.q})</if>
     <if test="f.taxon != null">
       AND EXISTS (SELECT 1 FROM work_name wn WHERE wn.work_id = w.id AND wn.taxon_path @&gt; ARRAY[#{f.taxon}]::text[]

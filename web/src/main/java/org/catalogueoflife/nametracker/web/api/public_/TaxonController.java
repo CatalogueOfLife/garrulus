@@ -35,8 +35,7 @@ public class TaxonController {
       @RequestParam(defaultValue = "20") int limit,
       @RequestParam(defaultValue = "0") int offset) {
     WorkController.checkPaging(limit, offset);
-    WorkFilter f = new WorkFilter(colId, null, null, null, null, null, null, null, null, null, yearFrom, yearTo, null,
-        null, mainSubjectOnly, null);
+    WorkFilter f = WorkFilter.builder().taxon(colId).yearFrom(yearFrom).yearTo(yearTo).mainSubjectOnly(mainSubjectOnly).build();
     return works.page(f, limit, offset, List.of());
   }
 
