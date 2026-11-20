@@ -26,6 +26,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Component
 public class CandidateRegistry {
 
+  private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(CandidateRegistry.class);
   public static final String IDENTIFY_TYPE = "IDENTIFY_SOURCE";
 
   /** The source the offer ended up at, whether this offer created it, and its tier and publication status. */
@@ -54,23 +55,32 @@ public class CandidateRegistry {
   }
 
   /**
-   * One transaction under an advisory lock of the journal's identity (its ISSN-L when the table knows one of the ISSNs,
-   * else the smallest ISSN, else the OpenAlex id), so two offers of one journal cannot create two rows.
+   * One transaction under the advisory locks of every identity key of the candidate (each ISSN, each known ISSN-L, the
+   * OpenAlex id; taken in sorted order), so offers of one journal that share any key cannot create two rows. Returns
+   * null, with a WARN, for a candidate with no valid ISSN and no OpenAlex id.
    * {@code identifyPriority} is that of the {@code IDENTIFY_SOURCE} task of a new source (discovery BACKFILL, a
    * registration LIVE).
    */
-  public Offer offer(Candidate c, TaskPriority identifyPriority) {
-    List<String> issns = new TreeSet<>(c.issns().stream().map(Issn::normalise).filter(java.util.Objects::nonNull)
-        .toList()).stream().toList();
+  public @Nullable Offer offer(Candidate c, TaskPriority identifyPriority) {
+    List<String> issns = c.issns().stream().map(Issn::normalise).filter(java.util.Objects::nonNull).distinct().sorted()
+        .toList();
+    if (issns.isEmpty() && c.openalexId() == null) {
+      LOG.warn("Candidate of {} ({}) has no valid ISSN and no OpenAlex id: rejected", c.origin(), c.signalKey());
+      return null;
+    }
     return tx.execute(status -> {
+      TreeSet<String> keys = new TreeSet<>();
       String issnL = null;
       for (String issn : issns) {
-        issnL = links.issnL(issn);
-        if (issnL != null) break;
+        keys.add("issn:" + issn);
+        String l = links.issnL(issn);
+        if (l != null) {
+          keys.add("issnl:" + l);
+          if (issnL == null) issnL = l;
+        }
       }
-      String lock = issnL != null ? "issnl:" + issnL
-          : !issns.isEmpty() ? "issn:" + issns.get(0) : c.openalexId() != null ? "oa:" + c.openalexId() : null;
-      if (lock != null) links.lock("registry:" + lock);
+      if (c.openalexId() != null) keys.add("oa:" + c.openalexId());
+      for (String key : keys) links.lock("registry:" + key); // sorted: no deadlock between overlapping offers
       Source s = identity.find(issns, c.openalexId());
       return s == null ? create(c, issns, issnL, identifyPriority) : existing(c, s, issns, issnL);
     });

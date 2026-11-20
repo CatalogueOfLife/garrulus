@@ -108,4 +108,28 @@ class IssnlRefreshHandlerIT extends AbstractPostgresIT {
     assertThatThrownBy(() -> handler.handle(task())).isInstanceOf(ServiceOutageException.class);
     assertThat(jdbc.queryForObject("SELECT count(*) FROM issn_link", Long.class)).isZero();
   }
+
+  @Test
+  void truncatedZipFailsAndKeepsLinks() throws Exception {
+    serve(zip("ISSN_ISSN-L_table.20261118.txt", "ISSN\tISSN-L\n1175-5326\t1175-5326\n"));
+    handler.handle(task());
+    StringBuilder big = new StringBuilder("ISSN\tISSN-L\n0002-936X\t0002-936X\n");
+    java.util.Random rnd = new java.util.Random(7);
+    for (int i = 0; i < 40000; i++) big.append(String.format("%04d-%04d\t%04d-%04d\n", rnd.nextInt(10000),
+        rnd.nextInt(10000), rnd.nextInt(10000), rnd.nextInt(10000))); // mostly invalid check digits: filtered, but bulky
+    byte[] full = zip("ISSN_ISSN-L_table.20261119.txt", big.toString());
+    serve(java.util.Arrays.copyOf(full, full.length * 6 / 10));
+    assertThatThrownBy(() -> handler.handle(task())).isInstanceOfAny(ServiceOutageException.class, IOException.class);
+    assertThat(links.issnL("0002-936X")).isNull();
+    assertThat(links.issnL("1175-5326")).isEqualTo("1175-5326");
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM issn_link", Long.class)).isEqualTo(1);
+  }
+
+  @Test
+  void corruptAndDuplicateRowsAreSkippedOrDeduplicated() throws Exception {
+    serve(zip("ISSN_ISSN-L_table.20261118.txt", "ISSN\tISSN-L\n1175-5326\t1175-5326\n1175-5326\t1175-5326\n"
+        + "1175-5334\t1175-5326\n1175-5334\t1175-5326\nXXXX\t\n\t\t\n1175-5327\t1175-5326\n"));
+    handler.handle(task());
+    assertThat(links.siblings("1175-5326")).containsExactly("1175-5326", "1175-5334");
+  }
 }

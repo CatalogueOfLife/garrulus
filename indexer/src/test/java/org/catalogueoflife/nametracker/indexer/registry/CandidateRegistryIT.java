@@ -195,4 +195,52 @@ class CandidateRegistryIT extends AbstractPostgresIT {
     assertThat(tasks("VERIFY_ROUTE")).isEqualTo(1);
     assertThat(tasks("IDENTIFY_SOURCE")).isEqualTo(1);
   }
+
+  private void race(Candidate a, Candidate b) throws Exception {
+    ExecutorService pool = Executors.newFixedThreadPool(2);
+    try {
+      CountDownLatch go = new CountDownLatch(1);
+      Future<CandidateRegistry.Offer> f1 = pool.submit(() -> { go.await(); return registry.offer(a, TaskPriority.BACKFILL); });
+      Future<CandidateRegistry.Offer> f2 = pool.submit(() -> { go.await(); return registry.offer(b, TaskPriority.BACKFILL); });
+      go.countDown();
+      assertThat(f1.get().sourceId()).isEqualTo(f2.get().sourceId());
+      assertThat(jdbc.queryForObject("SELECT count(*) FROM source", Long.class)).isEqualTo(1);
+    } finally {
+      pool.shutdownNow();
+    }
+  }
+
+  @Test
+  void concurrentPrintPlusElectronicAndElectronicOnlyMeet() throws Exception {
+    for (int i = 0; i < 5; i++) {
+      clean();
+      race(cand("DOAJ", "doaj", List.of(PRINT, ONLINE), "J"), cand("PKP_BEACON", "pkp", List.of(ONLINE), "J"));
+    }
+  }
+
+  @Test
+  void concurrentIssnWithOpenalexIdAndOpenalexIdOnlyMeet() throws Exception {
+    for (int i = 0; i < 5; i++) {
+      clean();
+      race(new Candidate("DOAJ", "d", List.of(PRINT), "J", null, null, "S42", "{}", List.of(), null),
+          new Candidate("BLR", "b", List.of(), "J", null, null, "S42", "{}", List.of(), null));
+    }
+  }
+
+  @Test
+  void concurrentPrintAndElectronicLinkedByTableMeet() throws Exception {
+    jdbc.update("INSERT INTO issn_link VALUES (?, ?), (?, ?)", PRINT, PRINT, ONLINE, PRINT);
+    for (int i = 0; i < 5; i++) {
+      jdbc.update("DELETE FROM task");
+      jdbc.update("DELETE FROM source s WHERE NOT EXISTS (SELECT 1 FROM work w WHERE w.source_id = s.id)");
+      race(cand("DOAJ", "doaj", List.of(PRINT), "J"), cand("PKP_BEACON", "pkp", List.of(ONLINE), "J"));
+    }
+  }
+
+  @Test
+  void candidateWithoutIdentityIsRejected() {
+    assertThat(registry.offer(new Candidate("BLR", "b", List.of("1175-5327", "junk"), "J", null, null, null, "{}",
+        List.of(), null), TaskPriority.BACKFILL)).isNull();
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM source", Long.class)).isZero();
+  }
 }

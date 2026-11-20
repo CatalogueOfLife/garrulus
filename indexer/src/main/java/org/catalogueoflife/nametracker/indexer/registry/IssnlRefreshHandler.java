@@ -19,6 +19,7 @@ import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
 import org.catalogueoflife.nametracker.indexer.http.StreamingGet;
 import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
+import org.catalogueoflife.nametracker.store.ident.Issn;
 import org.catalogueoflife.nametracker.store.registry.IssnLinkMapper;
 import org.catalogueoflife.nametracker.store.task.Task;
 import org.postgresql.PGConnection;
@@ -86,6 +87,7 @@ public class IssnlRefreshHandler implements TaskHandler {
     try {
       resp = StreamingGet.open(URI.create(url), CONNECT_TIMEOUT, readTimeout);
     } catch (HttpProblem e) {
+      if (!e.retryable()) throw e; // an unknown host is a mistyped URL, not an outage
       throw new ServiceOutageException("issn.org", outage.retryAt(), e);
     }
     HttpURLConnection conn = resp.connection();
@@ -107,6 +109,8 @@ public class IssnlRefreshHandler implements TaskHandler {
           return;
         }
         written = tx.execute(s -> load(zip));
+      } catch (java.util.zip.ZipException e) {
+        throw e; // a file that is no zip: a failure, not an outage
       } catch (IOException | java.io.UncheckedIOException e) {
         throw new ServiceOutageException("issn.org", outage.retryAt(), e); // a download that broke off or stalled
       }
@@ -129,7 +133,10 @@ public class IssnlRefreshHandler implements TaskHandler {
         BufferedReader r = new BufferedReader(new InputStreamReader(zip, StandardCharsets.UTF_8));
         String line;
         while ((line = r.readLine()) != null) {
-          if (!ROW.matcher(line).matches()) continue; // the header and anything that is no pair of ISSNs
+          if (!ROW.matcher(line).matches() || Issn.normalise(line.substring(0, 9)) == null
+              || Issn.normalise(line.substring(10)) == null) {
+            continue; // the header and anything that is no pair of valid ISSNs
+          }
           byte[] b = (line + "\n").getBytes(StandardCharsets.UTF_8);
           in.writeToCopy(b, 0, b.length);
         }

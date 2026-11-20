@@ -2,12 +2,10 @@ package org.catalogueoflife.nametracker.indexer.registry;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Duration;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.ConfigDataApplicationContextInitializer;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 class IssnlSwitchTest {
 
@@ -19,10 +17,10 @@ class IssnlSwitchTest {
   }
 
   @Test
-  void issnlDefaultsOff() throws Exception {
-    String yml = Files.readString(Path.of("src/main/resources/application.yml"));
-    Matcher m = Pattern.compile("issnl:\\s*\\n(?:\\s*#.*\\n)*\\s*enabled: \\$\\{[A-Z_]+:(\\w+)}").matcher(yml);
-    assertThat(m.find()).isTrue();
-    assertThat(m.group(1)).isEqualTo("false");
+  void issnlDefaultsOff() {
+    new ApplicationContextRunner().withInitializer(new ConfigDataApplicationContextInitializer())
+        .withPropertyValues("nametracker.dotenv=optional:file:/nonexistent/garrulus-tests.env[.properties]")
+        .run(ctx -> assertThat(ctx.getEnvironment().getProperty("nametracker.discovery.issnl.enabled", Boolean.class))
+            .isFalse());
   }
 }

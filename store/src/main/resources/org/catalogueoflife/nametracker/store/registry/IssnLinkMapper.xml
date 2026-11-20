@@ -13,7 +13,7 @@
   <select id="upsertFromTemp" resultType="long" flushCache="true">
     WITH w AS (
       INSERT INTO issn_link (issn, issn_l)
-      SELECT issn, issn_l FROM issn_link_load
+      SELECT DISTINCT ON (issn) issn, issn_l FROM issn_link_load ORDER BY issn, issn_l
       ON CONFLICT (issn) DO UPDATE SET issn_l = EXCLUDED.issn_l WHERE issn_link.issn_l IS DISTINCT FROM EXCLUDED.issn_l
       RETURNING 1)
     SELECT count(*) FROM w

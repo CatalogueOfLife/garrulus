@@ -49,8 +49,27 @@ class IssnTest {
     assertThat(Issn.all("ISSN1175-5326")).containsExactly("1175-5326");
     assertThat(Issn.all("eISSN1175-5334")).containsExactly("1175-5334");
     assertThat(Issn.all("ISSN-L1175-5326")).containsExactly("1175-5326");
-    assertThat(Issn.all("2012 1175 5326")).containsExactly("1175-5326");
-    assertThat(Issn.all("Vol 2012 1175-5326, 1175\u00A05334")).containsExactly("1175-5326", "1175-5334");
+    assertThat(Issn.all("2012 1175 5326")).isEmpty();
+    assertThat(Issn.all("Vol 2012 1175-5326, ISSN 1175\u00A05334")).containsExactly("1175-5326", "1175-5334");
     assertThat(Issn.all("x11755326")).isEmpty();
+  }
+
+  @Test
+  void allAcceptsOnlyHyphenatedOrLabelled() {
+    assertThat(Issn.all("2018 1175-5326")).containsExactly("1175-5326");
+    assertThat(Issn.all("2007 1175 5326")).isEmpty();
+    assertThat(Issn.all("1995 1175 5326")).isEmpty();
+    assertThat(Issn.all("ISSN 1175 5326")).containsExactly("1175-5326");
+    assertThat(Issn.all("e-ISSN: 1175\u00A05334")).containsExactly("1175-5334");
+    assertThat(Issn.all("ISSN 1175\u20135326")).containsExactly("1175-5326");
+    assertThat(Issn.all("see 1175\u20135326.")).containsExactly("1175-5326");
+    // valid check digits, but a page range, a DOI suffix, a date or a longer number
+    assertThat(Issn.all("pp. 1175-5326")).isEmpty();
+    assertThat(Issn.all("p.1175-5326")).isEmpty();
+    assertThat(Issn.all("doi:10.1000/1175-5326")).isEmpty();
+    assertThat(Issn.all("10.1000.1175-5326")).isEmpty();
+    assertThat(Issn.all("1175-5326-1234")).isEmpty();
+    assertThat(Issn.all("1175-53261")).isEmpty();
+    assertThat(Issn.all("2026 1119 1175 5326")).isEmpty();
   }
 }

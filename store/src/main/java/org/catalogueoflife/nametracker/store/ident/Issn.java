@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
@@ -13,10 +14,15 @@ public final class Issn {
 
   /** A label in front of an ISSN: ISSN, ISSN-L, eISSN, e-ISSN, pISSN, p-ISSN, any case, optional colon. */
   private static final Pattern PREFIX = Pattern.compile("^(?:[EP]-?)?ISSN(?:-L)?[\\s\\u00A0:]*");
-  private static final Pattern SEPARATORS = Pattern.compile("[-\\s\\u00A0]");
-  /** Not glued to a longer token, except to a label (ISSN1175-5326). */
-  private static final Pattern IN_TEXT = Pattern.compile(
-      "(?:(?<![0-9A-Za-z])|(?<=(?i:ISSN))|(?<=(?i:ISSN-L)))(\\d{4})[- \\u00A0\\t]?(\\d{3}[\\dXx])(?![0-9A-Za-z])");
+  private static final Pattern SEPARATORS = Pattern.compile("[-\\u2013\\s\\u00A0]");
+  /** An ISSN behind a label: spaces, NBSP, a dash or nothing may separate the halves (ISSN 1175 5326, ISSN1175-5326). */
+  private static final Pattern LABELLED = Pattern.compile(
+      "(?<![A-Za-z])(?i:(?:[ep]-?)?ISSN(?:-L)?)[\\s\\u00A0:]*(\\d{4})[-\\u2013 \\u00A0\\t]?(\\d{3}[\\dXx])(?![0-9A-Za-z])");
+  /** A hyphenated (or en dash) ISSN anywhere, but not inside a longer number, a DOI or a path. */
+  private static final Pattern HYPHENATED = Pattern.compile(
+      "(?<![0-9A-Za-z/.\\-\\u2013])(\\d{4})[-\\u2013](\\d{3}[\\dXx])(?![0-9A-Za-z]|[-\\u2013]\\d)");
+  /** "pp. " or "p." right before: a page range. */
+  private static final Pattern PAGES = Pattern.compile("(?i)\\bpp?\\.?\\s*$");
 
   private Issn() {}
 
@@ -35,21 +41,26 @@ public final class Issn {
     return s.substring(0, 4) + "-" + s.substring(4);
   }
 
-  /** Every valid ISSN in a free text, in order of first occurrence, deduplicated. */
+  /**
+   * Every valid ISSN in a free text, in order of first occurrence, deduplicated. Only the hyphenated form is accepted
+   * anywhere (not after "pp." or in a DOI, not followed by more digits); the forms with a space, NBSP or nothing between
+   * the halves only directly after a label (ISSN, ISSN-L, eISSN, pISSN, e-ISSN, p-ISSN).
+   */
   public static List<String> all(@Nullable String text) {
     if (text == null) return List.of();
-    LinkedHashSet<String> out = new LinkedHashSet<>();
-    Matcher m = IN_TEXT.matcher(text);
-    int from = 0;
-    while (from < text.length() && m.find(from)) {
-      String n = normalise(m.group(1) + m.group(2));
-      if (n != null) {
-        out.add(n);
-        from = m.end();
-      } else {
-        from = m.start() + 1; // "2012 1175 5326": the year must not swallow half of the ISSN
-      }
+    TreeMap<Integer, String> found = new TreeMap<>();
+    Matcher m = LABELLED.matcher(text);
+    while (m.find()) put(found, m.start(1), m.group(1) + m.group(2));
+    m = HYPHENATED.matcher(text);
+    while (m.find()) {
+      if (PAGES.matcher(text.substring(0, m.start())).find()) continue;
+      put(found, m.start(1), m.group(1) + m.group(2));
     }
-    return new ArrayList<>(out);
+    return new ArrayList<>(new LinkedHashSet<>(found.values()));
+  }
+
+  private static void put(TreeMap<Integer, String> found, int at, String raw) {
+    String n = normalise(raw);
+    if (n != null) found.put(at, n);
   }
 }
