@@ -89,4 +89,10 @@ public interface SubscriptionMapper {
    * taxon). Returns the changed count.
    */
   int rewriteDiscipline(@Param("from") String from, @Param("to") String to, @Param("note") String note);
+
+  /**
+   * Notes a source's change (it ceased) on every SOURCE follow of it, paused ones too: xr_note and xr_note_at now, so
+   * the next digest prints it once. Returns the count.
+   */
+  int noteSourceFollows(@Param("sourceId") long sourceId, @Param("note") String note);
 }

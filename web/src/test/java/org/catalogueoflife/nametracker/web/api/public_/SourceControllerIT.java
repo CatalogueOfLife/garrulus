@@ -85,4 +85,48 @@ class SourceControllerIT extends AbstractPostgresIT {
     assertThat(r.path("recentWorks")).hasSize(10);
     assertThat(r.path("recentWorks").get(0).path("title").asString()).isEqualTo("Work 11");
   }
+
+  @Test
+  void ceasedFieldsAndFilter() throws Exception {
+    long successor = source("New Journal", "CORE", true, "TAXONOMIC");
+    long ceased = source("Old Journal", "CORE", true, "TAXONOMIC");
+    jdbc.update("UPDATE source SET publication_status = 'CEASED', ceased_reason = 'TITLE_CHANGE', last_issue_year = 2019, "
+        + "continued_by = ? WHERE id = ?", successor, ceased);
+    JsonNode d = JSON.readTree(get("/api/sources/" + ceased).body());
+    assertThat(d.path("publicationStatus").asString()).isEqualTo("CEASED");
+    assertThat(d.path("ceasedReason").asString()).isEqualTo("TITLE_CHANGE");
+    assertThat(d.path("lastIssueYear").asInt()).isEqualTo(2019);
+    assertThat(d.path("continuedBy").path("id").asLong()).isEqualTo(successor);
+    assertThat(d.path("continuedBy").path("title").asString()).isEqualTo("New Journal");
+    JsonNode live = JSON.readTree(get("/api/sources/" + successor).body());
+    assertThat(live.path("publicationStatus").asString()).isEqualTo("ACTIVE");
+    assertThat(live.path("continuedBy").isNull()).isTrue();
+
+    JsonNode all = JSON.readTree(get("/api/sources").body());
+    assertThat(all.path("total").asInt()).isEqualTo(2);
+    JsonNode only = JSON.readTree(get("/api/sources?publicationStatus=CEASED").body());
+    assertThat(only.path("total").asInt()).isEqualTo(1);
+    assertThat(only.path("results").get(0).path("title").asString()).isEqualTo("Old Journal");
+    assertThat(only.path("results").get(0).path("lastIssueYear").asInt()).isEqualTo(2019);
+    assertThat(JSON.readTree(get("/api/sources?publicationStatus=ACTIVE").body()).path("total").asInt()).isEqualTo(1);
+    assertThat(get("/api/sources?publicationStatus=GONE").statusCode()).isEqualTo(400);
+
+    // a successor that is not itself public is not named
+    jdbc.update("UPDATE source SET tier = 'CANDIDATE' WHERE id = ?", successor);
+    assertThat(JSON.readTree(get("/api/sources/" + ceased).body()).path("continuedBy").isNull()).isTrue();
+  }
+
+  @Test
+  void ceasedWorksStayListed() throws Exception {
+    long ceased = source("Old Journal", "CORE", true, "TAXONOMIC");
+    jdbc.update("UPDATE source SET publication_status = 'CEASED', ceased_reason = 'STOPPED', last_issue_year = 2019 "
+        + "WHERE id = ?", ceased);
+    jdbc.update("INSERT INTO work (doi, title, year, publication_date, state, origin, source_id, text_level) "
+        + "VALUES ('10.1/old', 'An old paper', 2019, '2019-05-01', 'INDEXED', 'LIVE', ?, 'ABSTRACT_ONLY')", ceased);
+    JsonNode d = JSON.readTree(get("/api/sources/" + ceased).body());
+    assertThat(d.path("recentWorks")).hasSize(1);
+    assertThat(d.path("years").get(0).path("year").asInt()).isEqualTo(2019);
+    JsonNode works = JSON.readTree(get("/api/works?source=" + ceased).body());
+    assertThat(works.path("total").asInt()).isEqualTo(1);
+  }
 }

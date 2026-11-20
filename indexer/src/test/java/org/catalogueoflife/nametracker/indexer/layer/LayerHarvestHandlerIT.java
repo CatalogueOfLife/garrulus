@@ -42,6 +42,7 @@ class LayerHarvestHandlerIT extends AbstractPostgresIT {
   @Autowired TaskQueue queue;
   @Autowired HarvestRunMapper runs;
   @Autowired SourceRouteMapper routes;
+  @Autowired org.catalogueoflife.nametracker.store.source.SourceMapper sources;
   @Autowired HarvestOutage outage;
   @Autowired Clock clock;
   @Autowired JdbcTemplate jdbc;
@@ -52,6 +53,7 @@ class LayerHarvestHandlerIT extends AbstractPostgresIT {
   /** Two pages: two works (one skipped by the layer itself), then one recent work and one from 1998. */
   static final class FakeLayer implements HarvestLayer {
     final List<String> positions = new ArrayList<>();
+    final List<List<Long>> jobSourceIds = new ArrayList<>();
     @Nullable String failOn;
     long sourceId;
 
@@ -63,6 +65,7 @@ class LayerHarvestHandlerIT extends AbstractPostgresIT {
     @Override
     public LayerPage page(LayerJob job, @Nullable String position) {
       positions.add(position);
+      jobSourceIds.add(job.sourceIds());
       if (failOn != null && failOn.equals(position == null ? "start" : position)) {
         throw new HttpProblem(URI.create("https://journal.example.org/oai"), 503, true, "HTTP 503", null);
       }
@@ -83,8 +86,9 @@ class LayerHarvestHandlerIT extends AbstractPostgresIT {
     final FakeLayer fake;
 
     FakeHandler(FakeLayer fake, LayerWriter writer, TaskQueue queue, HarvestRunMapper runs,
-        SourceRouteMapper routes, HarvestOutage outage, Clock clock, MockEnvironment env) {
-      super(writer, queue, runs, routes, outage, clock, env);
+        SourceRouteMapper routes, org.catalogueoflife.nametracker.store.source.SourceMapper sources, HarvestOutage outage,
+        Clock clock, MockEnvironment env) {
+      super(writer, queue, runs, routes, sources, outage, clock, env);
       this.fake = fake;
     }
 
@@ -113,7 +117,7 @@ class LayerHarvestHandlerIT extends AbstractPostgresIT {
   }
 
   private FakeHandler handler(MockEnvironment env) {
-    return new FakeHandler(fake, writer, queue, runs, routes, outage, clock, env);
+    return new FakeHandler(fake, writer, queue, runs, routes, sources, outage, clock, env);
   }
 
   private LocalDate from() {
@@ -230,7 +234,7 @@ class LayerHarvestHandlerIT extends AbstractPostgresIT {
         throw new HttpProblem(URI.create("https://journal.example.org/oai"), 400, false, "HTTP 400", null);
       }
     };
-    LayerHarvestHandler h = new LayerHarvestHandler(writer, queue, runs, routes, outage, clock,
+    LayerHarvestHandler h = new LayerHarvestHandler(writer, queue, runs, routes, sources, outage, clock,
         new MockEnvironment()) {
       @Override protected HarvestLayer layer() {
         return broken;
@@ -265,7 +269,7 @@ class LayerHarvestHandlerIT extends AbstractPostgresIT {
         throw new HttpProblem(URI.create("https://journal.example.org/oai"), 400, false, "HTTP 400", null);
       }
     };
-    LayerHarvestHandler h = new LayerHarvestHandler(writer, queue, runs, routes, outage, clock,
+    LayerHarvestHandler h = new LayerHarvestHandler(writer, queue, runs, routes, sources, outage, clock,
         new MockEnvironment()) {
       @Override protected HarvestLayer layer() {
         return broken;
@@ -338,5 +342,39 @@ class LayerHarvestHandlerIT extends AbstractPostgresIT {
     Method m = TaskDispatcher.class.getDeclaredMethod("poll");
     m.setAccessible(true);
     m.invoke(d);
+  }
+
+  @Test
+  void ceasedSourceJobMakesNoCall() throws Exception {
+    jdbc.update("UPDATE source SET publication_status = 'CEASED', ceased_reason = 'STOPPED' WHERE id = ?", sourceId);
+    enqueueFirst(LayerMode.LIVE, TaskPriority.LIVE);
+    assertThat(drain()).isEqualTo(1);
+    assertThat(fake.positions).isEmpty();
+    assertThat(count("SELECT count(*) FROM harvest_run")).isZero();
+    assertThat(count("SELECT count(*) FROM work")).isZero();
+    assertThat(count("SELECT count(*) FROM task WHERE state = 'DEAD'")).isZero();
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'HARVEST_OAI' AND state = 'QUEUED'")).isZero();
+  }
+
+  @Test
+  void ceasedSourceOfARouteOnlyJobMakesNoCall() throws Exception {
+    jdbc.update("UPDATE source SET publication_status = 'CEASED', ceased_reason = 'STOPPED' WHERE id = ?", sourceId);
+    queue.enqueue(handler.type(), LayerHarvestHandler.firstPayload("r" + routeId, routeId, List.of(), from(), null,
+        LayerMode.BACKFILL), TaskPriority.BACKFILL, "route-only");
+    assertThat(drain()).isEqualTo(1);
+    assertThat(fake.positions).isEmpty();
+    assertThat(count("SELECT count(*) FROM harvest_run")).isZero();
+  }
+
+  @Test
+  void ceasedIdsAreTakenOutOfAJobOfSeveralSources() throws Exception {
+    long other = jdbc.queryForObject("INSERT INTO source (issn_l, title, tier, origin, onboarded_at, "
+        + "publication_status, ceased_reason) VALUES ('2345-6789', 'Gone', 'CORE', 'MANUAL', now(), 'CEASED', 'STOPPED') "
+        + "RETURNING id", Long.class);
+    queue.enqueue(handler.type(), LayerHarvestHandler.firstPayload("blr", null, List.of(other, sourceId), from(), null,
+        LayerMode.LIVE), TaskPriority.LIVE, "several");
+    assertThat(drain()).isEqualTo(2);
+    assertThat(fake.positions).hasSize(2); // the job ran for the journal that has not ceased
+    assertThat(fake.jobSourceIds).containsOnly(List.of(sourceId));
   }
 }

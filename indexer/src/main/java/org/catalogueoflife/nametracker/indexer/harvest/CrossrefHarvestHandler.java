@@ -152,7 +152,18 @@ public class CrossrefHarvestHandler implements TaskHandler {
     List<String> issns = new ArrayList<>(issnSet);
     List<String> slice;
     if (!payloadIds.isEmpty()) {
-      slice = payloadIds; // exactly the batch the run began with, whatever was added to the registry since
+      // the batch the run began with, whatever was added to the registry since; the ISSNs of a journal that ceased
+      // since are taken out
+      slice = payloadIds.stream().filter(issnSet::contains).toList();
+      if (slice.isEmpty()) {
+        String last = payloadIds.getLast();
+        if (issns.stream().anyMatch(i -> i.compareTo(last) > 0)) {
+          continuation(task, date, batch + 1, null, List.of(), last, runId, "start");
+        } else {
+          runs.setState(runId, "DONE", null);
+        }
+        return;
+      }
     } else {
       List<String> rest;
       if (after != null) {

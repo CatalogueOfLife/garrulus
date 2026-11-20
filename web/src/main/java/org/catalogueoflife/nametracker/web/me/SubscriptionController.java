@@ -14,7 +14,9 @@ import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.store.account.Subscription;
 import org.catalogueoflife.nametracker.store.account.SubscriptionMapper;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
+import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
+import org.catalogueoflife.nametracker.web.api.public_.SourceController;
 import org.catalogueoflife.nametracker.web.api.public_.WorkController;
 import org.catalogueoflife.nametracker.web.auth.CurrentUser;
 import org.jspecify.annotations.Nullable;
@@ -68,9 +70,20 @@ public class SubscriptionController {
 
   /** The DTO of a subscription (also used by the account export). */
   public SubscriptionDto dto(Subscription s) {
+    Source src = s.type().equals("SOURCE") ? sourceOf(s.target()) : null;
     return new SubscriptionDto(s.id(), s.type(), s.target(), s.label(), s.mainSubjectOnly(), s.newNamesOnly(),
         s.includeAbstractOnly(), s.includeReferences(), filtersOf(s.filters()), s.sinceYear(), s.paused(),
-        feedUrl(s.feedToken()), s.created(), s.targetStatus(), s.xrNote(), s.previousTarget());
+        feedUrl(s.feedToken()), s.created(), s.targetStatus(), s.xrNote(), s.previousTarget(),
+        src == null ? null : src.publicationStatus(), src == null ? null : src.lastIssueYear(),
+        src == null ? null : SourceController.ref(sources, src));
+  }
+
+  private @Nullable Source sourceOf(String target) {
+    try {
+      return sources.get(Long.parseLong(target));
+    } catch (NumberFormatException e) {
+      return null;
+    }
   }
 
   public String feedUrl(String token) {

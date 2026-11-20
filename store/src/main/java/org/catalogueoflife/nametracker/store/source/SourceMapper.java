@@ -59,12 +59,16 @@ public interface SourceMapper {
   List<Source> list(@Param("tier") @Nullable String tier, @Param("active") @Nullable Boolean active,
       @Param("q") @Nullable String q, @Param("limit") int limit, @Param("offset") int offset);
 
-  /** Public listing: active CORE and BROAD sources only, optional tier, journal type and title substring; by title. */
+  /**
+   * Public listing: active CORE and BROAD sources only (ceased ones too), optional tier, journal type, publication
+   * status and title substring; by title.
+   */
   List<Source> listPublic(@Param("q") @Nullable String q, @Param("tier") @Nullable String tier,
-      @Param("journalType") @Nullable String journalType, @Param("limit") int limit, @Param("offset") int offset);
+      @Param("journalType") @Nullable String journalType, @Param("publicationStatus") @Nullable String publicationStatus,
+      @Param("limit") int limit, @Param("offset") int offset);
 
   long countPublic(@Param("q") @Nullable String q, @Param("tier") @Nullable String tier,
-      @Param("journalType") @Nullable String journalType);
+      @Param("journalType") @Nullable String journalType, @Param("publicationStatus") @Nullable String publicationStatus);
 
   /** Rows tier, n. */
   List<Map<String, Object>> countByTier();
@@ -149,4 +153,33 @@ public interface SourceMapper {
 
   /** Ids of the sources whose disciplines are derived (not set by an admin). */
   List<Long> listDerivedDisciplineIds();
+
+  /**
+   * Sets the publication status as an admin decision (status_set_by ADMIN, status_changed now). CEASED stores the
+   * reason, last issue year and successor (each may be null except the reason) and ends a dormancy proposal; ACTIVE
+   * clears all three. Returns 0 for an unknown source.
+   */
+  int setPublicationStatus(@Param("id") long id, @Param("status") String status,
+      @Param("reason") @Nullable String reason, @Param("lastIssueYear") @Nullable Integer lastIssueYear,
+      @Param("continuedBy") @Nullable Long continuedBy);
+
+  /** The ids among {@code ids} whose publication status is CEASED. */
+  List<Long> ceasedAmong(@Param("ids") List<Long> ids);
+
+  /**
+   * Per ACTIVE-status source with works: rows id, last_pub (the latest publication date, a work known by its year
+   * only counting from 31 December), recent (works published in the 3 years up to last_pub), dormant_since,
+   * dormant_dismissed_at, doaj_discontinued and successor_issns.
+   */
+  List<Map<String, Object>> dormancyBase();
+
+  /** Sets (or with null clears) the dormancy proposal: since date and evidence JSON. */
+  int setDormancy(@Param("id") long id, @Param("since") @Nullable LocalDate since,
+      @Param("evidence") @Nullable String evidence);
+
+  /** Dismisses a dormancy proposal: clears it and stamps dormant_dismissed_at, which hides it for a year. */
+  int dismissDormant(@Param("id") long id);
+
+  /** Clears the dormancy proposal of every source that is no longer ACTIVE-status; returns the count. */
+  int clearDormancyOfCeased();
 }

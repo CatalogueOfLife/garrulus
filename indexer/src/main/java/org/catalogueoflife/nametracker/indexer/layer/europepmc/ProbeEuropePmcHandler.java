@@ -77,7 +77,7 @@ public class ProbeEuropePmcHandler implements TaskHandler {
     List<Source> todo = new ArrayList<>();
     if (p.hasNonNull("sourceId")) {
       Source s = sources.get(p.path("sourceId").asLong());
-      if (s != null) todo.add(s);
+      if (s != null && !"CEASED".equals(s.publicationStatus())) todo.add(s);
     } else {
       todo.addAll(sources.listHarvestable());
     }

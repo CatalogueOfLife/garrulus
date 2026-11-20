@@ -25,6 +25,8 @@ class AdminSourceControllerIT extends AbstractPostgresIT {
   @BeforeEach
   void clean() {
     jdbc.update("DELETE FROM task");
+    jdbc.update("DELETE FROM subscription WHERE label IN ('Old Journal', 'Other')");
+    jdbc.update("DELETE FROM app_user WHERE email = 'ceased@example.org'");
     jdbc.update("DELETE FROM work");
     jdbc.update("DELETE FROM source");
   }
@@ -161,5 +163,115 @@ class AdminSourceControllerIT extends AbstractPostgresIT {
     assertThat(p.path("openalexId").asString()).isEqualTo("S4210");
     assertThat(p.path("tier").asString()).isEqualTo("CORE");
     assertThat(task.get("dedup_key")).isEqualTo("add-source:S4210");
+  }
+
+  long route(long sourceId, String layer, String status, String config) {
+    return jdbc.queryForObject("INSERT INTO source_route (source_id, layer, config, status, origin) VALUES "
+        + "(?, ?, ?::jsonb, ?, 'SEED') RETURNING id", Long.class, sourceId, layer, config, status);
+  }
+
+  String routeStatus(long id) {
+    return jdbc.queryForObject("SELECT status || '/' || coalesce(last_error, '') FROM source_route WHERE id = ?",
+        String.class, id);
+  }
+
+  @Test
+  void ceasingPausesRoutesAndNotesFollows() throws Exception {
+    long successor = source("S10", "New Journal", "CORE", true, true);
+    long id = source("S11", "Old Journal", "CORE", true, true);
+    long active = route(id, "OAI", "ACTIVE", "{\"base\":\"https://a.example.org/oai\"}");
+    long verified = route(id, "OAI", "VERIFIED", "{\"base\":\"https://b.example.org/oai\"}");
+    long pending = route(id, "MAGTECH", "PENDING", "{\"site\":\"https://c.example.org\"}");
+    long broken = route(id, "EUROPEPMC", "BROKEN", "{\"issns\":[\"1234-5679\"]}");
+    long user = jdbc.queryForObject("INSERT INTO app_user (email) VALUES ('ceased@example.org') RETURNING id", Long.class);
+    jdbc.update("INSERT INTO subscription (user_id, type, target, label) VALUES (?, 'SOURCE', ?, 'Old Journal')", user,
+        String.valueOf(id));
+    jdbc.update("INSERT INTO subscription (user_id, type, target, label) VALUES (?, 'SOURCE', ?, 'Other')", user,
+        String.valueOf(successor));
+
+    HttpResponse<String> r = call("PATCH", "/api/admin/sources/" + id, "{\"publicationStatus\":\"CEASED\","
+        + "\"ceasedReason\":\"TITLE_CHANGE\",\"lastIssueYear\":2019,\"continuedBy\":" + successor + "}", "test-token");
+    assertThat(r.statusCode()).isEqualTo(200);
+    JsonNode v = JSON.readTree(r.body());
+    assertThat(v.path("publicationStatus").asString()).isEqualTo("CEASED");
+    assertThat(v.path("lastIssueYear").asInt()).isEqualTo(2019);
+    assertThat(jdbc.queryForMap("SELECT publication_status, ceased_reason, status_set_by, continued_by, "
+        + "status_changed IS NOT NULL AS changed FROM source WHERE id = ?", id))
+        .containsEntry("ceased_reason", "TITLE_CHANGE").containsEntry("status_set_by", "ADMIN")
+        .containsEntry("continued_by", successor).containsEntry("changed", true);
+    assertThat(routeStatus(active)).isEqualTo("PAUSED/journal ceased");
+    assertThat(routeStatus(verified)).isEqualTo("PAUSED/journal ceased");
+    assertThat(routeStatus(pending)).isEqualTo("PAUSED/journal ceased");
+    assertThat(routeStatus(broken)).isEqualTo("BROKEN/");
+    assertThat(jdbc.queryForObject("SELECT xr_note FROM subscription WHERE target = ?", String.class, String.valueOf(id)))
+        .isEqualTo("Ceased publication · last issue 2019. Continued as New Journal.");
+    assertThat(jdbc.queryForObject("SELECT xr_note FROM subscription WHERE target = ?", String.class,
+        String.valueOf(successor))).isNull();
+    // no onboarding or verification is queued for a ceased journal
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM task", Long.class)).isZero();
+  }
+
+  @Test
+  void ceasedNeedsReason() throws Exception {
+    long id = source("S12", "J", "CORE", true, true);
+    assertThat(call("PATCH", "/api/admin/sources/" + id, "{\"publicationStatus\":\"CEASED\"}", "test-token")
+        .statusCode()).isEqualTo(400);
+    assertThat(call("PATCH", "/api/admin/sources/" + id,
+        "{\"publicationStatus\":\"CEASED\",\"ceasedReason\":\"BORED\"}", "test-token").statusCode()).isEqualTo(400);
+    assertThat(call("PATCH", "/api/admin/sources/" + id,
+        "{\"publicationStatus\":\"CEASED\",\"ceasedReason\":\"STOPPED\",\"lastIssueYear\":1700}", "test-token")
+        .statusCode()).isEqualTo(400);
+    assertThat(call("PATCH", "/api/admin/sources/" + id,
+        "{\"publicationStatus\":\"CEASED\",\"ceasedReason\":\"STOPPED\",\"lastIssueYear\":2999}", "test-token")
+        .statusCode()).isEqualTo(400);
+    assertThat(call("PATCH", "/api/admin/sources/" + id, "{\"publicationStatus\":\"GONE\"}", "test-token")
+        .statusCode()).isEqualTo(400);
+    assertThat(jdbc.queryForObject("SELECT publication_status FROM source WHERE id = ?", String.class, id))
+        .isEqualTo("ACTIVE");
+  }
+
+  @Test
+  void continuedByMustExistAndDiffer() throws Exception {
+    long id = source("S13", "J", "CORE", true, true);
+    String ceased = "{\"publicationStatus\":\"CEASED\",\"ceasedReason\":\"MERGED\",\"continuedBy\":";
+    assertThat(call("PATCH", "/api/admin/sources/" + id, ceased + id + "}", "test-token").statusCode()).isEqualTo(400);
+    assertThat(call("PATCH", "/api/admin/sources/" + id, ceased + "999999}", "test-token").statusCode()).isEqualTo(400);
+    assertThat(jdbc.queryForObject("SELECT publication_status FROM source WHERE id = ?", String.class, id))
+        .isEqualTo("ACTIVE");
+  }
+
+  @Test
+  void reactivationPutsRoutesBackToPendingAndVerifies() throws Exception {
+    long id = source("S14", "J", "CORE", true, true);
+    long active = route(id, "OAI", "ACTIVE", "{\"base\":\"https://a.example.org/oai\"}");
+    long manual = route(id, "MAGTECH", "PAUSED", "{\"site\":\"https://c.example.org\"}"); // paused by an admin
+    call("PATCH", "/api/admin/sources/" + id, "{\"publicationStatus\":\"CEASED\",\"ceasedReason\":\"STOPPED\"}",
+        "test-token");
+    assertThat(routeStatus(active)).isEqualTo("PAUSED/journal ceased");
+    jdbc.update("DELETE FROM task");
+
+    HttpResponse<String> r = call("PATCH", "/api/admin/sources/" + id, "{\"publicationStatus\":\"ACTIVE\"}",
+        "test-token");
+    assertThat(r.statusCode()).isEqualTo(200);
+    assertThat(JSON.readTree(r.body()).path("publicationStatus").asString()).isEqualTo("ACTIVE");
+    assertThat(jdbc.queryForMap("SELECT ceased_reason, last_issue_year, continued_by FROM source WHERE id = ?", id))
+        .containsEntry("ceased_reason", null).containsEntry("last_issue_year", null);
+    assertThat(routeStatus(active)).isEqualTo("PENDING/");
+    assertThat(routeStatus(manual)).isEqualTo("PAUSED/");
+    assertThat(jdbc.queryForList("SELECT dedup_key FROM task WHERE type = 'VERIFY_ROUTE'", String.class))
+        .containsExactly("verify-route:" + active);
+    // no follow note on reactivation beyond the one of the ceasing
+  }
+
+  @Test
+  void statusOnlyAndDismissOnlyPatchesAreValid() throws Exception {
+    long id = source("S15", "J", "CORE", true, true);
+    jdbc.update("UPDATE source SET dormant_since = current_date, dormant_evidence = '{}'::jsonb WHERE id = ?", id);
+    assertThat(call("PATCH", "/api/admin/sources/" + id, "{\"dismissDormant\":true}", "test-token").statusCode())
+        .isEqualTo(200);
+    assertThat(jdbc.queryForMap("SELECT dormant_since, dormant_dismissed_at IS NOT NULL AS dismissed FROM source "
+        + "WHERE id = ?", id)).containsEntry("dormant_since", null).containsEntry("dismissed", true);
+    assertThat(call("PATCH", "/api/admin/sources/" + id, "{\"dismissDormant\":false}", "test-token").statusCode())
+        .isEqualTo(400);
   }
 }

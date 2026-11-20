@@ -42,6 +42,7 @@ class MagtechLayerIT extends AbstractPostgresIT {
   @Autowired TaskQueue queue;
   @Autowired HarvestRunMapper runs;
   @Autowired SourceRouteMapper routes;
+  @Autowired org.catalogueoflife.nametracker.store.source.SourceMapper sources;
   @Autowired WorkIdentifierMapper identifiers;
   @Autowired HarvestOutage outage;
   @Autowired Clock clock;
@@ -72,7 +73,7 @@ class MagtechLayerIT extends AbstractPostgresIT {
     PoliteHttp http = new PoliteHttp(HttpClient.newHttpClient(), Map.of("localhost", Duration.ZERO),
         PoliteHttp.userAgent(), Clock.systemUTC(), d -> { });
     MagtechLayer layer = new MagtechLayer(http, routes, identifiers);
-    return new HarvestMagtechHandler(writer, queue, runs, routes, outage, clock, new MockEnvironment(), layer,
+    return new HarvestMagtechHandler(writer, queue, runs, routes, sources, outage, clock, new MockEnvironment(), layer,
         lifecycle);
   }
 

@@ -98,7 +98,7 @@ class BlrLayerIT extends AbstractPostgresIT {
   }
 
   private void run(WireMockRuntimeInfo w) throws Exception {
-    var h = new HarvestBlrHandler(writer, queue, runs, routes, outage, clock, new MockEnvironment(), layer(w));
+    var h = new HarvestBlrHandler(writer, queue, runs, routes, sources, outage, clock, new MockEnvironment(), layer(w));
     queue.enqueue(h.type(), LayerHarvestHandler.firstPayload("all", null, List.of(), LocalDate.of(2026, 11, 18), null,
         LayerMode.LIVE), TaskPriority.LIVE, "blr-test");
     for (List<Task> t = queue.claim(Set.of(h.type()), "test", 1); !t.isEmpty();

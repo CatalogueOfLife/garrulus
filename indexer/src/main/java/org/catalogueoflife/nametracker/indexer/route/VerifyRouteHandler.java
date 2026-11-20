@@ -114,7 +114,13 @@ public class VerifyRouteHandler implements TaskHandler {
       LOG.warn("{}: no route {}; nothing to verify", TYPE, routeId);
       return;
     }
-    if (FOUND.contains(route.origin()) && !followed(sources.get(route.sourceId()))) {
+    Source owner = sources.get(route.sourceId());
+    if (owner != null && "CEASED".equals(owner.publicationStatus())) {
+      LOG.info("{}: route {} of source {} is not verified: the journal has ceased publication", TYPE, route.id(),
+          route.sourceId());
+      return;
+    }
+    if (FOUND.contains(route.origin()) && !followed(owner)) {
       // nothing a user registered or discovery found is fetched before an admin promotes the journal
       LOG.info("{}: route {} ({}) of source {} waits until the journal is promoted", TYPE, route.id(), route.origin(),
           route.sourceId());

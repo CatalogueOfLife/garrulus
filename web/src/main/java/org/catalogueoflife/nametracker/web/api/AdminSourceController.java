@@ -41,14 +41,20 @@ public class AdminSourceController {
   private static final Pattern OPENALEX_ID = Pattern.compile("S\\d+");
 
   public record SourceView(long id, String openalexId, String title, String tier, boolean active,
-      @Nullable Instant onboardedAt, @Nullable Instant lastHarvested, @Nullable Integer worksPerYear) {
+      @Nullable Instant onboardedAt, @Nullable Instant lastHarvested, @Nullable Integer worksPerYear,
+      String publicationStatus, @Nullable String ceasedReason, @Nullable Integer lastIssueYear,
+      @Nullable Long continuedBy) {
     static SourceView of(Source s) {
       return new SourceView(s.id(), s.openalexId(), s.title(), s.tier(), Boolean.TRUE.equals(s.active()),
-          s.onboardedAt(), s.lastHarvested(), s.worksPerYear());
+          s.onboardedAt(), s.lastHarvested(), s.worksPerYear(), s.publicationStatus(), s.ceasedReason(),
+          s.lastIssueYear(), s.continuedBy());
     }
   }
 
-  public record PatchRequest(@Nullable String tier, @Nullable Boolean active) {}
+  /** Every field is optional, at least one must be given. {@code ceasedReason} is needed with CEASED. */
+  public record PatchRequest(@Nullable String tier, @Nullable Boolean active, @Nullable String publicationStatus,
+      @Nullable String ceasedReason, @Nullable Integer lastIssueYear, @Nullable Long continuedBy,
+      @Nullable Boolean dismissDormant) {}
 
   public record AddRequest(@Nullable String openalexId, @Nullable String tier) {}
 
@@ -56,8 +62,11 @@ public class AdminSourceController {
   private final SourceRouteMapper routes;
   private final TaskQueue queue;
   private final AdminAccess access;
+  private final SourceStatusService status;
 
-  public AdminSourceController(SourceMapper sources, SourceRouteMapper routes, TaskQueue queue, AdminAccess access) {
+  public AdminSourceController(SourceMapper sources, SourceRouteMapper routes, TaskQueue queue, AdminAccess access,
+      SourceStatusService status) {
+    this.status = status;
     this.sources = sources;
     this.routes = routes;
     this.queue = queue;
@@ -87,8 +96,10 @@ public class AdminSourceController {
       @RequestHeader(name = AdminOrcids.TOKEN_HEADER, required = false) @Nullable String given,
       @PathVariable long id, @RequestBody PatchRequest req) {
     access.check(given);
-    if (req.tier() == null && req.active() == null) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "tier or active is required");
+    boolean dismiss = Boolean.TRUE.equals(req.dismissDormant());
+    if (req.tier() == null && req.active() == null && req.publicationStatus() == null && !dismiss) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+          "tier, active, publicationStatus or dismissDormant is required");
     }
     if (req.tier() != null && !TIERS.contains(req.tier())) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "unknown tier " + req.tier());
@@ -97,16 +108,26 @@ public class AdminSourceController {
     if (current == null) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "no source " + id);
     }
+    if (req.publicationStatus() != null) {
+      // validated before anything is written
+      status.apply(current, req.publicationStatus(), req.ceasedReason(), req.lastIssueYear(), req.continuedBy());
+    }
+    if (dismiss) {
+      sources.dismissDormant(id);
+    }
     String tier = req.tier() != null ? req.tier() : current.tier();
     boolean active = req.active() != null ? req.active() : Boolean.TRUE.equals(current.active());
-    sources.setTier(id, tier, active, "ADMIN");
+    if (req.tier() != null || req.active() != null) {
+      sources.setTier(id, tier, active, "ADMIN");
+    }
     Source updated = sources.get(id);
-    if (updated.onboardedAt() == null && Boolean.TRUE.equals(updated.active())
+    boolean ceased = "CEASED".equals(updated.publicationStatus());
+    if (updated.onboardedAt() == null && Boolean.TRUE.equals(updated.active()) && !ceased
         && (tier.equals("CORE") || tier.equals("BROAD"))) {
       // same task and dedup key as the seeder, so that it is queued at most once
       queue.enqueue("ONBOARD_SOURCE", "{\"sourceId\":" + id + "}", TaskPriority.BACKFILL, "onboard:" + id);
     }
-    if (tier.equals("CORE") || tier.equals("BROAD")) {
+    if (!ceased && (tier.equals("CORE") || tier.equals("BROAD"))) {
       // the routes registration and discovery suggested are fetched only once an admin promoted the journal
       for (SourceRoute r : routes.forSource(id)) {
         if (r.status().equals("PENDING")) {

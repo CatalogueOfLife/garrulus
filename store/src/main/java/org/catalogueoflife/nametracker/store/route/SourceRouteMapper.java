@@ -54,4 +54,16 @@ public interface SourceRouteMapper {
 
   /** Route counts per layer and status: {@code layer}, {@code status}, {@code n}. */
   List<Map<String, Object>> countByLayerAndStatus();
+
+  /**
+   * A source ceased: its ACTIVE, VERIFIED and PENDING routes become PAUSED with {@code reason} as last_error. Returns
+   * the count.
+   */
+  int pauseAll(@Param("sourceId") long sourceId, @Param("reason") String reason);
+
+  /**
+   * A source is active again: the routes {@link #pauseAll} paused (PAUSED with that last_error) become PENDING, error
+   * cleared, so VERIFY_ROUTE decides what each is. Returns their ids.
+   */
+  List<Long> resumePaused(@Param("sourceId") long sourceId, @Param("reason") String reason);
 }

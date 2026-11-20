@@ -46,6 +46,7 @@ class OaiLayerIT extends AbstractPostgresIT {
   @Autowired TaskQueue queue;
   @Autowired HarvestRunMapper runs;
   @Autowired SourceRouteMapper routes;
+  @Autowired org.catalogueoflife.nametracker.store.source.SourceMapper sources;
   @Autowired HarvestOutage outage;
   @Autowired Clock clock;
   @Autowired JdbcTemplate jdbc;
@@ -101,7 +102,7 @@ class OaiLayerIT extends AbstractPostgresIT {
         PoliteHttp.userAgent(), Clock.systemUTC(), d -> { });
     MockEnvironment env = new MockEnvironment().withProperty("nametracker.http.min-interval.localhost", "0s");
     OaiLayer layer = new OaiLayer(http, routes, env, Clock.fixed(now, ZoneOffset.UTC));
-    return new HarvestOaiHandler(writer, queue, runs, routes, outage, clock, env, layer, lifecycle);
+    return new HarvestOaiHandler(writer, queue, runs, routes, sources, outage, clock, env, layer, lifecycle);
   }
 
   private void enqueueFirst(HarvestOaiHandler h) {

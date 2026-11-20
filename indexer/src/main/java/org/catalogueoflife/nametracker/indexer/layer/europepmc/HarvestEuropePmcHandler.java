@@ -9,6 +9,7 @@ import org.catalogueoflife.nametracker.indexer.layer.LayerWriter;
 import org.catalogueoflife.nametracker.indexer.route.RouteLifecycle;
 import org.catalogueoflife.nametracker.store.harvest.HarvestRunMapper;
 import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
+import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
@@ -21,9 +22,10 @@ public class HarvestEuropePmcHandler extends LayerHarvestHandler {
   private final RouteLifecycle lifecycle;
 
   public HarvestEuropePmcHandler(LayerWriter writer, TaskQueue queue, HarvestRunMapper runs, SourceRouteMapper routes,
+      SourceMapper sources,
       HarvestOutage outage, Clock clock, Environment env, EuropePmcLayer layer,
       RouteLifecycle lifecycle) {
-    super(writer, queue, runs, routes, outage, clock, env);
+    super(writer, queue, runs, routes, sources, outage, clock, env);
     this.layer = layer;
     this.lifecycle = lifecycle;
   }

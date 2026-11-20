@@ -359,4 +359,17 @@ class CoverageCheckHandlerIT extends AbstractPostgresIT {
     check(DAY.plusDays(8));
     assertThat(noticeKeys()).hasSize(2);
   }
+
+  @Test
+  void ceasedJournalHasNoMisses() throws Exception {
+    jdbc.update("INSERT INTO source_route (source_id, layer, config, status, origin) VALUES (?, 'OAI', '{}', 'ACTIVE', 'SEED')",
+        source);
+    for (int i = 0; i < 3; i++) created("10.2/c" + i, source, Layer.OPENALEX, DAY.minusDays(10) + "T10:00:00Z");
+    jdbc.update("UPDATE source SET publication_status = 'CEASED', ceased_reason = 'STOPPED' WHERE id = ?", source);
+    check(DAY);
+    assertThat(row(Layer.OAI, DAY).missShare()).isEqualTo(0.0);
+    assertThat(row(Layer.CROSSREF, DAY).missShare()).isEqualTo(0.0);
+    assertThat(jdbc.queryForObject("SELECT coalesce(sum(misses), 0) FROM source_layer_coverage WHERE source_id = ?",
+        Integer.class, source)).isZero();
+  }
 }

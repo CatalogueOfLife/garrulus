@@ -65,6 +65,10 @@ public class OnboardSourceHandler implements TaskHandler {
     if (source == null) {
       throw new IllegalArgumentException("ONBOARD_SOURCE needs the id of an existing source: " + task.payload());
     }
+    if ("CEASED".equals(source.publicationStatus())) {
+      LOG.info("ONBOARD_SOURCE: source {} ({}) has ceased publication, not onboarded", sourceId, source.title());
+      return;
+    }
     if (source.onboardedAt() != null || !Boolean.TRUE.equals(source.active()) || source.openalexId() == null
         || !("CORE".equals(source.tier()) || "BROAD".equals(source.tier()))) {
       return; // already done, or no longer wanted

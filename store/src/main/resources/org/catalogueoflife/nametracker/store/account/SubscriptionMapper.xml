@@ -146,4 +146,10 @@
     WHERE filters ->> 'subfield' = #{from}
   </update>
 
+
+  <update id="noteSourceFollows" flushCache="true">
+    UPDATE subscription SET xr_note = #{note}, xr_note_at = now()
+    WHERE type = 'SOURCE' AND target = #{sourceId}::text
+  </update>
+
 </mapper>

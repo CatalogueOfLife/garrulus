@@ -253,4 +253,27 @@ class DigestJobIT extends AbstractAuthIT {
         .header("Content-Type", "application/json").header("X-Admin-Token", token)
         .POST(HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());
   }
+
+  @Autowired org.catalogueoflife.nametracker.store.account.SubscriptionMapper subscriptionMapper;
+
+  @Test
+  void ceasedNoteAppearsOnce() {
+    String email = address();
+    long u = user(email, "DAILY", ago(24 * 30));
+    long s = subscription(u, "Carabidae");
+    long journal = jdbc.queryForObject("INSERT INTO source (title, tier, origin, active) VALUES ('Old Journal', 'CORE', "
+        + "'MANUAL', true) RETURNING id", Long.class);
+    jdbc.update("INSERT INTO subscription (user_id, type, target, label) VALUES (?, 'SOURCE', ?, 'Old Journal')", u,
+        String.valueOf(journal));
+    hit(s, work("A beetle paper"), "ARTICLE", ago(2), "Carabus xus");
+    subscriptionMapper.noteSourceFollows(journal, "Ceased publication · last issue 2019. Continued as New Journal.");
+
+    assertThat(job.runFor(u, false)).isEqualTo(new DigestJob.Result(true, 1));
+    assertThat(CapturingMailSender.plainText(mail.to(email).getFirst()))
+        .contains("Ceased publication · last issue 2019. Continued as New Journal.");
+
+    hit(s, work("Another beetle paper"), "ARTICLE", Instant.now(), "Carabus yus");
+    assertThat(job.runFor(u, true)).isEqualTo(new DigestJob.Result(true, 1));
+    assertThat(CapturingMailSender.plainText(mail.to(email).getLast())).doesNotContain("Ceased publication");
+  }
 }

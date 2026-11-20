@@ -84,6 +84,10 @@ public class RouteBackfill implements TaskHandler {
   public void enqueue(long sourceId, boolean force) {
     Source source = sources.get(sourceId);
     if (source == null) throw new IllegalArgumentException("Unknown source " + sourceId);
+    if ("CEASED".equals(source.publicationStatus())) {
+      LOG.info("Route backfill of source {} ({}) skipped: the journal has ceased publication", sourceId, source.title());
+      return;
+    }
     LocalDate from = LocalDate.of(FROM_YEAR, 1, 1);
     LocalDate until = LocalDate.now(clock.withZone(ZoneOffset.UTC)).minusDays(RouteLifecycle.ONBOARDING_DAYS);
     int n = 0;

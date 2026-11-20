@@ -10,6 +10,7 @@ import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.web.api.public_.dto.SourceDetail;
 import org.catalogueoflife.nametracker.web.api.public_.dto.SourceItem;
 import org.catalogueoflife.nametracker.web.api.public_.dto.SourcePage;
+import org.catalogueoflife.nametracker.web.api.public_.dto.SourceRef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -26,6 +27,7 @@ public class SourceController {
 
   private static final Logger LOG = LoggerFactory.getLogger(SourceController.class);
   private static final Set<String> PUBLIC_TIERS = Set.of("CORE", "BROAD");
+  private static final Set<String> STATUSES = Set.of("ACTIVE", "CEASED");
   private static final Set<String> JOURNAL_TYPES = Set.of("TAXONOMIC", "GENERAL");
   static final int RECENT = 10;
 
@@ -41,7 +43,8 @@ public class SourceController {
 
   @GetMapping("/api/sources")
   public SourcePage list(@RequestParam(required = false) String q, @RequestParam(required = false) String tier,
-      @RequestParam(required = false) String journalType, @RequestParam(defaultValue = "20") int limit,
+      @RequestParam(required = false) String journalType,
+      @RequestParam(required = false) String publicationStatus, @RequestParam(defaultValue = "20") int limit,
       @RequestParam(defaultValue = "0") int offset) {
     WorkController.checkPaging(limit, offset);
     if (tier != null && !PUBLIC_TIERS.contains(tier)) {
@@ -50,10 +53,13 @@ public class SourceController {
     if (journalType != null && !JOURNAL_TYPES.contains(journalType)) {
       throw WorkController.bad("unknown journalType " + journalType);
     }
+    if (publicationStatus != null && !STATUSES.contains(publicationStatus)) {
+      throw WorkController.bad("unknown publicationStatus " + publicationStatus);
+    }
     String term = q == null || q.isBlank() ? null : q.strip();
-    List<SourceItem> items = sources.listPublic(term, tier, journalType, limit, offset).stream()
-        .map(SourceController::item).toList();
-    return new SourcePage(sources.countPublic(term, tier, journalType), limit, offset, items);
+    List<SourceItem> items = sources.listPublic(term, tier, journalType, publicationStatus, limit, offset).stream()
+        .map(this::item).toList();
+    return new SourcePage(sources.countPublic(term, tier, journalType, publicationStatus), limit, offset, items);
   }
 
   @GetMapping("/api/sources/{id}")
@@ -66,13 +72,27 @@ public class SourceController {
         false, null);
     return new SourceDetail(s.id(), s.title(), s.publisher(), s.issnL(), s.tier(), s.journalType(), s.primarySubfield(),
         nn(s.subfields()), nn(s.taxgroups()), shares(s), nn(s.codes()), s.oaModel(), s.country(), s.nameDensity(),
-        s.actRate(), s.worksPerYear(), search.yearCounts(f), works.page(f, RECENT, 0, List.of()).results());
+        s.actRate(), s.worksPerYear(), s.publicationStatus(), s.ceasedReason(), s.lastIssueYear(), ref(sources, s),
+        search.yearCounts(f), works.page(f, RECENT, 0, List.of()).results());
   }
 
-  private static SourceItem item(Source s) {
+  /** The journal that continues a ceased one, or null. */
+  private SourceRef successor(Source s) {
+    return ref(sources, s);
+  }
+
+  /** The continuing journal of a ceased source as a reference; null when none is set or it is not itself public. */
+  public static SourceRef ref(SourceMapper sources, Source s) {
+    if (s.continuedBy() == null) return null;
+    Source c = sources.get(s.continuedBy());
+    boolean open = c != null && Boolean.TRUE.equals(c.active()) && PUBLIC_TIERS.contains(c.tier());
+    return open ? new SourceRef(c.id(), c.title()) : null;
+  }
+
+  private SourceItem item(Source s) {
     return new SourceItem(s.id(), s.title(), s.publisher(), s.tier(), s.journalType(), s.primarySubfield(),
         nn(s.subfields()), nn(s.taxgroups()), nn(s.codes()), s.oaModel(), s.country(), s.nameDensity(), s.actRate(),
-        s.worksPerYear());
+        s.worksPerYear(), s.publicationStatus(), s.ceasedReason(), s.lastIssueYear(), ref(sources, s));
   }
 
   private static List<String> nn(List<String> l) {

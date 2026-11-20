@@ -147,7 +147,7 @@ class CrossrefHistoryLayerIT extends AbstractPostgresIT {
   @Test
   void aRedeliveredFirstPageEnqueuesTheSameContinuation(WireMockRuntimeInfo w) throws Exception {
     stub("until-pub-date:2000-12-31", 0, 2);
-    var h = new HarvestCrossrefHistoryHandler(writer, queue, runs, routes, outage, clock, new MockEnvironment(),
+    var h = new HarvestCrossrefHistoryHandler(writer, queue, runs, routes, sources, outage, clock, new MockEnvironment(),
         layer(w), lifecycle);
     queue.enqueue(h.type(), LayerHarvestHandler.firstPayload("s" + sourceId, null, List.of(sourceId), FROM, UNTIL,
         LayerMode.BACKFILL), TaskPriority.BACKFILL, "route-backfill:crossref:" + sourceId);

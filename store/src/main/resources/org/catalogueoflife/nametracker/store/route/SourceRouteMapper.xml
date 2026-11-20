@@ -93,4 +93,16 @@
     SELECT layer, status, count(*)::bigint AS n FROM source_route GROUP BY layer, status
   </select>
 
+
+  <update id="pauseAll" flushCache="true">
+    UPDATE source_route SET status = 'PAUSED', last_error = #{reason}
+    WHERE source_id = #{sourceId} AND status IN ('ACTIVE','VERIFIED','PENDING')
+  </update>
+
+  <select id="resumePaused" resultType="long" flushCache="true">
+    UPDATE source_route SET status = 'PENDING', last_error = NULL
+    WHERE source_id = #{sourceId} AND status = 'PAUSED' AND last_error = #{reason}
+    RETURNING id
+  </select>
+
 </mapper>

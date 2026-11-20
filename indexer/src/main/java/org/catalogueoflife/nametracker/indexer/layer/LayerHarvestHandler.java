@@ -18,7 +18,9 @@ import org.catalogueoflife.nametracker.indexer.harvest.WorksPager;
 import org.catalogueoflife.nametracker.indexer.task.TaskDispatcher;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.harvest.HarvestRunMapper;
+import org.catalogueoflife.nametracker.store.route.SourceRoute;
 import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
+import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.Task;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.catalogueoflife.nametracker.store.work.Layer;
@@ -49,12 +51,14 @@ public abstract class LayerHarvestHandler implements TaskHandler {
   private final TaskQueue queue;
   private final HarvestRunMapper runs;
   private final SourceRouteMapper routes;
+  private final SourceMapper sources;
   private final HarvestOutage outage;
   private final Clock clock;
   private final Environment env;
 
   protected LayerHarvestHandler(LayerWriter writer, TaskQueue queue, HarvestRunMapper runs, SourceRouteMapper routes,
-      HarvestOutage outage, Clock clock, Environment env) {
+      SourceMapper sources, HarvestOutage outage, Clock clock, Environment env) {
+    this.sources = sources;
     this.writer = writer;
     this.queue = queue;
     this.runs = runs;
@@ -91,6 +95,11 @@ public abstract class LayerHarvestHandler implements TaskHandler {
     for (JsonNode s : p.path("sourceIds")) sourceIds.add(s.asLong());
     String scope = WorksPager.text(p, "scope");
     if (scope == null) scope = scope(routeId, sourceIds);
+    if (allCeased(routeId, sourceIds)) {
+      // a ceased journal is never crawled again: the job ends without a run (a queued task of before the status change)
+      LOG.info("{} job {} of {} ends: its journal has ceased", type(), scope, p.path("mode").asString(""));
+      return;
+    }
     String position = WorksPager.text(p, "position");
     long runId = p.hasNonNull("runId") ? p.path("runId").asLong()
         : runs.start(adapter(layer, mode), from, until != null ? until : LocalDate.now(clock.withZone(ZoneOffset.UTC)));
@@ -116,6 +125,24 @@ public abstract class LayerHarvestHandler implements TaskHandler {
       if (routeId != null) routeFailed(task, mode, routeId, e);
       throw e;
     }
+  }
+
+  /**
+   * True when the job's journals are all CEASED: those named in {@code sourceIds}, else the journal of its route. A job
+   * of several journals goes on for the others; the layer reads the {@code sourceIds} it was given, so the ceased ones
+   * are taken out of them first.
+   */
+  private boolean allCeased(@Nullable Long routeId, List<Long> sourceIds) {
+    List<Long> ids = new ArrayList<>(sourceIds);
+    if (ids.isEmpty() && routeId != null) {
+      SourceRoute route = routes.get(routeId);
+      if (route != null) ids.add(route.sourceId());
+    }
+    if (ids.isEmpty()) return false;
+    List<Long> ceased = sources.ceasedAmong(ids);
+    if (ceased.isEmpty()) return false;
+    sourceIds.removeAll(ceased);
+    return ceased.size() == new java.util.HashSet<>(ids).size();
   }
 
   private void harvest(Task task, LayerJob job, @Nullable String position) throws Exception {

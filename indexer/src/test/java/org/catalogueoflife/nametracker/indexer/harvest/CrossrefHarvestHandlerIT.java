@@ -482,4 +482,20 @@ class CrossrefHarvestHandlerIT extends AbstractPostgresIT {
         .withQueryParam("filter", matching(".*type:journal-article(,issn:104[1-5]-0001){5}$")));
     assertThat(runs.recent(1).getFirst().state()).isEqualTo("DONE");
   }
+
+  @Test
+  void ceasedJournalIsNotAskedForEvenInAnOpenBatch() throws Exception {
+    long id = source();
+    jdbc.update("UPDATE source SET publication_status = 'CEASED', ceased_reason = 'STOPPED' WHERE id = ?", id);
+    stubCrossref();
+    harvestYesterday(); // the daily run lists no journal at all
+    // a batch that began before the journal ceased: its ISSNs are taken out
+    String d = LocalDate.now(ZoneOffset.UTC).minusDays(1).toString();
+    queue.enqueue("HARVEST_CROSSREF", "{\"date\":\"" + d + "\",\"batch\":0,\"ids\":[\"1313-2970\",\"1313-2989\"]}",
+        TaskPriority.LIVE, "open-batch");
+    drain(crossref);
+    verify(0, getRequestedFor(urlPathEqualTo("/works")));
+    assertThat(count("SELECT count(*) FROM work")).isZero();
+    assertThat(count("SELECT count(*) FROM task WHERE state = 'DEAD'")).isZero();
+  }
 }

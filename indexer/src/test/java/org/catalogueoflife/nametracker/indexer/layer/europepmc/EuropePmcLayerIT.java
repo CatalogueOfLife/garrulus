@@ -72,7 +72,7 @@ class EuropePmcLayerIT extends AbstractPostgresIT {
     stubSearch();
     long routeId = jdbc.queryForObject("INSERT INTO source_route (source_id, layer, config, status, origin) VALUES "
         + "(?, 'EUROPEPMC', '{\"issns\":[\"1313-2989\"]}'::jsonb, 'ACTIVE', 'SEED') RETURNING id", Long.class, sourceId);
-    var h = new HarvestEuropePmcHandler(writer, queue, runs, routes, outage, clock, new MockEnvironment(),
+    var h = new HarvestEuropePmcHandler(writer, queue, runs, routes, sources, outage, clock, new MockEnvironment(),
         new EuropePmcLayer(EuropePmcSearchClientTest.http(), routes, w.getHttpBaseUrl()), lifecycle);
     queue.enqueue(h.type(), LayerHarvestHandler.firstPayload("r" + routeId, routeId, List.of(sourceId),
         LocalDate.of(2023, 1, 1), LocalDate.of(2023, 12, 31), LayerMode.LIVE), TaskPriority.LIVE, "epmc-test");

@@ -206,4 +206,15 @@ class VerifyRouteHandlerIT extends AbstractPostgresIT {
     assertThatThrownBy(() -> handler(w).handle(task(id))).isInstanceOf(ServiceOutageException.class);
     assertThat(routes.get(id).status()).isEqualTo("PENDING");
   }
+
+  @Test
+  void aCeasedJournalsRouteIsNotVerified(WireMockRuntimeInfo w) throws Exception {
+    stubOai();
+    long id = route(onboarded, "OAI", oai(w, null));
+    jdbc.update("UPDATE source SET publication_status = 'CEASED', ceased_reason = 'STOPPED' WHERE id = ?", onboarded);
+    handler(w).handle(task(id));
+    verify(0, anyRequestedFor(anyUrl()));
+    assertThat(routes.get(id).status()).isEqualTo("PENDING");
+    assertThat(routes.get(id).verifiedAt()).isNull();
+  }
 }

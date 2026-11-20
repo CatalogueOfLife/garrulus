@@ -484,4 +484,23 @@ class OpenAlexHarvestHandlerIT extends AbstractPostgresIT {
     assertThat(pager.store(withJats, Layer.CROSSREF, List.of(), TaskPriority.LIVE)).isFalse();
     assertThat(count("SELECT count(*) FROM task WHERE dedup_key LIKE 'content:" + id + ":abs:%'")).isEqualTo(1);
   }
+
+  @Test
+  void ceasedJournalIsNeitherHarvestedNorOnboarded() throws Exception {
+    long live = source("S801", true);
+    long ceased = source("S802", true);
+    long notYet = source("S803", false);
+    jdbc.update("UPDATE source SET publication_status = 'CEASED', ceased_reason = 'STOPPED' WHERE id IN (?, ?)",
+        ceased, notYet);
+    stubTwoPages("S801");
+    queue.enqueue("HARVEST_OPENALEX", "{\"window\":\"LIVE\"}", TaskPriority.LIVE, null);
+    queue.enqueue("ONBOARD_SOURCE", "{\"sourceId\":" + notYet + "}", TaskPriority.BACKFILL, "onboard:" + notYet);
+    drain();
+
+    verify(0, getRequestedFor(urlPathEqualTo("/works")).withQueryParam("filter", containing("S802")));
+    verify(0, getRequestedFor(urlPathEqualTo("/works")).withQueryParam("filter", containing("S803")));
+    assertThat(count("SELECT count(*) FROM work")).isEqualTo(3); // the live journal alone
+    assertThat(count("SELECT count(*) FROM source WHERE onboarded_at IS NOT NULL AND id = " + notYet)).isZero();
+    assertThat(live).isNotEqualTo(ceased);
+  }
 }

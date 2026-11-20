@@ -65,6 +65,7 @@
     WHERE active AND tier IN ('CORE', 'BROAD')
     <if test="tier != null"> AND tier = #{tier}</if>
     <if test="journalType != null"> AND journal_type = #{journalType}</if>
+    <if test="publicationStatus != null"> AND publication_status = #{publicationStatus}</if>
     <if test="q != null"> AND title ILIKE '%' || #{q} || '%'</if>
   </sql>
 
@@ -301,5 +302,51 @@
   <select id="listDerivedDisciplineIds" resultType="long">
     SELECT id FROM source WHERE discipline_set_by = 'DERIVED' ORDER BY id
   </select>
+
+
+  <update id="setPublicationStatus" flushCache="true">
+    UPDATE source SET publication_status = #{status},
+      ceased_reason = CASE WHEN #{status} = 'CEASED' THEN #{reason}::text END,
+      last_issue_year = CASE WHEN #{status} = 'CEASED' THEN #{lastIssueYear}::smallint END,
+      continued_by = CASE WHEN #{status} = 'CEASED' THEN #{continuedBy}::bigint END,
+      dormant_since = NULL, dormant_evidence = NULL,
+      status_set_by = 'ADMIN', status_changed = now(), modified = now()
+    WHERE id = #{id}
+  </update>
+
+  <select id="ceasedAmong" resultType="long">
+    SELECT id FROM source WHERE publication_status = 'CEASED'
+      AND id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+  </select>
+
+  <select id="dormancyBase" resultType="map">
+    WITH d AS (
+      SELECT source_id, COALESCE(publication_date, make_date(year, 12, 31)) AS d FROM work
+      WHERE source_id IS NOT NULL AND (publication_date IS NOT NULL OR year IS NOT NULL)
+    ), l AS (
+      SELECT source_id, max(d) AS last_pub FROM d GROUP BY source_id
+    )
+    SELECT s.id, l.last_pub,
+      (SELECT count(*) FROM d WHERE d.source_id = s.id AND d.d BETWEEN l.last_pub - 1095 AND l.last_pub)::int AS recent,
+      s.dormant_since, s.dormant_dismissed_at, s.doaj_discontinued, s.successor_issns
+    FROM source s JOIN l ON l.source_id = s.id
+    WHERE s.publication_status = 'ACTIVE'
+    ORDER BY s.id
+  </select>
+
+  <update id="setDormancy" flushCache="true">
+    UPDATE source SET dormant_since = #{since}, dormant_evidence = #{evidence, jdbcType=VARCHAR}::jsonb
+    WHERE id = #{id}
+      AND (dormant_since, dormant_evidence) IS DISTINCT FROM (#{since}::date, #{evidence, jdbcType=VARCHAR}::jsonb)
+  </update>
+
+  <update id="dismissDormant" flushCache="true">
+    UPDATE source SET dormant_since = NULL, dormant_evidence = NULL, dormant_dismissed_at = now() WHERE id = #{id}
+  </update>
+
+  <update id="clearDormancyOfCeased" flushCache="true">
+    UPDATE source SET dormant_since = NULL, dormant_evidence = NULL
+    WHERE publication_status &lt;&gt; 'ACTIVE' AND dormant_since IS NOT NULL
+  </update>
 
 </mapper>

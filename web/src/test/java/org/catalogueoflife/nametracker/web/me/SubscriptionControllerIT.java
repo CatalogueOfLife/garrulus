@@ -207,4 +207,25 @@ class SubscriptionControllerIT extends AbstractAuthIT {
     assertThat(b.send("POST", "/api/me/subscriptions", "application/json",
         "{\"type\":\"TAXON\",\"target\":\"C\",\"label\":\"c\"}", (String) null).statusCode()).isEqualTo(403);
   }
+
+  @Test
+  void sourceFollowShowsCeased() throws Exception {
+    Browser b = newUser();
+    long successor = jdbc.queryForObject("INSERT INTO source (title, tier, origin, active) VALUES ('New Journal', 'CORE', "
+        + "'MANUAL', true) RETURNING id", Long.class);
+    long src = jdbc.queryForObject("INSERT INTO source (title, origin, publication_status, ceased_reason, "
+        + "last_issue_year, continued_by) VALUES ('Old', 'MANUAL', 'CEASED', 'TITLE_CHANGE', 2019, ?) RETURNING id",
+        Long.class, successor);
+    create(b, "{\"type\":\"SOURCE\",\"target\":\"" + src + "\",\"label\":\"Old\"}");
+    create(b, "{\"type\":\"TAXON\",\"target\":\"ABC\",\"label\":\"Insecta\"}");
+    JsonNode list = body(b.get("/api/me/subscriptions"));
+    JsonNode follow = list.get(0).get("type").asString().equals("SOURCE") ? list.get(0) : list.get(1);
+    JsonNode taxon = list.get(0) == follow ? list.get(1) : list.get(0);
+    assertThat(follow.get("publicationStatus").asString()).isEqualTo("CEASED");
+    assertThat(follow.get("lastIssueYear").asInt()).isEqualTo(2019);
+    assertThat(follow.get("continuedBy").get("id").asLong()).isEqualTo(successor);
+    assertThat(follow.get("continuedBy").get("title").asString()).isEqualTo("New Journal");
+    assertThat(taxon.get("publicationStatus").isNull()).isTrue();
+    assertThat(taxon.get("continuedBy").isNull()).isTrue();
+  }
 }

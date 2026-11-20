@@ -80,12 +80,13 @@
   <select id="missesBySource" resultType="map">
     WITH served AS (
       <if test="routeLayer == null">
-        SELECT id AS source_id FROM source WHERE active AND tier IN ('CORE','BROAD') AND onboarded_at IS NOT NULL
+        SELECT id AS source_id FROM source WHERE active AND tier IN ('CORE','BROAD') AND publication_status = 'ACTIVE' AND onboarded_at IS NOT NULL
         <if test="layer == 'OPENALEX'">AND openalex_id IS NOT NULL</if>
         <if test="layer == 'CROSSREF'">AND (issn_l IS NOT NULL OR cardinality(issns) &gt; 0)</if>
       </if>
       <if test="routeLayer != null">
-        SELECT DISTINCT source_id FROM source_route WHERE layer = #{routeLayer} AND status = 'ACTIVE'
+        SELECT DISTINCT r.source_id FROM source_route r JOIN source s ON s.id = r.source_id
+        WHERE r.layer = #{routeLayer} AND r.status = 'ACTIVE' AND s.publication_status = 'ACTIVE'
       </if>
     ), cand AS (
       SELECT w.id AS work_id, w.source_id FROM work w

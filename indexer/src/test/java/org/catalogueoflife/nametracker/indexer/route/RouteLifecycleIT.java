@@ -104,14 +104,14 @@ class RouteLifecycleIT extends AbstractPostgresIT {
   private HarvestOaiHandler oaiHandler() {
     MockEnvironment env = env(true);
     var http = EuropePmcSearchClientTest.http();
-    return new HarvestOaiHandler(writer, queue, runs, routes, outage, clock, env, new OaiLayer(http, routes, env, clock),
+    return new HarvestOaiHandler(writer, queue, runs, routes, sources, outage, clock, env, new OaiLayer(http, routes, env, clock),
         lifecycle);
   }
 
   private HarvestCrossrefHistoryHandler crossrefHandler(WireMockRuntimeInfo w) {
     var layer = new CrossrefHistoryLayer(new CrossrefClient(EuropePmcSearchClientTest.http(), null, w.getHttpBaseUrl()),
         sources, runs, clock);
-    return new HarvestCrossrefHistoryHandler(writer, queue, runs, routes, outage, clock, env(true), layer, lifecycle);
+    return new HarvestCrossrefHistoryHandler(writer, queue, runs, routes, sources, outage, clock, env(true), layer, lifecycle);
   }
 
   private void drain(String type, LayerHarvestHandler h) throws Exception {
@@ -317,5 +317,15 @@ class RouteLifecycleIT extends AbstractPostgresIT {
     return "{\"DOI\":\"" + doi + "\",\"type\":\"journal-article\",\"title\":[\"" + title + "\"],"
         + "\"ISSN\":[\"1313-2989\"],\"author\":[{\"given\":\"A.\",\"family\":\"Author\"}],"
         + "\"published\":{\"date-parts\":[[" + y + "," + m + "," + d + "]]}}";
+  }
+
+  @Test
+  void ceasedJournalIsNotBackfilled() throws Exception {
+    long known = source("S5", "CORE", true);
+    route(known, "ACTIVE", "{\"base\":\"https://x.example.org/oai\"}");
+    jdbc.update("UPDATE source SET publication_status = 'CEASED', ceased_reason = 'STOPPED' WHERE id = ?", known);
+    backfill.handle(new Task(0, RouteBackfill.TYPE, "{\"sourceId\":" + known + "}", TaskPriority.LIVE,
+        TaskState.RUNNING, 1, null, null, null, null, null, null));
+    assertThat(count("SELECT count(*) FROM task WHERE type LIKE 'HARVEST%'")).isZero();
   }
 }

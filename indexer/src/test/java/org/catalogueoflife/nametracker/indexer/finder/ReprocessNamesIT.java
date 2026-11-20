@@ -522,6 +522,17 @@ class ReprocessNamesIT extends AbstractPostgresIT {
   }
 
   @Test
+  void ceasedJournalWorksAreReprocessed() throws Exception {
+    long run = index.finderRunId(new FinderRun(null, "stub", "1", "cfg1", null));
+    long ceased = source("CORE");
+    jdbc.update("UPDATE source SET publication_status = 'CEASED', ceased_reason = 'STOPPED' WHERE id = ?", ceased);
+    long w = seenWork(run, ceased, 2015);
+    reprocess.handle(task(ReprocessNamesHandler.TYPE, "{\"all\":true}"));
+    assertThat(jdbc.queryForList("SELECT dedup_key FROM task WHERE type = 'FIND_NAMES'", String.class))
+        .containsExactly("find:" + w + ":force:manual");
+  }
+
+  @Test
   void rolloutMarksEnqueuedOnLastBatch() throws Exception {
     long run = index.finderRunId(new FinderRun(null, "stub", "1", "cfg1", null));
     long a = seenWork(run, null, 2020);

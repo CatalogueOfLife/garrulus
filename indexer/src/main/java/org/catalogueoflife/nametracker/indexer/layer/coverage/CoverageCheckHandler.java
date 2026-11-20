@@ -35,7 +35,7 @@ import tools.jackson.databind.JsonNode;
  * turns {@code FAILING} is logged as a WARN and written as an {@code admin_notice} ({@code web} mails it): {@code
  * LAYER_FAILING} when its latest {@code layer-} notice is none or a recovery, {@code LAYER_STILL_FAILING} a week after
  * the latest notice, {@code LAYER_RECOVERED} when it is OK again after a failing notice. The keys carry the day, so a
- * redelivered check adds nothing.
+ * redelivered check adds nothing. Last it runs {@link DormancyCheck}.
  *
  * <p>A zero-yield day needs a DONE run that day and an expected yield of at least {@code zero-yield-min-expected} (the
  * median of the same weekday's sightings over the last 8 weeks): a weekday publisher's weekend and a sparse issue
@@ -55,14 +55,16 @@ public class CoverageCheckHandler implements TaskHandler {
   private final WorkSightingMapper sightings;
   private final TransactionTemplate tx;
   private final AdminNoticeMapper notices;
+  private final DormancyCheck dormancy;
   private final double zeroYieldMinExpected;
   private final String layersUrl;
 
   public CoverageCheckHandler(LayerHealthMapper mapper, LayerHealthCalculator calculator,
-      WorkSightingMapper sightings, TransactionTemplate tx, AdminNoticeMapper notices,
+      WorkSightingMapper sightings, TransactionTemplate tx, AdminNoticeMapper notices, DormancyCheck dormancy,
       @Value("${nametracker.coverage.zero-yield-min-expected:3.0}") double zeroYieldMinExpected,
       @Value("${nametracker.public-url:http://localhost:5173}") String publicUrl) {
     this.notices = notices;
+    this.dormancy = dormancy;
     this.zeroYieldMinExpected = zeroYieldMinExpected;
     this.layersUrl = publicUrl.strip().replaceAll("/+$", "") + "/admin/layers";
     this.mapper = mapper;
@@ -86,6 +88,7 @@ public class CoverageCheckHandler implements TaskHandler {
     LocalDate day = LocalDate.parse(p.path("day").asString());
     for (Layer layer : Layer.values()) check(layer, day);
     contribution(day);
+    dormancy.run(day);
   }
 
   /** The 28 days up to the day: LIVE works created then, by the layer that saw them first and that alone saw them. */
