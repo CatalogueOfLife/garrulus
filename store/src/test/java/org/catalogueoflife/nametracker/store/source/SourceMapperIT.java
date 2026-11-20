@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 class SourceMapperIT extends AbstractPostgresIT {
 
   @Autowired SourceMapper sources;
+  @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
 
   private static Source source(String openalexId, String title, String tier) {
     return new Source(null, openalexId, "1111-2222", List.of("1111-2222"), title, "Pub", "host", true, true, tier,
@@ -81,5 +82,18 @@ class SourceMapperIT extends AbstractPostgresIT {
     assertThat(sources.findByIssn("5555-666x")).extracting(Source::id).containsExactly(a);
     assertThat(sources.findByIssn("7777-8888")).extracting(Source::id).containsExactly(a);
     assertThat(sources.findByIssn("0000-0000")).isEmpty();
+  }
+
+  @Test
+  void foldNeverMakesASourceContinueItself() {
+    long keep = jdbc.queryForObject("INSERT INTO source (title, origin) VALUES ('Keep', 'MANUAL') RETURNING id", Long.class);
+    long dup = jdbc.queryForObject("INSERT INTO source (title, origin, continued_by) VALUES ('Dup', 'MANUAL', ?) "
+        + "RETURNING id", Long.class, keep);
+    long old = jdbc.queryForObject("INSERT INTO source (title, origin, continued_by) VALUES ('Old', 'MANUAL', ?) "
+        + "RETURNING id", Long.class, dup);
+    jdbc.update("UPDATE source SET continued_by = ? WHERE id = ?", dup, keep); // keep continues dup, dup continues keep
+    sources.foldInto(dup, keep);
+    assertThat(jdbc.queryForObject("SELECT continued_by FROM source WHERE id = ?", Long.class, keep)).isNull();
+    assertThat(jdbc.queryForObject("SELECT continued_by FROM source WHERE id = ?", Long.class, old)).isEqualTo(keep);
   }
 }

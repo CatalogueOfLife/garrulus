@@ -190,7 +190,8 @@
         AND EXISTS (SELECT 1 FROM subscription t WHERE t.user_id = m.user_id AND t.type = 'SOURCE'
                     AND t.target = CAST(#{to} AS text))
       RETURNING 1),
-    cb AS (UPDATE source SET continued_by = #{to} WHERE continued_by = #{from} RETURNING 1)
+    cb AS (UPDATE source SET continued_by = CASE WHEN id = #{to} THEN NULL ELSE #{to} END
+      WHERE continued_by = #{from} RETURNING 1)
     SELECT (SELECT count(*) FROM r) + (SELECT count(*) FROM c) + (SELECT count(*) FROM sm) + (SELECT count(*) FROM rg)
       + (SELECT count(*) FROM cv) + (SELECT count(*) FROM ws) + (SELECT count(*) FROM sb) + (SELECT count(*) FROM cb)
   </select>
@@ -310,7 +311,8 @@
       last_issue_year = CASE WHEN #{status} = 'CEASED' THEN #{lastIssueYear}::smallint END,
       continued_by = CASE WHEN #{status} = 'CEASED' THEN #{continuedBy}::bigint END,
       dormant_since = NULL, dormant_evidence = NULL,
-      status_set_by = 'ADMIN', status_changed = now(), modified = now()
+      status_set_by = CASE WHEN publication_status &lt;&gt; #{status} THEN 'ADMIN' ELSE status_set_by END,
+      status_changed = CASE WHEN publication_status &lt;&gt; #{status} THEN now() ELSE status_changed END, modified = now()
     WHERE id = #{id}
   </update>
 
@@ -320,17 +322,20 @@
   </select>
 
   <select id="dormancyBase" resultType="map">
-    WITH d AS (
-      SELECT source_id, COALESCE(publication_date, make_date(year, 12, 31)) AS d FROM work
-      WHERE source_id IS NOT NULL AND (publication_date IS NOT NULL OR year IS NOT NULL)
-    ), l AS (
-      SELECT source_id, max(d) AS last_pub FROM d GROUP BY source_id
-    )
-    SELECT s.id, l.last_pub,
-      (SELECT count(*) FROM d WHERE d.source_id = s.id AND d.d BETWEEN l.last_pub - 1095 AND l.last_pub)::int AS recent,
-      s.dormant_since, s.dormant_dismissed_at, s.doaj_discontinued, s.successor_issns
-    FROM source s JOIN l ON l.source_id = s.id
-    WHERE s.publication_status = 'ACTIVE'
+    SELECT s.id, l.last_pub, l.recent, s.dormant_since, s.dormant_dismissed_at, s.doaj_discontinued, s.successor_issns
+    FROM source s
+    CROSS JOIN LATERAL (
+      SELECT x.last_pub, (count(*) FILTER (WHERE x.d &gt;= x.last_pub - 1095))::int AS recent
+      FROM (
+        SELECT y.d, max(y.d) OVER () AS last_pub
+        FROM (
+          SELECT COALESCE(w.publication_date, make_date(w.year::int, 12, 31)) AS d FROM work w
+          WHERE w.source_id = s.id AND (w.publication_date IS NOT NULL OR w.year BETWEEN 1000 AND 2100)
+        ) y
+      ) x
+      GROUP BY x.last_pub
+    ) l
+    WHERE s.active AND s.tier IN ('CORE','BROAD') AND s.publication_status = 'ACTIVE'
     ORDER BY s.id
   </select>
 
@@ -346,7 +351,8 @@
 
   <update id="clearDormancyOfCeased" flushCache="true">
     UPDATE source SET dormant_since = NULL, dormant_evidence = NULL
-    WHERE publication_status &lt;&gt; 'ACTIVE' AND dormant_since IS NOT NULL
+    WHERE dormant_since IS NOT NULL
+      AND NOT (active AND tier IN ('CORE','BROAD') AND publication_status = 'ACTIVE')
   </update>
 
 </mapper>

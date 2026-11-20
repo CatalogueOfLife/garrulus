@@ -503,4 +503,24 @@ class OpenAlexHarvestHandlerIT extends AbstractPostgresIT {
     assertThat(count("SELECT count(*) FROM source WHERE onboarded_at IS NOT NULL AND id = " + notYet)).isZero();
     assertThat(live).isNotEqualTo(ceased);
   }
+
+  @Test
+  void continuationAfterAJournalCeasedRestartsTheBatch() throws Exception {
+    source("S811", true);
+    long gone = source("S812", true);
+    jdbc.update("UPDATE source SET publication_status = 'CEASED', ceased_reason = 'STOPPED' WHERE id = ?", gone);
+    stubFor(get(urlPathEqualTo("/works")).atPriority(1).withQueryParam("cursor", equalTo("c2"))
+        .willReturn(aResponse().withStatus(400)));
+    stubFor(get(urlPathEqualTo("/works")).atPriority(5).withQueryParam("cursor", equalTo("*"))
+        .willReturn(okJson(works(null, "S811", "W1S811"))));
+    String from = LocalDate.now(ZoneOffset.UTC).minusDays(120).toString();
+    queue.enqueue("HARVEST_OPENALEX", "{\"window\":\"LIVE\",\"from\":\"" + from + "\",\"batch\":0,"
+        + "\"cursor\":\"c2\",\"page\":2,\"ids\":[\"S811\",\"S812\"]}", TaskPriority.LIVE, "open-batch");
+    drain();
+    verify(0, getRequestedFor(urlPathEqualTo("/works")).withQueryParam("cursor", equalTo("c2")));
+    verify(1, getRequestedFor(urlPathEqualTo("/works")).withQueryParam("cursor", equalTo("*"))
+        .withQueryParam("filter", notContaining("S812")));
+    assertThat(count("SELECT count(*) FROM task WHERE state = 'DEAD'")).isZero();
+    assertThat(count("SELECT count(*) FROM work")).isEqualTo(1);
+  }
 }

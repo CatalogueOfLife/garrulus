@@ -180,7 +180,10 @@ public class CrossrefHarvestHandler implements TaskHandler {
       slice = List.copyOf(rest.subList(0, Math.min(rest.size(), ISSN_BATCH)));
       payloadIds.addAll(slice); // fixed for the outage handler too, which re-enqueues the batch with them
     }
-    CrossrefClient.Page page = crossref.works(CrossrefClient.filter(date, slice), cursor == null ? "*" : cursor);
+    // a cursor belongs to the filter it was made with: a batch trimmed of a ceased journal starts again from "*"
+    boolean trimmed = slice.size() != payloadIds.size();
+    CrossrefClient.Page page = crossref.works(CrossrefClient.filter(date, slice),
+        cursor == null || trimmed ? "*" : cursor);
 
     int seen = 0;
     int created = 0;

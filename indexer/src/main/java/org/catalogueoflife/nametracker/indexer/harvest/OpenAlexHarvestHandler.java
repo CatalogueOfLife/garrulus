@@ -156,6 +156,11 @@ public class OpenAlexHarvestHandler implements TaskHandler {
           }
         }
       }
+      if (!ids.isEmpty() && ids.size() != pos.ids.size()) {
+        // a cursor belongs to the filter it was made with: a batch trimmed of a ceased journal starts again
+        pos.cursor = null;
+        pos.page = 1;
+      }
       if (pos.end == null) pos.end = ids.values().stream().max(Long::compare).orElse(null);
       if (ids.isEmpty()) { // none of them is harvestable any more: on to the next batch
         pos.ids = new ArrayList<>();

@@ -274,4 +274,19 @@ class AdminSourceControllerIT extends AbstractPostgresIT {
     assertThat(call("PATCH", "/api/admin/sources/" + id, "{\"dismissDormant\":false}", "test-token").statusCode())
         .isEqualTo(400);
   }
+
+  @Test
+  void patchToTheCurrentStatusChangesNothing() throws Exception {
+    long id = source("S16", "J", "CORE", true, true);
+    call("PATCH", "/api/admin/sources/" + id, "{\"publicationStatus\":\"ACTIVE\"}", "test-token");
+    assertThat(jdbc.queryForMap("SELECT status_changed, status_set_by FROM source WHERE id = ?", id))
+        .containsEntry("status_changed", null).containsEntry("status_set_by", null);
+    String ceased = "{\"publicationStatus\":\"CEASED\",\"ceasedReason\":\"STOPPED\",\"lastIssueYear\":2019}";
+    call("PATCH", "/api/admin/sources/" + id, ceased, "test-token");
+    Object first = jdbc.queryForObject("SELECT status_changed FROM source WHERE id = ?", Object.class, id);
+    assertThat(first).isNotNull();
+    call("PATCH", "/api/admin/sources/" + id, ceased.replace("2019", "2020"), "test-token");
+    assertThat(jdbc.queryForObject("SELECT status_changed FROM source WHERE id = ?", Object.class, id)).isEqualTo(first);
+    assertThat(jdbc.queryForObject("SELECT last_issue_year FROM source WHERE id = ?", Integer.class, id)).isEqualTo(2020);
+  }
 }

@@ -498,4 +498,44 @@ class CrossrefHarvestHandlerIT extends AbstractPostgresIT {
     assertThat(count("SELECT count(*) FROM work")).isZero();
     assertThat(count("SELECT count(*) FROM task WHERE state = 'DEAD'")).isZero();
   }
+
+  @Test
+  void continuationAfterAJournalCeasedRestartsTheBatchWithTheTrimmedFilter() throws Exception {
+    source();
+    long b = jdbc.queryForObject("INSERT INTO source (issn_l, title, tier, origin, onboarded_at, publication_status, "
+        + "ceased_reason) VALUES ('2222-2222', 'Gone', 'CORE', 'MANUAL', now(), 'CEASED', 'STOPPED') RETURNING id",
+        Long.class);
+    assertThat(b).isPositive();
+    // the cursor c2 belongs to the old filter and would be refused
+    stubFor(get(urlPathEqualTo("/works")).atPriority(1).withQueryParam("cursor", equalTo("c2"))
+        .willReturn(aResponse().withStatus(400)));
+    stubFor(get(urlPathEqualTo("/works")).atPriority(5).willReturn(okJson(fixture("works-empty.json"))));
+    String d = LocalDate.now(ZoneOffset.UTC).minusDays(1).toString();
+    queue.enqueue("HARVEST_CROSSREF", "{\"date\":\"" + d + "\",\"batch\":0,\"cursor\":\"c2\",\"ids\":"
+        + "[\"1313-2970\",\"1313-2989\",\"2222-2222\"]}", TaskPriority.LIVE, "open-batch");
+    drain(crossref);
+    verify(0, getRequestedFor(urlPathEqualTo("/works")).withQueryParam("cursor", equalTo("c2")));
+    verify(1, getRequestedFor(urlPathEqualTo("/works")).withQueryParam("cursor", equalTo("*"))
+        .withQueryParam("filter", notContaining("2222-2222")).withQueryParam("filter", containing("1313-2970")));
+    assertThat(count("SELECT count(*) FROM task WHERE state = 'DEAD'")).isZero();
+    assertThat(count("SELECT count(*) FROM harvest_run WHERE state = 'FAILED'")).isZero();
+  }
+
+  @Test
+  void recheckOfACeasedJournalNeverClearsTheWorksSource() throws Exception {
+    long id = source();
+    stubCrossref();
+    stubFor(get(urlPathEqualTo("/works/doi:" + DOI1)).willReturn(aResponse().withStatus(404)));
+    stubFor(get(urlPathEqualTo("/works/doi:" + DOI2)).willReturn(aResponse().withStatus(404)));
+    harvestYesterday();
+    long w = works.findByDoi(DOI1).id();
+    jdbc.update("UPDATE work SET first_seen_at = first_seen_at - interval '3 days' WHERE id = ?", w);
+    jdbc.update("UPDATE source SET publication_status = 'CEASED', ceased_reason = 'STOPPED' WHERE id = ?", id);
+    jdbc.update("UPDATE task SET state = 'DONE', finished = now()");
+    stubFor(get(urlPathEqualTo("/works/doi:" + DOI1)).atPriority(1).willReturn(okJson(openAlexWork("W89", DOI1))));
+    queue.enqueue("OPENALEX_RECHECK", "{}", TaskPriority.LIVE, "openalex-recheck");
+    drain(recheck);
+    assertThat(works.get(w).sourceId()).isEqualTo(id);
+    assertThat(works.get(w).openalexId()).isEqualTo("W89");
+  }
 }

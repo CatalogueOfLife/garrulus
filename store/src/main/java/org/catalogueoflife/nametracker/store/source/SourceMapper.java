@@ -155,7 +155,7 @@ public interface SourceMapper {
   List<Long> listDerivedDisciplineIds();
 
   /**
-   * Sets the publication status as an admin decision (status_set_by ADMIN, status_changed now). CEASED stores the
+   * Sets the publication status as an admin decision (status_set_by ADMIN and status_changed now when the status changes; a repeat of the current status only updates the details). CEASED stores the
    * reason, last issue year and successor (each may be null except the reason) and ends a dormancy proposal; ACTIVE
    * clears all three. Returns 0 for an unknown source.
    */
@@ -167,7 +167,7 @@ public interface SourceMapper {
   List<Long> ceasedAmong(@Param("ids") List<Long> ids);
 
   /**
-   * Per ACTIVE-status source with works: rows id, last_pub (the latest publication date, a work known by its year
+   * Per active CORE/BROAD source of ACTIVE publication status with works (one pass over its works, years outside 1000..2100 ignored): rows id, last_pub (the latest publication date, a work known by its year
    * only counting from 31 December), recent (works published in the 3 years up to last_pub), dormant_since,
    * dormant_dismissed_at, doaj_discontinued and successor_issns.
    */
@@ -180,6 +180,6 @@ public interface SourceMapper {
   /** Dismisses a dormancy proposal: clears it and stamps dormant_dismissed_at, which hides it for a year. */
   int dismissDormant(@Param("id") long id);
 
-  /** Clears the dormancy proposal of every source that is no longer ACTIVE-status; returns the count. */
+  /** Clears the dormancy proposal of every source that is no longer an active CORE/BROAD ACTIVE-status one; returns the count. */
   int clearDormancyOfCeased();
 }

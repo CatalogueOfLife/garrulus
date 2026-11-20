@@ -56,11 +56,10 @@ public class SourceStatusService {
     if (!STATUSES.contains(status)) throw bad("publicationStatus is ACTIVE or CEASED");
     long id = current.id();
     if ("ACTIVE".equals(status)) {
+      if (!"CEASED".equals(current.publicationStatus())) return; // already active: nothing changes
       sources.setPublicationStatus(id, "ACTIVE", null, null, null);
-      if ("CEASED".equals(current.publicationStatus())) {
-        for (long routeId : routes.resumePaused(id, PAUSE_REASON)) {
-          queue.enqueue("VERIFY_ROUTE", "{\"routeId\":" + routeId + "}", TaskPriority.LIVE, "verify-route:" + routeId);
-        }
+      for (long routeId : routes.resumePaused(id, PAUSE_REASON)) {
+        queue.enqueue("VERIFY_ROUTE", "{\"routeId\":" + routeId + "}", TaskPriority.LIVE, "verify-route:" + routeId);
       }
       return;
     }

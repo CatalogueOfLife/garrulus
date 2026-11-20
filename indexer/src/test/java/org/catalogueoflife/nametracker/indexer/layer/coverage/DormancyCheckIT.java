@@ -127,4 +127,31 @@ class DormancyCheckIT extends AbstractPostgresIT {
     assertThat(row(ceased).get("dormant_since")).isNull();
     assertThat(row(none).get("dormant_since")).isNull();
   }
+
+  @Test
+  void excludedAndInactiveJournalsAreNotProposed() {
+    long excluded = source();
+    works(excluded, 40, DAY.minusDays(400));
+    long inactive = source();
+    works(inactive, 40, DAY.minusDays(400));
+    jdbc.update("UPDATE source SET tier = 'EXCLUDED' WHERE id = ?", excluded);
+    jdbc.update("UPDATE source SET active = false WHERE id = ?", inactive);
+    long ok = source();
+    works(ok, 40, DAY.minusDays(400));
+    jdbc.update("UPDATE source SET dormant_since = ?::date, dormant_evidence = '{}'::jsonb WHERE id = ?", DAY.toString(),
+        excluded); // a proposal from before it was excluded
+    check.run(DAY);
+    assertThat(row(excluded).get("dormant_since")).isNull();
+    assertThat(row(inactive).get("dormant_since")).isNull();
+    assertThat(row(ok).get("dormant_since")).isNotNull();
+  }
+
+  @Test
+  void aBadYearDoesNotBreakTheCheck() {
+    long id = source();
+    works(id, 40, DAY.minusDays(400));
+    jdbc.update("INSERT INTO work (doi, origin, state, source_id, year) VALUES ('10.1/bad', 'LIVE', 'DISCOVERED', ?, 30000)", id);
+    check.run(DAY);
+    assertThat(row(id).get("dormant_since")).isNotNull();
+  }
 }

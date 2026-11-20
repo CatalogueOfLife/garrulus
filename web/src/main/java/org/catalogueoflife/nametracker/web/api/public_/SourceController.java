@@ -76,11 +76,6 @@ public class SourceController {
         search.yearCounts(f), works.page(f, RECENT, 0, List.of()).results());
   }
 
-  /** The journal that continues a ceased one, or null. */
-  private SourceRef successor(Source s) {
-    return ref(sources, s);
-  }
-
   /** The continuing journal of a ceased source as a reference; null when none is set or it is not itself public. */
   public static SourceRef ref(SourceMapper sources, Source s) {
     if (s.continuedBy() == null) return null;
