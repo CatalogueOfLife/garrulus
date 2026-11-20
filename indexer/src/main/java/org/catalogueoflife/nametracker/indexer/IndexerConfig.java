@@ -7,8 +7,11 @@ import net.javacrumbs.shedlock.provider.jdbctemplate.JdbcTemplateLockProvider;
 import org.catalogueoflife.nametracker.finder.salience.SalienceProperties;
 import org.catalogueoflife.nametracker.indexer.hits.HitProperties;
 import org.catalogueoflife.nametracker.indexer.xr.XrSwitchProperties;
+import org.catalogueoflife.nametracker.store.ident.IdScheme;
+import org.catalogueoflife.nametracker.store.ident.IdentifierRegistry;
 import org.catalogueoflife.nametracker.store.task.TaskMapper;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,6 +20,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 @Configuration
 @EnableSchedulerLock(defaultLockAtMostFor = "PT30M")
 public class IndexerConfig {
+
+  /** The identifier schemes: the built-ins plus every {@code IdScheme} bean. */
+  @Bean
+  IdentifierRegistry identifierRegistry(ObjectProvider<IdScheme> extra) {
+    return new IdentifierRegistry(extra.orderedStream().toList());
+  }
 
   @Bean
   TaskQueue taskQueue(TaskMapper mapper) {
