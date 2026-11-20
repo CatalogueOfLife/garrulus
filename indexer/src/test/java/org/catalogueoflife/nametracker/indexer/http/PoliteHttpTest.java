@@ -387,4 +387,38 @@ class PoliteHttpTest {
     assertTrue(t.trusts(URI.create("http://lab.lan:9999/")));
     assertFalse(TrustedAuthorities.NONE.trusts(URI.create("http://localhost:18100/")));
   }
+
+  @Test
+  void callerHeadersStayOnTheStartAuthorityOnRedirects(WireMockRuntimeInfo w) {
+    // localhost is the configured service, 127.0.0.1 another authority (same server, other host name)
+    PublicHost hosts = new PublicHost(PublicHost.DNS, java.util.Set.of("127.0.0.1"));
+    PoliteHttp http = checked(new FakeTime(), hosts, "http://localhost:" + w.getHttpPort());
+    stubFor(get("/same").willReturn(aResponse().withStatus(302).withHeader("Location", "/same2")));
+    stubFor(get("/same2").willReturn(ok("x")));
+    stubFor(get("/cross").willReturn(aResponse().withStatus(302)
+        .withHeader("Location", "http://127.0.0.1:" + w.getHttpPort() + "/cross2")));
+    stubFor(get("/cross2").willReturn(ok("x")));
+    Map<String, String> headers = Map.of("X-ELS-APIKey", "secret-token", "Accept", "application/xml");
+    http.get(URI.create("http://localhost:" + w.getHttpPort() + "/same"), headers);
+    verify(getRequestedFor(urlEqualTo("/same2")).withHeader("X-ELS-APIKey", equalTo("secret-token")));
+    http.get(URI.create("http://localhost:" + w.getHttpPort() + "/cross"), headers);
+    verify(getRequestedFor(urlEqualTo("/cross")).withHeader("X-ELS-APIKey", equalTo("secret-token")));
+    verify(getRequestedFor(urlEqualTo("/cross2")).withHeader("Accept", equalTo("application/xml"))
+        .withoutHeader("X-ELS-APIKey"));
+  }
+
+  @Test
+  void sameAuthorityComparesSchemeHostAndPort() {
+    assertTrue(PoliteHttp.sameAuthority(URI.create("https://Api.Example.org/a"), URI.create("https://api.example.org:443/b")));
+    assertFalse(PoliteHttp.sameAuthority(URI.create("https://api.example.org/a"), URI.create("http://api.example.org/a")));
+    assertFalse(PoliteHttp.sameAuthority(URI.create("https://api.example.org/a"), URI.create("https://api.example.org:8443/a")));
+    assertFalse(PoliteHttp.sameAuthority(URI.create("https://api.example.org/a"), URI.create("https://other.example.org/a")));
+  }
+
+  @Test
+  void redactMasksEverySecretParameterAnyCase() {
+    String r = PoliteHttp.redact(URI.create(
+        "https://x.org/s?q=a&appid=A1&InstToken=T2&APIKEY=K3&api_key=K4&mailto=m@x.org&keep=1")).toString();
+    assertEquals("https://x.org/s?q=a&appid=***&InstToken=***&APIKEY=***&api_key=***&mailto=***&keep=1", r);
+  }
 }

@@ -179,11 +179,11 @@ public class PoliteHttp {
     return limiterFor(channel, host).minInterval();
   }
 
-  /** Replaces the values of the secret query parameters {@code api_key} and {@code mailto} with {@code ***}. */
+  /** Replaces the values of the secret query parameters {@code api_key}, {@code apikey}, {@code appid}, {@code insttoken} and {@code mailto} (any case) with {@code ***}. */
   public static URI redact(URI uri) {
     String q = uri.getRawQuery();
     if (q == null) return uri;
-    String r = q.replaceAll("(?i)(^|&)(api_key|mailto)=[^&]*", "$1$2=***");
+    String r = q.replaceAll("(?i)(^|&)(api_key|apikey|appid|insttoken|mailto)=[^&]*", "$1$2=***");
     return r.equals(q) ? uri : URI.create(uri.toString().replace("?" + q, "?" + r));
   }
 
@@ -254,7 +254,11 @@ public class PoliteHttp {
       limiterFor(channel, uri.getHost()).acquire();
       HttpRequest.Builder b = HttpRequest.newBuilder(uri).GET().timeout(REQUEST_TIMEOUT)
           .header("User-Agent", userAgent);
-      headers.forEach(b::header);
+      // the caller's headers may carry a token: they stay on the start authority, only Accept follows a redirect
+      boolean sameAuthority = sameAuthority(start, uri);
+      headers.forEach((k, v) -> {
+        if (sameAuthority || "accept".equalsIgnoreCase(k)) b.header(k, v);
+      });
       HttpResponse<byte[]> resp = client.send(b.build(), info -> REDIRECTS.contains(info.statusCode())
           && info.headers().firstValue("Location").isPresent()
           ? HttpResponse.BodySubscribers.replacing(new byte[0])
@@ -268,6 +272,20 @@ public class PoliteHttp {
       }
       uri = next;
     }
+  }
+
+  /** True when both URIs have the same scheme, host and port (default ports resolved; scheme and host case-blind). */
+  static boolean sameAuthority(URI a, URI b) {
+    return eq(a.getScheme(), b.getScheme()) && eq(a.getHost(), b.getHost()) && port(a) == port(b);
+  }
+
+  private static boolean eq(@Nullable String x, @Nullable String y) {
+    return x == null ? y == null : x.equalsIgnoreCase(y);
+  }
+
+  private static int port(URI u) {
+    if (u.getPort() >= 0) return u.getPort();
+    return "https".equalsIgnoreCase(u.getScheme()) ? 443 : "http".equalsIgnoreCase(u.getScheme()) ? 80 : -1;
   }
 
   /** The URL a redirect answer points at, or null to take the answer as it is (no redirect, https to http, junk). */
