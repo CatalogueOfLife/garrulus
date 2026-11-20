@@ -28,7 +28,7 @@ import org.catalogueoflife.nametracker.indexer.http.TrustedAuthorities;
 import org.catalogueoflife.nametracker.indexer.match.ClbClient;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient;
 import org.catalogueoflife.nametracker.indexer.registry.DoajClient;
-import org.catalogueoflife.nametracker.indexer.registry.SourceIdentity;
+import org.catalogueoflife.nametracker.indexer.registry.SeedUpsert;
 import org.catalogueoflife.nametracker.indexer.source.SeedProperties;
 import org.catalogueoflife.nametracker.indexer.source.SourceSeeder;
 import org.catalogueoflife.nametracker.indexer.stats.DisciplineService;
@@ -184,9 +184,9 @@ public class HarvestConfig {
 
   @Bean
   SourceSeeder sourceSeeder(OpenAlexClient client, SourceMapper sources, SourceRouteMapper routes, TaskQueue queue,
-      SeedProperties props, Clock clock, DisciplineService disciplines, SourceIdentity identity,
+      SeedProperties props, Clock clock, DisciplineService disciplines, SeedUpsert upsert,
       SourceSignalMapper signals, @Value("${nametracker.openalex.api-key:}") String apiKey) {
-    return new SourceSeeder(client, sources, routes, queue, props, clock, disciplines, identity, signals,
+    return new SourceSeeder(client, sources, routes, queue, props, clock, disciplines, upsert, signals,
         !apiKey.isBlank());
   }
 

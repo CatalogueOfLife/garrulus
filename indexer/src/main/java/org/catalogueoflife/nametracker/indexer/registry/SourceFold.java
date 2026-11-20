@@ -20,13 +20,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * Folds duplicate sources: two sources that share an ISSN, the ISSN-L or the OpenAlex id are one journal. Always the
- * younger (higher id) source folds into the older one, and only when the younger is a {@code CANDIDATE} without works,
- * without an {@code ACTIVE} route, without admin curation (tier or disciplines set by an admin) and without an OpenAlex
- * id that differs from the older one's. Otherwise both stay apart with a WARN, like {@code MERGE_WORKS} refuses works
- * with different DOIs. A fold moves the younger one's ISSNs, OpenAlex id (deleted first, then set: the column is
- * unique), signals, routes, raw classifications, samples, registrations and follows to the older one and deletes it;
- * when the older one is CORE or BROAD, its PENDING routes (the moved ones among them) get {@code VERIFY_ROUTE}.
+ * Folds duplicate sources: two sources that share an ISSN, the ISSN-L or the OpenAlex id are one journal. The loser
+ * is chosen by foldability, not by age: only a {@code CANDIDATE} without works, without an {@code ACTIVE} route, without
+ * admin curation (tier or disciplines set by an admin) and without an OpenAlex id that differs from the other one's can
+ * fold. So a candidate folds into a followed (or admin-curated, or EXCLUDED) partner whatever the ids, and of two
+ * foldable candidates the younger (higher id) folds into the older. When neither may fold, both stay apart with a WARN,
+ * like {@code MERGE_WORKS} refuses works with different DOIs. A fold moves the loser's ISSNs, OpenAlex id (deleted
+ * first, then set: the column is unique), signals, routes, raw classifications, samples, registrations and follows to
+ * the survivor and deletes it; when the survivor is CORE or BROAD, its PENDING routes (the moved ones among them) get
+ * {@code VERIFY_ROUTE}.
  */
 @Component
 public class SourceFold {
@@ -48,51 +50,59 @@ public class SourceFold {
     this.locks = locks;
   }
 
-  /** Why the younger source may not be folded into the older one, or null when it may. */
-  @Nullable String refusal(Source younger, Source older) {
-    if (younger.id().equals(older.id())) return "it is the same source";
-    if (!"CANDIDATE".equals(younger.tier())) return "it is " + younger.tier() + ", not a CANDIDATE";
-    if ("ADMIN".equals(younger.tierSetBy())) return "an admin set its tier";
-    if ("ADMIN".equals(younger.disciplineSetBy())) return "an admin set its disciplines";
-    if (younger.openalexId() != null && older.openalexId() != null
-        && !Objects.equals(younger.openalexId(), older.openalexId())) {
-      return "both have their own OpenAlex id (" + younger.openalexId() + ", " + older.openalexId() + ")";
+  /** Why the loser may not be folded into the survivor, or null when it may. */
+  @Nullable String refusal(Source loser, Source survivor) {
+    if (loser.id().equals(survivor.id())) return "it is the same source";
+    if (!"CANDIDATE".equals(loser.tier())) return "it is " + loser.tier() + ", not a CANDIDATE";
+    if ("ADMIN".equals(loser.tierSetBy())) return "an admin set its tier";
+    if ("ADMIN".equals(loser.disciplineSetBy())) return "an admin set its disciplines";
+    if (loser.openalexId() != null && survivor.openalexId() != null
+        && !Objects.equals(loser.openalexId(), survivor.openalexId())) {
+      return "both have their own OpenAlex id (" + loser.openalexId() + ", " + survivor.openalexId() + ")";
     }
-    if (sources.hasWorks(younger.id())) return "it has works";
-    for (SourceRoute r : routes.forSource(younger.id())) {
+    if (sources.hasWorks(loser.id())) return "it has works";
+    for (SourceRoute r : routes.forSource(loser.id())) {
       if ("ACTIVE".equals(r.status())) return "its " + r.layer() + " route " + r.id() + " is ACTIVE";
     }
     return null;
   }
 
   /**
-   * Folds the younger of two duplicate sources into the older one when allowed and returns the older one's id;
-   * otherwise logs a WARN, changes nothing and returns null. Call inside the transaction that holds the identity locks
-   * of both.
+   * Folds one of two duplicate sources into the other when allowed and returns the survivor's id; otherwise logs a
+   * WARN, changes nothing and returns null. The younger folds into the older when it may (two foldable candidates),
+   * else the older into the younger (a candidate into a younger followed or curated journal). Call inside the
+   * transaction that holds the identity locks of both.
    */
   public @Nullable Long foldPair(Source a, Source b, String why) {
     Source older = a.id() < b.id() ? a : b;
     Source younger = older == a ? b : a;
+    Source loser = younger;
+    Source survivor = older;
     String refusal = refusal(younger, older);
     if (refusal != null) {
-      LOG.warn("Source {} ({}) duplicates source {} ({}) by {}, but is not folded into it: {}", younger.id(),
-          younger.title(), older.id(), older.title(), why, refusal);
-      return null;
+      String reverse = refusal(older, younger);
+      if (reverse != null) {
+        LOG.warn("Sources {} ({}) and {} ({}) are one journal by {}, but neither folds into the other: {}; {}",
+            younger.id(), younger.title(), older.id(), older.title(), why, refusal, reverse);
+        return null;
+      }
+      loser = older;
+      survivor = younger;
     }
-    int movedSignals = signals.moveAll(younger.id(), older.id());
-    int moved = sources.foldInto(younger.id(), older.id());
-    boolean placeholder = JournalCompletion.placeholderTitle(older) && !JournalCompletion.placeholderTitle(younger);
-    sources.updateIdentity(older.id(), older.issnL() == null ? younger.issnL() : null, younger.issns(),
-        placeholder ? younger.title() : null, older.publisher() == null ? younger.publisher() : null,
-        older.country() == null ? younger.country() : null,
-        older.openalexId() == null ? younger.openalexId() : null, older.host() == null ? younger.host() : null);
-    if (VerifyRouteHandler.followed(older)) {
+    int movedSignals = signals.moveAll(loser.id(), survivor.id());
+    int moved = sources.foldInto(loser.id(), survivor.id());
+    boolean placeholder = JournalCompletion.placeholderTitle(survivor) && !JournalCompletion.placeholderTitle(loser);
+    sources.updateIdentity(survivor.id(), survivor.issnL() == null ? loser.issnL() : null, loser.issns(),
+        placeholder ? loser.title() : null, survivor.publisher() == null ? loser.publisher() : null,
+        survivor.country() == null ? loser.country() : null,
+        survivor.openalexId() == null ? loser.openalexId() : null, survivor.host() == null ? loser.host() : null);
+    if (VerifyRouteHandler.followed(survivor)) {
       // the candidate's routes now belong to a followed journal: verify them as a promotion would
-      VerifyRouteHandler.enqueuePending(routes, queue, older.id(), TaskPriority.BACKFILL);
+      VerifyRouteHandler.enqueuePending(routes, queue, survivor.id(), TaskPriority.BACKFILL);
     }
-    LOG.info("Folded source {} ({}) into source {} ({}) by {}: {} signals and {} other rows moved", younger.id(),
-        younger.title(), older.id(), older.title(), why, movedSignals, moved);
-    return older.id();
+    LOG.info("Folded source {} ({}) into source {} ({}) by {}: {} signals and {} other rows moved", loser.id(),
+        loser.title(), survivor.id(), survivor.title(), why, movedSignals, moved);
+    return survivor.id();
   }
 
   /**

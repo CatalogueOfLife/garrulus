@@ -208,6 +208,25 @@ class CandidateRegistryIT extends AbstractPostgresIT {
   }
 
   @Test
+  void candidateFoldsIntoAYoungerFollowedJournal() {
+    CandidateRegistry.Offer older = registry.offer(new Candidate("BLR", "", List.of(ONLINE), "Zootaxa", null, null, null,
+        "{}", List.of(), null), TaskPriority.BACKFILL);
+    long core = jdbc.queryForObject("INSERT INTO source (title, origin, tier, tier_set_by, issns) VALUES ('Zootaxa', "
+        + "'MANUAL', 'CORE', 'ADMIN', ?::text[]) RETURNING id", Long.class, "{" + PRINT + "}");
+    assertThat(core).isGreaterThan(older.sourceId());
+
+    CandidateRegistry.Offer o = registry.offer(evidence("DOAJ", "", List.of(PRINT, ONLINE), "Zootaxa"),
+        TaskPriority.BACKFILL);
+
+    assertThat(o.sourceId()).isEqualTo(core);
+    assertThat(o.tier()).isEqualTo("CORE");
+    assertThat(sources.get(older.sourceId())).isNull();
+    assertThat(sources.get(core).issns()).containsExactly(PRINT, ONLINE);
+    assertThat(signals.forSource(core)).extracting(org.catalogueoflife.nametracker.store.registry.SourceSignal::origin)
+        .containsExactlyInAnyOrder("BLR", "DOAJ");
+  }
+
+  @Test
   void placeholderIssnAloneIsNoIdentity() {
     assertThat(registry.offer(cand("PKP_BEACON", "", List.of("0000-0000"), "Placeholder"), TaskPriority.BACKFILL))
         .isNull();

@@ -31,6 +31,7 @@ import tools.jackson.databind.JsonNode;
 import org.catalogueoflife.nametracker.indexer.registry.SourceIdentity;
 import org.catalogueoflife.nametracker.indexer.stats.DisciplineService;
 import org.catalogueoflife.nametracker.store.registry.SourceSignalMapper;
+import org.catalogueoflife.nametracker.indexer.registry.SeedUpsert;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
@@ -66,8 +67,16 @@ class SourceSeederTest {
     OpenAlexBudget budget = new OpenAlexBudget(new FakeApiUsage(), new BigDecimal("1.00"), new BigDecimal("0.30"), NOON);
     OpenAlexClient client = new OpenAlexClient(http, budget, null, w.getHttpBaseUrl());
     when(sources.upsertSeed(any())).thenAnswer(i -> ids.incrementAndGet());
+    // the real SeedUpsert over the mocked mappers: locks and fold do nothing, the transaction just runs
+    org.catalogueoflife.nametracker.indexer.registry.SourceFold fold =
+        mock(org.catalogueoflife.nametracker.indexer.registry.SourceFold.class);
+    when(fold.foldDuplicates(org.mockito.ArgumentMatchers.anyLong())).thenAnswer(i -> i.getArgument(0));
+    SeedUpsert upsert = new SeedUpsert(sources, identity,
+        mock(org.catalogueoflife.nametracker.indexer.registry.IdentityLocks.class), fold,
+        new org.springframework.transaction.support.TransactionTemplate(
+            mock(org.springframework.transaction.PlatformTransactionManager.class)), NOON);
     return new SourceSeeder(client, sources, mock(org.catalogueoflife.nametracker.store.route.SourceRouteMapper.class),
-        queue, SeedProperties.DEFAULTS, NOON, disciplines, identity, signals, false);
+        queue, SeedProperties.DEFAULTS, NOON, disciplines, upsert, signals, false);
   }
 
   private static void stubGroups(String taxonomy, String broad, String totals) {
@@ -235,6 +244,7 @@ class SourceSeederTest {
         "DOAJ", "{}", true, List.of(), null, null, List.of(), "{}", List.of(), null, null, null, null, null, null, null,
         null, null, null);
     when(identity.find(List.of("1313-2989"), null)).thenReturn(candidate);
+    when(sources.get(5L)).thenReturn(candidate); // re-read under its locks
 
     seeder.seed();
 
@@ -250,6 +260,7 @@ class SourceSeederTest {
         "DOAJ", "{}", true, List.of(), null, null, List.of(), "{}", List.of(), null, null, null, null, null, null, null,
         null, null, null);
     when(identity.find(List.of("1313-2989"), null)).thenReturn(candidate);
+    when(sources.get(5L)).thenReturn(candidate); // re-read under its locks
 
     seeder.seed();
 

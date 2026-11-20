@@ -45,12 +45,23 @@ the seeding offer a candidate and never insert a `source` row themselves.
   OpenAlex id) **sorted** (`IdentityLocks`), so two offers with overlapping keys serialise and cannot both create a
   row. A lost deadlock (40P01) defers the task by a minute without an attempt.
 - **Fold:** after every identity write inside the locked transaction, any other source sharing an ISSN, the ISSN-L or
-  the OpenAlex id is a duplicate. `SourceFold` runs **to a fixpoint** (the survivor's grown keys are scanned again),
-  always **younger into older** (the identified source folds into the older one, or the reverse when it is the older).
-  ISSNs, OpenAlex id, signals, routes, raw rows, samples, registrations and follows move; the younger is deleted.
-  **Refusals:** the loser must be a `CANDIDATE` without works, without an `ACTIVE` route, with no admin curation
-  (`tier_set_by` or `discipline_set_by` = ADMIN) and without a different OpenAlex id; else WARN and both stay (a held
-  OpenAlex id is then not written). A fold into a CORE/BROAD survivor verifies the moved PENDING routes.
+  the OpenAlex id is a duplicate. `SourceFold` runs **to a fixpoint** (the survivor's grown keys are scanned again).
+  **The loser is chosen by foldability, not by age** (fix wave; it was always younger into older, so a followed
+  journal younger than its candidate duplicate never folded): only a `CANDIDATE` without works, without an `ACTIVE`
+  route, with no admin curation (`tier_set_by` or `discipline_set_by` = ADMIN) and without a different OpenAlex id can
+  fold. A candidate therefore folds into a followed, curated or EXCLUDED partner whatever the ids; of two foldable
+  candidates the younger folds into the older; when neither can fold, WARN and both stay (a held OpenAlex id is then
+  not written, nor are the ISSNs of that OpenAlex answer, which would cement two sources sharing them). ISSNs, OpenAlex
+  id, signals, routes, raw rows, samples, registrations and follows move; the loser is deleted. A fold into a
+  CORE/BROAD survivor verifies the moved PENDING routes. The holder of an OpenAlex id is re-read after its keys are
+  locked.
+- **Seeding and `ADD_SOURCE`** write through the same sequence (`SeedUpsert`, fix wave): one transaction under the
+  identity locks finds the source by its OpenAlex id, else adopts an ISSN-only source found through its ISSNs, upserts
+  the row, writes the tier (an admin's for `ADD_SOURCE`) and folds the duplicates. An admin adding a journal that
+  discovery or a user registered gets one source, and the registration is covered.
+- **Deadlocks:** only SQLState 40P01 in the cause chain defers (a minute, no attempt); a lock timeout or another
+  pessimistic failure uses attempts like any error. The completion stops when its source was folded into a ceased
+  journal (ceased journals get no calls).
 - **ISSN-L table off by default.** `REFRESH_ISSNL` streams the ISSN IC zip; its URL is the undocumented file the "on
   demand" form serves. `nametracker.discovery.issnl.enabled` is **false** until Markus confirms the URL may be used.
 - **Free-text ISSN extraction** (`Issn.all`) accepts only the **hyphenated** form (hyphen or en dash) anywhere, and

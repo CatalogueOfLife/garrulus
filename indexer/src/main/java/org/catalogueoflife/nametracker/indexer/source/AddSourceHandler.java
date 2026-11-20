@@ -3,6 +3,7 @@ package org.catalogueoflife.nametracker.indexer.source;
 import java.util.Set;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient;
+import org.catalogueoflife.nametracker.indexer.registry.SeedUpsert;
 import org.catalogueoflife.nametracker.indexer.stats.DisciplineService;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.source.Source;
@@ -14,7 +15,8 @@ import tools.jackson.databind.JsonNode;
 /**
  * {@code ADD_SOURCE}, payload {@code {"openalexId":"S…","tier":"CORE|BROAD|CANDIDATE"}}: an admin adds a journal. The row
  * gets origin MANUAL and the admin's tier ({@code tier_set_by} ADMIN, so seeding never changes it again); CORE and
- * BROAD sources are queued for onboarding.
+ * BROAD sources are queued for onboarding. Written through {@link SeedUpsert}: a candidate the registry already holds
+ * for the journal is adopted, and any other duplicate folds into it.
  */
 @Component
 public class AddSourceHandler implements TaskHandler {
@@ -26,9 +28,11 @@ public class AddSourceHandler implements TaskHandler {
   private final SourceMapper sources;
   private final SourceSeeder seeder;
   private final DisciplineService disciplines;
+  private final SeedUpsert upsert;
 
   public AddSourceHandler(OpenAlexClient client, SourceMapper sources, SourceSeeder seeder,
-      DisciplineService disciplines) {
+      DisciplineService disciplines, SeedUpsert upsert) {
+    this.upsert = upsert;
     this.disciplines = disciplines;
     this.client = client;
     this.sources = sources;
@@ -50,11 +54,11 @@ public class AddSourceHandler implements TaskHandler {
           + task.payload());
     }
     JsonNode node = client.source(id).orElseThrow(() -> new IllegalArgumentException("Unknown OpenAlex source " + id));
-    Source row = SourceSeeder.build(node, id, tier, "MANUAL", "ADMIN", null);
-    long sourceId = sources.upsertSeed(row);
+    // upsertSeed leaves the tier of an existing row alone; an admin's choice always wins, written before the fold so a
+    // candidate the registry already held as a duplicate folds into the admin's journal
+    long sourceId = upsert.upsert(id, keep -> SourceSeeder.build(node, id, tier, "MANUAL", "ADMIN", null, keep),
+        (sid, before) -> sources.setTier(sid, tier, true, "ADMIN")).sourceId();
     disciplines.applyOpenAlex(sourceId, node);
-    // upsertSeed leaves the tier of an existing row alone; an admin's choice always wins
-    sources.setTier(sourceId, tier, true, "ADMIN");
     if (!"CANDIDATE".equals(tier)) {
       seeder.enqueueOnboarding(sourceId);
     }

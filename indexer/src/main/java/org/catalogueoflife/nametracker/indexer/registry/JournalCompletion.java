@@ -105,14 +105,24 @@ public class JournalCompletion {
     long id = sourceId;
     for (ToLongFunction<Source> step : identitySteps) {
       Source s = sources.get(id);
-      if (s == null) return;
+      if (stops(s, sourceId)) return;
       id = step.applyAsLong(s);
     }
     Source s = sources.get(id);
-    if (s == null) return;
+    if (stops(s, sourceId)) return;
     beaconRoutes(s, priority);
     ProbeEuropePmcHandler.enqueue(queue, id);
     disciplines.apply(id);
+  }
+
+  /** Gone, or folded into a ceased journal (which gets no calls): the completion ends there. */
+  private static boolean stops(@Nullable Source s, long started) {
+    if (s == null) return true;
+    if ("CEASED".equals(s.publicationStatus())) {
+      if (s.id() != started) LOG.info("Source {} was folded into the ceased source {}: completion ends", started, s.id());
+      return true;
+    }
+    return false;
   }
 
   /** Runs even without an ISSN-L, so a duplicate that shares a stored ISSN is folded before any service is asked. */
@@ -167,13 +177,20 @@ public class JournalCompletion {
       Source holder = sources.findByOpenalexId(oa);
       if (holder != null && !holder.id().equals(fresh.id())) {
         locks.lock(lookupIssns(holder), holder.openalexId()); // the holder's own keys, before it is touched
+        // re-read under its locks (the id's lock is held, so it is still the holder): a concurrent writer may have
+        // changed its ISSNs, and foldPair must move what it holds now
+        holder = sources.findByOpenalexId(oa);
+      }
+      if (holder != null && !holder.id().equals(fresh.id())) {
         Long survivor = fold.foldPair(fresh, holder, "OpenAlex id " + oa);
         if (survivor == null) held = true; // the id stays with its holder (unique column)
         else target = survivor; // either way the survivor now holds the id
       }
       Source t = sources.get(target);
-      // the rest of the answer is this journal's even when another source keeps the id
-      sources.updateIdentity(target, t.issnL() == null ? Issn.normalise(row.issnL()) : null, issns,
+      // the rest of the answer is this journal's even when another source keeps the id; its ISSNs are not: written to
+      // a source that cannot fold into the holder, they would cement two sources sharing ISSNs (the WARN says why)
+      sources.updateIdentity(target, held || t.issnL() != null ? null : Issn.normalise(row.issnL()),
+          held ? List.of() : issns,
           placeholderTitle(t) && !oa.equals(row.title()) ? row.title() : null,
           t.publisher() == null ? row.publisher() : null, row.country(), held ? null : oa, row.host());
       // with DOAJ asked, DOAJ alone answers for DOAJ membership (else the flag would flip on every run)

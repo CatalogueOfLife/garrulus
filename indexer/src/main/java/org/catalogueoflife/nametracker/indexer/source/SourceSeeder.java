@@ -13,7 +13,7 @@ import java.util.Set;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClassifications;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient.GroupCount;
-import org.catalogueoflife.nametracker.indexer.registry.SourceIdentity;
+import org.catalogueoflife.nametracker.indexer.registry.SeedUpsert;
 import org.catalogueoflife.nametracker.indexer.stats.DisciplineService;
 import org.catalogueoflife.nametracker.store.ident.Issn;
 import org.catalogueoflife.nametracker.store.registry.SourceSignalMapper;
@@ -32,7 +32,8 @@ import tools.jackson.databind.JsonNode;
 /**
  * Builds the journal registry from OpenAlex: counts the articles of the last three years per journal in the taxonomy
  * topics and in the broad subfields, and sets the tier from the counts and their share of all the journal's articles.
- * Tiers set by an admin are never touched.
+ * Tiers set by an admin are never touched. Each journal is written through {@link SeedUpsert} (locked find, adoption of
+ * an ISSN-only candidate, upsert, fold of duplicates).
  */
 public class SourceSeeder {
 
@@ -55,16 +56,16 @@ public class SourceSeeder {
   private final SeedProperties props;
   private final Clock clock;
   private final DisciplineService disciplines;
-  private final SourceIdentity identity;
+  private final SeedUpsert upsert;
   private final SourceSignalMapper signals;
   private final boolean paging;
 
   /** @param paging true with an API key, when group-by calls return all pages */
   public SourceSeeder(OpenAlexClient client, SourceMapper sources, SourceRouteMapper routes, TaskQueue queue,
-      SeedProperties props, Clock clock, DisciplineService disciplines, SourceIdentity identity,
+      SeedProperties props, Clock clock, DisciplineService disciplines, SeedUpsert upsert,
       SourceSignalMapper signals, boolean paging) {
     this.routes = routes;
-    this.identity = identity;
+    this.upsert = upsert;
     this.signals = signals;
     this.disciplines = disciplines;
     this.client = client;
@@ -108,21 +109,21 @@ public class SourceSeeder {
         continue;
       }
       long total = totals.get(id);
-      Source row = build(node, id, tier, "SEED_TOPIC", "SEED", (int) (total / YEARS));
-      Source existing = sources.findByOpenalexId(id);
-      if (existing == null) {
-        existing = adoptCandidate(id, row);
-        if (existing != null) row = build(node, id, tier, "SEED_TOPIC", "SEED", (int) (total / YEARS), existing.issns());
-      }
-      long sourceId = sources.upsertSeed(row);
+      int perYear = (int) (total / YEARS);
+      String seedTier = tier;
+      SeedUpsert.Seeded seeded = upsert.upsert(id, keep -> build(node, id, seedTier, "SEED_TOPIC", "SEED", perYear, keep),
+          (sid, before) -> {
+            if (before != null && "SEED".equals(before.tierSetBy()) && !seedTier.equals(before.tier())
+                && !"CEASED".equals(before.publicationStatus())) {
+              sources.setTier(sid, seedTier, Boolean.TRUE.equals(before.active()), "SEED");
+            }
+          });
+      long sourceId = seeded.sourceId();
+      Source existing = seeded.before();
       disciplines.applyOpenAlex(sourceId, node);
       signals.upsert(sourceId, "SEED_TOPIC", "", FinderJson.mapper().createObjectNode()
           .put("taxonomyWorks", taxonomy.getOrDefault(id, 0L)).put("broadWorks", broad.getOrDefault(id, 0L))
           .put("totalWorks", total).toString());
-      if (existing != null && "SEED".equals(existing.tierSetBy()) && !tier.equals(existing.tier())
-          && !"CEASED".equals(existing.publicationStatus())) {
-        sources.setTier(sourceId, tier, Boolean.TRUE.equals(existing.active()), "SEED");
-      }
       if (existing != null && VerifyRouteHandler.followed(sources.get(sourceId))) verifyPendingRoutes(sourceId);
       switch (tier) {
         case "CORE" -> core++;
@@ -134,26 +135,6 @@ public class SourceSeeder {
     LOG.info("Seeded sources: {} core, {} broad, {} candidate, {} skipped{}; {} awaiting onboarding", core, bro, cand,
         skipped, truncated ? " (truncated)" : "", queued);
     return new SeedReport(core, bro, cand, skipped, truncated);
-  }
-
-  /**
-   * A journal the registry already holds as an ISSN-only candidate (found through its ISSNs or ISSN-L) gets the OpenAlex
-   * id, so the seed updates that row instead of adding a second one. Returns that source, or null.
-   */
-  private @Nullable Source adoptCandidate(String openalexId, Source row) {
-    List<String> issns = new ArrayList<>();
-    for (String i : row.issns()) {
-      String n = Issn.normalise(i);
-      if (n != null && !issns.contains(n)) issns.add(n);
-    }
-    if (row.issnL() != null && Issn.normalise(row.issnL()) != null && !issns.contains(Issn.normalise(row.issnL()))) {
-      issns.add(Issn.normalise(row.issnL()));
-    }
-    if (issns.isEmpty()) return null;
-    Source hit = identity.find(issns, null);
-    if (hit == null || hit.openalexId() != null) return null;
-    sources.updateIdentity(hit.id(), null, union(issns, hit.issns()), null, null, null, openalexId, null);
-    return hit;
   }
 
   /** One ONBOARD_SOURCE task per active CORE/BROAD source not yet onboarded; the dedup key keeps it to one. */

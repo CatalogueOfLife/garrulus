@@ -98,8 +98,11 @@ public class CandidateRegistry {
       Source holder = c.openalexId() == null ? null : sources.findByOpenalexId(c.openalexId());
       if (holder != null && !holder.id().equals(s.id())) { // the offer's OpenAlex id names another source
         locks.lock(JournalCompletion.lookupIssns(holder), holder.openalexId());
-        Long folded = fold.foldPair(sources.get(s.id()), holder, "OpenAlex id " + c.openalexId());
-        if (folded != null) survivor = folded;
+        holder = sources.findByOpenalexId(c.openalexId()); // as it is now that its keys are locked
+        if (holder != null && !holder.id().equals(s.id())) {
+          Long folded = fold.foldPair(sources.get(s.id()), holder, "OpenAlex id " + c.openalexId());
+          if (folded != null) survivor = folded;
+        }
       }
       survivor = fold.foldDuplicates(survivor);
       if (survivor != s.id()) {

@@ -38,6 +38,8 @@ class SeedSourcesHandlerIT extends AbstractPostgresIT {
   void clean() {
     jdbc.update("DELETE FROM task");
     jdbc.update("DELETE FROM api_usage");
+    jdbc.update("DELETE FROM source_registration");
+    jdbc.update("DELETE FROM app_user WHERE email LIKE '%@seed.test'");
     jdbc.update("DELETE FROM source");
   }
 
@@ -112,6 +114,71 @@ class SeedSourcesHandlerIT extends AbstractPostgresIT {
     add.handle(task("ADD_SOURCE", "{\"openalexId\":\"S904\",\"tier\":\"CANDIDATE\"}"));
     assertThat(sources.findByOpenalexId("S904").tier()).isEqualTo("CANDIDATE");
     assertThat(onboardTasks()).isEqualTo(1);
+  }
+
+  private static String zootaxa(String id) {
+    return "{\"id\":\"https://openalex.org/" + id + "\",\"display_name\":\"Zootaxa\",\"issn_l\":\"1175-5326\","
+        + "\"issn\":[\"1175-5326\",\"1175-5334\"],\"host_organization_name\":\"Magnolia\",\"is_oa\":false}";
+  }
+
+  @Test
+  void addSourceOfARegisteredCandidateKeepsOneSourceAndCoversTheRegistration(WireMockRuntimeInfo w) throws Exception {
+    long cand = jdbc.queryForObject("INSERT INTO source (title, origin, tier, issns) VALUES ('1175-5326', "
+        + "'REGISTERED', 'CANDIDATE', '{1175-5326}') RETURNING id", Long.class);
+    long user = jdbc.queryForObject("INSERT INTO app_user (email) VALUES ('add@seed.test') RETURNING id", Long.class);
+    long reg = jdbc.queryForObject("INSERT INTO source_registration (user_id, kind, input, state, outcome, source_id, "
+        + "tier_at_identification) VALUES (?, 'ISSN', '1175-5326', 'IDENTIFIED', 'NEW_CANDIDATE', ?, 'CANDIDATE') "
+        + "RETURNING id", Long.class, user, cand);
+    stubFor(get(urlPathEqualTo("/sources/S906")).willReturn(okJson(zootaxa("S906"))));
+
+    add.handle(task("ADD_SOURCE", "{\"openalexId\":\"S906\",\"tier\":\"CORE\"}"));
+
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM source", Long.class)).isEqualTo(1);
+    Source s = sources.findByOpenalexId("S906");
+    assertThat(s.id()).isEqualTo(cand);
+    assertThat(s.tier()).isEqualTo("CORE");
+    assertThat(s.tierSetBy()).isEqualTo("ADMIN");
+    assertThat(s.issns()).containsExactly("1175-5326", "1175-5334");
+    assertThat(jdbc.queryForObject("SELECT source_id FROM source_registration WHERE id = ?", Long.class, reg))
+        .isEqualTo(cand); // the user's registration now points at a followed journal: COVERED
+  }
+
+  @Test
+  void addSourceAdoptsOneCandidateAndFoldsTheOther(WireMockRuntimeInfo w) throws Exception {
+    long print = jdbc.queryForObject("INSERT INTO source (title, origin, tier, issns) VALUES ('P', 'DOAJ', "
+        + "'CANDIDATE', '{1175-5326}') RETURNING id", Long.class);
+    long online = jdbc.queryForObject("INSERT INTO source (title, origin, tier, issns) VALUES ('E', 'PKP_BEACON', "
+        + "'CANDIDATE', '{1175-5334}') RETURNING id", Long.class);
+    stubFor(get(urlPathEqualTo("/sources/S907")).willReturn(okJson(zootaxa("S907"))));
+
+    add.handle(task("ADD_SOURCE", "{\"openalexId\":\"S907\",\"tier\":\"BROAD\"}"));
+
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM source", Long.class)).isEqualTo(1);
+    assertThat(sources.get(online)).isNull();
+    assertThat(sources.get(print).openalexId()).isEqualTo("S907");
+    assertThat(sources.get(print).tier()).isEqualTo("BROAD");
+  }
+
+  @Test
+  void seedingAdoptsTheCandidateUnderTheLocks(WireMockRuntimeInfo w) throws Exception {
+    long cand = jdbc.queryForObject("INSERT INTO source (title, origin, tier, issns) VALUES ('E', 'PKP_BEACON', "
+        + "'CANDIDATE', '{1175-5334}') RETURNING id", Long.class);
+    long other = jdbc.queryForObject("INSERT INTO source (title, origin, tier, issns) VALUES ('P', 'DOAJ', "
+        + "'CANDIDATE', '{1175-5326}') RETURNING id", Long.class);
+    stubFor(get(urlPathEqualTo("/works")).withQueryParam("filter", containing("primary_topic.id:T14399"))
+        .willReturn(okJson(SourceSeederTest.group("t", "S908", "50"))));
+    stubFor(get(urlPathEqualTo("/works")).withQueryParam("filter", containing("primary_topic.subfield.id:1105"))
+        .willReturn(okJson(SourceSeederTest.group("b", "S908", "60"))));
+    stubFor(get(urlPathEqualTo("/works")).withQueryParam("filter", containing("primary_location.source.id:S"))
+        .willReturn(okJson(SourceSeederTest.group("n", "S908", "100"))));
+    stubFor(get(urlPathEqualTo("/sources/S908")).willReturn(okJson(zootaxa("S908"))));
+
+    seed.handle(task("SEED_SOURCES", "{}"));
+
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM source", Long.class)).isEqualTo(1);
+    assertThat(sources.get(cand).openalexId()).isEqualTo("S908");
+    assertThat(sources.get(cand).tier()).isEqualTo("CORE");
+    assertThat(sources.get(other)).isNull();
   }
 
   /** A candidate a user registered, with the PENDING route its page suggested. */

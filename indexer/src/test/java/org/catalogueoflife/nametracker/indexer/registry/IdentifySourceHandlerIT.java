@@ -346,6 +346,7 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
       assertThat(s).isNotNull();
       assertThat(s.openalexId()).isNull(); // the holder keeps the unique id
       assertThat(s.country()).isEqualTo("NZ"); // the rest of the OpenAlex answer is written
+      assertThat(s.issns()).containsExactly(ZOOTAXA_E); // but not the holder's ISSNs: no second source sharing them
     }
     assertThat(sources.get(holder).issns()).containsExactly(ZOOTAXA_P);
     assertThat(sources.get(holder).openalexId()).isEqualTo(ZOOTAXA_OA);
@@ -502,7 +503,7 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
   }
 
   @Test
-  void curatedCandidateIsNotFolded(WireMockRuntimeInfo w) throws Exception {
+  void plainCandidateFoldsIntoACuratedOneWhateverTheIds(WireMockRuntimeInfo w) throws Exception {
     stubNothingKnown();
     stubFor(get(urlPathEqualTo("/doaj/search/journals/issn:" + ZOOTAXA_P)).willReturn(okJson(doajZootaxa())));
     long p = candidate(ZOOTAXA_P);
@@ -513,9 +514,53 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
 
     handler(w).handle(task(p));
 
-    assertThat(sources.get(tiered)).isNotNull();
+    // the older, uncurated candidate folds into the younger curated one; two curated ones stay apart
+    assertThat(sources.get(p)).isNull();
+    assertThat(sources.get(tiered).issns()).containsExactly(ZOOTAXA_P, ZOOTAXA_E);
     assertThat(sources.get(disciplined)).isNotNull();
-    assertThat(sources.get(p).issns()).containsExactly(ZOOTAXA_P, ZOOTAXA_E);
+  }
+
+  @Test
+  void olderCandidateFoldsIntoAYoungerFollowedHolder(WireMockRuntimeInfo w) throws Exception {
+    stubNothingKnown();
+    stubFor(get(urlPathEqualTo("/openalex/sources/issn:" + ZOOTAXA_E))
+        .willReturn(okJson(DoajClientTest.fixture("openalex-source-issn.json"))));
+    long cand = candidate(ZOOTAXA_E);
+    long user = jdbc.queryForObject("INSERT INTO app_user (email) VALUES ('younger@identify.test') RETURNING id",
+        Long.class);
+    long reg = jdbc.queryForObject("INSERT INTO source_registration (user_id, kind, input, state, outcome, source_id, "
+        + "tier_at_identification) VALUES (?, 'ISSN', ?, 'IDENTIFIED', 'NEW_CANDIDATE', ?, 'CANDIDATE') RETURNING id",
+        Long.class, user, ZOOTAXA_E, cand);
+    long holder = jdbc.queryForObject("INSERT INTO source (openalex_id, issns, title, tier, origin, active, tier_set_by) "
+        + "VALUES (?, ?::text[], 'Zootaxa', 'CORE', 'MANUAL', true, 'ADMIN') RETURNING id", Long.class, ZOOTAXA_OA,
+        "{" + ZOOTAXA_P + "}");
+
+    handler(w).handle(task(cand));
+
+    assertThat(sources.get(cand)).isNull();
+    Source h = sources.get(holder);
+    assertThat(h.tier()).isEqualTo("CORE");
+    assertThat(h.issns()).contains(ZOOTAXA_P, ZOOTAXA_E);
+    assertThat(jdbc.queryForObject("SELECT source_id FROM source_registration WHERE id = ?", Long.class, reg))
+        .isEqualTo(holder);
+  }
+
+  @Test
+  void completionStopsAtACeasedSurvivor(WireMockRuntimeInfo w) throws Exception {
+    stubNothingKnown();
+    stubFor(get(urlPathEqualTo("/openalex/sources/issn:" + ZOOTAXA_E))
+        .willReturn(okJson(DoajClientTest.fixture("openalex-source-issn.json"))));
+    long ceased = jdbc.queryForObject("INSERT INTO source (openalex_id, issns, title, tier, origin, active, "
+        + "publication_status, ceased_reason) VALUES (?, ?::text[], 'Zootaxa', 'CORE', 'MANUAL', true, 'CEASED', "
+        + "'STOPPED') RETURNING id", Long.class, ZOOTAXA_OA, "{" + ZOOTAXA_P + "}");
+    long cand = candidate(ZOOTAXA_E);
+
+    handler(w).handle(task(cand));
+
+    assertThat(sources.get(cand)).isNull(); // folded into the ceased journal
+    verify(0, getRequestedFor(urlPathMatching("/doaj/.*"))); // which gets no further calls
+    assertThat(tasks("PROBE_EUROPEPMC")).isZero();
+    assertThat(sources.get(ceased).publicationStatus()).isEqualTo("CEASED");
   }
 
   @Test
