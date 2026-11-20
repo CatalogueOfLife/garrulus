@@ -188,7 +188,10 @@ public interface SourceMapper {
    */
   int deleteFoldable(@Param("id") long id);
 
-  /** Stores the candidate score and stamps candidate_scored_at. */
+  /**
+   * Stores the candidate score and stamps candidate_scored_at, only when the score changed (the nightly rescore of every
+   * candidate rewrites no unchanged row); returns 0 for an unchanged one.
+   */
   int setCandidateScore(@Param("id") long id, @Param("score") float score);
 
   /**

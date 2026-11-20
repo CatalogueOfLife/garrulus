@@ -12,8 +12,11 @@ public interface AdminNoticeMapper {
   int insert(@Param("kind") String kind, @Param("dedupKey") String dedupKey, @Param("subject") String subject,
       @Param("body") String body);
 
-  /** Marks up to {@code limit} unmailed notices as mailed (oldest first, skipping locked rows) and returns them. */
-  List<AdminNotice> claimUnmailed(@Param("limit") int limit);
+  /**
+   * Marks up to {@code limit} notices as mailed (oldest first, skipping locked rows) and returns them: the unmailed ones
+   * and those claimed before {@code staleBefore} that never got an outcome (the claiming run died before it sent them).
+   */
+  List<AdminNotice> claimUnmailed(@Param("limit") int limit, @Param("staleBefore") java.time.Instant staleBefore);
 
   int setOutcome(@Param("id") long id, @Param("outcome") String outcome);
 

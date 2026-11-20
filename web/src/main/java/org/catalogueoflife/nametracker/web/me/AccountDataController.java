@@ -86,6 +86,7 @@ public class AccountDataController {
     long userId = currentUser.require();
     tx.executeWithoutResult(status -> {
       accounts.deleteSessions(userId, null);
+      registrations.deleteSignalsOfUser(userId); // the registrations themselves go with the account (cascade)
       accounts.delete(userId);
     });
     return ResponseEntity.noContent().build();

@@ -16,21 +16,28 @@ import org.springframework.stereotype.Component;
  * Mails the {@code admin_notice} rows the indexer wrote ({@code nametracker.admin.mail-cron}, one instance via
  * ShedLock): up to 20 per run, each as one mail to every verified address of an account whose ORCID iD is in
  * {@link AdminOrcids}. The outcome is SENT, FAILED (the mail host refused every address) or SUPPRESSED (no mail host,
- * or no admin address; logged with the notice id, never an address). At most once: a notice is marked as mailed when it
- * is claimed and a failed send is not retried (the weekly reminder of a failing layer repeats it).
+ * or no admin address; logged with the notice id, never an address). A notice is marked as mailed when it is claimed
+ * and a failed send is not retried (the weekly reminder of a failing layer repeats it); a claim that got no outcome
+ * within the lock time (the run died between claim and send) is claimed again, so a crash does not lose the mail (it
+ * may then be sent twice if the run died after sending).
  */
 @Component
 public class AdminMailJob {
 
   private static final Logger LOG = LoggerFactory.getLogger(AdminMailJob.class);
   static final int BATCH = 20;
+  /** lockAtMostFor of the job: after that, a run that claimed notices is gone. */
+  static final java.time.Duration CLAIM_TIMEOUT = java.time.Duration.ofMinutes(10);
 
   private final AdminNoticeMapper notices;
   private final AccountMapper accounts;
   private final AdminOrcids orcids;
   private final MailService mail;
+  private final java.time.Clock clock;
 
-  public AdminMailJob(AdminNoticeMapper notices, AccountMapper accounts, AdminOrcids orcids, MailService mail) {
+  public AdminMailJob(AdminNoticeMapper notices, AccountMapper accounts, AdminOrcids orcids, MailService mail,
+      java.time.Clock clock) {
+    this.clock = clock;
     this.notices = notices;
     this.accounts = accounts;
     this.orcids = orcids;
@@ -40,7 +47,8 @@ public class AdminMailJob {
   @Scheduled(cron = "${nametracker.admin.mail-cron:0 */5 * * * *}", zone = "UTC")
   @SchedulerLock(name = "admin-mail", lockAtMostFor = "PT10M", lockAtLeastFor = "PT10S")
   public void run() {
-    List<AdminNotice> claimed = notices.claimUnmailed(BATCH);
+    // a notice claimed longer ago than the lock lasts, without an outcome, was lost by a run that died: claim it again
+    List<AdminNotice> claimed = notices.claimUnmailed(BATCH, clock.instant().minus(CLAIM_TIMEOUT));
     if (claimed.isEmpty()) {
       return;
     }

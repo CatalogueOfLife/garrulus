@@ -165,6 +165,20 @@ class RegistrationControllerIT extends AbstractAuthIT {
   }
 
   @Test
+  void theGlobalDailyCapStopsEveryone() throws Exception {
+    long others = user();
+    // 200 registrations of the last 24 hours, by others (older ones do not count)
+    jdbc.update("INSERT INTO source_registration (user_id, kind, input, created) SELECT ?, 'URL', "
+        + "'https://g' || i || '.example.org/', now() - interval '1 hour' FROM generate_series(1, 200) i", others);
+    jdbc.update("UPDATE source_registration SET created = now() - interval '25 hours' WHERE input = 'https://g1.example.org/'");
+    assertThat(register(signedInAs(user()), "{\"issn\":\"1175-5326\"}").statusCode()).isEqualTo(202);
+    HttpResponse<String> r = register(signedInAs(user()), "{\"issn\":\"1175-5334\"}");
+    assertThat(r.statusCode()).isEqualTo(429);
+    assertThat(body(r).get("error").asString()).contains("today");
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM task WHERE type = 'IDENTIFY_SOURCE'", Long.class)).isEqualTo(1);
+  }
+
+  @Test
   void otherUsersRegistrationIs404() throws Exception {
     Browser a = signedInAs(user());
     long id = body(register(a, "{\"issn\":\"1175-5326\"}")).get("id").asLong();

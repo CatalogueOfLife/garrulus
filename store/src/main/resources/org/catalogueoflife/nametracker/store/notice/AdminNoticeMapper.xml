@@ -25,7 +25,9 @@
 
   <select id="claimUnmailed" resultMap="notice" flushCache="true">
     UPDATE admin_notice SET mailed_at = now()
-    WHERE id IN (SELECT id FROM admin_notice WHERE mailed_at IS NULL ORDER BY id LIMIT #{limit} FOR UPDATE SKIP LOCKED)
+    WHERE id IN (SELECT id FROM admin_notice
+                 WHERE mailed_at IS NULL OR (outcome IS NULL AND mailed_at &lt; #{staleBefore})
+                 ORDER BY id LIMIT #{limit} FOR UPDATE SKIP LOCKED)
     RETURNING <include refid="cols"/>
   </select>
 

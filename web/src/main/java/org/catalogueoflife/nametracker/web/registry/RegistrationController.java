@@ -6,6 +6,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,6 +27,7 @@ import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.catalogueoflife.nametracker.web.auth.CurrentUser;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -42,7 +44,9 @@ import tools.jackson.core.type.TypeReference;
  * Journal registration by a signed-in user: {@code POST /api/sources/register} with exactly one of {@code issn},
  * {@code doi} (of an article) or {@code url}, plus an optional {@code note}. The web app makes no outbound call: it
  * stores the registration (IDENTIFYING) and enqueues {@code IDENTIFY_SOURCE {"registrationId":n}} at LIVE; the indexer
- * identifies the journal. At most {@value #MAX_PER_DAY} registrations per user in 24 hours; the same input again while
+ * identifies the journal. At most {@value #MAX_PER_DAY} registrations per user in 24 hours, and at most
+ * {@code nametracker.registration.daily-cap} (200) of all users together (accounts are free, and each registration is
+ * a LIVE task with a page fetch ahead of the harvest; approximate under parallel requests); the same input again while
  * the first is identifying or identified answers that registration. The body is read up to {@value #MAX_BODY} bytes, a
  * DOI may have {@value #MAX_DOI} characters. The user's registrations are
  * read and withdrawn under {@code /api/me/registrations}; withdrawing removes the registration's signal from its source
@@ -60,6 +64,8 @@ public class RegistrationController {
   static final int MAX_BODY = 8 * 1024;
   static final String IDENTIFY_TYPE = "IDENTIFY_SOURCE";
   static final String SIGNAL_ORIGIN = "REGISTERED";
+  /** The insert's answer when the global daily cap is reached (no registration id is negative). */
+  private static final Long CAPPED = -1L;
   private static final Set<String> KEYS = Set.of("issn", "doi", "url", "note");
   private static final List<String> INPUTS = List.of("issn", "doi", "url");
 
@@ -71,9 +77,12 @@ public class RegistrationController {
   private final CurrentUser currentUser;
   private final TransactionTemplate tx;
   private final Clock clock;
+  private final int dailyCap;
 
   public RegistrationController(RegistrationMapper registrations, SourceMapper sources, SourceRouteMapper routes,
-      SourceSignalMapper signals, TaskQueue queue, CurrentUser currentUser, TransactionTemplate tx, Clock clock) {
+      SourceSignalMapper signals, TaskQueue queue, CurrentUser currentUser, TransactionTemplate tx, Clock clock,
+      @Value("${nametracker.registration.daily-cap:200}") int dailyCap) {
+    this.dailyCap = dailyCap;
     this.registrations = registrations;
     this.sources = sources;
     this.routes = routes;
@@ -121,7 +130,9 @@ public class RegistrationController {
       // the same input again while the first is identifying or identified: that registration, not a second signal
       Long same = registrations.findActive(userId, kind, input);
       if (same != null) return same;
-      if (registrations.countSince(userId, clock.instant().minus(Duration.ofHours(24))) >= MAX_PER_DAY) return null;
+      Instant dayAgo = clock.instant().minus(Duration.ofHours(24));
+      if (registrations.countSince(userId, dayAgo) >= MAX_PER_DAY) return null;
+      if (registrations.countAllSince(dayAgo) >= dailyCap) return CAPPED;
       long rid = registrations.insert(userId, kind, input, n);
       queue.enqueue(IDENTIFY_TYPE, "{\"registrationId\":" + rid + "}", TaskPriority.LIVE, "identify:r" + rid);
       return rid;
@@ -129,6 +140,10 @@ public class RegistrationController {
     if (id == null) {
       throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
           "at most " + MAX_PER_DAY + " registrations in 24 hours");
+    }
+    if (CAPPED.equals(id)) {
+      throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+          "registrations are paused for today; please try again tomorrow");
     }
     return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of("id", id));
   }

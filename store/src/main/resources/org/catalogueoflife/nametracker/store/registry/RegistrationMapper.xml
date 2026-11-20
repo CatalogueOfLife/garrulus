@@ -69,6 +69,15 @@
     SELECT count(*) FROM (SELECT 1 FROM app_user WHERE id = #{userId} FOR UPDATE) u
   </select>
 
+  <select id="countAllSince" resultType="int">
+    SELECT count(*) FROM source_registration WHERE created &gt; #{since}
+  </select>
+
+  <delete id="deleteSignalsOfUser" flushCache="true">
+    DELETE FROM source_signal g USING source_registration r
+    WHERE r.user_id = #{userId} AND g.origin = 'REGISTERED' AND g.signal_key = r.id::text
+  </delete>
+
   <select id="countSince" resultType="int">
     SELECT count(*) FROM source_registration WHERE user_id = #{userId} AND created &gt; #{since}
   </select>

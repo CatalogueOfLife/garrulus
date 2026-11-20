@@ -210,7 +210,8 @@
   </delete>
 
   <update id="setCandidateScore">
-    UPDATE source SET candidate_score = #{score}, candidate_scored_at = now(), modified = now() WHERE id = #{id}
+    UPDATE source SET candidate_score = #{score}, candidate_scored_at = now(), modified = now()
+    WHERE id = #{id} AND candidate_score IS DISTINCT FROM #{score}::real
   </update>
 
   <update id="setCrossrefHistoryDone">
@@ -268,14 +269,17 @@
   <!-- dated signs of life, a proposal only, never applied (last_seen is no evidence: every re-offer bumps it).
        CEASED: a BLR signal whose lastSeen (newest first sighting) or a REGISTERED signal's first_seen is after the
        status change. EXCLUDED: a REGISTERED signal in the last 90 days (a user asking again). A malformed lastSeen is
-       ignored: the regex admits only real calendar days (29 February excluded) before the cast. -->
+       ignored: the cast sits in a CASE branch (evaluation order is guaranteed there) behind pg_input_is_valid, which
+       never throws and knows the calendar (29 February of a leap year included). -->
   <sql id="revivalExpr">
     EXISTS (
       SELECT 1 FROM source_signal g WHERE g.source_id = s.id AND (
         (s.publication_status = 'CEASED' AND g.origin = 'BLR'
-          AND jsonb_typeof(g.detail -> 'lastSeen') = 'string'
-          AND (g.detail ->> 'lastSeen') ~ '^[0-9]{4}-((0[13578]|1[02])-(0[1-9]|[12][0-9]|3[01])|(0[469]|11)-(0[1-9]|[12][0-9]|30)|02-(0[1-9]|1[0-9]|2[0-8]))'
-          AND substring(g.detail ->> 'lastSeen' from 1 for 10)::date &gt; coalesce(s.status_changed, s.created)::date)
+          AND CASE WHEN jsonb_typeof(g.detail -> 'lastSeen') = 'string'
+              AND (g.detail ->> 'lastSeen') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+              AND pg_input_is_valid(substring(g.detail ->> 'lastSeen' from 1 for 10), 'date')
+            THEN substring(g.detail ->> 'lastSeen' from 1 for 10)::date END
+            &gt; coalesce(s.status_changed, s.created)::date)
         OR (s.publication_status = 'CEASED' AND g.origin = 'REGISTERED'
           AND g.first_seen &gt; coalesce(s.status_changed, s.created))
         OR (s.publication_status &lt;&gt; 'CEASED' AND s.tier = 'EXCLUDED' AND g.origin = 'REGISTERED'

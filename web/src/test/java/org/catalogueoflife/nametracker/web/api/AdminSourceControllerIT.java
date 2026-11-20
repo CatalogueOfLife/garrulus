@@ -431,6 +431,12 @@ class AdminSourceControllerIT extends AbstractPostgresIT {
     jdbc.update("INSERT INTO source_signal (source_id, origin, signal_key, detail) VALUES "
         + "(?, 'BLR', '', '{\"lastSeen\":\"garbage\"}'::jsonb), (?, 'BLR', 'b', '{\"lastSeen\":\"2026-02-31\"}'::jsonb),"
         + " (?, 'BLR', 'c', '{\"lastSeen\":7}'::jsonb)", bad, bad, bad);
+    // a leap day is a real day
+    long leap = harvested("S120", "LeapDay", "CORE", 0.1f, 5f);
+    jdbc.update("UPDATE source SET publication_status = 'CEASED', ceased_reason = 'STOPPED', status_changed = "
+        + "'2023-06-01' WHERE id = ?", leap);
+    jdbc.update("INSERT INTO source_signal (source_id, origin, signal_key, detail) VALUES "
+        + "(?, 'BLR', '', '{\"lastSeen\":\"2024-02-29T10:00:00Z\"}'::jsonb)", leap);
     // an excluded journal: only a recent registration (a user asking again) proposes a revival, a BLR sighting does not
     long exReg = harvested("S117", "ExcludedAsked", "EXCLUDED", null, null);
     jdbc.update("INSERT INTO source_signal (source_id, origin, signal_key, detail) VALUES (?, 'REGISTERED', '1', '{}'::jsonb)",
@@ -445,6 +451,7 @@ class AdminSourceControllerIT extends AbstractPostgresIT {
     JsonNode all = items("");
     assertThat(flag(all, pkp, "revival")).isFalse();
     assertThat(flag(all, bad, "revival")).isFalse();
+    assertThat(flag(all, leap, "revival")).isTrue();
     assertThat(flag(all, exReg, "revival")).isTrue();
     assertThat(flag(all, exBlr, "revival")).isFalse();
     assertThat(flag(all, exOld, "revival")).isFalse();
@@ -454,7 +461,8 @@ class AdminSourceControllerIT extends AbstractPostgresIT {
     assertThat(flag(all, revived, "revival")).isTrue();
     assertThat(flag(all, revived, "dormant")).isFalse();
     assertThat(items("?dormant=true")).extracting(n -> n.path("id").asLong()).containsExactly(dormant);
-    assertThat(items("?revival=true")).extracting(n -> n.path("id").asLong()).containsExactlyInAnyOrder(revived, exReg);
+    assertThat(items("?revival=true")).extracting(n -> n.path("id").asLong())
+        .containsExactlyInAnyOrder(revived, exReg, leap);
     // never applied
     assertThat(jdbc.queryForObject("SELECT publication_status FROM source WHERE id = ?", String.class, revived))
         .isEqualTo("CEASED");

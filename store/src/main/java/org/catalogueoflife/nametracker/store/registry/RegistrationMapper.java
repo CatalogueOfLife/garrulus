@@ -26,6 +26,15 @@ public interface RegistrationMapper {
   /** Registrations of the user created after {@code since}, whatever their state. */
   int countSince(@Param("userId") long userId, @Param("since") Instant since);
 
+  /** Registrations of all users created after {@code since}: the global daily cap. */
+  int countAllSince(@Param("since") Instant since);
+
+  /**
+   * Deletes the {@code REGISTERED} signals of the user's registrations (signal key = registration id), as a withdrawal
+   * does for one: called with the account deletion, before the registrations go with the user (cascade).
+   */
+  int deleteSignalsOfUser(@Param("userId") long userId);
+
   @Nullable SourceRegistration get(@Param("id") long id);
 
   /** As {@link #get}, locked until the end of the transaction. */

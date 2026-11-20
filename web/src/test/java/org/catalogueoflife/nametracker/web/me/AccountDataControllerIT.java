@@ -61,6 +61,17 @@ class AccountDataControllerIT extends AbstractAuthIT {
     Browser b = signedInAs(u);
     Browser b2 = signedInAs(u);
     Browser k = signedInAs(keep);
+    // a registration of u and one of keep, both identified on one journal with their REGISTERED signals
+    long journal = jdbc.queryForObject("INSERT INTO source (title, origin) VALUES ('Registered', 'REGISTERED') "
+        + "RETURNING id", Long.class);
+    long[] regs = new long[2];
+    long[] users = {u, keep};
+    for (int i = 0; i < 2; i++) {
+      regs[i] = jdbc.queryForObject("INSERT INTO source_registration (user_id, kind, input, state, source_id) VALUES "
+          + "(?, 'ISSN', '1175-5326', 'IDENTIFIED', ?) RETURNING id", Long.class, users[i], journal);
+      jdbc.update("INSERT INTO source_signal (source_id, origin, signal_key) VALUES (?, 'REGISTERED', ?)", journal,
+          String.valueOf(regs[i]));
+    }
     assertThat(jdbc.queryForObject("select count(*) from spring_session where principal_name = ?", Integer.class, Long.toString(u)))
         .isEqualTo(2);
     assertThat(b.json("DELETE", "/api/me", "", false).statusCode()).isEqualTo(403);
@@ -74,5 +85,8 @@ class AccountDataControllerIT extends AbstractAuthIT {
     assertThat(b2.get("/api/me").statusCode()).isEqualTo(401);
     assertThat(k.get("/api/me").statusCode()).isEqualTo(200);
     assertThat(jdbc.queryForObject("select count(*) from subscription where user_id = ?", Integer.class, keep)).isEqualTo(1);
+    // the deleted user's REGISTERED signal goes with the account (no origin left counting in the score); keep's stays
+    assertThat(jdbc.queryForList("select signal_key from source_signal where source_id = ? and origin = 'REGISTERED'",
+        String.class, journal)).containsExactly(String.valueOf(regs[1]));
   }
 }

@@ -143,6 +143,12 @@ class RegistryMappersIT extends AbstractPostgresIT {
     assertThat(sources.setCandidateScore(id, 0.5f)).isEqualTo(1);
     assertThat(sources.get(id).candidateScore()).isEqualTo(0.5f);
     assertThat(sources.get(id).candidateScoredAt()).isNotNull();
+    // the nightly rescore writes only a changed score
+    java.time.Instant modified = sources.get(id).modified();
+    assertThat(sources.setCandidateScore(id, 0.5f)).isZero();
+    assertThat(sources.get(id).modified()).isEqualTo(modified);
+    assertThat(sources.setCandidateScore(id, 0.75f)).isEqualTo(1);
+    assertThat(sources.get(id).candidateScore()).isEqualTo(0.75f);
   }
 
   @Test

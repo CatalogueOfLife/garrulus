@@ -111,7 +111,10 @@ deletes its signal.
 ### Registration
 
 `POST /api/sources/register` needs a **sign-in** (session and XSRF), exactly one of ISSN, DOI (at most 300 characters)
-or URL, a note of at most 500, a body of at most 8 KB (413) and **at most 20 a day** per user (429). `web` makes no
+or URL, a note of at most 500, a body of at most 8 KB (413), **at most 20 a day** per user (429) and, fix wave, **at
+most 200 a day of all users together** (`nametracker.registration.daily-cap`, 429 "paused for today"): email accounts
+are free and each registration is a `LIVE` task with up to a 60 s page fetch ahead of the harvest. The global count is
+not locked, so parallel requests can pass it by a few. `web` makes no
 outbound call: it stores the row `IDENTIFYING`, enqueues `IDENTIFY_SOURCE {"registrationId"}` at `LIVE` and answers 202.
 Outcomes `NEW_CANDIDATE`, `EXISTING`, `CEASED`; reasons for no result: `DOI_UNKNOWN`, `ADDRESS_NOT_PUBLIC`,
 `ADDRESS_UNKNOWN`, `PAGE_UNREACHABLE`, `NO_ISSN_FOUND` and **`LOOKUP_FAILED`** (any non-outage, non-retryable lookup
@@ -121,6 +124,8 @@ error ends `NOT_IDENTIFIED`, never stuck `IDENTIFYING`; outages defer).
   signal** to the best match: **no identity widening and no fold** from a user-supplied page. A hit on a single
   candidate is an ordinary offer, which is signal-only on an existing source too (fix wave). `IDENTIFY_SOURCE` widens
   an identity only from Crossref, OpenAlex or DOAJ evidence.
+- Deleting an account deletes its registrations (cascade) and, fix wave, their `REGISTERED` signals in the same
+  transaction, as a withdrawal does: they no longer count as an origin in the score or propose a revival.
 - An account **merge moves registrations** to the survivor before the loser is deleted; `/api/me/export` includes
   registrations with their notes. The user's status is read from the holder's current tier: `COVERED`, `CANDIDATE`,
   `DECLINED`, `CEASED`. Mails: once when a registered candidate becomes CORE/BROAD (accepted) or EXCLUDED (declined),
@@ -155,11 +160,14 @@ A user-supplied URL and the hosts of discovered routes are hostile input. Layers
 
 - **Admin role only from an ORCID sign-in** of an iD in `NAMETRACKER_ADMIN_ORCIDS` (ADR-0006, amendment M6b), re-checked
   on every request; the token (`X-Admin-Token`) or an `ADMIN` session with XSRF for writes opens `/api/admin/**`.
-- **`admin_notice` is the at-most-once mail queue.** The indexer writes a row with a dedup key (layer failing, still
+- **`admin_notice` is the mail queue.** The indexer writes a row with a dedup key (layer failing, still
   failing after 7 days, recovered, OAI restart cap, registrations waiting); `web` claims unmailed rows (`mailed_at` set
   at the claim, at most 20 a run) and mails every verified address of an account whose ORCID iD is an admin. With no
   such address or no `spring.mail.host` the outcome is `SUPPRESSED` and is logged. This realises the spec's "web sends
   from rows not mailed yet" as notices so layer mail, the route restart cap and the registration note share one path.
+  A claim without an outcome after the job's lock time (10 minutes) is claimed again (fix wave): a crash between claim
+  and send no longer loses the mail (a crash after the send may repeat it). A coverage check of a day older than the
+  layer's latest notice writes no notice.
 - **Zero-yield rule by weekday:** a layer's zero-yield day counts for FAILING only on a day with a `DONE` run whose
   expected yield (median of that weekday over 8 weeks) is at least 3.0; quiet days are transparent and a day without
   a DONE run breaks the streak; 3 such days make FAILING; the yield-ratio rule applies from a weekly median of 14.
@@ -221,5 +229,6 @@ journal is harvested without OpenAlex.
   sample judge the rest.
 - **COL references without container title or ISSN** are skipped.
 - **About 12,000 CLB calls a night** at 200 samples (up to 60 names per candidate, unthrottled and uncached).
-- **Notices are at most once:** a crash between claim and send, or a notice before any admin exists, loses the mail.
+- **A notice before any admin exists** is `SUPPRESSED` and not mailed later; a crash after a send but before its
+  outcome is written mails it again.
 - Many weights, terms and thresholds are start values (above) to tune after the first real month.

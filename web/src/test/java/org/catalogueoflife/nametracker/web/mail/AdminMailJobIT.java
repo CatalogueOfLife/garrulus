@@ -84,6 +84,19 @@ class AdminMailJobIT extends AbstractAuthIT {
   }
 
   @Test
+  void aClaimThatNeverGotItsOutcomeIsMailedAgain() throws Exception {
+    emailUser("a@example.org", ADMIN_A);
+    notice("crashed"); // claimed by a run that died before sending: mailed_at set, no outcome
+    jdbc.update("UPDATE admin_notice SET mailed_at = now() - interval '11 minutes'");
+    notice("recent"); // claimed a minute ago by a run that may still be sending
+    jdbc.update("UPDATE admin_notice SET mailed_at = now() - interval '1 minute' WHERE dedup_key = 'recent'");
+    job.run();
+    assertThat(mail.sent()).hasSize(1);
+    assertThat(mail.to("a@example.org").getFirst().getSubject()).endsWith("crashed");
+    assertThat(outcomes()).containsExactly("SENT", "none");
+  }
+
+  @Test
   void aFailedSendIsNotRetried() {
     emailUser("a@example.org", ADMIN_A);
     notice("k1");
