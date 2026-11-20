@@ -58,14 +58,20 @@ public final class LanguageCodes {
     String c = raw.strip().toLowerCase(Locale.ROOT);
     if (c.isEmpty() || UNDETERMINED.contains(c)) return null;
     String hit = LOOKUP.get(c);
-    if (hit != null) return hit;
+    if (hit != null) return unify(hit);
     int sep = indexOfSeparator(c);
     if (sep > 0) {
       String head = c.substring(0, sep);
       if (UNDETERMINED.contains(head)) return null;
-      return LOOKUP.get(head);
+      String h = LOOKUP.get(head);
+      return h == null ? null : unify(h);
     }
     return null;
+  }
+
+  /** Norwegian is one language here: Bokmål, Nynorsk and the macrolanguage are {@code no}, as the detector has it. */
+  private static String unify(String code) {
+    return "nb".equals(code) || "nn".equals(code) ? "no" : code;
   }
 
   private static int indexOfSeparator(String c) {
@@ -78,6 +84,7 @@ public final class LanguageCodes {
 
   /** False for the languages written in a script other than Latin (the ones a Latin-only name check cannot serve). */
   public static boolean isLatinScript(String code) {
-    return !NON_LATIN.contains(code);
+    String c = normalise(code);
+    return c == null || !NON_LATIN.contains(c);
   }
 }

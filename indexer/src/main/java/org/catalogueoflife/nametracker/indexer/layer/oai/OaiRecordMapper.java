@@ -16,6 +16,7 @@ import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.layer.HarvestedWork;
 import org.catalogueoflife.nametracker.store.ident.IdScheme;
 import org.catalogueoflife.nametracker.store.ident.Identifier;
+import org.catalogueoflife.nametracker.store.lang.LanguageCodes;
 import org.catalogueoflife.nametracker.store.work.Layer;
 import org.catalogueoflife.nametracker.store.work.TitleText;
 import org.catalogueoflife.nametracker.store.work.Work;
@@ -53,7 +54,7 @@ public final class OaiRecordMapper {
     Short year = p.year == null ? null : (short) p.year.intValue();
     boolean jats = p.abstractJats != null;
     Work w = new Work(null, null, doi == null ? null : doi.value(), sourceId, p.title, p.date, year, p.volume, p.issue,
-        p.pages, p.authors, "article", p.language, null, p.license, null, jats ? null : p.abstractText,
+        p.pages, p.authors, "article", LanguageCodes.normalise(p.language), null, p.license, null, jats ? null : p.abstractText,
         !jats && p.abstractText != null ? "OAI" : null, null, null, null, null, null, null, null, null, p.abstractJats,
         null, null, null, null, jats ? "OAI" : null, null);
     return Optional.of(new HarvestedWork(w, Layer.OAI, ids));

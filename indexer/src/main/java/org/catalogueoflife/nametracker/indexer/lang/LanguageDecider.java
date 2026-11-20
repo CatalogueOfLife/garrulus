@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 /**
  * Decides the language of a work from its evidence. The first that applies: FULLTEXT (confidence at least the
  * minimum), DECLARED (by layer MAGTECH, SCIELO, OAI, EUROPEPMC, other layers after them), DETECTED (at least the
- * minimum), OPENALEX or else LEGACY (both reported as {@code OPENALEX}: the legacy values came from the first layer,
+ * minimum; evidence from the title ranks before the abstract, whatever the confidence), OPENALEX or else LEGACY (both reported as {@code OPENALEX}: the legacy values came from the first layer,
  * almost always OpenAlex), JOURNAL (the journal has exactly one language), else UNDECIDED with no language.
  */
 @Component
@@ -36,26 +36,36 @@ public class LanguageDecider {
         .min(Comparator.comparingInt(e -> rank(e.source())));
     if (declared.isPresent()) return decision(declared.get(), "DECLARED");
 
-    Optional<LanguageEvidence> detected = confident(ev, "DETECTED");
+    Optional<LanguageEvidence> detected = ev.stream()
+        .filter(e -> "DETECTED".equals(e.kind()) && usable(e))
+        .min(Comparator.<LanguageEvidence>comparingInt(e -> e.source().contains("TITLE") ? 0 : 1)
+            .thenComparing(Comparator.comparing(LanguageEvidence::confidence).reversed()));
     if (detected.isPresent()) return decision(detected.get(), "DETECTED");
-
-    for (String kind : List.of("OPENALEX", "LEGACY")) {
-      Optional<LanguageEvidence> e = ev.stream()
-          .filter(x -> kind.equals(x.kind()) && LanguageCodes.normalise(x.lang()) != null).findFirst();
-      if (e.isPresent()) return decision(e.get(), "OPENALEX");
-    }
 
     List<String> journal = journalLanguages.stream().map(LanguageCodes::normalise).filter(l -> l != null)
         .distinct().toList();
+    for (String kind : List.of("OPENALEX", "LEGACY")) {
+      Optional<LanguageEvidence> e = ev.stream()
+          .filter(x -> kind.equals(x.kind()) && LanguageCodes.normalise(x.lang()) != null)
+          // a language the detector cannot tell (Uzbek on a Latin-name title) is trusted only if the journal has it
+          .filter(x -> LanguageDetector.supports(LanguageCodes.normalise(x.lang()))
+              || journal.contains(LanguageCodes.normalise(x.lang())))
+          .findFirst();
+      if (e.isPresent()) return decision(e.get(), "OPENALEX");
+    }
+
     if (journal.size() == 1) return new Decision(journal.get(0), "JOURNAL");
     return new Decision(null, "UNDECIDED");
   }
 
   private Optional<LanguageEvidence> confident(List<LanguageEvidence> ev, String kind) {
-    return ev.stream()
-        .filter(e -> kind.equals(e.kind()) && LanguageCodes.normalise(e.lang()) != null && e.confidence() != null
-            && e.confidence() >= props.minConfidence())
+    return ev.stream().filter(e -> kind.equals(e.kind()) && usable(e))
         .max(Comparator.comparing(LanguageEvidence::confidence));
+  }
+
+  private boolean usable(LanguageEvidence e) {
+    return LanguageCodes.normalise(e.lang()) != null && e.confidence() != null
+        && e.confidence() >= props.minConfidence();
   }
 
   private static Decision decision(LanguageEvidence e, String source) {

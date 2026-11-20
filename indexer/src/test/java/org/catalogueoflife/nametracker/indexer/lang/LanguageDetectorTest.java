@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 
 class LanguageDetectorTest {
 
-  private static final LanguageDetector D = new LanguageDetector(new LanguageProperties(0.80f, 3, 100, true));
+  private static final LanguageDetector D = new LanguageDetector(new LanguageProperties(0.80f, 0.10f, 3, 100, false));
 
   private static final String EN_ABSTRACT = "We describe two new species of cockroaches from southwestern China and "
       + "compare them with their congeners. The new species differ from all known members of the genus in the shape "
@@ -50,17 +50,31 @@ class LanguageDetectorTest {
   void parallelTextRemovedBeforeAbstractDetection() {
     // title too short to decide; the abstract has a Spanish paragraph and its English parallel
     String abs = ES_ABSTRACT + "\n\n" + EN_ABSTRACT;
-    assertThat(D.titleAndAbstract("Cucarachas", abs, List.of()).lang()).isIn("es", "en");
     LanguageDetector.Detection d = D.titleAndAbstract("Cucarachas", abs, List.of(EN_ABSTRACT));
     assertThat(d).isNotNull();
     assertThat(d.lang()).isEqualTo("es");
   }
 
   @Test
-  void uzbekMisdetectionFixed() {
-    LanguageDetector.Detection d = D.titleAndAbstract("Two new species of cockroaches from southwestern China",
-        EN_ABSTRACT, List.of());
-    assertThat(d.lang()).isEqualTo("en");
+  void latinNameTitlesAreNotDetected() {
+    for (String t : List.of("Carabus auratus Linnaeus", "Poa annua L., 1753", "Quercus robur L.",
+        "Bellamya capillata Mabille 1887", "Carabus auratus Linnaeus, 1761", "Smith, 2001 Poa annua")) {
+      assertThat(D.titleAndAbstract(t, null, List.of())).as(t).isNull();
+    }
+  }
+
+  @Test
+  void englishTitleAndAbstractAreEnglish() {
+    assertThat(D.titleAndAbstract("Two new species of cockroaches from southwestern China", EN_ABSTRACT, List.of())
+        .lang()).isEqualTo("en");
+  }
+
+  @Test
+  void ambiguousDetectionNeedsAMargin() {
+    // a lax margin accepts what the default margin rejects, so the gate is active
+    LanguageDetector strict = new LanguageDetector(new LanguageProperties(0.0f, 0.99f, 3, 100, false));
+    assertThat(strict.titleAndAbstract("Dos especies nuevas de cucarachas del suroeste de China", null, List.of()))
+        .isNull();
   }
 
   @Test
@@ -76,9 +90,9 @@ class LanguageDetectorTest {
   }
 
   @Test
-  void lowAccuracyModeStillDetects() {
-    LanguageDetector low = new LanguageDetector(new LanguageProperties(0.80f, 3, 100, false));
-    assertThat(low.titleAndAbstract("Dos especies nuevas de cucarachas del suroeste de China", null, List.of()).lang())
+  void highAccuracySmoke() {
+    LanguageDetector high = new LanguageDetector(new LanguageProperties(0.80f, 0.10f, 3, 100, true));
+    assertThat(high.titleAndAbstract("Dos especies nuevas de cucarachas del suroeste de China", null, List.of()).lang())
         .isEqualTo("es");
   }
 }

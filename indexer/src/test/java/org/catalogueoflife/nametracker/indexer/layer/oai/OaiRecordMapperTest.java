@@ -74,7 +74,7 @@ class OaiRecordMapperTest {
     assertThat(hw.ids()).extracting(Identifier::scheme).containsExactly("DOI", "OAI");
     assertThat(w.publicationDate()).isEqualTo(LocalDate.of(2026, 1, 5));
     assertThat(w.authors()).contains("C.A. VIRAKTAMATH");
-    assertThat(w.language()).isEqualTo("eng");
+    assertThat(w.language()).isEqualTo("en");
     assertThat(w.abstractText()).startsWith("Leafhoppers of the tribes");
   }
 
@@ -155,5 +155,15 @@ class OaiRecordMapperTest {
     assertThat(OaiRecordMapper.doiOf("https://doi.org/10.1002/(SICI)1097-4679+X%3C1::AID%3E3.0.CO;2-K"))
         .isEqualTo("10.1002/(sici)1097-4679+x<1::aid>3.0.co;2-k");
     assertThat(OaiRecordMapper.doiOf("https://doi.org/10.5555/a%20b")).isNull();
+  }
+
+  @Test
+  void languageIsStoredAsIso6391() throws Exception {
+    for (String[] c : new String[][] {{"English", "en"}, {"fre", "fr"}, {"ger", "de"}, {"eng", "en"}, {"und", null}}) {
+      String xml = OaiPmhClientTest.fixture("pensoft-listrecords-oai_dc.xml")
+          .replace("<dc:language>en</dc:language>", "<dc:language>" + c[0] + "</dc:language>");
+      var rec = OaiPmhClient.readRecords(xml.getBytes(StandardCharsets.UTF_8), "oai_dc").get(1);
+      assertThat(OaiRecordMapper.toHarvested(rec, 7L).orElseThrow().work().language()).as(c[0]).isEqualTo(c[1]);
+    }
   }
 }

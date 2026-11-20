@@ -16,7 +16,7 @@ class LanguageCodesTest {
       "arm,hy", "baq,eu", "bur,my", "geo,ka", "ice,is", "mac,mk", "mao,mi", "may,ms", "tib,bo",
       "English,en", "english,en", "Spanish,es", "Uzbek,uz", "German,de", "Chinese,zh", "Portuguese,pt",
       "en_US,en", "en-GB,en", "pt-BR,pt", "zh-Hans,zh", "zh_Hant_TW,zh", "SPA-ES,es",
-      "iw,he", "in,id", "fil,fil", "haw,haw"})
+      "nb,no", "nn,no", "no,no", "nob,no", "Norwegian,no", "iw,he", "in,id", "fil,fil", "haw,haw"})
   void normalises(String raw, String expected) {
     assertThat(LanguageCodes.normalise(raw)).isEqualTo(expected);
   }
@@ -39,5 +39,7 @@ class LanguageCodesTest {
     assertThat(LanguageCodes.isLatinScript("hy")).isFalse();
     assertThat(LanguageCodes.isLatinScript("en")).isTrue();
     assertThat(LanguageCodes.isLatinScript("uz")).isTrue();
+    assertThat(LanguageCodes.isLatinScript("RUS")).isFalse();
+    assertThat(LanguageCodes.isLatinScript("Russian")).isFalse();
   }
 }

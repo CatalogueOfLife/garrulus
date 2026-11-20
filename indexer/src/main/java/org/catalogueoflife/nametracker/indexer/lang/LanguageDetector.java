@@ -3,9 +3,11 @@ package org.catalogueoflife.nametracker.indexer.lang;
 import com.github.pemistahl.lingua.api.Language;
 import com.github.pemistahl.lingua.api.LanguageDetectorBuilder;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
@@ -30,6 +32,17 @@ public class LanguageDetector {
       Language.HEBREW, Language.GREEK, Language.THAI, Language.VIETNAMESE, Language.INDONESIAN, Language.MALAY,
       Language.HINDI, Language.BENGALI, Language.TAMIL, Language.SWEDISH, Language.BOKMAL, Language.DANISH,
       Language.FINNISH, Language.ESTONIAN, Language.LITHUANIAN, Language.CATALAN};
+
+  private static final Set<String> SUPPORTED = new HashSet<>();
+
+  static {
+    for (Language l : LANGUAGES) SUPPORTED.add(code(l));
+  }
+
+  /** Whether the detector can tell this (normalised) language: the 40 it is built over. */
+  public static boolean supports(@Nullable String code) {
+    return code != null && SUPPORTED.contains(code);
+  }
 
   private static final Pattern MARKUP = Pattern.compile("<[^>]*>");
   private static final Pattern SPACES = Pattern.compile("\\s+");
@@ -57,22 +70,39 @@ public class LanguageDetector {
     return l;
   }
 
-  /** The most likely language of the text as it is, without any length threshold; null language when blank. */
+  /** The most likely language of the text as it is, without any length or margin threshold; null language when blank. */
   public Detection detect(@Nullable String text) {
+    return scored(text).detection();
+  }
+
+  private record Scored(Detection detection, float margin) {}
+
+  private Scored scored(@Nullable String text) {
     String t = clean(text);
-    if (t.isEmpty()) return new Detection(null, 0f);
+    Detection none = new Detection(null, 0f);
+    if (t.isEmpty()) return new Scored(none, 0f);
     Map<Language, Double> values = lingua().computeLanguageConfidenceValues(t);
-    return values.entrySet().stream().findFirst()
-        .filter(e -> e.getValue() > 0)
-        .map(e -> new Detection(code(e.getKey()), e.getValue().floatValue()))
-        .orElse(new Detection(null, 0f));
+    var it = values.entrySet().iterator();
+    if (!it.hasNext()) return new Scored(none, 0f);
+    var top = it.next();
+    if (top.getValue() <= 0) return new Scored(none, 0f);
+    double second = it.hasNext() ? it.next().getValue() : 0;
+    return new Scored(new Detection(code(top.getKey()), top.getValue().floatValue()),
+        (float) (top.getValue() - second));
+  }
+
+  /** A detection that is confident and clearly ahead of the second best, else null. */
+  private @Nullable Detection decided(@Nullable String text) {
+    Scored s = scored(text);
+    Detection d = s.detection();
+    return d.lang() != null && d.confidence() >= props.minConfidence() && s.margin() >= props.minMargin() ? d : null;
   }
 
   /** {@link #detect} of an abstract or body, null when it has fewer than {@code min-text-letters} letters. */
   public @Nullable Detection detectText(@Nullable String text) {
     String t = clean(text);
     if (letters(t) < props.minTextLetters()) return null;
-    return detect(t);
+    return decided(t);
   }
 
   /**
@@ -83,24 +113,62 @@ public class LanguageDetector {
       List<String> parallelTexts) {
     String t = clean(title);
     if (titleQualifies(t)) {
-      Detection d = detect(t);
-      if (d.lang() != null && d.confidence() >= props.minConfidence()) return d;
+      Detection d = decided(t);
+      if (d != null) return d;
     }
-    Detection d = detectText(withoutParallels(abstractText, parallelTexts));
-    if (d != null && d.lang() != null && d.confidence() >= props.minConfidence()) return d;
-    return null;
+    return detectText(withoutParallels(abstractText, parallelTexts));
   }
 
   private boolean titleQualifies(String t) {
     if (t.isEmpty()) return false;
     if (scriptLetters(t) >= MIN_SCRIPT_LETTERS) return true;
-    return SPACES.split(t).length >= props.minTitleWords();
+    return countedWords(t) >= props.minTitleWords();
+  }
+
+  /**
+   * The words of a title that say something about its language: not numbers, not binomial-shaped (a Capitalised word
+   * followed by a lowercase one), not the author and year that follow a binomial ("Linnaeus", "L.", "Smith, 2001").
+   */
+  static int countedWords(String title) {
+    String[] raw = SPACES.split(title);
+    String[] w = new String[raw.length];
+    for (int i = 0; i < raw.length; i++) w[i] = raw[i].replaceAll("^[^\\p{L}\\p{N}]+|[^\\p{L}\\p{N}.]+$", "");
+    int n = 0;
+    boolean nameRun = false;
+    for (int i = 0; i < w.length; i++) {
+      String x = w[i];
+      if (x.isEmpty() || hasDigit(x)) continue;
+      if (x.endsWith(".") && letters(x) <= 3) continue; // "L.", "Sp."
+      if (capitalised(x)) {
+        if (i + 1 < w.length && lower(w[i + 1])) {
+          nameRun = true;
+          i++;
+          continue;
+        }
+        if (nameRun || (i + 1 < w.length && hasDigit(w[i + 1]))) continue; // author, "Smith, 2001"
+      }
+      nameRun = false;
+      n++;
+    }
+    return n;
+  }
+
+  private static boolean hasDigit(String s) {
+    return s.chars().anyMatch(Character::isDigit);
+  }
+
+  private static boolean capitalised(String s) {
+    return letters(s) >= 2 && Character.isUpperCase(s.codePointAt(0));
+  }
+
+  private static boolean lower(String s) {
+    return letters(s) >= 3 && Character.isLowerCase(s.codePointAt(0));
   }
 
   private static String withoutParallels(@Nullable String abstractText, List<String> parallels) {
     if (abstractText == null || abstractText.isBlank()) return "";
     if (parallels.isEmpty()) return abstractText;
-    java.util.Set<String> drop = new java.util.HashSet<>();
+    Set<String> drop = new HashSet<>();
     for (String p : parallels) {
       String n = normalise(p);
       if (!n.isEmpty()) drop.add(n);

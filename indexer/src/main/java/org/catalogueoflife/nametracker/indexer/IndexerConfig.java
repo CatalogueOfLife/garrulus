@@ -69,10 +69,11 @@ public class IndexerConfig {
   @Bean
   LanguageProperties languageProperties(
       @Value("${nametracker.language.min-confidence:0.80}") float minConfidence,
+      @Value("${nametracker.language.min-margin:0.10}") float minMargin,
       @Value("${nametracker.language.min-title-words:3}") int minTitleWords,
       @Value("${nametracker.language.min-text-letters:100}") int minTextLetters,
       @Value("${nametracker.language.high-accuracy:false}") boolean highAccuracy) {
-    return new LanguageProperties(minConfidence, minTitleWords, minTextLetters, highAccuracy);
+    return new LanguageProperties(minConfidence, minMargin, minTitleWords, minTextLetters, highAccuracy);
   }
 
   /** For scheduled jobs that must run once even with several instances. */

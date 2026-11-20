@@ -15,6 +15,7 @@ import org.catalogueoflife.nametracker.indexer.layer.LayerPage;
 import org.catalogueoflife.nametracker.store.ident.IdScheme;
 import org.catalogueoflife.nametracker.store.ident.Identifier;
 import org.catalogueoflife.nametracker.store.ident.WorkIdentifierMapper;
+import org.catalogueoflife.nametracker.store.lang.LanguageCodes;
 import org.catalogueoflife.nametracker.store.route.SourceRoute;
 import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
 import org.catalogueoflife.nametracker.store.work.Layer;
@@ -133,7 +134,7 @@ public class MagtechLayer implements HarvestLayer {
     String abs = item.descriptionHtml().isBlank() ? null : MagtechAbstracts.toJats(item.descriptionHtml());
     if (abs != null && abs.isEmpty()) abs = null;
     Work w = new Work(null, null, doi == null ? null : doi.value(), sourceId, title, date, year, null, null, null,
-        authors, "article", meta.language(), null, null, null, null, null, null, null, null, null, null, null, null,
+        authors, "article", LanguageCodes.normalise(meta.language()), null, null, null, null, null, null, null, null, null, null, null, null,
         null, abs, null, null, null, null, abs == null ? null : "MAGTECH", null);
     return new HarvestedWork(w, Layer.MAGTECH, ids);
   }

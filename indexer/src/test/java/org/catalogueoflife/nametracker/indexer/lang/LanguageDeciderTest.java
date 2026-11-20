@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 
 class LanguageDeciderTest {
 
-  private static final LanguageDecider D = new LanguageDecider(new LanguageProperties(0.80f, 3, 100, false));
+  private static final LanguageDecider D = new LanguageDecider(new LanguageProperties(0.80f, 0.10f, 3, 100, false));
 
   private static LanguageEvidence ev(String kind, String source, String lang, Float conf) {
     return new LanguageEvidence(1L, kind, source, lang, conf, null);
@@ -51,9 +51,9 @@ class LanguageDeciderTest {
 
   @Test
   void lowConfidenceDetectionSkipped() {
-    var r = D.decide(List.of(ev("OPENALEX", "OPENALEX", "uz", null), ev("DETECTED", "TITLE", "en", 0.6f)),
+    var r = D.decide(List.of(ev("OPENALEX", "OPENALEX", "pt", null), ev("DETECTED", "TITLE", "en", 0.6f)),
         List.of());
-    assertThat(r).isEqualTo(new LanguageDecider.Decision("uz", "OPENALEX"));
+    assertThat(r).isEqualTo(new LanguageDecider.Decision("pt", "OPENALEX"));
   }
 
   @Test
@@ -67,6 +67,28 @@ class LanguageDeciderTest {
     assertThat(D.decide(List.of(), List.of("pt"))).isEqualTo(new LanguageDecider.Decision("pt", "JOURNAL"));
     assertThat(D.decide(List.of(), List.of("pt", "es"))).isEqualTo(new LanguageDecider.Decision(null, "UNDECIDED"));
     assertThat(D.decide(List.of(), List.of("Portuguese")).lang()).isEqualTo("pt");
+  }
+
+  @Test
+  void detectedTitleBeatsDetectedAbstractWhateverTheConfidence() {
+    var r = D.decide(List.of(ev("DETECTED", "ABSTRACT", "en", 0.99f), ev("DETECTED", "TITLE", "es", 0.85f)), List.of());
+    assertThat(r).isEqualTo(new LanguageDecider.Decision("es", "DETECTED"));
+  }
+
+  @Test
+  void openalexLanguageOutsideTheDetectorIsKeptOnlyWithTheJournal() {
+    // Uzbek is not among the 40 detected languages: a stray OpenAlex "uz" on a Latin-name title is not trusted
+    assertThat(D.decide(List.of(ev("OPENALEX", "OPENALEX", "uz", null)), List.of("en")))
+        .isEqualTo(new LanguageDecider.Decision("en", "JOURNAL"));
+    assertThat(D.decide(List.of(ev("OPENALEX", "OPENALEX", "uz", null)), List.of()))
+        .isEqualTo(new LanguageDecider.Decision(null, "UNDECIDED"));
+    assertThat(D.decide(List.of(ev("LEGACY", "V21", "uz", null)), List.of("en", "fr")))
+        .isEqualTo(new LanguageDecider.Decision(null, "UNDECIDED"));
+    assertThat(D.decide(List.of(ev("OPENALEX", "OPENALEX", "uz", null)), List.of("uz", "ru")))
+        .isEqualTo(new LanguageDecider.Decision("uz", "OPENALEX"));
+    // a detector language stays without the journal
+    assertThat(D.decide(List.of(ev("OPENALEX", "OPENALEX", "pt", null)), List.of()))
+        .isEqualTo(new LanguageDecider.Decision("pt", "OPENALEX"));
   }
 
   @Test
