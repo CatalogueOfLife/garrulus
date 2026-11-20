@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { NotFound } from './ui/NotFound';
 import { SearchPage } from './pages/SearchPage';
 import { NamePage } from './pages/NamePage';
@@ -15,6 +15,11 @@ import { HitsPage } from './pages/HitsPage';
 import { JournalsPage } from './pages/JournalsPage';
 import { AboutPage } from './pages/AboutPage';
 import { DesignPage } from './pages/DesignPage';
+import { AdminLayout } from './pages/admin/AdminLayout';
+import { AdminJournalsPage } from './pages/admin/AdminJournalsPage';
+import { AdminJournalPage } from './pages/admin/AdminJournalPage';
+import { AdminLayersPage } from './pages/admin/AdminLayersPage';
+import { AdminStatusPage } from './pages/admin/AdminStatusPage';
 
 export function AppRoutes() {
   return (
@@ -34,6 +39,13 @@ export function AppRoutes() {
       <Route path="/about" element={<AboutPage />} />
       <Route path="/hits" element={<HitsPage />} />
       <Route path="/design" element={<DesignPage />} />
+      <Route path="/admin" element={<AdminLayout />}>
+        <Route index element={<Navigate to="/admin/journals" replace />} />
+        <Route path="journals" element={<AdminJournalsPage />} />
+        <Route path="journals/:id" element={<AdminJournalPage />} />
+        <Route path="layers" element={<AdminLayersPage />} />
+        <Route path="status" element={<AdminStatusPage />} />
+      </Route>
       <Route path="*" element={<NotFound title="Page not found">There is nothing at this address.</NotFound>} />
     </Routes>
   );

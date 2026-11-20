@@ -532,3 +532,84 @@ async function getSession<T>(url: string): Promise<T> {
 export const getRegistration = (id: number) => getSession<Registration>(`/api/me/registrations/${id}`);
 export const listRegistrations = () => getSession<Registration[]>('/api/me/registrations');
 export const withdrawRegistration = (id: number) => send('DELETE', `/api/me/registrations/${id}`);
+
+// ---- admin (session + XSRF; the pages are shown only to admins) ----
+export interface AdminSample {
+  sampledAt: string; route?: string | null; articles: number; withAbstract: number;
+  namesPerArticle?: number | null; actShare?: number | null; taxgroups: Record<string, number>;
+}
+export interface AdminRoute {
+  id: number; layer: string; config: Record<string, unknown>; status: string; origin: string;
+  verifiedAt?: string | null; lastOk?: string | null; lastError?: string | null;
+  onboardedAt?: string | null; backfilledAt?: string | null; created: string;
+}
+export interface AdminSource {
+  id: number; openalexId?: string | null; title: string; tier: Tier; active: boolean; worksPerYear?: number | null;
+  issnL?: string | null; issns: string[]; origin: string; country?: string | null; publisher?: string | null;
+  candidateScore?: number | null; publicationStatus: PublicationStatus; dormant: boolean; revival: boolean;
+  proposal?: string | null; signalOrigins: string[]; sample?: AdminSample | null; routes: Record<string, number>;
+  registrations: number; ceasedReason?: string | null; lastIssueYear?: number | null; continuedBy?: number | null;
+}
+export interface AdminSignal { origin: string; firstSeen: string; lastSeen: string; detail: Record<string, unknown> }
+export interface AdminRegistration {
+  id: number; kind: string; input: string; note?: string | null; state: string; outcome?: string | null;
+  reason?: string | null; sourceId?: number | null; sourceTitle?: string | null; sourceTier?: string | null;
+  userDisplayName?: string | null; created: string;
+}
+export interface AdminSourceDetail {
+  source: AdminSource; signals: AdminSignal[]; samples: AdminSample[]; routes: AdminRoute[];
+  registrations: AdminRegistration[]; disciplines: string[]; disciplineSetBy: string; disciplineSource?: string | null;
+  lastIssueYear?: number | null; ceasedReason?: string | null; continuedBy?: SourceRef | null;
+  dormantSince?: string | null; dormantEvidence?: Record<string, unknown> | null;
+}
+export interface AdminSourceFilter {
+  tier?: string; origin?: string; country?: string; publicationStatus?: string; dormant?: boolean;
+  registered?: boolean; proposal?: boolean; revival?: boolean; q?: string; sort?: string; limit?: number; offset?: number;
+}
+export interface AdminPatch {
+  tier?: Tier; active?: boolean; publicationStatus?: PublicationStatus; ceasedReason?: string;
+  lastIssueYear?: number; continuedBy?: number; dismissDormant?: boolean; disciplines?: string[]; releaseDisciplines?: boolean;
+}
+export interface LayerHealthDay { layer: string; day: string; state: 'OK' | 'DEGRADED' | 'FAILING'; failedRuns: number; yield: number }
+export interface CoverageRow { sourceId: number; title: string; country?: string | null; layer: string; sightings28d: number; misses: number }
+export interface LayersView {
+  health: LayerHealthDay[];
+  contribution: Record<string, Record<string, number>>;
+  contributionByCountry: Record<string, Record<string, Record<string, number>>>;
+  coverage: CoverageRow[];
+}
+export interface AdminStatus {
+  tasks: Record<string, Record<string, number>>;
+  works: Record<string, Record<string, number>>;
+  sources: Record<string, number>;
+  apiUsage: Record<string, unknown>[];
+  harvestRuns: Record<string, unknown>[];
+  xrReleases: Record<string, unknown>[];
+  backfillRuns: Record<string, unknown>[];
+  finderRollouts: Record<string, unknown>[];
+}
+
+export async function getAdmin<T>(url: string): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+  } catch {
+    throw new ApiError(0, 'Network error');
+  }
+  if (!res.ok) throw new ApiError(res.status, `Request failed (${res.status})`);
+  return (await res.json()) as T;
+}
+export function listAdminSources(f: AdminSourceFilter): Promise<{ total: number; items: AdminSource[] }> {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(f)) if (v !== undefined && v !== '') p.set(k, String(v));
+  return getAdmin(`/api/admin/sources?${p}`);
+}
+export const getAdminSource = (id: number | string) => getAdmin<AdminSourceDetail>(`/api/admin/sources/${encodeURIComponent(id)}`);
+export const patchAdminSource = (id: number, p: AdminPatch) => send<AdminSource>('PATCH', `/api/admin/sources/${id}`, p);
+export const sampleAdminSource = (id: number) => send<{ id: number }>('POST', `/api/admin/sources/${id}/sample`);
+export const addAdminRoute = (id: number, layer: string, config: unknown) =>
+  send<{ id: number }>('POST', `/api/admin/sources/${id}/routes`, { layer, config });
+export const setAdminRouteStatus = (id: number, routeId: number, status: 'PAUSED' | 'ACTIVE') =>
+  send<AdminRoute>('PATCH', `/api/admin/sources/${id}/routes/${routeId}`, { status });
+export const getAdminLayers = () => getAdmin<LayersView>('/api/admin/layers');
+export const getAdminStatus = () => getAdmin<AdminStatus>('/api/admin/status');

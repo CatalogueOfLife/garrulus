@@ -1,6 +1,7 @@
 import { Burger, Group, Menu } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { NavLink, useLocation } from 'react-router-dom';
+import { useMe } from '../auth/useMe';
 
 export const SITE_LINKS = [
   { to: '/', label: 'Search' },
@@ -17,10 +18,12 @@ const isActive = (to: string, path: string) => (to === '/' ? path === '/' : path
 export function SiteMenu() {
   const [opened, { toggle, close }] = useDisclosure(false);
   const { pathname } = useLocation();
+  const me = useMe();
+  const links = me.data?.admin ? [...SITE_LINKS, { to: '/admin', label: 'Admin' }] : SITE_LINKS;
   return (
     <>
       <Group component="nav" aria-label="Site" gap={28} visibleFrom="sm" wrap="nowrap">
-        {SITE_LINKS.map((l) => (
+        {links.map((l) => (
           <NavLink key={l.to} to={l.to} end={l.to === '/'}
             style={({ isActive: a }) => ({ color: 'inherit',
               // longhands only: React drops the colour and thickness when a shorthand changes on navigation
@@ -35,7 +38,7 @@ export function SiteMenu() {
           <Burger opened={opened} onClick={toggle} size="sm" ml="sm" hiddenFrom="sm" aria-label="Menu" />
         </Menu.Target>
         <Menu.Dropdown>
-          {SITE_LINKS.map((l) => (
+          {links.map((l) => (
             <Menu.Item key={l.to} component={NavLink} to={l.to} onClick={close}
               data-active={isActive(l.to, pathname) || undefined}
               style={isActive(l.to, pathname) ? current : undefined}>

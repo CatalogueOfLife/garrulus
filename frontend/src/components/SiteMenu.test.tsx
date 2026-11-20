@@ -1,6 +1,8 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SiteMenu } from './SiteMenu';
+import { http, HttpResponse } from 'msw';
+import { meBody, server } from '../test/server';
 import { renderApp } from '../test/render';
 
 describe('SiteMenu', () => {
@@ -24,5 +26,12 @@ describe('SiteMenu', () => {
     renderApp(<SiteMenu />, '/');
     await userEvent.setup().click(screen.getByRole('button', { name: 'Menu' }));
     expect(await screen.findAllByRole('menuitem')).toHaveLength(3);
+  });
+  it('adminEntryOnlyForAdmins', async () => {
+    renderApp(<SiteMenu />, '/');
+    expect(screen.queryByRole('link', { name: 'Admin' })).toBeNull();
+    server.use(http.get('/api/me', () => HttpResponse.json({ ...meBody, admin: true })));
+    renderApp(<SiteMenu />, '/');
+    expect(await screen.findByRole('link', { name: 'Admin' })).toHaveAttribute('href', '/admin');
   });
 });

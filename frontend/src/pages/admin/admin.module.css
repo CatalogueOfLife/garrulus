@@ -1,0 +1,23 @@
+.menu { display: flex; gap: var(--gr-space-4); margin-bottom: var(--gr-space-4); border-bottom: 1px solid var(--gr-rule-soft); padding-bottom: var(--gr-space-2); }
+.menu a { color: inherit; text-decoration: none; }
+.menu a[aria-current='page'] { text-decoration: underline; text-decoration-color: var(--gr-red); text-decoration-thickness: 2px; text-underline-offset: 6px; }
+.tableWrap { overflow-x: auto; }
+.table { border-collapse: collapse; width: 100%; font-size: var(--gr-type-meta-size); }
+.table th, .table td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--gr-rule-soft); vertical-align: top; overflow-wrap: anywhere; }
+.table th { color: var(--gr-grey); font-weight: 500; }
+.num { text-align: right !important; font-variant-numeric: tabular-nums; }
+.filters { display: flex; flex-wrap: wrap; gap: var(--gr-space-3); align-items: flex-end; margin-bottom: var(--gr-space-4); }
+.chip { display: inline-block; border: 1px solid var(--gr-rule-soft); padding: 0 6px; margin: 0 4px 2px 0; font-size: var(--gr-type-small-size); }
+.flag { display: inline-block; border: 1px solid var(--gr-ink); padding: 0 6px; margin: 0 4px 2px 0; font-size: var(--gr-type-small-size); }
+.flagRed { composes: flag; border-color: var(--gr-red); color: var(--gr-red); }
+.section { margin-top: var(--gr-space-5); }
+.section > h2 { font-size: var(--gr-type-head-size); font-weight: 500; margin: 0 0 var(--gr-space-2); }
+.actions { display: flex; flex-wrap: wrap; gap: var(--gr-space-2); margin: var(--gr-space-3) 0; align-items: center; }
+.grid { border-collapse: separate; border-spacing: 2px; }
+.grid th { font-weight: 400; font-size: var(--gr-type-small-size); color: var(--gr-grey); text-align: left; padding-right: 8px; white-space: nowrap; }
+.cell { width: 14px; height: 18px; padding: 0; border: 1px solid var(--gr-ink); font-size: 0; }
+.cellOK { composes: cell; background: var(--gr-paper); }
+.cellDEGRADED { composes: cell; background: var(--gr-grey); border-color: var(--gr-grey); }
+.cellFAILING { composes: cell; background: var(--gr-red); border-color: var(--gr-red); }
+.muted { color: var(--gr-grey); }
+.mono { font-family: ui-monospace, monospace; font-size: var(--gr-type-small-size); white-space: pre-wrap; overflow-wrap: anywhere; }
