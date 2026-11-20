@@ -131,7 +131,7 @@
   <update id="updateIdentity">
     UPDATE source SET
       issn_l = COALESCE(#{issnL}, issn_l),
-      issns = ARRAY(SELECT DISTINCT i FROM unnest(issns || COALESCE(#{issns, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[])) i ORDER BY i),
+      issns = ARRAY(SELECT DISTINCT i FROM unnest(issns || COALESCE(#{issns, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[])) i WHERE i IS NOT NULL ORDER BY i),
       title = COALESCE(#{title}, title),
       publisher = COALESCE(#{publisher}, publisher),
       country = COALESCE(#{country}, country),

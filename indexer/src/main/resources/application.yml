@@ -113,6 +113,13 @@ nametracker:
     candidate-min-works: ${NAMETRACKER_SEED_CANDIDATE_MIN_WORKS:10}
     # OpenAlex topic ids (comma-separated) whose works make a journal taxonomic; blank = the 17 built-in ones
     taxonomy-topics: ${NAMETRACKER_SEED_TAXONOMY_TOPICS:T14399,T11494,T12132,T12606,T11974,T12447,T13269,T12361,T12568,T14049,T11836,T11528,T12668,T11879,T11354,T10332,T12319}
+  discovery:
+    issnl:
+      # REFRESH_ISSNL: the ISSN to ISSN-L table of the ISSN International Centre. Off by default until the (undocumented)
+      # zip URL is cleared for use; the candidate registry then matches by plain ISSN only.
+      enabled: ${NAMETRACKER_DISCOVERY_ISSNL_ENABLED:false}
+      url: ${NAMETRACKER_DISCOVERY_ISSNL_URL:https://www.issn.org/wp-content/uploads/2014/03/issnltables.zip}
+      read-timeout: ${NAMETRACKER_DISCOVERY_ISSNL_READ_TIMEOUT:5m}
   finder:
     # the name finder of FIND_NAMES: a finder service at url, else the in-process pipeline built from the COL dictionary
     # (eval build-dictionary output; also used to de-hyphenate TEI text), else none and FIND_NAMES tasks wait

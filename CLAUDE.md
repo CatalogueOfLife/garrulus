@@ -176,6 +176,14 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   - `NAMETRACKER_SNAPSHOT_BASE_URL` (`https://openalex.s3.amazonaws.com`): the free OpenAlex snapshot;
     `NAMETRACKER_SNAPSHOT_READ_TIMEOUT` (5m): a works file silent that long counts as broken off (the task fails and
     reads the file again).
+- `indexer` ISSN-L and the candidate registry (M6b, Task 5): `REFRESH_ISSNL` (`{}`) streams the ISSN IC zip
+  (`nametracker.discovery.issnl.url`, env `NAMETRACKER_DISCOVERY_ISSNL_URL`, default
+  `https://www.issn.org/wp-content/uploads/2014/03/issnltables.zip`, 27 MB, `…_READ_TIMEOUT` 5m) into `issn_link` in one
+  transaction (COPY into a temp table, then upsert); a zip without the `ISSN_ISSN-L_table` entry is a WARN and keeps the
+  table. **Off by default** (`nametracker.discovery.issnl.enabled`, env `NAMETRACKER_DISCOVERY_ISSNL_ENABLED`, false):
+  the scheduler enqueues nothing and a task that runs anyway ends DONE without a call. Open question for Markus: the zip
+  URL is the file the ISSN IC's "on demand" form serves and is undocumented; switch on only after he confirms it may be
+  used. Without the table the `CandidateRegistry` still works and matches by plain ISSN, then OpenAlex id.
 - `indexer` salience (properties only, no env variables; set them in `application.yml`, `.env` or as `-D`/args):
   `nametracker.salience.{title=0.40, abstract=0.20, act=0.35, heading=0.15, share=0.25, repeat=0.15, ubiquity=0.50,
   ubiquity-full-share=0.02, threshold=0.35}`. A name with salience >= threshold is a main subject of the work.

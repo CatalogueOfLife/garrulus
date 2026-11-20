@@ -19,4 +19,8 @@
     SELECT count(*) FROM w
   </select>
 
+  <select id="lock" resultType="int" flushCache="true" useCache="false">
+    SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtextextended(#{key}, 0))) l
+  </select>
+
 </mapper>

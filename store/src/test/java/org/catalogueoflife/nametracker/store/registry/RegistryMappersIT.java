@@ -74,6 +74,15 @@ class RegistryMappersIT extends AbstractPostgresIT {
   }
 
   @Test
+  void updateIdentityIgnoresNullIssnElements() {
+    long id = sources.insertCandidate(new Source(null, null, null, List.of("2222-3334"), "Cand", null, null, null,
+        null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+        null, null, null));
+    sources.updateIdentity(id, null, java.util.Arrays.asList("3333-4445", null), null, null, null, null, null);
+    assertThat(sources.get(id).issns()).containsExactly("2222-3334", "3333-4445");
+  }
+
+  @Test
   void updateIdentityUnionsIssnsAndKeepsNulls() {
     long id = sources.insertCandidate(new Source(null, null, null, List.of("2222-3334"), "Cand", null, null, null,
         null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,

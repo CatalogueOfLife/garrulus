@@ -19,4 +19,7 @@ public interface IssnLinkMapper {
    * refresh with COPY) and returns the number of rows written.
    */
   long upsertFromTemp();
+
+  /** Takes the transaction-level advisory lock of the key (released at commit or rollback; at once without one). */
+  int lock(@Param("key") String key);
 }
