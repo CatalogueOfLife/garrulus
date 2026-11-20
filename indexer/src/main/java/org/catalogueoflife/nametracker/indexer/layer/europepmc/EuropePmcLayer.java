@@ -6,7 +6,6 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.layer.HarvestLayer;
@@ -18,6 +17,7 @@ import org.catalogueoflife.nametracker.indexer.layer.magtech.MagtechAbstracts;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
 import org.catalogueoflife.nametracker.store.ident.IdScheme;
 import org.catalogueoflife.nametracker.store.ident.Identifier;
+import org.catalogueoflife.nametracker.store.lang.LanguageCodes;
 import org.catalogueoflife.nametracker.store.route.SourceRoute;
 import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
 import org.catalogueoflife.nametracker.store.work.Layer;
@@ -105,7 +105,7 @@ public class EuropePmcLayer implements HarvestLayer {
       if (abs.isEmpty()) abs = null;
     }
     Work w = new Work(null, null, doi == null ? null : doi.value(), sourceId, title, date, year, text(ji, "volume"),
-        text(ji, "issue"), text(r, "pageInfo"), authors(r), "article", language(text(r, "language")), null, null, null,
+        text(ji, "issue"), text(r, "pageInfo"), authors(r), "article", LanguageCodes.normalise(text(r, "language")), null, null, null,
         null, null, null, null, null, null, null, null, null, null, abs, pmcid == null ? null : pmcid.value(), null,
         null, null, abs == null ? null : "EUROPEPMC", null);
     return new HarvestedWork(w, Layer.EUROPEPMC, ids);
@@ -131,17 +131,6 @@ public class EuropePmcLayer implements HarvestLayer {
       }
     }
     return FinderJson.mapper().writeValueAsString(out);
-  }
-
-  /** Europe PMC's ISO 639-2 code ({@code eng}) as the ISO 639-1 code the other layers store. */
-  static @Nullable String language(@Nullable String code) {
-    if (code == null) return null;
-    String c = code.strip().toLowerCase(Locale.ROOT);
-    if (c.length() == 2) return c;
-    for (String iso : Locale.getISOLanguages()) {
-      if (Locale.of(iso).getISO3Language().equals(c)) return iso;
-    }
-    return c;
   }
 
   private static @Nullable LocalDate date(@Nullable String s) {

@@ -6,6 +6,7 @@ import net.javacrumbs.shedlock.spring.annotation.EnableSchedulerLock;
 import net.javacrumbs.shedlock.provider.jdbctemplate.JdbcTemplateLockProvider;
 import org.catalogueoflife.nametracker.finder.salience.SalienceProperties;
 import org.catalogueoflife.nametracker.indexer.hits.HitProperties;
+import org.catalogueoflife.nametracker.indexer.lang.LanguageProperties;
 import org.catalogueoflife.nametracker.indexer.xr.XrSwitchProperties;
 import org.catalogueoflife.nametracker.store.ident.IdScheme;
 import org.catalogueoflife.nametracker.store.ident.IdentifierRegistry;
@@ -62,6 +63,16 @@ public class IndexerConfig {
       @Value("${nametracker.xr.max-lost-share:0.05}") double maxLostShare,
       @Value("${nametracker.clb.match-parallelism:8}") int matchParallelism) {
     return new XrSwitchProperties(maxLostShare, matchParallelism);
+  }
+
+  /** Language detection and decision ({@code nametracker.language.*}). */
+  @Bean
+  LanguageProperties languageProperties(
+      @Value("${nametracker.language.min-confidence:0.80}") float minConfidence,
+      @Value("${nametracker.language.min-title-words:3}") int minTitleWords,
+      @Value("${nametracker.language.min-text-letters:100}") int minTextLetters,
+      @Value("${nametracker.language.high-accuracy:false}") boolean highAccuracy) {
+    return new LanguageProperties(minConfidence, minTitleWords, minTextLetters, highAccuracy);
   }
 
   /** For scheduled jobs that must run once even with several instances. */
