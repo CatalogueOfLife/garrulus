@@ -1,5 +1,6 @@
 package org.catalogueoflife.nametracker.indexer.registry;
 
+import java.time.Clock;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
@@ -16,8 +17,8 @@ import tools.jackson.databind.JsonNode;
 /**
  * {@code IDENTIFY_SOURCE}, payload {@code {"sourceId":n}}: completes a source, usually a new candidate, through
  * {@link JournalCompletion} (Crossref, OpenAlex, DOAJ, the PKP Beacon and a Europe PMC probe). A CEASED or unknown
- * (folded) source is skipped. Any service that is down defers the whole task without using an attempt; the steps
- * already written are upserts, so the repeat changes nothing.
+ * (folded) source is skipped. Any service that is down defers the whole task without using an attempt, and a lost
+ * database deadlock defers it for a minute; the steps already written are upserts, so the repeat changes nothing.
  */
 @Component
 public class IdentifySourceHandler implements TaskHandler {
@@ -28,11 +29,14 @@ public class IdentifySourceHandler implements TaskHandler {
   private final JournalCompletion completion;
   private final SourceMapper sources;
   private final HarvestOutage outage;
+  private final Clock clock;
 
-  public IdentifySourceHandler(JournalCompletion completion, SourceMapper sources, HarvestOutage outage) {
+  public IdentifySourceHandler(JournalCompletion completion, SourceMapper sources, HarvestOutage outage,
+      Clock clock) {
     this.completion = completion;
     this.sources = sources;
     this.outage = outage;
+    this.clock = clock;
   }
 
   @Override
@@ -57,6 +61,7 @@ public class IdentifySourceHandler implements TaskHandler {
     try {
       completion.complete(id, task.priority());
     } catch (RuntimeException e) {
+      if (Deadlock.is(e)) throw Deadlock.defer(e, clock);
       HttpProblem down = HarvestOutage.retryable(e);
       if (down == null) throw e;
       throw new ServiceOutageException(down.uri() == null ? "journal services" : down.uri().getHost(),

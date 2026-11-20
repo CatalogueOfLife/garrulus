@@ -197,7 +197,10 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   the younger folds into the older (ISSNs, OpenAlex id, signals, routes, raw rows, samples, registrations, follows move;
   duplicates dropped; the younger is deleted) if it is a `CANDIDATE` without works, without an `ACTIVE` route, without
   admin curation (`tier_set_by`/`discipline_set_by` ADMIN) and without a different OpenAlex id; otherwise WARN and both
-  stay (a held OpenAlex id is then not written). A source folded away ends its completion.
+  stay (a held OpenAlex id is then not written). Folding runs to a fixpoint (the survivor's grown keys are scanned
+  again); when the identified source is folded away, the remaining steps (DOAJ, Beacon, Europe PMC probe) run for the
+  survivor. `CandidateRegistry.offer` folds the same way after it adds keys to an existing source and names the
+  survivor. A lost database deadlock (40P01) in identify or offer defers the task by one minute without an attempt.
 - `indexer` salience (properties only, no env variables; set them in `application.yml`, `.env` or as `-D`/args):
   `nametracker.salience.{title=0.40, abstract=0.20, act=0.35, heading=0.15, share=0.25, repeat=0.15, ubiquity=0.50,
   ubiquity-full-share=0.02, threshold=0.35}`. A name with salience >= threshold is a main subject of the work.

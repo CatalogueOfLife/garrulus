@@ -59,7 +59,7 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
   @Autowired ClassificationRawMapper raw;
   @Autowired IssnLinkMapper links;
   @Autowired PkpBeaconMapper beacon;
-  @Autowired CandidateRegistry registry;
+  @Autowired IdentityLocks locks;
   @Autowired DisciplineService disciplines;
   @Autowired SourceFold fold;
   @Autowired TaskQueue queue;
@@ -101,8 +101,8 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
     String base = w.getHttpBaseUrl();
     JournalCompletion completion = new JournalCompletion(new CrossrefClient(http, null, base + "/crossref"),
         new OpenAlexClient(http, budget, null, base + "/openalex"), new DoajClient(http, doajBase), true,
-        sources, links, raw, routes, beacon, registry, fold, disciplines, queue, tx);
-    return new IdentifySourceHandler(completion, sources, outage);
+        sources, links, raw, routes, beacon, locks, fold, disciplines, queue, tx);
+    return new IdentifySourceHandler(completion, sources, outage, clock);
   }
 
   private static Task task(long sourceId) {
@@ -261,6 +261,7 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
     stubNothingKnown();
     stubFor(get(urlPathEqualTo("/openalex/sources/issn:" + ZOOTAXA_E))
         .willReturn(okJson(DoajClientTest.fixture("openalex-source-issn.json"))));
+    stubFor(get(urlPathEqualTo("/doaj/search/journals/issn:" + ZOOTAXA_P)).willReturn(okJson(doajZootaxa())));
     long holder = jdbc.queryForObject("INSERT INTO source (openalex_id, issn_l, issns, title, tier, origin, active) "
         + "VALUES (?, ?, ?::text[], 'Zootaxa', 'CORE', 'SEED_TOPIC', true) RETURNING id", Long.class, ZOOTAXA_OA,
         ZOOTAXA_P, "{" + ZOOTAXA_P + "}");
@@ -297,7 +298,9 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
         .containsExactlyInAnyOrder("DOAJ", "PKP_BEACON");
     assertThat(signals.forSource(holder)).filteredOn(sig -> sig.origin().equals("DOAJ")).singleElement()
         .satisfies(sig -> assertThat(sig.detail()).contains("holder"));
-    assertThat(rawCodes(holder, "DOAJ_LCC")).containsExactly("QL1-991");
+    // the completion went on with the holder: DOAJ's answer replaced the moved LCC rows
+    assertThat(rawCodes(holder, "DOAJ_LCC")).containsExactly("QL1-991", "QK1-989");
+    assertThat(sources.get(holder).inDoaj()).isTrue();
     assertThat(routes.forSource(holder)).extracting(SourceRoute::layer).containsExactly("OAI", "EUROPEPMC");
     assertThat(routes.get(movedRoute).sourceId()).isEqualTo(holder);
     assertThat(routes.get(dupRoute)).isNull();
@@ -308,7 +311,8 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
     assertThat(jdbc.queryForObject("SELECT target FROM subscription WHERE user_id = ?", String.class, user))
         .isEqualTo(String.valueOf(holder));
     assertThat(sources.get(successor).continuedBy()).isEqualTo(holder);
-    verify(0, getRequestedFor(urlPathMatching("/doaj/.*"))); // the fold ends the completion
+    assertThat(jdbc.queryForObject("SELECT payload FROM task WHERE type = 'PROBE_EUROPEPMC'", String.class))
+        .containsPattern("\"sourceId\": ?" + holder + "\\b");
   }
 
   @Test
@@ -423,7 +427,51 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
     assertThat(s.issns()).containsExactly(ZOOTAXA_P, ZOOTAXA_E);
     assertThat(s.title()).isEqualTo("Zootaxa"); // the folded candidate's real title replaces the placeholder
     assertThat(signals.forSource(p)).extracting(SourceSignal::origin).containsExactlyInAnyOrder("DOAJ", "PKP_BEACON");
-    assertThat(tasks("PROBE_EUROPEPMC")).isZero();
+    // the completion goes on with the survivor
+    assertThat(jdbc.queryForObject("SELECT payload FROM task WHERE type = 'PROBE_EUROPEPMC'", String.class))
+        .containsPattern("\"sourceId\": ?" + p + "\\b");
+  }
+
+  @Test
+  void foldsRunToAFixpoint(WireMockRuntimeInfo w) throws Exception {
+    stubNothingKnown();
+    stubFor(get(urlPathEqualTo("/crossref/journals/0000-0019"))
+        .willReturn(okJson(DoajClientTest.fixture("crossref-journal-1175-5326.json")
+            .replace("\"ISSN\": [", "\"ISSN\": [\"0000-0019\", "))));
+    long b = candidate(ZOOTAXA_P);
+    signals.upsert(b, "DOAJ", "", "{}");
+    long a = candidate("0000-0019");
+    signals.upsert(a, "BLR", "", "{}");
+    long c = candidate(ZOOTAXA_E);
+    signals.upsert(c, "PKP_BEACON", "", "{}");
+
+    handler(w).handle(task(a)); // A folds into the older B, then B takes the younger C
+
+    assertThat(sources.get(a)).isNull();
+    assertThat(sources.get(c)).isNull();
+    assertThat(sources.get(b).issns()).containsExactly("0000-0019", ZOOTAXA_P, ZOOTAXA_E);
+    assertThat(signals.forSource(b)).extracting(SourceSignal::origin)
+        .containsExactlyInAnyOrder("DOAJ", "BLR", "PKP_BEACON");
+  }
+
+  @Test
+  void doajFoldStillWritesDoajAnswerToSurvivor(WireMockRuntimeInfo w) throws Exception {
+    stubNothingKnown();
+    stubFor(get(urlPathEqualTo("/doaj/search/journals/issn:" + ZOOTAXA_E)).willReturn(okJson(doajZootaxa())));
+    jdbc.update("INSERT INTO pkp_beacon (issns, oai_url, set_spec, unresponsive, loaded) "
+        + "VALUES ('{1175-5334}', 'https://mapress.example/oai', 'zt', false, now())");
+    long p = candidate(ZOOTAXA_P);
+    long e = candidate(ZOOTAXA_E);
+
+    handler(w).handle(task(e)); // DOAJ links E to the older P
+
+    assertThat(sources.get(e)).isNull();
+    Source s = sources.get(p);
+    assertThat(s.inDoaj()).isTrue();
+    assertThat(rawCodes(p, "DOAJ_LCC")).containsExactly("QL1-991", "QK1-989");
+    assertThat(routes.forSource(p)).singleElement().satisfies(r -> assertThat(r.layer()).isEqualTo("OAI"));
+    assertThat(jdbc.queryForObject("SELECT payload FROM task WHERE type = 'PROBE_EUROPEPMC'", String.class))
+        .containsPattern("\"sourceId\": ?" + p + "\\b");
   }
 
   @Test

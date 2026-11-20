@@ -9,6 +9,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.ToLongFunction;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException;
 import org.catalogueoflife.nametracker.indexer.crossref.CrossrefClient;
@@ -53,9 +54,9 @@ import tools.jackson.databind.JsonNode;
  *   <li>a Europe PMC probe ({@code PROBE_EUROPEPMC}) and the derived disciplines.</li>
  * </ol>
  * Every write is an upsert that changes nothing on a repeat, so a step that meets an outage lets the whole completion
- * run again later. Identity writes take the registry's locks ({@link CandidateRegistry#lockIdentity}) and, in the same
+ * run again later. Identity writes take the registry's locks ({@link IdentityLocks}) and, in the same
  * transaction, fold every other source that now shares an ISSN or the OpenAlex id ({@link SourceFold}): the younger
- * into the older; when this source is the younger one, its completion ends there.
+ * into the older, to a fixpoint; when this source is the younger one, the remaining steps run for the survivor.
  */
 @Component
 public class JournalCompletion {
@@ -71,7 +72,7 @@ public class JournalCompletion {
   private final ClassificationRawMapper raw;
   private final SourceRouteMapper routes;
   private final PkpBeaconMapper beacon;
-  private final CandidateRegistry registry;
+  private final IdentityLocks locks;
   private final SourceFold fold;
   private final DisciplineService disciplines;
   private final TaskQueue queue;
@@ -80,7 +81,7 @@ public class JournalCompletion {
   public JournalCompletion(CrossrefClient crossref, OpenAlexClient openalex, DoajClient doaj,
       @Value("${nametracker.discovery.doaj.enabled:true}") boolean doajEnabled, SourceMapper sources,
       IssnLinkMapper links, ClassificationRawMapper raw, SourceRouteMapper routes, PkpBeaconMapper beacon,
-      CandidateRegistry registry, SourceFold fold, DisciplineService disciplines, TaskQueue queue,
+      IdentityLocks locks, SourceFold fold, DisciplineService disciplines, TaskQueue queue,
       TransactionTemplate tx) {
     this.crossref = crossref;
     this.openalex = openalex;
@@ -91,7 +92,7 @@ public class JournalCompletion {
     this.raw = raw;
     this.routes = routes;
     this.beacon = beacon;
-    this.registry = registry;
+    this.locks = locks;
     this.fold = fold;
     this.disciplines = disciplines;
     this.queue = queue;
@@ -99,28 +100,26 @@ public class JournalCompletion {
   }
 
   /**
-   * Runs every step for the source; {@code priority} is that of the route verifications it queues. A step whose identity
-   * write folds the source into an older duplicate ends the completion: the older source carries on.
+   * Runs every step for the source; {@code priority} is that of the route verifications it queues. When an identity
+   * write folds the source into an older duplicate, the remaining steps run for that survivor.
    */
   public void complete(long sourceId, TaskPriority priority) {
-    List<Function<Source, @Nullable Long>> identitySteps = List.of(this::linkIssns, this::crossref, this::openalex,
-        this::doaj);
-    for (Function<Source, @Nullable Long> step : identitySteps) {
-      Source s = sources.get(sourceId);
+    List<ToLongFunction<Source>> identitySteps = List.of(this::linkIssns, this::crossref, this::openalex, this::doaj);
+    long id = sourceId;
+    for (ToLongFunction<Source> step : identitySteps) {
+      Source s = sources.get(id);
       if (s == null) return;
-      Long holder = step.apply(s);
-      if (holder != null) {
-        disciplines.apply(holder); // the holder gained the folded source's raw classifications
-        return;
-      }
+      id = step.applyAsLong(s);
     }
-    beaconRoutes(sources.get(sourceId), priority);
-    ProbeEuropePmcHandler.enqueue(queue, sourceId);
-    disciplines.apply(sourceId);
+    Source s = sources.get(id);
+    if (s == null) return;
+    beaconRoutes(s, priority);
+    ProbeEuropePmcHandler.enqueue(queue, id);
+    disciplines.apply(id);
   }
 
   /** Runs even without an ISSN-L, so a duplicate that shares a stored ISSN is folded before any service is asked. */
-  private @Nullable Long linkIssns(Source s) {
+  private long linkIssns(Source s) {
     String issnL = null;
     Set<String> siblings = new LinkedHashSet<>();
     for (String issn : lookupIssns(s)) {
@@ -132,9 +131,9 @@ public class JournalCompletion {
     return writeIdentity(s, List.copyOf(siblings), s.issnL() == null ? issnL : null, null, null, null);
   }
 
-  private @Nullable Long crossref(Source s) {
+  private long crossref(Source s) {
     Optional<JsonNode> hit = first(s, crossref::journal);
-    if (hit.isEmpty()) return null;
+    if (hit.isEmpty()) return s.id();
     JsonNode j = hit.get();
     List<String> issns = new ArrayList<>();
     j.path("ISSN").forEach(i -> addIssn(issns, i.asString("")));
@@ -142,63 +141,65 @@ public class JournalCompletion {
         s.publisher() == null ? text(j, "publisher") : null, null);
   }
 
-  /** The OpenAlex step; returns the id of the source this one was folded into, else null. */
-  private @Nullable Long openalex(Source s) {
+  /** The OpenAlex step; returns the id of the source that holds the journal afterwards. */
+  private long openalex(Source s) {
     Optional<JsonNode> hit;
     try {
       hit = s.openalexId() != null ? openalex.source(s.openalexId()) : first(s, openalex::sourceByIssn);
     } catch (BudgetExhaustedException e) {
       LOG.info("Source {}: the OpenAlex budget is spent, the OpenAlex step is skipped ({})", s.id(), e.getMessage());
-      return null;
+      return s.id();
     }
-    if (hit.isEmpty()) return null;
+    if (hit.isEmpty()) return s.id();
     String oa = OpenAlexClassifications.bareId(hit.get().path("id").asString(""));
-    if (oa.isEmpty()) return null;
+    if (oa.isEmpty()) return s.id();
     if (s.openalexId() != null && !s.openalexId().equals(oa)) {
       LOG.warn("Source {}: OpenAlex answers {} for its id {}; the OpenAlex step is skipped", s.id(), oa,
           s.openalexId());
-      return null;
+      return s.id();
     }
     Source row = SourceSeeder.build(hit.get(), oa, "CANDIDATE", "DISCOVERED", "SEED", null);
     List<String> issns = new ArrayList<>();
     row.issns().forEach(i -> addIssn(issns, i));
-    return tx.execute(status -> {
-      registry.lockIdentity(union(s, issns), oa);
+    Long result = tx.execute(status -> {
+      locks.lock(union(s, issns), oa);
       Source fresh = sources.get(s.id());
-      if (fresh == null) return null;
-      Source holder = sources.findByOpenalexId(oa);
+      if (fresh == null) return s.id();
+      long target = fresh.id();
       boolean held = false;
+      Source holder = sources.findByOpenalexId(oa);
       if (holder != null && !holder.id().equals(fresh.id())) {
+        locks.lock(lookupIssns(holder), holder.openalexId()); // the holder's own keys, before it is touched
         Long survivor = fold.foldPair(fresh, holder, "OpenAlex id " + oa);
         if (survivor == null) held = true; // the id stays with its holder (unique column)
-        else if (!survivor.equals(fresh.id())) return survivor;
-        else fresh = sources.get(fresh.id()); // the younger holder was folded into this source, id included
+        else target = survivor; // either way the survivor now holds the id
       }
+      Source t = sources.get(target);
       // the rest of the answer is this journal's even when another source keeps the id
-      sources.updateIdentity(fresh.id(), fresh.issnL() == null ? Issn.normalise(row.issnL()) : null, issns,
-          placeholderTitle(fresh) && !oa.equals(row.title()) ? row.title() : null,
-          fresh.publisher() == null ? row.publisher() : null, row.country(), held ? null : oa, row.host());
+      sources.updateIdentity(target, t.issnL() == null ? Issn.normalise(row.issnL()) : null, issns,
+          placeholderTitle(t) && !oa.equals(row.title()) ? row.title() : null,
+          t.publisher() == null ? row.publisher() : null, row.country(), held ? null : oa, row.host());
       // with DOAJ asked, DOAJ alone answers for DOAJ membership (else the flag would flip on every run)
-      sources.setOpenAccess(fresh.id(), row.isOa(), doajEnabled ? null : row.inDoaj());
+      sources.setOpenAccess(target, row.isOa(), doajEnabled ? null : row.inDoaj());
       for (Map.Entry<String, List<RawClassification>> e : OpenAlexClassifications.raw(hit.get()).entrySet()) {
-        raw.replace(fresh.id(), e.getKey(), e.getValue());
+        raw.replace(target, e.getKey(), e.getValue());
       }
-      return fold.foldDuplicates(fresh.id());
+      return fold.foldDuplicates(target);
     });
+    return result == null ? s.id() : result;
   }
 
-  private @Nullable Long doaj(Source s) {
-    if (!doajEnabled) return null;
+  /** The DOAJ step; DOAJ's answer is written to the source that holds the journal after its ISSNs were added. */
+  private long doaj(Source s) {
+    if (!doajEnabled) return s.id();
     DoajClient.DoajJournal j = first(s, doaj::byIssn).orElse(null);
-    if (j != null) {
-      Long holder = writeIdentity(s, j.issns(), null, null, null, s.country() == null ? j.country() : null);
-      if (holder != null) return holder;
-    }
+    long target = j == null ? s.id()
+        : writeIdentity(s, j.issns(), null, null, null, s.country() == null ? j.country() : null);
     tx.executeWithoutResult(status -> {
-      sources.setDoaj(s.id(), j != null, j == null ? null : j.discontinued(), j == null ? List.of() : j.replacedBy());
-      raw.replace(s.id(), DoajClient.LCC, j == null ? List.of() : j.lcc());
+      sources.setDoaj(target, j != null, j == null ? null : j.discontinued(), j == null ? List.of() : j.replacedBy());
+      raw.replace(target, DoajClient.LCC, j == null ? List.of() : j.lcc());
     });
-    return null;
+    return target;
   }
 
   private void beaconRoutes(Source s, TaskPriority priority) {
@@ -231,15 +232,16 @@ public class JournalCompletion {
 
   /**
    * Unions ISSNs (and sets the other non-null fields) under the identity locks of the old and new keys, then folds the
-   * duplicates the source now shares a key with. Returns the id of the source it was folded into, else null.
+   * duplicates the source now shares a key with. Returns the id of the source that holds the journal afterwards.
    */
-  private @Nullable Long writeIdentity(Source s, List<String> issns, @Nullable String issnL, @Nullable String title,
+  private long writeIdentity(Source s, List<String> issns, @Nullable String issnL, @Nullable String title,
       @Nullable String publisher, @Nullable String country) {
-    return tx.execute(status -> {
-      registry.lockIdentity(union(s, issns), s.openalexId());
+    Long result = tx.execute(status -> {
+      locks.lock(union(s, issns), s.openalexId());
       sources.updateIdentity(s.id(), issnL, issns, title, publisher, country, null, null);
       return fold.foldDuplicates(s.id());
     });
+    return result == null ? s.id() : result;
   }
 
   /** The first answer of a lookup over the source's ISSNs, ISSN-L first. */

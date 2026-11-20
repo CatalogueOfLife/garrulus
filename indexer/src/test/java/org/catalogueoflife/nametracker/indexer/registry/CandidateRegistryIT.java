@@ -109,6 +109,23 @@ class CandidateRegistryIT extends AbstractPostgresIT {
   }
 
   @Test
+  void offerJoiningTwoSourcesFoldsThem() {
+    CandidateRegistry.Offer p = registry.offer(cand("DOAJ", "doaj", List.of(PRINT), "Zootaxa"), TaskPriority.BACKFILL);
+    CandidateRegistry.Offer e = registry.offer(cand("PKP_BEACON", "pkp", List.of(ONLINE), "Zootaxa"),
+        TaskPriority.BACKFILL);
+    assertThat(e.sourceId()).isNotEqualTo(p.sourceId());
+
+    CandidateRegistry.Offer both = registry.offer(cand("PLAZI", "plazi", List.of(PRINT, ONLINE), "Zootaxa"),
+        TaskPriority.BACKFILL);
+
+    assertThat(both.sourceId()).isEqualTo(p.sourceId());
+    assertThat(sources.get(e.sourceId())).isNull();
+    assertThat(sources.get(p.sourceId()).issns()).containsExactly(PRINT, ONLINE);
+    assertThat(signals.forSource(p.sourceId())).extracting(org.catalogueoflife.nametracker.store.registry.SourceSignal::origin)
+        .containsExactlyInAnyOrder("DOAJ", "PKP_BEACON", "PLAZI");
+  }
+
+  @Test
   void printAndElectronicIssnMeetThroughIssnL() {
     jdbc.update("INSERT INTO issn_link VALUES (?, ?), (?, ?)", PRINT, PRINT, ONLINE, PRINT);
     CandidateRegistry.Offer a = registry.offer(cand("DOAJ", "doaj", List.of(PRINT), "J"), TaskPriority.BACKFILL);

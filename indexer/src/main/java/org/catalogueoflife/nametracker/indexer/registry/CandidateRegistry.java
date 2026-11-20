@@ -1,12 +1,11 @@
 package org.catalogueoflife.nametracker.indexer.registry;
 
 import java.util.List;
-import java.util.TreeSet;
+import java.time.Clock;
 import org.catalogueoflife.nametracker.indexer.route.VerifyRouteHandler;
 import org.catalogueoflife.nametracker.store.discipline.ClassificationRawMapper;
 import org.catalogueoflife.nametracker.store.discipline.RawClassification;
 import org.catalogueoflife.nametracker.store.ident.Issn;
-import org.catalogueoflife.nametracker.store.registry.IssnLinkMapper;
 import org.catalogueoflife.nametracker.store.registry.SourceSignalMapper;
 import org.catalogueoflife.nametracker.store.route.SourceRoute;
 import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
@@ -35,23 +34,27 @@ public class CandidateRegistry {
   private final SourceIdentity identity;
   private final SourceMapper sources;
   private final SourceSignalMapper signals;
-  private final IssnLinkMapper links;
   private final ClassificationRawMapper raw;
   private final SourceRouteMapper routes;
   private final TaskQueue queue;
   private final TransactionTemplate tx;
+  private final IdentityLocks locks;
+  private final SourceFold fold;
+  private final Clock clock;
 
   public CandidateRegistry(SourceIdentity identity, SourceMapper sources, SourceSignalMapper signals,
-      IssnLinkMapper links, ClassificationRawMapper raw, SourceRouteMapper routes, TaskQueue queue,
-      TransactionTemplate tx) {
+      ClassificationRawMapper raw, SourceRouteMapper routes, TaskQueue queue, TransactionTemplate tx,
+      IdentityLocks locks, SourceFold fold, Clock clock) {
     this.identity = identity;
     this.sources = sources;
     this.signals = signals;
-    this.links = links;
     this.raw = raw;
     this.routes = routes;
     this.queue = queue;
     this.tx = tx;
+    this.locks = locks;
+    this.fold = fold;
+    this.clock = clock;
   }
 
   /**
@@ -59,7 +62,9 @@ public class CandidateRegistry {
    * OpenAlex id; taken in sorted order), so offers of one journal that share any key cannot create two rows. Returns
    * null, with a WARN, for a candidate with no valid ISSN and no OpenAlex id.
    * {@code identifyPriority} is that of the {@code IDENTIFY_SOURCE} task of a new source (discovery BACKFILL, a
-   * registration LIVE).
+   * registration LIVE). An offer that adds keys to an existing source folds the duplicates that now share a key with it
+   * ({@link SourceFold#foldDuplicates}); the offer then names the survivor. A deadlock defers the calling task shortly
+   * ({@link Deadlock}).
    */
   public @Nullable Offer offer(Candidate c, TaskPriority identifyPriority) {
     List<String> issns = c.issns().stream().map(Issn::normalise).filter(java.util.Objects::nonNull).distinct().sorted()
@@ -68,33 +73,16 @@ public class CandidateRegistry {
       LOG.warn("Candidate of {} ({}) has no valid ISSN and no OpenAlex id: rejected", c.origin(), c.signalKey());
       return null;
     }
-    return tx.execute(status -> {
-      String issnL = lockIdentity(issns, c.openalexId());
-      Source s = identity.find(issns, c.openalexId());
-      return s == null ? create(c, issns, issnL, identifyPriority) : existing(c, s, issns, issnL);
-    });
-  }
-
-  /**
-   * Takes the transaction-level advisory locks of every identity key (each normalised ISSN, each ISSN-L the table knows,
-   * the OpenAlex id) in sorted order, so no deadlock arises between writers that share keys. Call inside a transaction;
-   * every write of a journal's identity (an offer, its completion, a fold) goes through it. Returns the first ISSN-L
-   * the table knows, or null.
-   */
-  public @Nullable String lockIdentity(List<String> issns, @Nullable String openalexId) {
-    TreeSet<String> keys = new TreeSet<>();
-    String issnL = null;
-    for (String issn : issns) {
-      keys.add("issn:" + issn);
-      String l = links.issnL(issn);
-      if (l != null) {
-        keys.add("issnl:" + l);
-        if (issnL == null) issnL = l;
-      }
+    try {
+      return tx.execute(status -> {
+        String issnL = locks.lock(issns, c.openalexId());
+        Source s = identity.find(issns, c.openalexId());
+        return s == null ? create(c, issns, issnL, identifyPriority) : existing(c, s, issns, issnL);
+      });
+    } catch (RuntimeException e) {
+      if (Deadlock.is(e)) throw Deadlock.defer(e, clock);
+      throw e;
     }
-    if (openalexId != null) keys.add("oa:" + openalexId);
-    for (String key : keys) links.lock("registry:" + key);
-    return issnL;
   }
 
   private Offer existing(Candidate c, Source s, List<String> issns, @Nullable String issnL) {
@@ -105,6 +93,18 @@ public class CandidateRegistry {
           ? c.openalexId() : null;
       sources.updateIdentity(s.id(), s.issnL() == null ? issnL : null, issns, null, null, null, oa, null);
       replaceClassifications(s.id(), c.classifications());
+      long survivor = s.id();
+      Source holder = c.openalexId() == null ? null : sources.findByOpenalexId(c.openalexId());
+      if (holder != null && !holder.id().equals(s.id())) { // the offer's OpenAlex id names another source
+        locks.lock(JournalCompletion.lookupIssns(holder), holder.openalexId());
+        Long folded = fold.foldPair(sources.get(s.id()), holder, "OpenAlex id " + c.openalexId());
+        if (folded != null) survivor = folded;
+      }
+      survivor = fold.foldDuplicates(survivor);
+      if (survivor != s.id()) {
+        Source kept = sources.get(survivor);
+        return new Offer(survivor, false, kept.tier(), kept.publicationStatus());
+      }
     }
     return new Offer(s.id(), false, s.tier(), s.publicationStatus());
   }

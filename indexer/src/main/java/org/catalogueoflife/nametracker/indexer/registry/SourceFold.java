@@ -1,8 +1,10 @@
 package org.catalogueoflife.nametracker.indexer.registry;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
 import org.catalogueoflife.nametracker.store.registry.SourceSignalMapper;
 import org.catalogueoflife.nametracker.store.route.SourceRoute;
@@ -30,14 +32,13 @@ public class SourceFold {
   private final SourceMapper sources;
   private final SourceSignalMapper signals;
   private final SourceRouteMapper routes;
-  private final CandidateRegistry registry;
+  private final IdentityLocks locks;
 
-  public SourceFold(SourceMapper sources, SourceSignalMapper signals, SourceRouteMapper routes,
-      CandidateRegistry registry) {
+  public SourceFold(SourceMapper sources, SourceSignalMapper signals, SourceRouteMapper routes, IdentityLocks locks) {
     this.sources = sources;
     this.signals = signals;
     this.routes = routes;
-    this.registry = registry;
+    this.locks = locks;
   }
 
   /** Why the younger source may not be folded into the older one, or null when it may. */
@@ -85,24 +86,40 @@ public class SourceFold {
 
   /**
    * After an identity write of the source, inside its transaction: folds every other source that shares one of its
-   * ISSNs, its ISSN-L or its OpenAlex id (each pair as {@link #foldPair}). The partners' keys are locked too (a second
-   * sorted round; should it ever cross another writer, Postgres breaks the deadlock and that task runs again). Returns
-   * the id of the source it was folded into, or null when it is still there.
+   * ISSNs, its ISSN-L or its OpenAlex id (each pair as {@link #foldPair}), and keeps going with the survivor, whose
+   * keys grew, until no partner is left or every remaining pair is refused. The partners' keys are locked too (a second
+   * sorted round; should it cross another writer, Postgres breaks the deadlock and that task is deferred, see
+   * {@link Deadlock}). Returns the id of the source that holds the journal afterwards (the argument when it survived).
    */
-  public @Nullable Long foldDuplicates(long sourceId) {
-    Source self = sources.get(sourceId);
-    if (self == null) return null;
-    Map<Long, Source> partners = partners(self);
-    if (partners.isEmpty()) return null;
-    for (Source p : partners.values()) registry.lockIdentity(JournalCompletion.lookupIssns(p), p.openalexId());
-    for (Long partnerId : partners.keySet()) {
-      Source partner = sources.get(partnerId);
-      self = sources.get(sourceId);
-      if (partner == null || self == null) continue;
-      Long survivor = foldPair(self, partner, "a shared ISSN or OpenAlex id");
-      if (survivor != null && survivor != sourceId) return survivor;
+  public long foldDuplicates(long sourceId) {
+    long current = sourceId;
+    Set<String> refused = new HashSet<>();
+    while (true) {
+      Source self = sources.get(current);
+      if (self == null) return current;
+      Map<Long, Source> partners = partners(self);
+      long cur = current;
+      partners.keySet().removeIf(p -> refused.contains(pair(cur, p)));
+      if (partners.isEmpty()) return current;
+      for (Source p : partners.values()) locks.lock(JournalCompletion.lookupIssns(p), p.openalexId());
+      Long next = null;
+      for (Long partnerId : partners.keySet()) {
+        Source partner = sources.get(partnerId);
+        if (partner == null) continue;
+        Long survivor = foldPair(sources.get(current), partner, "a shared ISSN or OpenAlex id");
+        if (survivor != null) {
+          next = survivor;
+          break; // the survivor's keys changed: scan its partners again
+        }
+        refused.add(pair(current, partnerId));
+      }
+      if (next == null) return current;
+      current = next;
     }
-    return null;
+  }
+
+  private static String pair(long a, long b) {
+    return Math.min(a, b) + ":" + Math.max(a, b);
   }
 
   private Map<Long, Source> partners(Source self) {
