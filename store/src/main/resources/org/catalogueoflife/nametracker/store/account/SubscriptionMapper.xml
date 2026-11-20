@@ -139,4 +139,11 @@
   </delete>
 
   <update id="reassign">UPDATE subscription SET user_id = #{toUserId} WHERE user_id = #{fromUserId}</update>
+  <update id="rewriteDiscipline" flushCache="true">
+    UPDATE subscription SET filters = jsonb_set(filters, '{subfield}', to_jsonb(#{to}::text)),
+      xr_note = CASE WHEN target_status = 'OK' THEN #{note} ELSE xr_note END,
+      xr_note_at = CASE WHEN target_status = 'OK' THEN now() ELSE xr_note_at END
+    WHERE filters ->> 'subfield' = #{from}
+  </update>
+
 </mapper>

@@ -104,4 +104,14 @@ public interface SourceMapper {
 
   /** Stores the candidate score and stamps candidate_scored_at. */
   int setCandidateScore(@Param("id") long id, @Param("score") float score);
+
+  /**
+   * Writes the derived disciplines unless an admin set them; empty {@code subfields} and null {@code primary}/{@code
+   * source} clear them. Returns 0 for an admin-set source.
+   */
+  int updateDisciplines(@Param("id") long id, @Param("subfields") List<String> subfields,
+      @Param("primary") @Nullable String primary, @Param("source") @Nullable String source);
+
+  /** Ids of the sources whose disciplines are derived (not set by an admin). */
+  List<Long> listDerivedDisciplineIds();
 }

@@ -54,7 +54,8 @@ paths:
         - {name: name, in: query, description: "A name id (see /api/names).", schema: {type: integer, format: int64}}
         - {name: code, in: query, description: "NomCode name, e.g. ZOOLOGICAL.", schema: {type: string}}
         - {name: taxgroup, in: query, description: "TaxGroup name (see /api/vocab/taxgroup); hierarchical.", schema: {type: string}}
-        - {name: subfield, in: query, schema: {type: string}}
+        - {name: subfield, in: query, description: "A discipline code (see /api/vocab/discipline); a retired code is resolved to its replacement.", schema: {type: string}}
+        - {name: discipline, in: query, description: "Alias of subfield; 400 when both are given and differ.", schema: {type: string}}
         - {name: journalType, in: query, schema: {type: string, enum: [TAXONOMIC, GENERAL]}}
         - {name: tier, in: query, schema: {type: string, enum: [CORE, BROAD, CANDIDATE, EXCLUDED]}}
         - {name: oa, in: query, schema: {type: string, enum: [DIAMOND, GOLD, HYBRID, CLOSED]}}
@@ -230,6 +231,20 @@ paths:
               schema:
                 type: array
                 items: {$ref: "#/components/schemas/TaxGroup"}
+  /api/vocab/discipline:
+    get:
+      tags: [reference]
+      summary: The discipline vocabulary of Garrulus
+      description: A retired discipline names its replacement in replacedBy.
+      operationId: disciplines
+      responses:
+        "200":
+          description: All disciplines by sortOrder.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/Discipline"}
   /api/auth/config:
     get:
       tags: [account]
@@ -834,6 +849,15 @@ components:
                   works: {type: integer, format: int64}
             taxgroupShares: {type: [object, "null"], additionalProperties: {type: number}}
             recentWorks: {type: array, items: {$ref: "#/components/schemas/WorkSummary"}}
+    Discipline:
+      type: object
+      required: [code, label, sortOrder]
+      properties:
+        code: {type: string}
+        label: {type: string}
+        parent: {type: [string, "null"]}
+        replacedBy: {type: [string, "null"]}
+        sortOrder: {type: integer}
     TaxGroup:
       type: object
       required: [name, parents, codes, icon]

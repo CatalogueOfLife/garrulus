@@ -24,7 +24,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.catalogueoflife.nametracker.indexer.cost.FakeApiUsage;
 import org.catalogueoflife.nametracker.indexer.cost.OpenAlexBudget;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
+import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClassifications;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient;
+import org.catalogueoflife.nametracker.store.discipline.RawClassification;
+import tools.jackson.databind.JsonNode;
+import org.catalogueoflife.nametracker.indexer.stats.DisciplineService;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
@@ -39,6 +43,7 @@ class SourceSeederTest {
 
   private final SourceMapper sources = mock(SourceMapper.class);
   private final TaskQueue queue = mock(TaskQueue.class);
+  private final DisciplineService disciplines = mock(DisciplineService.class);
   private final AtomicLong ids = new AtomicLong(100);
 
   static String group(String meta, String... keyCount) {
@@ -57,7 +62,7 @@ class SourceSeederTest {
     OpenAlexBudget budget = new OpenAlexBudget(new FakeApiUsage(), new BigDecimal("1.00"), new BigDecimal("0.30"), NOON);
     OpenAlexClient client = new OpenAlexClient(http, budget, null, w.getHttpBaseUrl());
     when(sources.upsertSeed(any())).thenAnswer(i -> ids.incrementAndGet());
-    return new SourceSeeder(client, sources, queue, SeedProperties.DEFAULTS, NOON, false);
+    return new SourceSeeder(client, sources, queue, SeedProperties.DEFAULTS, NOON, disciplines, false);
   }
 
   private static void stubGroups(String taxonomy, String broad, String totals) {
@@ -117,7 +122,7 @@ class SourceSeederTest {
   }
 
   @Test
-  void oaModelAndSubfields(WireMockRuntimeInfo w) {
+  void oaModelAndRawClassifications(WireMockRuntimeInfo w) {
     stubGroups(group("t"), group("b", "S2", "80"), group("n", "S2", "100"));
     stubFor(get(urlPathEqualTo("/sources/S2")).willReturn(okJson(source("S2", "Diamond", ",\"is_in_doaj\":true,"
         + "\"apc_usd\":0,\"country_code\":\"BG\",\"topics\":["
@@ -132,14 +137,51 @@ class SourceSeederTest {
     verify(sources).upsertSeed(cap.capture());
     Source s = cap.getValue();
     assertThat(s.oaModel()).isEqualTo("DIAMOND");
-    // 1103 has 3% of the topics and 1702 is not in the harvested vocabulary
-    assertThat(s.subfields()).containsExactly("1105", "1109");
-    assertThat(s.primarySubfield()).isEqualTo("1105");
+    // the disciplines are derived by the DisciplineService from the raw rows, not by the seeder
+    assertThat(s.subfields()).isEmpty();
+    verify(disciplines).applyOpenAlex(eq(101L), any());
     assertThat(s.country()).isEqualTo("BG");
     assertThat(s.inDoaj()).isTrue();
     assertThat(s.issnL()).isEqualTo("1111-2222");
     assertThat(s.title()).isEqualTo("Diamond");
     assertThat(s.publisher()).isEqualTo("Pub");
+  }
+
+  @Test
+  void seedWritesRawSubfieldsAndTopics() {
+    JsonNode node = tools.jackson.databind.json.JsonMapper.builder().build().readTree("{\"topics\":["
+        + "{\"id\":\"https://openalex.org/T1\",\"display_name\":\"One\",\"count\":60,"
+        + "\"subfield\":{\"id\":\"https://openalex.org/subfields/1105\",\"display_name\":\"Ecology\"}},"
+        + "{\"id\":\"https://openalex.org/T2\",\"display_name\":\"Two\",\"count\":30,"
+        + "\"subfield\":{\"id\":\"https://openalex.org/subfields/1109\"}},"
+        + "{\"id\":\"https://openalex.org/T3\",\"display_name\":\"Three\",\"count\":10,"
+        + "\"subfield\":{\"id\":\"https://openalex.org/subfields/1105\"}}]}");
+    Map<String, List<RawClassification>> raw = OpenAlexClassifications.raw(node);
+    assertThat(raw.get("OPENALEX_SUBFIELD")).containsExactly(
+        new RawClassification("OPENALEX_SUBFIELD", "1105", "Ecology", 0.7f, 0),
+        new RawClassification("OPENALEX_SUBFIELD", "1109", null, 0.3f, 1));
+    assertThat(raw.get("OPENALEX_TOPIC")).extracting(RawClassification::code).containsExactly("T1", "T2", "T3");
+    assertThat(raw.get("OPENALEX_TOPIC").get(0).share()).isEqualTo(0.6f);
+  }
+
+  @Test
+  void unknownConfiguredTopicIsWarned(WireMockRuntimeInfo w) {
+    stubGroups(group("t"), group("b"), group("n"));
+    stubFor(get(urlPathEqualTo("/topics/T14399")).willReturn(okJson("{\"id\":\"T14399\"}")));
+    SourceSeeder seeder = seeder(w);
+    ch.qos.logback.classic.Logger log = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(SourceSeeder.class);
+    ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> app = new ch.qos.logback.core.read.ListAppender<>();
+    app.start();
+    log.addAppender(app);
+    try {
+      seeder.seed();
+    } finally {
+      log.detachAppender(app);
+    }
+    assertThat(app.list).filteredOn(e -> e.getLevel() == ch.qos.logback.classic.Level.WARN)
+        .extracting(e -> e.getFormattedMessage())
+        .contains("configured taxonomy topic T11494 is unknown to OpenAlex")
+        .doesNotContain("configured taxonomy topic T14399 is unknown to OpenAlex");
   }
 
   @Test

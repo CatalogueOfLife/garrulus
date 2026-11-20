@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 /**
  * {@code CATEGORISE_SOURCES}, payload {@code {}}. Derives per source from its indexed works of the last 3 years: the
  * taxonomic focus (taxgroups and codes holding at least 20% of the main-subject names), act rate, name density and
- * journal type. Sources with fewer than 20 such works keep their seeded values. Every run recomputes from the index,
+ * journal type, then re-derives the disciplines of every source not set by an admin ({@link DisciplineService}). Sources with fewer than 20 such works keep their seeded values. Every run recomputes from the index,
  * so a repeat is harmless.
  */
 @Component
@@ -32,10 +32,12 @@ public class SourceCategoriser implements TaskHandler {
 
   private final SourceMapper sources;
   private final Clock clock;
+  private final DisciplineService disciplines;
 
-  public SourceCategoriser(SourceMapper sources, Clock clock) {
+  public SourceCategoriser(SourceMapper sources, Clock clock, DisciplineService disciplines) {
     this.sources = sources;
     this.clock = clock;
+    this.disciplines = disciplines;
   }
 
   @Override
@@ -70,6 +72,8 @@ public class SourceCategoriser implements TaskHandler {
       n++;
     }
     LOG.info("Categorised {} sources", n);
+    // the crosswalk, the raw classifications and the taxonomic focus just written: derive the disciplines again
+    disciplines.applyAll();
   }
 
   private Map<Long, Map<String, Long>> counts(int fromYear, boolean byCode) {

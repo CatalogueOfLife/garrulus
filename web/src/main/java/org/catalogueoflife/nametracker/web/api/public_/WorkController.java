@@ -14,6 +14,7 @@ import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.store.blob.BlobStore;
 import org.catalogueoflife.nametracker.store.content.Content;
 import org.catalogueoflife.nametracker.store.content.ContentMapper;
+import org.catalogueoflife.nametracker.store.discipline.DisciplineMapper;
 import org.catalogueoflife.nametracker.store.index.ContextRow;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
 import org.catalogueoflife.nametracker.store.index.MentionRow;
@@ -75,9 +76,11 @@ public class WorkController {
   private final ContentMapper contents;
   private final IndexMapper index;
   private final BlobStore blobs;
+  private final DisciplineMapper disciplines;
 
   public WorkController(SearchMapper search, WorkMapper works, SourceMapper sources, ContentMapper contents,
-      IndexMapper index, BlobStore blobs) {
+      IndexMapper index, BlobStore blobs, DisciplineMapper disciplines) {
+    this.disciplines = disciplines;
     this.search = search;
     this.works = works;
     this.sources = sources;
@@ -97,6 +100,7 @@ public class WorkController {
       @RequestParam(required = false) @Nullable String code,
       @RequestParam(required = false) @Nullable String taxgroup,
       @RequestParam(required = false) @Nullable String subfield,
+      @RequestParam(required = false) @Nullable String discipline,
       @RequestParam(required = false) @Nullable String journalType,
       @RequestParam(required = false) @Nullable String tier,
       @RequestParam(required = false) @Nullable String oa,
@@ -121,9 +125,24 @@ public class WorkController {
     for (String f : facets) {
       requireOneOf("facet", f, SearchMapper.FACETS);
     }
-    WorkFilter f = new WorkFilter(blankToNull(taxon), name, code, taxgroup, blankToNull(subfield), journalType, tier, oa,
+    WorkFilter f = new WorkFilter(blankToNull(taxon), name, code, taxgroup, discipline(subfield, discipline),
+        journalType, tier, oa,
         blankToNull(country), source, yearFrom, yearTo, hasActs, blankToNull(actType), mainSubjectOnly, blankToNull(q));
     return page(f, limit, offset, facets);
+  }
+
+  /** {@code discipline} is the alias of {@code subfield}; either resolves through replaced_by; 400 if both differ. */
+  private @Nullable String discipline(@Nullable String subfield, @Nullable String discipline) {
+    String a = blankToNull(subfield);
+    String b = blankToNull(discipline);
+    if (a != null && b != null && !a.equals(b)) {
+      throw bad("subfield and discipline are the same filter; give one of them or the same value");
+    }
+    String code = a != null ? a : b;
+    if (code == null) return null;
+    Map<String, String> replacements = disciplines.replacements();
+    for (int i = 0; i < 10 && replacements.containsKey(code); i++) code = replacements.get(code);
+    return code;
   }
 
   public static void checkPaging(int limit, int offset) {

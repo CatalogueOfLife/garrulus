@@ -84,7 +84,7 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
     and the monthly source seeding (`0 0 1 1 * *`) are fixed.
   - `OPENALEX_API_KEY` (recommended, free), `CROSSREF_MAILTO` (optional), `NAMETRACKER_OPENALEX_MAX_DAILY_USD` (1.00),
     `NAMETRACKER_OPENALEX_CONTENT_ENABLED` (true), `NAMETRACKER_OPENALEX_CONTENT_RESERVE_USD` (0.30),
-    `NAMETRACKER_BLOBS_DIR` (`./data/blobs`), `NAMETRACKER_CONTENT_OPEN_LICENCES`, `NAMETRACKER_SEED_*`,
+    `NAMETRACKER_BLOBS_DIR` (`./data/blobs`), `NAMETRACKER_CONTENT_OPEN_LICENCES`, `NAMETRACKER_SEED_*` (`NAMETRACKER_SEED_TAXONOMY_TOPICS`, comma-separated OpenAlex topic ids, default the 17 built-in; an id OpenAlex does not know is logged as a WARN per seeding run),
     `NAMETRACKER_OPENALEX_BASE_URL`, `NAMETRACKER_OPENALEX_CONTENT_BASE_URL`, `NAMETRACKER_CROSSREF_BASE_URL`.
   - Name finding (`FIND_NAMES`): `NAMETRACKER_FINDER_URL` (a finder service) or else `FINDER_DICTIONARY` (+ `GNFINDER_URL`,
     `FINDER_CONFIG`) builds the finder in process; with neither set the handler is off (one WARN) and the tasks wait.

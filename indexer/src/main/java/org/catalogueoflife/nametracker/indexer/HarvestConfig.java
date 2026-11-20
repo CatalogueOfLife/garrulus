@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Arrays;
 import java.util.Map;
@@ -26,6 +27,7 @@ import org.catalogueoflife.nametracker.indexer.match.ClbClient;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient;
 import org.catalogueoflife.nametracker.indexer.source.SeedProperties;
 import org.catalogueoflife.nametracker.indexer.source.SourceSeeder;
+import org.catalogueoflife.nametracker.indexer.stats.DisciplineService;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.catalogueoflife.nametracker.store.usage.ApiUsageMapper;
@@ -135,14 +137,17 @@ public class HarvestConfig {
       @Value("${nametracker.seed.core-min-share:0.30}") double coreMinShare,
       @Value("${nametracker.seed.broad-min-works:30}") int broadMinWorks,
       @Value("${nametracker.seed.broad-min-share:0.50}") double broadMinShare,
-      @Value("${nametracker.seed.candidate-min-works:10}") int candidateMinWorks) {
-    return new SeedProperties(coreMinWorks, coreMinShare, broadMinWorks, broadMinShare, candidateMinWorks);
+      @Value("${nametracker.seed.candidate-min-works:10}") int candidateMinWorks,
+      @Value("${nametracker.seed.taxonomy-topics:}") String taxonomyTopics) {
+    List<String> topics = Arrays.stream(taxonomyTopics.split("[,|\\s]+")).filter(x -> !x.isEmpty()).toList();
+    return new SeedProperties(coreMinWorks, coreMinShare, broadMinWorks, broadMinShare, candidateMinWorks,
+        topics.isEmpty() ? SeedProperties.DEFAULT_TAXONOMY_TOPICS : topics);
   }
 
   @Bean
   SourceSeeder sourceSeeder(OpenAlexClient client, SourceMapper sources, TaskQueue queue, SeedProperties props,
-      Clock clock, @Value("${nametracker.openalex.api-key:}") String apiKey) {
-    return new SourceSeeder(client, sources, queue, props, clock, !apiKey.isBlank());
+      Clock clock, DisciplineService disciplines, @Value("${nametracker.openalex.api-key:}") String apiKey) {
+    return new SourceSeeder(client, sources, queue, props, clock, disciplines, !apiKey.isBlank());
   }
 
   @Bean

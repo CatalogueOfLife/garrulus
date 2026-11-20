@@ -82,4 +82,11 @@ public interface SubscriptionMapper {
   List<Subscription> candidates(@Param("sourceId") @Nullable String sourceId,
       @Param("taxonIds") @Nullable List<String> taxonIds, @Param("nameIds") @Nullable List<String> nameIds,
       @Param("taxgroups") @Nullable List<String> taxgroups, @Param("includePaused") boolean includePaused);
+
+  /**
+   * A retired discipline: the {@code subfield} filter of every follow that has {@code from} becomes {@code to}; the
+   * note is written only on follows with target_status OK (the others keep the xr_note of their moved or missing
+   * taxon). Returns the changed count.
+   */
+  int rewriteDiscipline(@Param("from") String from, @Param("to") String to, @Param("note") String note);
 }

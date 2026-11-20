@@ -75,6 +75,11 @@ public class OpenAlexClient {
     return single("/sources/", id);
   }
 
+  /** A topic by {@code T…} id; empty on 404. */
+  public Optional<JsonNode> topic(String id) {
+    return single("/topics/", id);
+  }
+
   private Optional<JsonNode> single(String path, String id) {
     String key = id.strip();
     String lower = key.toLowerCase();

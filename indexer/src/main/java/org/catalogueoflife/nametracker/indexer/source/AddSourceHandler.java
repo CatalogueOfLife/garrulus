@@ -3,6 +3,7 @@ package org.catalogueoflife.nametracker.indexer.source;
 import java.util.Set;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient;
+import org.catalogueoflife.nametracker.indexer.stats.DisciplineService;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
@@ -24,8 +25,11 @@ public class AddSourceHandler implements TaskHandler {
   private final OpenAlexClient client;
   private final SourceMapper sources;
   private final SourceSeeder seeder;
+  private final DisciplineService disciplines;
 
-  public AddSourceHandler(OpenAlexClient client, SourceMapper sources, SourceSeeder seeder) {
+  public AddSourceHandler(OpenAlexClient client, SourceMapper sources, SourceSeeder seeder,
+      DisciplineService disciplines) {
+    this.disciplines = disciplines;
     this.client = client;
     this.sources = sources;
     this.seeder = seeder;
@@ -48,6 +52,7 @@ public class AddSourceHandler implements TaskHandler {
     JsonNode node = client.source(id).orElseThrow(() -> new IllegalArgumentException("Unknown OpenAlex source " + id));
     Source row = SourceSeeder.build(node, id, tier, "MANUAL", "ADMIN", null);
     long sourceId = sources.upsertSeed(row);
+    disciplines.applyOpenAlex(sourceId, node);
     // upsertSeed leaves the tier of an existing row alone; an admin's choice always wins
     sources.setTier(sourceId, tier, true, "ADMIN");
     if (!"CANDIDATE".equals(tier)) {

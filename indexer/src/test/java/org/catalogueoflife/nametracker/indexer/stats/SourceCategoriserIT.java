@@ -141,4 +141,70 @@ class SourceCategoriserIT extends AbstractPostgresIT {
     run();
     assertThat(((Number) row(s).get("name_density")).doubleValue()).isEqualTo(0.5, org.assertj.core.data.Offset.offset(1e-6));
   }
+
+  @Test
+  void crosswalkChangeRederivesWithoutExternalCall() throws Exception {
+    long s = source("BROAD");
+    jdbc.update("INSERT INTO source_classification_raw (source_id, scheme, code, share, rank) VALUES (?, 'DOAJ_LCC', "
+        + "'QL1-991', NULL, 0)", s);
+    run();
+    assertThat(jdbc.queryForObject("SELECT array_to_string(subfields, ',') FROM source WHERE id = ?", String.class, s))
+        .isEqualTo("1103");
+    assertThat(jdbc.queryForObject("SELECT discipline_source FROM source WHERE id = ?", String.class, s))
+        .isEqualTo("DOAJ");
+    try {
+      jdbc.update("UPDATE discipline_mapping SET discipline = '1105' WHERE scheme = 'DOAJ_LCC' AND external_code = 'QL1-991'");
+      run();
+      assertThat(jdbc.queryForObject("SELECT array_to_string(subfields, ',') FROM source WHERE id = ?", String.class, s))
+          .isEqualTo("1105");
+      assertThat(jdbc.queryForObject("SELECT primary_subfield FROM source WHERE id = ?", String.class, s)).isEqualTo("1105");
+    } finally {
+      jdbc.update("UPDATE discipline_mapping SET discipline = '1103' WHERE scheme = 'DOAJ_LCC' AND external_code = 'QL1-991'");
+    }
+  }
+
+  @Test
+  void adminSetDisciplinesSurviveRecompute() throws Exception {
+    long s = source("BROAD");
+    jdbc.update("UPDATE source SET subfields = '{2404}', primary_subfield = '2404', discipline_source = 'ADMIN', "
+        + "discipline_set_by = 'ADMIN' WHERE id = ?", s);
+    jdbc.update("INSERT INTO source_classification_raw (source_id, scheme, code, share, rank) VALUES (?, "
+        + "'OPENALEX_SUBFIELD', '1105', 1, 0)", s);
+    run();
+    assertThat(jdbc.queryForObject("SELECT array_to_string(subfields, ',') FROM source WHERE id = ?", String.class, s))
+        .isEqualTo("2404");
+    assertThat(jdbc.queryForObject("SELECT discipline_source FROM source WHERE id = ?", String.class, s)).isEqualTo("ADMIN");
+  }
+
+  @Test
+  void followOnRetiredDisciplineIsRewrittenWithNote() throws Exception {
+    jdbc.update("DELETE FROM subscription");
+    jdbc.update("DELETE FROM app_user");
+    long user = jdbc.queryForObject("INSERT INTO app_user (email, email_verified) VALUES ('d@example.org', now()) "
+        + "RETURNING id", Long.class);
+    jdbc.update("INSERT INTO discipline (code, label, replaced_by, sort_order) VALUES ('1199', 'Old', '1105', 99)");
+    try {
+      long ok = jdbc.queryForObject("INSERT INTO subscription (user_id, type, target, filters) VALUES (?, 'TAXGROUP', "
+          + "'Insects', '{\"subfield\":\"1199\"}') RETURNING id", Long.class, user);
+      long missing = jdbc.queryForObject("INSERT INTO subscription (user_id, type, target, filters, target_status, xr_note) "
+          + "VALUES (?, 'TAXON', 'X1', '{\"subfield\":\"1199\"}', 'MISSING', 'taxon gone') RETURNING id", Long.class, user);
+      long other = jdbc.queryForObject("INSERT INTO subscription (user_id, type, target, filters) VALUES (?, 'TAXGROUP', "
+          + "'Aves', '{\"subfield\":\"1103\"}') RETURNING id", Long.class, user);
+      run();
+      assertThat(jdbc.queryForObject("SELECT filters->>'subfield' FROM subscription WHERE id = ?", String.class, ok))
+          .isEqualTo("1105");
+      assertThat(jdbc.queryForObject("SELECT xr_note FROM subscription WHERE id = ?", String.class, ok)).contains("1105");
+      assertThat(jdbc.queryForObject("SELECT xr_note_at IS NOT NULL FROM subscription WHERE id = ?", Boolean.class, ok)).isTrue();
+      assertThat(jdbc.queryForObject("SELECT filters->>'subfield' FROM subscription WHERE id = ?", String.class, missing))
+          .isEqualTo("1105");
+      assertThat(jdbc.queryForObject("SELECT xr_note FROM subscription WHERE id = ?", String.class, missing)).isEqualTo("taxon gone");
+      assertThat(jdbc.queryForObject("SELECT filters->>'subfield' FROM subscription WHERE id = ?", String.class, other))
+          .isEqualTo("1103");
+      assertThat(jdbc.queryForObject("SELECT xr_note FROM subscription WHERE id = ?", String.class, other)).isNull();
+    } finally {
+      jdbc.update("DELETE FROM subscription");
+      jdbc.update("DELETE FROM app_user");
+      jdbc.update("DELETE FROM discipline WHERE code = '1199'");
+    }
+  }
 }

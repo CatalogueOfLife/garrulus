@@ -349,4 +349,51 @@ class WorkControllerIT extends AbstractPostgresIT {
     assertThat(r.statusCode()).isEqualTo(400);
     assertThat(JSON.readTree(r.body()).path("status").asInt()).isEqualTo(400);
   }
+
+  private long sourceWithDiscipline(String title, String code) {
+    return jdbc.queryForObject("INSERT INTO source (title, tier, origin, subfields, primary_subfield) "
+        + "VALUES (?, 'CORE', 'MANUAL', ARRAY[?]::text[], ?) RETURNING id", Long.class, title, code, code);
+  }
+
+  private long workOf(String doi, long source) {
+    long w = work(doi, "T " + doi);
+    jdbc.update("UPDATE work SET source_id = ? WHERE id = ?", source, w);
+    return w;
+  }
+
+  private java.util.List<String> dois(String query) throws Exception {
+    JsonNode r = JSON.readTree(get("/api/works?" + query).body());
+    java.util.List<String> out = new java.util.ArrayList<>();
+    r.path("results").forEach(x -> out.add(x.path("doi").asString()));
+    return out;
+  }
+
+  @Test
+  void disciplineAliasFilters() throws Exception {
+    long a = sourceWithDiscipline("JA", "1105");
+    long b = sourceWithDiscipline("JB", "1109");
+    workOf("10.9/da", a);
+    workOf("10.9/db", b);
+    assertThat(dois("discipline=1105")).containsExactly("10.9/da");
+    assertThat(dois("subfield=1105")).containsExactly("10.9/da");
+    assertThat(dois("subfield=1105&discipline=1105")).containsExactly("10.9/da");
+  }
+
+  @Test
+  void retiredSubfieldStillFilters() throws Exception {
+    long a = sourceWithDiscipline("JA", "1105");
+    workOf("10.9/ra", a);
+    jdbc.update("INSERT INTO discipline (code, label, replaced_by, sort_order) VALUES ('1199', 'Old', '1105', 99)");
+    try {
+      assertThat(dois("subfield=1199")).containsExactly("10.9/ra");
+      assertThat(dois("discipline=1199")).containsExactly("10.9/ra");
+    } finally {
+      jdbc.update("DELETE FROM discipline WHERE code = '1199'");
+    }
+  }
+
+  @Test
+  void conflictingSubfieldAndDisciplineIs400() throws Exception {
+    assertThat(get("/api/works?subfield=1105&discipline=1109").statusCode()).isEqualTo(400);
+  }
 }
