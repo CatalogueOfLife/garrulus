@@ -77,4 +77,18 @@ class CrossrefWorksTest {
         + "                    <i>Fraxinus mandschurica</i>\\n                    (Mulsant &amp; Rey)\"]}");
     assertEquals("Identification of geraniol from Fraxinus mandschurica (Mulsant & Rey)", CrossrefWorks.parse(n).title());
   }
+
+  @Test
+  void originalTitle() {
+    JsonNode n = FinderJson.mapper().readTree("{\"DOI\":\"10.1/x\",\"title\":[\"Two new genera of cockroaches\"],"
+        + "\"original-title\":[\"中国西南地区蜚蠊科两新属\"]}");
+    assertEquals(java.util.List.of(new org.catalogueoflife.nametracker.indexer.layer.TextIn("TITLE", null, "ORIGINAL",
+        "中国西南地区蜚蠊科两新属")), CrossrefWorks.texts(n));
+    assertEquals("Two new genera of cockroaches", CrossrefWorks.parse(n).title());
+    // equal to the title or absent: nothing
+    assertTrue(CrossrefWorks.texts(FinderJson.mapper().readTree(
+        "{\"title\":[\"Same\"],\"original-title\":[\"Same\"]}")).isEmpty());
+    assertTrue(CrossrefWorks.texts(FinderJson.mapper().readTree("{\"title\":[\"T\"],\"original-title\":[]}")).isEmpty());
+    assertTrue(CrossrefClient.SELECT.contains("original-title"));
+  }
 }

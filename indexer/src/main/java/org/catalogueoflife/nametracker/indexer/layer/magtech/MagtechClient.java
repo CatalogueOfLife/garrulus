@@ -31,10 +31,15 @@ public class MagtechClient {
    * What the {@code citation_*} meta tags of an article page add to the feed. {@code language} is
    * {@code citation_language}, which the English page gives as {@code en} for a Chinese article too: not evidence.
    * {@code titleLanguage} is the {@code xml:lang} of a {@code citation_title} that is not English: the language the
-   * article is written in.
+   * article is written in; {@code originalTitle} is that tag's title text.
    */
   public record ArticleMeta(@Nullable String doi, @Nullable LocalDate date, @Nullable String language,
-      @Nullable String titleLanguage) {
+      @Nullable String titleLanguage, @Nullable String originalTitle) {
+
+    public ArticleMeta(@Nullable String doi, @Nullable LocalDate date, @Nullable String language,
+        @Nullable String titleLanguage) {
+      this(doi, date, language, titleLanguage, null);
+    }
   }
 
   private static final Pattern META = Pattern.compile("<meta\\s[^>]*>", Pattern.CASE_INSENSITIVE);
@@ -91,6 +96,7 @@ public class MagtechClient {
     int head = html.toLowerCase(Locale.ROOT).indexOf("</head>");
     Map<String, String> meta = new HashMap<>();
     String titleLanguage = null;
+    String originalTitle = null;
     Matcher m = META.matcher(head < 0 ? html : html.substring(0, head));
     while (m.find()) {
       String tag = m.group();
@@ -103,13 +109,17 @@ public class MagtechClient {
           Matcher l = LANG.matcher(tag);
           if (l.find()) {
             String lang = (l.group(1) != null ? l.group(1) : l.group(2)).strip();
-            if (!lang.isEmpty() && !lang.toLowerCase(Locale.ROOT).startsWith("en")) titleLanguage = lang;
+            if (!lang.isEmpty() && !lang.toLowerCase(Locale.ROOT).startsWith("en") && value != null) {
+              titleLanguage = lang;
+              originalTitle = value;
+            }
           }
         }
       }
     }
     String date = meta.getOrDefault("citation_publication_date", meta.get("citation_date"));
-    return new ArticleMeta(meta.get("citation_doi"), date(date), meta.get("citation_language"), titleLanguage);
+    return new ArticleMeta(meta.get("citation_doi"), date(date), meta.get("citation_language"), titleLanguage,
+        originalTitle);
   }
 
   static @Nullable LocalDate date(@Nullable String s) {

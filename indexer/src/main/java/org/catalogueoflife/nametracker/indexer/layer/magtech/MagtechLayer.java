@@ -12,6 +12,7 @@ import org.catalogueoflife.nametracker.indexer.layer.HarvestLayer;
 import org.catalogueoflife.nametracker.indexer.layer.HarvestedWork;
 import org.catalogueoflife.nametracker.indexer.layer.LayerJob;
 import org.catalogueoflife.nametracker.indexer.layer.LayerPage;
+import org.catalogueoflife.nametracker.indexer.layer.TextIn;
 import org.catalogueoflife.nametracker.store.ident.IdScheme;
 import org.catalogueoflife.nametracker.store.ident.Identifier;
 import org.catalogueoflife.nametracker.store.ident.WorkIdentifierMapper;
@@ -138,7 +139,11 @@ public class MagtechLayer implements HarvestLayer {
         null, abs, null, null, null, null, abs == null ? null : "MAGTECH", null);
     // the English page's own title, abstract and citation_language are the English parallel: only the language of a
     // non-English citation_title says what the article is written in
-    return new HarvestedWork(w, Layer.MAGTECH, ids, meta.titleLanguage(), List.of());
+    // the feed's title and abstract are the English parallel: title_lang and abstract_lang say so, so language
+    // detection skips them; the page's non-English citation_title is the source's original, stored ORIGINAL
+    List<TextIn> texts = meta.originalTitle() == null || meta.titleLanguage() == null ? List.of()
+        : List.of(new TextIn("TITLE", meta.titleLanguage(), "ORIGINAL", meta.originalTitle()));
+    return new HarvestedWork(w, Layer.MAGTECH, ids, meta.titleLanguage(), texts, "en", abs == null ? null : "en");
   }
 
   /** The feed's comma separated author names as the JSON the work stores: {@code [{"name":…},…]}. */

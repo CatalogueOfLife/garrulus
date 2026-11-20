@@ -151,6 +151,32 @@ class MagtechLayerIT extends AbstractPostgresIT {
   }
 
   @Test
+  void englishFeedChineseOriginal(WireMockRuntimeInfo w) throws Exception {
+    route(w, "1005-0094");
+    stubSite();
+    String zh = MagtechClientTest.fixture("article-93333.html").replace("<meta name=\"citation_title\"",
+        "<meta name=\"citation_title\" xml:lang=\"zh\" content=\"中国西南地区蜚蠊科两新属\" />\n"
+            + "<meta name=\"citation_title\"");
+    stubFor(get(urlPathEqualTo("/EN/abstract/abstract93333.shtml")).willReturn(aResponse().withBody(zh)));
+    run(handler());
+
+    String doi = "10.17520/biods.2022520";
+    assertThat(jdbc.queryForObject("SELECT title FROM work WHERE doi = ?", String.class, doi))
+        .isEqualTo("Preliminary examination of the reintroduction of the endangered plant Petrocosmea qinlingensis");
+    assertThat(jdbc.queryForMap("SELECT title_lang, abstract_lang, title_en FROM work WHERE doi = '" + doi + "'"))
+        .containsEntry("title_lang", "en").containsEntry("abstract_lang", "en").containsEntry("title_en", null);
+    assertThat(jdbc.queryForMap("SELECT field, lang, kind, text, source FROM work_text t JOIN work w ON w.id = "
+        + "t.work_id WHERE w.doi = '" + doi + "'")).containsEntry("field", "TITLE").containsEntry("lang", "zh")
+        .containsEntry("kind", "ORIGINAL").containsEntry("text", "中国西南地区蜚蠊科两新属")
+        .containsEntry("source", "MAGTECH");
+    assertThat(jdbc.queryForObject("SELECT abstract_jats FROM work WHERE doi = ?", String.class, doi))
+        .contains("<jats:italic>Petrocosmea qinlingensis</jats:italic>");
+    // the English feed text of the other works is not detected as theirs, and no work_text rows exist for them
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM work_text", Long.class)).isEqualTo(1);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM work WHERE title_lang = 'en'", Long.class)).isEqualTo(3);
+  }
+
+  @Test
   void knownItemsCauseNoPageRequest(WireMockRuntimeInfo w) throws Exception {
     route(w, "1005-0094");
     stubSite();

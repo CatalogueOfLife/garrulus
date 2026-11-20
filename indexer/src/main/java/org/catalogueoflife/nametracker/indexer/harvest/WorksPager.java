@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.lang.LanguageService;
+import org.catalogueoflife.nametracker.indexer.lang.ParallelTexts;
 import org.catalogueoflife.nametracker.indexer.layer.TextIn;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexWorks;
@@ -23,6 +24,7 @@ import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.catalogueoflife.nametracker.store.work.Layer;
 import org.catalogueoflife.nametracker.store.work.Work;
+import org.catalogueoflife.nametracker.store.work.WorkMapper;
 import org.catalogueoflife.nametracker.store.work.WorkUpsert;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -50,9 +52,14 @@ public class WorksPager {
   private final WorkSightingMapper sightings;
   private final LanguageService languages;
   private final WorkTextMapper texts;
+  private final WorkMapper workMapper;
+  private final ParallelTexts parallelTexts;
 
   public WorksPager(OpenAlexClient client, WorkUpsert upsert, TaskQueue queue, TransactionTemplate tx,
-      WorkSightingMapper sightings, LanguageService languages, WorkTextMapper texts) {
+      WorkSightingMapper sightings, LanguageService languages, WorkTextMapper texts, WorkMapper workMapper,
+      ParallelTexts parallelTexts) {
+    this.workMapper = workMapper;
+    this.parallelTexts = parallelTexts;
     this.sightings = sightings;
     this.languages = languages;
     this.texts = texts;
@@ -114,10 +121,20 @@ public class WorksPager {
    */
   public boolean store(Work work, Layer layer, List<Identifier> ids, TaskPriority contentPriority,
       @Nullable Layer alsoSeenBy, @Nullable String declaredLanguage, List<TextIn> textVersions) {
+    return store(work, layer, ids, contentPriority, alsoSeenBy, declaredLanguage, textVersions, null, null);
+  }
+
+  /**
+   * As above; {@code titleLang} and {@code abstractLang} are the language the layer gave the work's own title and
+   * abstract (set when it is not the article's, so language detection skips them; see {@link #recordLanguage}).
+   */
+  public boolean store(Work work, Layer layer, List<Identifier> ids, TaskPriority contentPriority,
+      @Nullable Layer alsoSeenBy, @Nullable String declaredLanguage, List<TextIn> textVersions,
+      @Nullable String titleLang, @Nullable String abstractLang) {
     return Boolean.TRUE.equals(tx.execute(status -> {
       WorkUpsert.UpsertResult r = upsert.upsert(work, layer, ids);
       if (alsoSeenBy != null) sightings.sight(r.id(), alsoSeenBy.name(), work.sourceId());
-      recordLanguage(r.id(), work, layer, declaredLanguage, textVersions);
+      recordLanguage(r.id(), work, layer, declaredLanguage, textVersions, titleLang, abstractLang);
       if (r.created()) {
         queue.enqueue(RESOLVE_CONTENT, "{\"workId\":" + r.id() + "}", contentPriority, "content:" + r.id());
       } else {
@@ -134,11 +151,35 @@ public class WorksPager {
    */
   public void recordLanguage(long workId, Work work, Layer layer, @Nullable String declaredLanguage,
       List<TextIn> textVersions) {
-    for (TextIn t : textVersions) {
-      if (t.lang() == null || t.text().isBlank()) continue;
-      String lang = LanguageCodes.normalise(t.lang());
-      if (lang != null) texts.upsert(new WorkText(workId, t.field(), lang, t.kind(), t.text(), layer.name(), null, null));
+    recordLanguage(workId, work, layer, declaredLanguage, textVersions, null, null);
+  }
+
+  /**
+   * As above. The versions go through {@link ParallelTexts} and are stored as {@code work_text} rows, the source being
+   * the layer; they never change {@code work.title} or the abstract. {@code title_lang}/{@code abstract_lang} are set
+   * from the layer's values (never overwritten with null). When an ORIGINAL title is stored, the work's own title is
+   * not the article's language: {@code title_lang} is then the detected language of {@code work.title} when the layer
+   * gave none, and an original in that same language is not a different version and is dropped (Crossref's
+   * {@code original-title}).
+   */
+  public void recordLanguage(long workId, Work work, Layer layer, @Nullable String declaredLanguage,
+      List<TextIn> textVersions, @Nullable String titleLang, @Nullable String abstractLang) {
+    String tl = LanguageCodes.normalise(titleLang);
+    String al = LanguageCodes.normalise(abstractLang);
+    String abs = work.abstractText() != null ? work.abstractText() : work.abstractJats();
+    List<TextIn> kept = parallelTexts.of(work.title(), abs, textVersions);
+    if (tl == null && kept.stream().anyMatch(t -> "TITLE".equals(t.field()) && "ORIGINAL".equals(t.kind()))) {
+      tl = parallelTexts.titleLanguage(work.title());
+      String same = tl;
+      kept = kept.stream().filter(t -> !("TITLE".equals(t.field()) && "ORIGINAL".equals(t.kind())
+          && t.lang().equals(same))).toList();
+      if (kept.stream().noneMatch(t -> "TITLE".equals(t.field()) && "ORIGINAL".equals(t.kind()))) tl = null;
     }
+    for (TextIn t : kept) {
+      texts.upsert(new WorkText(workId, t.field(), t.lang(), t.kind(), t.text(), layer.name(), null, null));
+    }
+    if (tl != null || al != null) workMapper.setTextLangs(workId, tl, al);
+    if (!kept.isEmpty() || tl != null) texts.refreshTitleEn(workId);
     if (layer == Layer.OPENALEX) {
       languages.openAlexLanguage(workId, work.language()); // a record without language drops the old evidence
     } else if (declaredLanguage != null && !declaredLanguage.isBlank()) {

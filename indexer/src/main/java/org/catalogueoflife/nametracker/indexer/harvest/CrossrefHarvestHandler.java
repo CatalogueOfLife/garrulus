@@ -15,6 +15,7 @@ import java.util.TreeSet;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.crossref.CrossrefClient;
 import org.catalogueoflife.nametracker.indexer.crossref.CrossrefWorks;
+import org.catalogueoflife.nametracker.indexer.layer.TextIn;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexWorks;
 import org.catalogueoflife.nametracker.indexer.openalex.WorkRecord;
@@ -207,7 +208,8 @@ public class CrossrefHarvestHandler implements TaskHandler {
         sourceId = bySource.get(i);
         if (sourceId != null) break;
       }
-      if (store(rec, CrossrefWorks.latestPublished(item), sourceId, byOpenalexId, openAlexDown)) created++;
+      if (store(rec, CrossrefWorks.texts(item), CrossrefWorks.latestPublished(item), sourceId, byOpenalexId,
+          openAlexDown)) created++;
     }
     runs.addProgress(runId, 1, seen, created);
     LOG.info("Crossref harvest of {}, batch {}: {} works seen, {} created, {} skipped (published before {})", date,
@@ -228,7 +230,7 @@ public class CrossrefHarvestHandler implements TaskHandler {
    * {@code openAlexDown[0]} is set by an OpenAlex outage and skips the lookups of the rest of the page. Returns whether a
    * new work was created.
    */
-  private boolean store(WorkRecord rec, @Nullable LocalDate crossrefLatest, @Nullable Long sourceId,
+  private boolean store(WorkRecord rec, List<TextIn> texts, @Nullable LocalDate crossrefLatest, @Nullable Long sourceId,
       Map<String, Long> bySourceOpenalexId, boolean[] openAlexDown) {
     String doi = rec.doi();
     Work known = works.findByDoi(doi);
@@ -262,13 +264,14 @@ public class CrossrefHarvestHandler implements TaskHandler {
         String origin = origin(full.publicationDate() != null ? full.publicationDate() : crossrefLatest);
         // the metadata is OpenAlex's, so the record enters under that layer
         return pager.store(full.toWork(oaSource != null ? oaSource : sourceId, origin), Layer.OPENALEX,
-            CrossrefWorks.identifiers(full), priority(origin), Layer.CROSSREF);
+            CrossrefWorks.identifiers(full), priority(origin), Layer.CROSSREF, null, texts);
       } catch (IllegalArgumentException | IllegalStateException e) {
         LOG.warn("Unreadable OpenAlex record for {}, using the Crossref metadata: {}", doi, e.toString());
       }
     }
     String origin = origin(crossrefLatest);
-    return pager.store(rec.toWork(sourceId, origin), Layer.CROSSREF, CrossrefWorks.identifiers(rec), priority(origin));
+    return pager.store(rec.toWork(sourceId, origin), Layer.CROSSREF, CrossrefWorks.identifiers(rec), priority(origin), null, null,
+        texts);
   }
 
   /**

@@ -236,6 +236,23 @@
     UPDATE work SET title = #{title}, modified = now() WHERE id = #{id}
   </update>
 
+  <update id="setTextLangs">
+    UPDATE work SET title_lang = COALESCE(#{titleLang}::text, title_lang),
+                    abstract_lang = COALESCE(#{abstractLang}::text, abstract_lang)
+    WHERE id = #{id}
+      AND (title_lang, abstract_lang) IS DISTINCT FROM
+          (COALESCE(#{titleLang}::text, title_lang), COALESCE(#{abstractLang}::text, abstract_lang))
+  </update>
+
+  <update id="fillAbstract">
+    UPDATE work SET abstract = #{text}::text, abstract_jats = #{jats}::text,
+      abstract_source = CASE WHEN #{text}::text IS NOT NULL THEN #{source}::text END,
+      abstract_jats_source = CASE WHEN #{jats}::text IS NOT NULL THEN #{source}::text END,
+      modified = now()
+    WHERE id = #{id} AND abstract IS NULL AND abstract_jats IS NULL
+      AND (#{text}::text IS NOT NULL OR #{jats}::text IS NOT NULL)
+  </update>
+
   <select id="countByStateAndTextLevel" resultType="map">
     SELECT state, text_level, count(*) AS n FROM work GROUP BY state, text_level ORDER BY state, text_level
   </select>

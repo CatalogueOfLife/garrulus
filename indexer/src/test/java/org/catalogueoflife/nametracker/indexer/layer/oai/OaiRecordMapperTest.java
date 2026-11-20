@@ -177,4 +177,59 @@ class OaiRecordMapperTest {
     assertThat(hw.work().language()).isEqualTo("en");
     assertThat(hw.texts()).isEmpty();
   }
+
+  private static HarvestedWork inline(String prefix, String metadata) throws Exception {
+    String xml = "<?xml version=\"1.0\"?><OAI-PMH xmlns=\"http://www.openarchives.org/OAI/2.0/\"><ListRecords>"
+        + "<record><header><identifier>oai:x:1</identifier><datestamp>2026-01-01</datestamp></header><metadata>"
+        + metadata + "</metadata></record></ListRecords></OAI-PMH>";
+    return OaiRecordMapper.toHarvested(OaiPmhClient.readRecords(xml.getBytes(StandardCharsets.UTF_8), prefix).getFirst(),
+        7L).orElseThrow();
+  }
+
+  private static final String DCNS = "<oai-dc:dc xmlns:oai-dc=\"http://www.openarchives.org/OAI/2.0/oai_dc/\" "
+      + "xmlns:dc=\"http://purl.org/dc/elements/1.1/\">";
+
+  @Test
+  void parallelTitlesByXmlLang() throws Exception {
+    HarvestedWork hw = inline("oai_dc", DCNS
+        + "<dc:title xml:lang=\"es\">Dos especies nuevas de cucarachas</dc:title>"
+        + "<dc:title xml:lang=\"en\">Two new species of cockroaches</dc:title>"
+        + "<dc:description xml:lang=\"es\">Se describen dos especies.</dc:description>"
+        + "<dc:description xml:lang=\"en\">Two species are described.</dc:description></oai-dc:dc>");
+    assertThat(hw.work().title()).isEqualTo("Dos especies nuevas de cucarachas");
+    assertThat(hw.work().abstractText()).isEqualTo("Se describen dos especies.");
+    assertThat(hw.titleLang()).isEqualTo("es");
+    assertThat(hw.abstractLang()).isEqualTo("es");
+    assertThat(hw.texts()).containsExactly(
+        new org.catalogueoflife.nametracker.indexer.layer.TextIn("TITLE", "en", "PARALLEL",
+            "Two new species of cockroaches"),
+        new org.catalogueoflife.nametracker.indexer.layer.TextIn("ABSTRACT", "en", "PARALLEL",
+            "Two species are described."));
+  }
+
+  @Test
+  void untaggedVersionKeptWithoutLanguageForDetection() throws Exception {
+    HarvestedWork hw = inline("oai_dc", DCNS + "<dc:title>Main title of the article</dc:title>"
+        + "<dc:title>Another title without any language tag</dc:title></oai-dc:dc>");
+    assertThat(hw.titleLang()).isNull();
+    assertThat(hw.texts()).hasSize(1);
+    assertThat(hw.texts().getFirst().lang()).isNull(); // ParallelTexts detects it or drops it
+  }
+
+  @Test
+  void jatsTransTitleAndAbstract() throws Exception {
+    HarvestedWork hw = inline("jats", "<article xmlns=\"https://jats.nlm.nih.gov/publishing/1.1/\" xml:lang=\"es\">"
+        + "<front><article-meta><title-group><article-title>Dos especies nuevas</article-title>"
+        + "<trans-title-group xml:lang=\"en\"><trans-title>Two new species</trans-title></trans-title-group>"
+        + "</title-group><abstract><p>Se describen <italic>dos</italic> especies.</p></abstract>"
+        + "<trans-abstract xml:lang=\"en\"><title>Abstract</title><p>Two species are <italic>described</italic>.</p>"
+        + "<p>Second paragraph.</p></trans-abstract></article-meta></front></article>");
+    assertThat(hw.work().title()).isEqualTo("Dos especies nuevas");
+    assertThat(hw.titleLang()).isEqualTo("es");
+    assertThat(hw.abstractLang()).isEqualTo("es");
+    assertThat(hw.work().abstractJats()).contains("<italic>dos</italic>");
+    assertThat(hw.texts()).extracting(t -> t.field() + "|" + t.lang() + "|" + t.kind() + "|" + t.text())
+        .containsExactly("TITLE|en|PARALLEL|Two new species",
+            "ABSTRACT|en|PARALLEL|Two species are described.\n\nSecond paragraph.");
+  }
 }

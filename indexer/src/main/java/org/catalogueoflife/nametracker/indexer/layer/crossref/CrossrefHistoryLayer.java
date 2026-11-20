@@ -136,7 +136,8 @@ public class CrossrefHistoryLayer implements HarvestLayer {
     for (JsonNode item : page.items()) {
       try {
         WorkRecord rec = CrossrefWorks.parse(item);
-        works.add(new HarvestedWork(rec.toWork(sourceId, null), Layer.CROSSREF, CrossrefWorks.identifiers(rec)));
+        works.add(new HarvestedWork(rec.toWork(sourceId, null), Layer.CROSSREF, CrossrefWorks.identifiers(rec), null,
+            CrossrefWorks.texts(item)));
       } catch (RuntimeException e) {
         LOG.warn("Skipping an unreadable Crossref item {}: {}", item.path("DOI").asString(""), e.toString());
         skipped++;

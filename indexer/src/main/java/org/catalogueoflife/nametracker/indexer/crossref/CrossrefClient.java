@@ -29,7 +29,7 @@ public class CrossrefClient {
   public static final int ROWS = 1000;
   /** The highest offset Crossref serves; deeper listings need a cursor. */
   public static final int MAX_OFFSET = 10_000;
-  static final String SELECT = "DOI,ISSN,title,abstract,published,container-title,volume,issue,page,author,license,type";
+  static final String SELECT = "DOI,ISSN,title,abstract,published,container-title,volume,issue,page,author,license,type,original-title";
 
   /** {@code last}: the page has no items, so the cursor listing is complete. */
   public record Page(List<JsonNode> items, @Nullable String nextCursor) {

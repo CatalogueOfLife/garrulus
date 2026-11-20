@@ -85,6 +85,22 @@ public interface WorkMapper {
   /** Sets the title and bumps modified; nothing else changes. */
   int setTitle(@Param("id") long id, @Param("title") @Nullable String title);
 
+  /**
+   * Sets {@code title_lang} and {@code abstract_lang}, the language a layer gave the work's own title and abstract
+   * when it is not the article's (Magtech's English feed). A null argument leaves the stored value as it is. Returns
+   * the rows changed (0 when nothing differs).
+   */
+  int setTextLangs(@Param("id") long id, @Param("titleLang") @Nullable String titleLang,
+      @Param("abstractLang") @Nullable String abstractLang);
+
+  /**
+   * Stores the first abstract of a work that has none ({@code abstract}, {@code abstract_jats} both null): the plain
+   * text and/or the JATS, with their sources ({@code abstract_source} for the text, {@code abstract_jats_source} for
+   * the JATS). Returns 1 when written, 0 when the work already has an abstract or does not exist.
+   */
+  int fillAbstract(@Param("id") long id, @Param("text") @Nullable String text, @Param("jats") @Nullable String jats,
+      @Param("source") String source);
+
   /** Deletes the work; mentions, identifiers, sightings, content and hits cascade. Returns the rows deleted. */
   int deleteWork(@Param("id") long id);
 

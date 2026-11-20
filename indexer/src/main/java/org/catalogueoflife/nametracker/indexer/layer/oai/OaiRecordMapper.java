@@ -14,6 +14,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.layer.HarvestedWork;
+import org.catalogueoflife.nametracker.indexer.layer.TextIn;
 import org.catalogueoflife.nametracker.store.ident.IdScheme;
 import org.catalogueoflife.nametracker.store.ident.Identifier;
 import org.catalogueoflife.nametracker.store.lang.LanguageCodes;
@@ -27,7 +28,10 @@ import org.w3c.dom.Node;
 /**
  * Maps an {@link OaiRecord} of prefix {@code oai_dc} or {@code jats} to a {@link HarvestedWork} of the OAI layer.
  * Nothing is returned for a deleted record, one without metadata, an unknown prefix and a record without a title.
- * Further titles of other languages stay in the record's metadata element (for M6c).
+ * Further titles and descriptions ({@code dc:title}/{@code dc:description} after the first, JATS
+ * {@code trans-title} and {@code trans-abstract}) are returned as PARALLEL {@link TextIn} versions with their
+ * {@code xml:lang} (null when untagged); the first title's and description's language is the work's
+ * {@code title_lang}/{@code abstract_lang}.
  */
 public final class OaiRecordMapper {
 
@@ -57,7 +61,8 @@ public final class OaiRecordMapper {
         p.pages, p.authors, "article", LanguageCodes.normalise(p.language), null, p.license, null, jats ? null : p.abstractText,
         !jats && p.abstractText != null ? "OAI" : null, null, null, null, null, null, null, null, null, p.abstractJats,
         null, null, null, null, jats ? "OAI" : null, null);
-    return Optional.of(new HarvestedWork(w, Layer.OAI, ids, p.language, List.of()));
+    return Optional.of(new HarvestedWork(w, Layer.OAI, ids, p.language, p.texts, LanguageCodes.normalise(p.titleLang),
+        LanguageCodes.normalise(p.abstractLang)));
   }
 
   private static final class Parsed {
@@ -73,13 +78,34 @@ public final class OaiRecordMapper {
     String abstractJats;
     String license;
     String language;
+    String titleLang;
+    String abstractLang;
+    final List<TextIn> texts = new ArrayList<>();
+  }
+
+  private static final String XML = "http://www.w3.org/XML/1998/namespace";
+
+  /** The {@code xml:lang} of an element, null when it has none. */
+  private static @Nullable String lang(Element e) {
+    String l = e.getAttributeNS(XML, "lang");
+    if (l.isEmpty()) l = e.getAttribute("xml:lang");
+    return l.isBlank() ? null : l.strip();
   }
 
   // ---- Dublin Core ----
 
   private static Parsed dc(Element dc) {
     Parsed p = new Parsed();
-    p.title = TitleText.clean(firstText(dc, DC, "title"));
+    for (Element t : elements(dc, DC, "title")) {
+      String title = TitleText.clean(t.getTextContent().strip());
+      if (title == null || title.isBlank()) continue;
+      if (p.title == null) {
+        p.title = title;
+        p.titleLang = lang(t);
+      } else {
+        p.texts.add(new TextIn("TITLE", lang(t), "PARALLEL", title));
+      }
+    }
     List<Map<String, String>> authors = new ArrayList<>();
     for (Element c : elements(dc, DC, "creator")) {
       String name = creator(c.getTextContent().strip());
@@ -99,7 +125,16 @@ public final class OaiRecordMapper {
     }
     String date = firstText(dc, DC, "date");
     if (date != null) date(date, p);
-    p.abstractText = firstText(dc, DC, "description");
+    for (Element d : elements(dc, DC, "description")) {
+      String text = d.getTextContent().strip();
+      if (text.isEmpty()) continue;
+      if (p.abstractText == null) {
+        p.abstractText = text;
+        p.abstractLang = lang(d);
+      } else {
+        p.texts.add(new TextIn("ABSTRACT", lang(d), "PARALLEL", text));
+      }
+    }
     for (Element rt : elements(dc, DC, "rights")) {
       String l = license(rt.getTextContent().strip());
       if (l != null) {
@@ -237,6 +272,19 @@ public final class OaiRecordMapper {
     Element tg = first(meta, "title-group");
     Element at = tg == null ? null : first(tg, "article-title");
     p.title = at == null ? null : TitleText.clean(plain(at));
+    String rootLang = lang(article);
+    p.titleLang = at == null || lang(at) == null ? rootLang : lang(at);
+    for (Element tt : descendants(meta, "trans-title")) {
+      String text = TitleText.clean(plain(tt));
+      if (text == null || text.isBlank()) continue;
+      String l = lang(tt);
+      if (l == null && tt.getParentNode() instanceof Element g) l = lang(g);
+      p.texts.add(new TextIn("TITLE", l, "PARALLEL", text));
+    }
+    for (Element ta : children(meta, "trans-abstract")) {
+      String text = plainAbstract(ta);
+      if (!text.isEmpty()) p.texts.add(new TextIn("ABSTRACT", lang(ta), "PARALLEL", text));
+    }
     List<Map<String, String>> authors = new ArrayList<>();
     for (Element c : descendants(meta, "contrib")) {
       String type = c.getAttribute("contrib-type");
@@ -270,7 +318,10 @@ public final class OaiRecordMapper {
     }
     if (abs != null) {
       String x = inner(abs).strip();
-      if (!x.isEmpty()) p.abstractJats = x;
+      if (!x.isEmpty()) {
+        p.abstractJats = x;
+        p.abstractLang = lang(abs) == null ? rootLang : lang(abs);
+      }
     }
     Element permissions = first(meta, "permissions");
     if (permissions != null) {
@@ -287,6 +338,16 @@ public final class OaiRecordMapper {
     String lang = article.getAttributeNS("http://www.w3.org/XML/1998/namespace", "lang");
     p.language = lang.isEmpty() ? null : lang;
     return p;
+  }
+
+  /** The paragraphs of an abstract as plain text, separated by blank lines (no markup, so it is safe anywhere). */
+  private static String plainAbstract(Element abs) {
+    List<String> paras = new ArrayList<>();
+    for (Element par : descendants(abs, "p")) {
+      String t = plain(par);
+      if (!t.isEmpty()) paras.add(t);
+    }
+    return paras.isEmpty() ? plain(abs) : String.join("\n\n", paras);
   }
 
   private static @Nullable String contribName(Element c) {

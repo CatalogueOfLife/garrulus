@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
+import org.catalogueoflife.nametracker.indexer.layer.TextIn;
 import org.catalogueoflife.nametracker.indexer.openalex.WorkRecord;
 import org.catalogueoflife.nametracker.store.ident.IdScheme;
 import org.catalogueoflife.nametracker.store.ident.Identifier;
@@ -49,6 +50,18 @@ public final class CrossrefWorks {
     return new WorkRecord(null, doi, TitleText.clean(first(w, "title")), date, year, text(w, "volume"), text(w, "issue"),
         text(w, "page"), authors(w.path("author")), "journal-article".equals(text(w, "type")) ? "article" : text(w, "type"),
         null, null, license(w.path("license")), null, null, text(w, "abstract"), null, null, null);
+  }
+
+  /**
+   * The versions of the title the item carries besides its {@code title}: {@code original-title} (the title in the
+   * article's own language when {@code title} is a translation) as an ORIGINAL TITLE without a language (the pager
+   * detects it, and keeps it only when the detector is confident and the language differs from the title's).
+   */
+  public static List<TextIn> texts(JsonNode w) {
+    String title = TitleText.clean(first(w, "title"));
+    String original = TitleText.clean(first(w, "original-title"));
+    if (original == null || original.isBlank() || original.equals(title)) return List.of();
+    return List.of(new TextIn("TITLE", null, "ORIGINAL", original));
   }
 
   /**
