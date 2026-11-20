@@ -57,4 +57,27 @@ describe('JournalsPage', () => {
     expect(search).toContain('q=bio');
     expect(search).toContain('tier=CORE');
   });
+
+  it('showsRegisterButtonAndCeasedBadge', async () => {
+    server.use(
+      http.get('/api/me', () => HttpResponse.json({ id: 1, timeZone: 'UTC', digestFrequency: 'DAILY', digestWeekday: 1, digestHour: 7, created: '2026-01-01T00:00:00Z' })),
+      http.get('/api/sources', () => HttpResponse.json({
+        total: 2, limit: 50, offset: 0,
+        results: [
+          item(7, 'Zootaxa', { publicationStatus: 'ACTIVE' }),
+          item(8, 'Old Journal', { publicationStatus: 'CEASED', lastIssueYear: 2015, continuedBy: { id: 7, title: 'Zootaxa' } }),
+        ],
+      })));
+    renderApp(<JournalsPage />, '/journals');
+    expect(await screen.findByRole('button', { name: 'Register a journal' })).toBeInTheDocument();
+    expect(await screen.findByText(/Ceased publication · last issue 2015/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Ceased publication/)).toHaveLength(1);
+    expect(screen.getByText(/Continued as/).querySelector('a')).toHaveAttribute('href', '/source/7');
+  });
+
+  it('signedOutRegisterLinksToSignIn', async () => {
+    server.use(http.get('/api/sources', () => HttpResponse.json({ total: 0, limit: 50, offset: 0, results: [] })));
+    renderApp(<JournalsPage />, '/journals');
+    expect(await screen.findByRole('link', { name: 'Register a journal' })).toHaveAttribute('href', '/signin?next=%2Fjournals');
+  });
 });

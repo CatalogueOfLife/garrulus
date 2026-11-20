@@ -8,7 +8,7 @@ import {
 } from '../api';
 import { useMe } from '../auth/useMe';
 import { ConfirmButton } from './ConfirmButton';
-import { subfieldOptions } from '../subfields';
+import { disciplineOptions, resolveDiscipline, useDisciplines } from '../disciplines';
 import { sentence } from '../ui/sentence';
 
 const MIN_YEAR = 1750;
@@ -41,6 +41,7 @@ interface DialogProps {
 function Form({ onClose, type, target, label, existing, onExists }: Omit<DialogProps, 'opened'>) {
   const client = useQueryClient();
   const groups = useQuery({ queryKey: ['taxgroups'], queryFn: getTaxGroups, staleTime: Infinity });
+  const disciplines = useDisciplines();
   const mainDefault = type === 'TAXON' || type === 'TAXGROUP';
   const [main, setMain] = useState(existing?.mainSubjectOnly ?? mainDefault);
   const [newNames, setNewNames] = useState(existing?.newNamesOnly ?? false);
@@ -126,8 +127,8 @@ function Form({ onClose, type, target, label, existing, onExists }: Omit<DialogP
           <NativeSelect label="Journal type" value={narrow.journalType ?? ''}
             data={[{ value: '', label: 'Any' }, { value: 'TAXONOMIC', label: 'Taxonomic' }, { value: 'GENERAL', label: 'General' }]}
             onChange={(e) => set('journalType', e.currentTarget.value)} />
-          <NativeSelect label="Subfield" value={narrow.subfield ?? ''} onChange={(e) => set('subfield', e.currentTarget.value)}>
-            {subfieldOptions(narrow.subfield).map((o) => <option key={o.value} value={o.value} title={o.value || undefined}>{o.label}</option>)}
+          <NativeSelect label="Discipline" value={narrow.subfield ? resolveDiscipline(narrow.subfield, disciplines.data) : ''} onChange={(e) => set('subfield', e.currentTarget.value)}>
+            {disciplineOptions(disciplines.data, narrow.subfield).map((o) => <option key={o.value} value={o.value} title={o.value || undefined}>{o.label}</option>)}
           </NativeSelect>
         </Stack>
       </Collapse>

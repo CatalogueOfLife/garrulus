@@ -3,7 +3,7 @@ import { Group, NativeSelect, Stack, TextInput } from '@mantine/core';
 import type { FacetCount, FacetName, TaxGroup, WorkFilter } from '../api';
 import { TaxGroupIcon } from './TaxGroupIcon';
 import { TaxonPicker } from './TaxonPicker';
-import { subfieldOptions } from '../subfields';
+import { disciplineOptions, resolveDiscipline, useDisciplines } from '../disciplines';
 import { FacetGroup } from '../ui/FacetGroup';
 import { Rule } from '../ui/Rule';
 import { sentence } from '../ui/sentence';
@@ -85,6 +85,7 @@ function Field({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export function FilterSidebar({ filter, taxonLabel, facets, taxGroups, onChange }: Props) {
+  const disciplines = useDisciplines();
   const codeCounts = counts(facets.code);
   const groupCounts = counts(facets.taxgroup);
   const typeCounts = counts(facets.journalType);
@@ -126,9 +127,9 @@ export function FilterSidebar({ filter, taxonLabel, facets, taxGroups, onChange 
       <FacetGroup title="Acts" current={filter.hasActs === 'true' ? 'true' : undefined} onSelect={set('hasActs')}
         items={[{ value: 'true', label: 'Has nomenclatural acts', count: actCounts.get('true') }]} />
 
-      <Field title="Subfield">
-        <NativeSelect aria-label="Subfield" value={filter.subfield ?? ''} onChange={(e) => onChange({ subfield: e.currentTarget.value || undefined, offset: undefined })}>
-          {subfieldOptions(filter.subfield).map((o) => <option key={o.value} value={o.value} title={o.value || undefined}>{o.label}</option>)}
+      <Field title="Discipline">
+        <NativeSelect aria-label="Discipline" value={filter.subfield ? resolveDiscipline(filter.subfield, disciplines.data) : ''} onChange={(e) => onChange({ subfield: e.currentTarget.value || undefined, offset: undefined })}>
+          {disciplineOptions(disciplines.data, filter.subfield).map((o) => <option key={o.value} value={o.value} title={o.value || undefined}>{o.label}</option>)}
         </NativeSelect>
       </Field>
 

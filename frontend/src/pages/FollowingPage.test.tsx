@@ -104,4 +104,19 @@ describe('FollowingPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Copy feed URL' }));
     expect(writeText).toHaveBeenCalledWith('http://x/feeds/s/fresh.atom');
   });
+
+  it('showsCeasedBadgeOnASourceFollow', async () => {
+    server.use(
+      http.get('/api/me', () => HttpResponse.json(meBody)),
+      http.get('/api/me/subscriptions', () => HttpResponse.json([
+        sub(2, 'Old Journal', { type: 'SOURCE', target: '7', publicationStatus: 'CEASED', lastIssueYear: 2015, continuedBy: { id: 9, title: 'New Journal' } }),
+        sub(3, 'Zootaxa', { type: 'SOURCE', target: '8', publicationStatus: 'ACTIVE' }),
+      ])),
+    );
+    renderApp(<FollowingPage />, '/following');
+    const row = (await screen.findByText('Old Journal')).closest('li') as HTMLElement;
+    expect(within(row).getByText(/Ceased publication · last issue 2015/)).toBeInTheDocument();
+    expect(within(row).getByRole('link', { name: 'New Journal' })).toHaveAttribute('href', '/source/9');
+    expect(within(screen.getByText('Zootaxa').closest('li') as HTMLElement).queryByText(/Ceased/)).toBeNull();
+  });
 });

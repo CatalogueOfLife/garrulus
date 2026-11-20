@@ -1,0 +1,18 @@
+.badge {
+  margin: var(--gr-space-2) 0 0;
+  padding: var(--gr-space-1) var(--gr-space-2);
+  border-left: 3px solid var(--gr-red);
+  background: var(--gr-paper);
+  color: var(--gr-ink);
+  font-size: var(--gr-type-meta-size);
+  line-height: var(--gr-type-meta-line);
+}
+
+.badge a {
+  color: inherit;
+}
+
+.inline {
+  display: inline-block;
+  margin: 0 0 0 var(--gr-space-2);
+}

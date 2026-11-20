@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { deleteMe, downloadExport, patchMe, requestEmailChange, type DigestFrequency } from '../api';
 import { useMe } from '../auth/useMe';
+import { RegisteredJournals } from '../components/RegisteredJournals';
 import styles from '../ui/pages.module.css';
 import { usePageTitle } from '../usePageTitle';
 
@@ -110,6 +111,8 @@ export function AccountPage() {
           {save.isError && <p className={styles.error}>Could not save the settings.</p>}
         </Group>
       </section>
+
+      <RegisteredJournals />
 
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Your data</h2>

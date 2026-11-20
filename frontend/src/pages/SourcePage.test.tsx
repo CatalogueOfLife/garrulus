@@ -38,8 +38,8 @@ describe('SourcePage', () => {
     expect(within(cat).getByText('Taxonomic')).toBeInTheDocument();
     expect(within(cat).getByText('4.2')).toBeInTheDocument();
     // the subfields under a visible label, the primary one said in words, not only set in 500
-    expect(within(cat).getByText('Subfields')).toBeVisible();
-    const [insects, eco, other] = within(within(cat).getByRole('list', { name: 'Subfields' })).getAllByRole('listitem');
+    expect(within(cat).getByText('Disciplines')).toBeVisible();
+    const [insects, eco, other] = within(within(cat).getByRole('list', { name: 'Disciplines' })).getAllByRole('listitem');
     expect(insects).toHaveTextContent(/^Insect Science \(primary\)$/);
     expect(insects).toHaveAttribute('title', '1109');
     expect(eco).toHaveTextContent(/^Ecology, Evolution, Behavior and Systematics$/);
@@ -82,5 +82,15 @@ describe('SourcePage', () => {
     renderSource();
     expect(await screen.findByRole('heading', { level: 1, name: 'Journal not found' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Go to the search' })).toHaveAttribute('href', '/');
+  });
+
+  it('showsCeasedBadgeAndSuccessor', async () => {
+    server.use(taxGroupHandler, http.get('/api/sources/7', () => HttpResponse.json({
+      id: 7, title: 'Old Journal', tier: 'CORE', publicationStatus: 'CEASED', lastIssueYear: 2015,
+      continuedBy: { id: 9, title: 'New Journal' }, subfields: [], taxgroups: [], codes: [], years: [], recentWorks: [],
+    })));
+    renderSource();
+    expect(await screen.findByText(/Ceased publication · last issue 2015/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'New Journal' })).toHaveAttribute('href', '/source/9');
   });
 });

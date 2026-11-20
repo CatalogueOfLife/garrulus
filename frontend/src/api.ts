@@ -182,10 +182,17 @@ export interface TaxonStats {
   mainSubjectTotal: number;
   years: { year: number; works: number; mainSubjectWorks: number }[];
 }
+export interface SourceRef { id: number; title: string }
+export type PublicationStatus = 'ACTIVE' | 'CEASED';
 export interface SourceItem {
   id: number;
   title: string;
   publisher?: string | null;
+  publicationStatus?: PublicationStatus;
+  ceasedReason?: 'STOPPED' | 'TITLE_CHANGE' | 'MERGED' | 'UNKNOWN' | null;
+  lastIssueYear?: number | null;
+  /** The followed journal that continues a ceased one; only when that journal is public. */
+  continuedBy?: SourceRef | null;
   tier: 'CORE' | 'BROAD';
   journalType?: JournalType | null;
   primarySubfield?: string | null;
@@ -206,6 +213,14 @@ export interface SourceDetail extends SourceItem {
   recentWorks: WorkSummary[];
 }
 export interface TaxGroup { name: string; parents: string[]; codes: string[]; icon: string }
+export interface Discipline {
+  code: string;
+  label: string;
+  parent?: string | null;
+  /** A retired discipline names the one that replaces it. */
+  replacedBy?: string | null;
+  sortOrder: number;
+}
 export interface Xr { key: number; alias: string }
 
 /** The search filters; the names are those of the URL query string and of the API. */
@@ -278,6 +293,7 @@ export const getName = (id: number | string) => getJson<NameFull>(`/api/names/${
 export const searchNames = (q: string, limit = 10) =>
   getJson<NameHit[]>(`/api/names?${new URLSearchParams({ q, limit: String(limit) })}`);
 export const getTaxonStats = (id: string) => getJson<TaxonStats>(`/api/taxa/${encodeURIComponent(id)}/stats`);
+export const getDisciplines = () => getJson<Discipline[]>('/api/vocab/discipline');
 export const getSource = (id: number | string) => getJson<SourceDetail>(`/api/sources/${encodeURIComponent(id)}`);
 export const listSources = (params: { q?: string; tier?: string; journalType?: string; limit?: number; offset?: number } = {}) => {
   const p = new URLSearchParams();
@@ -336,6 +352,8 @@ export interface Me {
   digestHour: number;
   /** When the account was created (ISO instant). */
   created: string;
+  /** Signed in through ORCID with an iD on the admin list. */
+  admin?: boolean;
 }
 export interface MePatch {
   displayName?: string | null;
@@ -365,6 +383,10 @@ export interface Subscription {
   targetStatus: 'OK' | 'MOVED' | 'MISSING';
   xrNote?: string | null;
   previousTarget?: string | null;
+  /** SOURCE follows only. */
+  publicationStatus?: PublicationStatus | null;
+  lastIssueYear?: number | null;
+  continuedBy?: SourceRef | null;
 }
 /** A name of a hit's snapshot. */
 export interface HitName {
@@ -474,3 +496,39 @@ export async function downloadExport(): Promise<void> {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+export type RegistrationKind = 'ISSN' | 'DOI' | 'URL';
+export type RegistrationStatus = 'IDENTIFYING' | 'COVERED' | 'CANDIDATE' | 'DECLINED' | 'CEASED' | 'NOT_IDENTIFIED' | 'WITHDRAWN';
+export interface RegistrationJournal {
+  id: number;
+  title?: string | null;
+  issns: string[];
+  publisher?: string | null;
+  country?: string | null;
+  tier: 'CORE' | 'BROAD' | 'CANDIDATE' | 'EXCLUDED';
+  publicationStatus: PublicationStatus;
+  routes: string[];
+}
+export interface Registration {
+  id: number;
+  kind: RegistrationKind;
+  input: string;
+  note?: string | null;
+  state: 'IDENTIFYING' | 'IDENTIFIED' | 'NOT_IDENTIFIED' | 'WITHDRAWN';
+  outcome?: 'NEW_CANDIDATE' | 'EXISTING' | 'CEASED' | null;
+  reason?: string | null;
+  status: RegistrationStatus;
+  journal?: RegistrationJournal | null;
+  created: string;
+  identifiedAt?: string | null;
+}
+export const registerJournal = (input: { issn?: string; doi?: string; url?: string; note?: string }) =>
+  send<{ id: number }>('POST', '/api/sources/register', input);
+async function getSession<T>(url: string): Promise<T> {
+  const res = await fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+  if (!res.ok) throw new ApiError(res.status, `Request failed (${res.status})`);
+  return (await res.json()) as T;
+}
+export const getRegistration = (id: number) => getSession<Registration>(`/api/me/registrations/${id}`);
+export const listRegistrations = () => getSession<Registration[]>('/api/me/registrations');
+export const withdrawRegistration = (id: number) => send('DELETE', `/api/me/registrations/${id}`);

@@ -125,7 +125,7 @@ describe('FollowButton', () => {
     await waitFor(() => expect(deleted).toBe(1));
   });
 
-  it('narrowsBySubfieldName', async () => {
+  it('narrowsByDisciplineName', async () => {
     let patch: Record<string, unknown> | null = null;
     server.use(
       signedIn,
@@ -137,9 +137,9 @@ describe('FollowButton', () => {
     );
     renderApp(<FollowButton type="TAXON" target="T1" label="Carabus" />);
     await userEvent.click(await screen.findByRole('button', { name: 'Following' }));
-    const select = (await screen.findByLabelText('Subfield')) as HTMLSelectElement;
+    const select = (await screen.findByLabelText('Discipline')) as HTMLSelectElement;
     expect(select.value).toBe('1109');
-    expect(screen.getByRole('option', { name: 'Insect Science' })).toHaveAttribute('title', '1109');
+    expect(await screen.findByRole('option', { name: 'Insect Science' })).toHaveAttribute('title', '1109');
     await userEvent.selectOptions(select, 'Plant Science');
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(patch).not.toBeNull());

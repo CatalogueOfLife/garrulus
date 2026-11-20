@@ -4,6 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { listSources, type SourceItem } from '../api';
+import { useMe } from '../auth/useMe';
+import { CeasedBadge } from '../components/CeasedBadge';
+import { RegisterJournalDialog } from '../components/RegisterJournalDialog';
 import { EmptyState } from '../ui/EmptyState';
 import styles from '../ui/pages.module.css';
 import { usePageTitle } from '../usePageTitle';
@@ -24,6 +27,7 @@ function Row({ s }: { s: SourceItem }) {
         {s.worksPerYear != null ? <span className={styles.rowCount}>{s.worksPerYear} papers a year</span> : null}
       </div>
       <p className={styles.rowMeta}>{[sentence(s.tier), sentence(s.journalType), sentence(s.oaModel), s.publisher, ...facts].filter(Boolean).join(' · ')}</p>
+      <CeasedBadge status={s.publicationStatus} lastIssueYear={s.lastIssueYear} continuedBy={s.continuedBy} />
     </li>
   );
 }
@@ -35,6 +39,7 @@ export function JournalsPage() {
   const tier = params.get('tier') ?? '';
   const journalType = params.get('journalType') ?? '';
   const page = Math.max(1, Number(params.get('page')) || 1);
+  const me = useMe();
   const [text, setText] = useState(q);
   const [debounced] = useDebouncedValue(text.trim(), 300);
 
@@ -59,6 +64,7 @@ export function JournalsPage() {
   return (
     <div>
       <h1 className={styles.pageTitle}>Journals</h1>
+      {me.isPending ? null : <RegisterJournalDialog signedIn={!!me.data} />}
       <div className={styles.filters}>
         <TextInput label="Title" placeholder="Search journals" value={text} onChange={(e) => setText(e.currentTarget.value)} />
         <div>

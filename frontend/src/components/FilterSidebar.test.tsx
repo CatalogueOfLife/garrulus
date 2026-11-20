@@ -43,13 +43,13 @@ describe('FilterSidebar', () => {
     expect(rows.findIndex((t) => t?.startsWith('Animals'))).toBeLessThan(rows.findIndex((t) => t?.startsWith('Insects')));
   });
 
-  it('subfieldIsChosenByName', async () => {
+  it('disciplineIsChosenByName', async () => {
     server.use(xrHandler);
     const onChange = vi.fn();
     renderApp(<FilterSidebar filter={{ subfield: '1109' }} taxGroups={taxGroups} onChange={onChange} facets={{}} />);
-    const select = screen.getByLabelText('Subfield') as HTMLSelectElement;
+    const select = screen.getByLabelText('Discipline') as HTMLSelectElement;
     expect(select.value).toBe('1109');
-    expect(screen.getByRole('option', { name: 'Insect Science' })).toHaveAttribute('title', '1109');
+    expect(await screen.findByRole('option', { name: 'Insect Science' })).toHaveAttribute('title', '1109');
     await userEvent.selectOptions(select, 'Ecology');
     expect(onChange).toHaveBeenCalledWith({ subfield: '2303', offset: undefined });
     await userEvent.selectOptions(select, 'Any');

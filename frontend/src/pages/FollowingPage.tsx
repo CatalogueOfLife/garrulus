@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { deleteSubscription, getSubscriptions, newFeedToken, patchSubscription, type Subscription } from '../api';
 import { useMe } from '../auth/useMe';
+import { CeasedBadge } from '../components/CeasedBadge';
 import { ConfirmButton } from '../components/ConfirmButton';
 import { FollowDialog } from '../components/FollowButton';
 import { EmptyState } from '../ui/EmptyState';
@@ -74,6 +75,7 @@ export function FollowingPage() {
                   </div>
                   <Switch label="Paused" checked={s.paused} onChange={() => pause.mutate(s)} />
                 </div>
+                {s.type === 'SOURCE' ? <CeasedBadge status={s.publicationStatus} lastIssueYear={s.lastIssueYear} continuedBy={s.continuedBy} /> : null}
                 {s.targetStatus === 'MOVED' && s.xrNote ? (
                   <Alert color="gray" mt="xs" role="note" title="This taxon moved">{s.xrNote}</Alert>
                 ) : null}

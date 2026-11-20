@@ -62,4 +62,23 @@ describe('AccountPage', () => {
     renderApp(<AccountPage />, '/account');
     expect(await screen.findByRole('link', { name: 'Sign in' })).toBeInTheDocument();
   });
+
+  it('listsRegisteredJournals', async () => {
+    server.use(
+      http.get('/api/me', () => HttpResponse.json(meBody)),
+      http.get('/api/me/registrations', () => HttpResponse.json([
+        { id: 2, kind: 'ISSN', input: '1175-5326', state: 'IDENTIFIED', status: 'COVERED', created: '2026-11-19T10:00:00Z',
+          journal: { id: 7, title: 'Zootaxa', issns: ['1175-5326'], tier: 'CORE', publicationStatus: 'ACTIVE', routes: [] } },
+        { id: 1, kind: 'URL', input: 'https://example.org/j', state: 'NOT_IDENTIFIED', status: 'NOT_IDENTIFIED', reason: 'PAGE_UNREACHABLE', created: '2026-11-18T10:00:00Z', journal: null },
+      ])),
+    );
+    renderApp(<AccountPage />, '/account');
+    expect(await screen.findByRole('heading', { name: 'Registered journals' })).toBeInTheDocument();
+    const row = (await screen.findByText('1175-5326')).closest('li') as HTMLElement;
+    expect(within(row).getByText('2026-11-19')).toBeInTheDocument();
+    expect(within(row).getByText(/Covered by Garrulus/)).toBeInTheDocument();
+    expect(within(row).getByRole('link', { name: 'Zootaxa' })).toHaveAttribute('href', '/source/7');
+    const second = screen.getByText('https://example.org/j').closest('li') as HTMLElement;
+    expect(within(second).getByText(/Not identified · The page could not be read/)).toBeInTheDocument();
+  });
 });

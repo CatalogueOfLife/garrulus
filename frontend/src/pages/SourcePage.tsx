@@ -2,6 +2,7 @@ import { Alert, Loader, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { getSource, getTaxGroups } from '../api';
+import { CeasedBadge } from '../components/CeasedBadge';
 import { FollowActions } from '../components/FollowActions';
 import { Section } from '../components/Section';
 import { TaxGroupIcon } from '../components/TaxGroupIcon';
@@ -15,7 +16,7 @@ import { sentence } from '../ui/sentence';
 import list from '../ui/list.module.css';
 import classes from '../ui/detail.module.css';
 import { usePageTitle } from '../usePageTitle';
-import { subfieldLabel } from '../subfields';
+import { disciplineLabel, useDisciplines } from '../disciplines';
 
 const PUBLIC_TIERS = ['CORE', 'BROAD'];
 const pct = (share: number) => `${Math.round(share * 100)}%`;
@@ -24,6 +25,7 @@ export function SourcePage() {
   const { id = '' } = useParams();
   const source = useQuery({ queryKey: ['source', id], queryFn: () => getSource(id) });
   const groups = useQuery({ queryKey: ['taxgroups'], queryFn: getTaxGroups, staleTime: Infinity });
+  const disciplines = useDisciplines();
   const s = source.data;
   usePageTitle(s?.title ?? `Journal ${id}`);
 
@@ -61,6 +63,8 @@ export function SourcePage() {
           : undefined}
       />
 
+      <CeasedBadge status={s.publicationStatus} lastIssueYear={s.lastIssueYear} continuedBy={s.continuedBy} />
+
       <div className={`${list.page} ${classes.body}`}>
         <div className={list.mainCol}>
           <Section title="Recent papers">
@@ -92,11 +96,11 @@ export function SourcePage() {
             <StatRows rows={cat} />
             {s.subfields.length ? (
               <>
-                <p id="source-subfields" className={classes.listLabel}>Subfields</p>
+                <p id="source-subfields" className={classes.listLabel}>Disciplines</p>
                 <ul className={classes.plain} aria-labelledby="source-subfields">
                   {s.subfields.map((f) => (
                     <li key={f} title={f} className={f === s.primarySubfield ? classes.primary : undefined}>
-                      {subfieldLabel(f)}
+                      {disciplineLabel(f, disciplines.data)}
                       {f === s.primarySubfield ? <span className={classes.muted}> (primary)</span> : null}
                     </li>
                   ))}

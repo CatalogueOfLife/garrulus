@@ -1,7 +1,7 @@
 import { setupServer } from 'msw/node';
 
 import { http, HttpResponse } from 'msw';
-import type { TaxGroup, WorkPage, WorkSummary } from '../api';
+import type { Discipline, TaxGroup, WorkPage, WorkSummary } from '../api';
 
 export const work = (id: number, title: string): WorkSummary => ({
   id, title, year: 2026, authors: ['A. Author'], authorCount: 1, hasActs: false, mainNames: [], titleMentions: [],
@@ -14,6 +14,16 @@ export const taxGroups: TaxGroup[] = [
   { name: 'Animals', parents: [], codes: ['ZOOLOGICAL'], icon: 'https://icons.example/animals.svg' },
   { name: 'Insects', parents: ['Animals'], codes: ['ZOOLOGICAL'], icon: 'https://icons.example/insects.svg' },
 ];
+
+export const disciplines: Discipline[] = [
+  { code: '1103', label: 'Animal Science and Zoology', parent: null, replacedBy: null, sortOrder: 10 },
+  { code: '1105', label: 'Ecology, Evolution, Behavior and Systematics', parent: null, replacedBy: null, sortOrder: 20 },
+  { code: '1109', label: 'Insect Science', parent: '1103', replacedBy: null, sortOrder: 30 },
+  { code: '1110', label: 'Plant Science', parent: null, replacedBy: null, sortOrder: 40 },
+  { code: '2303', label: 'Ecology', parent: null, replacedBy: null, sortOrder: 50 },
+  { code: '9000', label: 'Old Insects', parent: null, replacedBy: '1109', sortOrder: 60 },
+];
+export const disciplineHandler = http.get('/api/vocab/discipline', () => HttpResponse.json(disciplines));
 
 export const xrHandler = http.get('/api/xr', () => HttpResponse.json({ key: 316691, alias: 'COL26.10 XR' }));
 export const taxGroupHandler = http.get('/api/vocab/taxgroup', () => HttpResponse.json(taxGroups));
@@ -31,4 +41,4 @@ export const meBody = {
 };
 
 // defaults: signed out and the taxgroup list, which pages with a Follow button ask for
-export const server = setupServer(signedOut, taxGroupHandler);
+export const server = setupServer(signedOut, taxGroupHandler, disciplineHandler);
