@@ -174,8 +174,8 @@ public class WorksPager {
     boolean absKept = stored == null || abs != null && Objects.equals(abs, effective(work));
     String tl = LanguageCodes.normalise(titleLang);
     String al = LanguageCodes.normalise(abstractLang);
-    if (stored != null && !titleKept && stored.titleLang() != null) tl = null;
-    if (stored != null && !absKept && stored.abstractLang() != null) al = null;
+    if (!titleKept) tl = null; // a layer's language label is only for text it supplied and the store kept
+    if (!absKept) al = null;
     List<TextIn> kept = parallelTexts.of(title, abs, textVersions);
     if (tl == null && titleLang == null
         && kept.stream().anyMatch(t -> "TITLE".equals(t.field()) && "ORIGINAL".equals(t.kind()))) {
@@ -185,7 +185,7 @@ public class WorksPager {
       kept = kept.stream().filter(t -> !("TITLE".equals(t.field()) && "ORIGINAL".equals(t.kind())
           && (own == null || t.lang().equals(own)))).toList();
       if (own != null && kept.stream().anyMatch(t -> "TITLE".equals(t.field()) && "ORIGINAL".equals(t.kind()))
-          && (stored == null || stored.titleLang() == null || titleKept)) {
+          && titleKept) {
         tl = own;
       }
     }
@@ -206,8 +206,7 @@ public class WorksPager {
   }
 
   private static @Nullable String effective(Work w) {
-    return w.abstractJats() != null && !w.abstractJats().isBlank() ? w.abstractJats()
-        : w.abstractText() != null && !w.abstractText().isBlank() ? w.abstractText() : null;
+    return WorkUpsert.effectiveAbstract(w);
   }
 
   /**

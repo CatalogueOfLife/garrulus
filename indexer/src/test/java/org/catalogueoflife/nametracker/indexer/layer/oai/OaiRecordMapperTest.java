@@ -213,6 +213,8 @@ class OaiRecordMapperTest {
         + "<dc:description xml:lang=\"es\">Primero.</dc:description>"
         + "<dc:description xml:lang=\"en\">Two &lt;i&gt;species&lt;/i&gt; &amp;amp; more\u0001.</dc:description>"
         + "</oai-dc:dc>");
+    // the raw \u0001 never reaches the mapper's own cleaning: the XML parse strips illegal characters and re-reads
+    // (OaiPmhClient.parse), so this test covers the whole path; the mapper's stripIllegal is a second line
     assertThat(hw.texts()).extracting(t -> t.text()).containsExactly("Two species & more.");
   }
 

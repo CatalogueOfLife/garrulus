@@ -25,6 +25,7 @@ class WorkTextsStoreIT extends AbstractPostgresIT {
 
   @Autowired WorksPager pager;
   @Autowired WorkMapper works;
+  @Autowired org.catalogueoflife.nametracker.store.lang.WorkTextMapper textMapper;
   @Autowired JdbcTemplate jdbc;
 
   @BeforeEach
@@ -119,6 +120,8 @@ class WorkTextsStoreIT extends AbstractPostgresIT {
         "fr", null);
     assertThat(jdbc.queryForMap("SELECT title, title_lang, abstract_lang FROM work WHERE id = " + id))
         .containsEntry("title", EN).containsEntry("title_lang", "en").containsEntry("abstract_lang", "en");
+    assertThat(jdbc.queryForMap("SELECT text, source FROM work_text WHERE work_id = " + id))
+        .containsEntry("text", ZH).containsEntry("source", "CROSSREF");
     // the OpenAlex work had no title_lang: a lower-ranked layer may fill it, but not replace the better row
     assertThat(jdbc.queryForMap("SELECT text, source FROM work_text WHERE work_id = " + better))
         .containsEntry("text", ES).containsEntry("source", "OPENALEX");
@@ -142,5 +145,32 @@ class WorkTextsStoreIT extends AbstractPostgresIT {
         new TextIn("TITLE", null, "ORIGINAL", ZH, Layer.CROSSREF)), null, null);
     assertThat(jdbc.queryForList("SELECT source FROM work_text WHERE work_id = ?", String.class, id))
         .containsExactly("CROSSREF");
+  }
+
+  @Test
+  void langOfALayerWhoseTitleWasNotKeptIsNotSetEvenWhenNull() {
+    long id = store("10.1234/l", EN, null, Layer.OPENALEX, List.of(), null, null);
+    store("10.1234/l", "Un titre en français", null, Layer.OAI, List.of(), "fr", "fr");
+    assertThat(jdbc.queryForMap("SELECT title, title_lang, abstract_lang FROM work WHERE id = " + id))
+        .containsEntry("title", EN).containsEntry("title_lang", null).containsEntry("abstract_lang", null);
+  }
+
+  @Test
+  void rankedUpsertAgreesWithLayerBiblioRankForEveryPair() {
+    long id = store("10.1234/m", EN, null, Layer.OPENALEX, List.of(), null, null);
+    int n = 0;
+    for (Layer stored : Layer.values()) {
+      for (Layer in : Layer.values()) {
+        String lang = "x" + (n++);
+        textMapper.upsert(new org.catalogueoflife.nametracker.store.lang.WorkText(id, "TITLE", lang, "PARALLEL", "old",
+            stored.name(), null, null));
+        textMapper.upsertRanked(new org.catalogueoflife.nametracker.store.lang.WorkText(id, "TITLE", lang, "PARALLEL",
+            "new", in.name(), null, null), in.biblioRank());
+        String text = jdbc.queryForObject("SELECT text FROM work_text WHERE work_id = ? AND lang = ?", String.class,
+            id, lang);
+        assertThat(text).as(stored + " row, incoming " + in).isEqualTo(in.biblioRank() <= stored.biblioRank() ? "new"
+            : "old");
+      }
+    }
   }
 }

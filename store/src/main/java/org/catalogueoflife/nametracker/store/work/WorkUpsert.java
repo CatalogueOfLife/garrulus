@@ -290,7 +290,7 @@ public class WorkUpsert {
   }
 
   /** The abstract the finder reads: the JATS one, else the plain text, else null. */
-  static @Nullable String effectiveAbstract(Work w) {
+  public static @Nullable String effectiveAbstract(Work w) {
     return !blank(w.abstractJats()) ? w.abstractJats() : !blank(w.abstractText()) ? w.abstractText() : null;
   }
 

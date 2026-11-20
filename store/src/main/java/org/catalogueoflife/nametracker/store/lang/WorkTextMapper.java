@@ -1,7 +1,10 @@
 package org.catalogueoflife.nametracker.store.lang;
 
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import org.catalogueoflife.nametracker.store.work.Layer;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -14,9 +17,15 @@ public interface WorkTextMapper {
   /**
    * As {@link #upsert}, for a text a harvest layer delivered: an existing row whose source is a layer ranked better than
    * {@code rank} (ADR-0008 {@code Layer.biblioRank}, lower wins) is left as it is; equal or worse is replaced. A source
-   * that is no layer is replaced.
+   * that is no layer is replaced. {@code ranks} maps every layer name to its rank (see the default method).
    */
-  int upsertRanked(@Param("t") WorkText t, @Param("rank") int rank);
+  int upsertRanked(@Param("t") WorkText t, @Param("rank") int rank, @Param("ranks") Map<String, Integer> ranks);
+
+  default int upsertRanked(WorkText t, int rank) {
+    Map<String, Integer> ranks = new LinkedHashMap<>();
+    for (Layer l : Layer.values()) ranks.put(l.name(), l.biblioRank());
+    return upsertRanked(t, rank, ranks);
+  }
 
   List<WorkText> forWork(@Param("workId") long workId);
 

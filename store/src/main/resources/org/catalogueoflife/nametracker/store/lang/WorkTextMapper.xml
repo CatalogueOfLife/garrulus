@@ -27,8 +27,9 @@
     VALUES (#{t.workId}, #{t.field}, #{t.lang}, #{t.kind}, #{t.text}, #{t.source}, #{t.model})
     ON CONFLICT (work_id, field, lang, kind) DO UPDATE
       SET text = EXCLUDED.text, source = EXCLUDED.source, model = EXCLUDED.model
-      WHERE (CASE work_text.source WHEN 'CROSSREF' THEN 0 WHEN 'OPENALEX' THEN 1 WHEN 'EUROPEPMC' THEN 2
-                                   WHEN 'OAI' THEN 3 WHEN 'MAGTECH' THEN 3 WHEN 'BLR' THEN 4 ELSE 99 END) >= #{rank}
+      WHERE (CASE work_text.source
+        <foreach collection="ranks" index="name" item="r">WHEN #{name} THEN #{r} </foreach>
+        ELSE 99 END) >= #{rank}
   </insert>
 
   <select id="forWork" resultMap="text">
