@@ -16,6 +16,16 @@ import { QueryState, SafeUrl, errMessage } from './adminUi';
 import { flagsOf } from './AdminJournalsPage';
 
 const when = (s?: string | null) => (s ? s.slice(0, 10) : '–');
+/** The reasons the server accepts (SourceStatusService), in words. */
+const CEASED_REASONS = [
+  { value: 'STOPPED', label: 'Stopped publishing' },
+  { value: 'TITLE_CHANGE', label: 'Continued under a new title' },
+  { value: 'MERGED', label: 'Merged into another journal' },
+  { value: 'UNKNOWN', label: 'Unknown' },
+];
+const reasonLabel = (r: string) => CEASED_REASONS.find((x) => x.value === r)?.label ?? r;
+/** The server's bounds for the last issue year. */
+const MIN_YEAR = 1800;
 const Section = ({ title, children }: { title: string; children: ReactNode }) => (
   <section className={classes.section}><h2>{title}</h2>{children}</section>
 );
@@ -99,11 +109,11 @@ function StatusSection({ d, patch, busy }: { d: AdminSourceDetail; patch: (p: Ad
   const found = useQuery({ queryKey: ['admin', 'successor', query], enabled: query.trim().length >= 3,
     queryFn: () => listSources({ q: query.trim(), limit: 8 }) });
   const yearNum = year.trim() === '' ? undefined : Number(year);
-  const yearBad = yearNum !== undefined && (!Number.isInteger(yearNum) || yearNum < 1600 || yearNum > 2100);
+  const yearBad = yearNum !== undefined && (!Number.isInteger(yearNum) || yearNum < MIN_YEAR || yearNum > new Date().getUTCFullYear());
   const ceased = s.publicationStatus === 'CEASED';
   return (
     <Section title="Publication status">
-      <p>{ceased ? `Ceased${d.lastIssueYear ? `, last issue ${d.lastIssueYear}` : ''}${d.ceasedReason ? `: ${d.ceasedReason}` : ''}` : 'Active'}.
+      <p>{ceased ? `Ceased${d.lastIssueYear ? `, last issue ${d.lastIssueYear}` : ''}${d.ceasedReason ? `: ${reasonLabel(d.ceasedReason).toLowerCase()}` : ''}` : 'Active'}.
         {d.continuedBy && <> Continued as <Link to={`/admin/journals/${d.continuedBy.id}`}>{d.continuedBy.title}</Link>.</>}</p>
       {s.dormant && (
         <div>
@@ -117,8 +127,10 @@ function StatusSection({ d, patch, busy }: { d: AdminSourceDetail; patch: (p: Ad
         <Button loading={busy} onClick={() => patch({ publicationStatus: 'ACTIVE' })}>Reactivate</Button>
       ) : (
         <div>
-          <TextInput label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} required />
-          <TextInput label="Last issue year" value={year} onChange={(e) => setYear(e.target.value)} inputMode="numeric" error={yearBad ? 'A year' : undefined} w={160} />
+          <NativeSelect label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} required w={280}
+            data={[{ value: '', label: 'Choose a reason' }, ...CEASED_REASONS]} />
+          <TextInput label="Last issue year" value={year} onChange={(e) => setYear(e.target.value)} inputMode="numeric"
+            error={yearBad ? `A year from ${MIN_YEAR} to this year` : undefined} w={220} />
           <TextInput label="Successor (search by title)" value={query} onChange={(e) => { setQuery(e.target.value); setSuccessor(null); }} />
           {found.data?.results.map((r) => (
             <label key={r.id} style={{ display: 'block' }}>
@@ -127,8 +139,8 @@ function StatusSection({ d, patch, busy }: { d: AdminSourceDetail; patch: (p: Ad
           ))}
           <div className={classes.actions}>
             <ConfirmButton question="Mark this journal as ceased?" confirmLabel="Yes, cease" color="red" loading={busy}
-              disabled={reason.trim() === '' || yearBad}
-              onConfirm={() => patch({ publicationStatus: 'CEASED', ceasedReason: reason.trim(), lastIssueYear: yearNum, continuedBy: successor ?? undefined })}>
+              disabled={reason === '' || yearBad}
+              onConfirm={() => patch({ publicationStatus: 'CEASED', ceasedReason: reason, lastIssueYear: yearNum, continuedBy: successor ?? undefined })}>
               Cease
             </ConfirmButton>
           </div>

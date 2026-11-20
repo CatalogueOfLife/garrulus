@@ -56,11 +56,28 @@ describe('AdminJournalPage', () => {
     const user = userEvent.setup();
     const cease = await screen.findByRole('button', { name: 'Cease' });
     expect(cease).toBeDisabled();
-    await user.type(screen.getByLabelText(/Reason/), 'Merged');
+    await user.selectOptions(screen.getByLabelText(/Reason/), 'Merged into another journal');
     await user.type(screen.getByLabelText('Last issue year'), '2019');
     await user.click(screen.getByRole('button', { name: 'Cease' }));
     await user.click(screen.getByRole('button', { name: 'Yes, cease' }));
-    await waitFor(() => expect(body).toEqual({ publicationStatus: 'CEASED', ceasedReason: 'Merged', lastIssueYear: 2019 }));
+    await waitFor(() => expect(body).toEqual({ publicationStatus: 'CEASED', ceasedReason: 'MERGED', lastIssueYear: 2019 }));
+  });
+  it('ceaseFormOffersTheFourReasonsAndTheServersYears', async () => {
+    useDetail();
+    page();
+    const user = userEvent.setup();
+    const reason = await screen.findByLabelText(/Reason/);
+    expect([...(reason as HTMLSelectElement).options].map((o) => o.value)).toEqual(['', 'STOPPED', 'TITLE_CHANGE', 'MERGED', 'UNKNOWN']);
+    await user.selectOptions(reason, 'STOPPED');
+    const year = screen.getByLabelText('Last issue year');
+    await user.type(year, '1799');
+    expect(screen.getByRole('button', { name: 'Cease' })).toBeDisabled();
+    await user.clear(year);
+    await user.type(year, String(new Date().getUTCFullYear() + 1));
+    expect(screen.getByRole('button', { name: 'Cease' })).toBeDisabled();
+    await user.clear(year);
+    await user.type(year, '1800');
+    expect(screen.getByRole('button', { name: 'Cease' })).toBeEnabled();
   });
   it('disciplineOverrideSaves', async () => {
     useDetail();
