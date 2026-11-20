@@ -108,14 +108,48 @@ public class LibreTranslateClient implements TitleTranslator {
       throw new IOException("Interrupted while calling LibreTranslate", e);
     }
     int s = resp.statusCode();
-    try (java.io.InputStream in = resp.body()) {
+    java.io.InputStream in = resp.body();
+    try {
       if (s >= 500) throw outage(new IOException("HTTP " + s));
       if (s != 200) throw new IOException("LibreTranslate " + req.uri().getPath() + " returned HTTP " + s);
-      byte[] b = in.readNBytes(MAX_RESPONSE + 1);
-      if (b.length > MAX_RESPONSE) {
-        throw new IOException("LibreTranslate " + req.uri().getPath() + " answered more than " + MAX_RESPONSE + " bytes");
+      return readBounded(in, req.uri().getPath());
+    } finally {
+      try {
+        in.close();
+      } catch (IOException ignored) {
+        // closing a stalled body
       }
-      return new String(b, StandardCharsets.UTF_8);
+    }
+  }
+
+  /**
+   * Reads the body on a virtual thread within the timeout (the request timeout bounds only the headers). A stall or a
+   * broken connection is an outage; a body over {@link #MAX_RESPONSE} an IOException.
+   */
+  private String readBounded(java.io.InputStream in, String path) throws IOException {
+    java.util.concurrent.Future<byte[]> f;
+    try (var ex = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+      f = ex.submit(() -> in.readNBytes(MAX_RESPONSE + 1));
+      try {
+        byte[] b = f.get(timeout.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
+        if (b.length > MAX_RESPONSE) {
+          throw new IOException("LibreTranslate " + path + " answered more than " + MAX_RESPONSE + " bytes");
+        }
+        return new String(b, StandardCharsets.UTF_8);
+      } catch (java.util.concurrent.TimeoutException e) {
+        f.cancel(true);
+        try {
+          in.close(); // unblocks the reader, so the executor can end
+        } catch (IOException ignored) {
+          // already broken
+        }
+        throw outage(new IOException("LibreTranslate " + path + " stalled while sending its answer", e));
+      } catch (java.util.concurrent.ExecutionException e) {
+        throw outage(new IOException("LibreTranslate " + path + " broke off its answer: " + e.getCause(), e.getCause()));
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IOException("Interrupted while calling LibreTranslate", e);
+      }
     }
   }
 

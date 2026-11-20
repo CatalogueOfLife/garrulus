@@ -80,4 +80,27 @@ class LibreTranslateClientIT {
     assertThatThrownBy(() -> c.translate("x", "zh")).isInstanceOf(java.io.IOException.class)
         .isNotInstanceOf(ServiceOutageException.class);
   }
+
+  /** Answers the headers and half a body at once, then stalls: the request timeout alone would not end this. */
+  @Test
+  void stalledBodyIsOutage() throws Exception {
+    try (java.net.ServerSocket server = new java.net.ServerSocket(0, 1, java.net.InetAddress.getLoopbackAddress())) {
+      Thread t = Thread.startVirtualThread(() -> {
+        try (java.net.Socket s = server.accept()) {
+          s.getInputStream().read(new byte[4096]);
+          s.getOutputStream().write(("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 200\r\n\r\n"
+              + "{\"translatedText\":\"A new").getBytes());
+          s.getOutputStream().flush();
+          Thread.sleep(6000);
+        } catch (Exception ignored) {
+        }
+      });
+      LibreTranslateClient c = new LibreTranslateClient(URI.create("http://127.0.0.1:" + server.getLocalPort()), "m",
+          Duration.ofMillis(700), Clock.systemUTC());
+      long t0 = System.nanoTime();
+      assertThatThrownBy(() -> c.translate("x", "zh")).isInstanceOf(ServiceOutageException.class);
+      assertThat(Duration.ofNanos(System.nanoTime() - t0)).isLessThan(Duration.ofSeconds(3));
+      t.interrupt();
+    }
+  }
 }
