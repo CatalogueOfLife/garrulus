@@ -79,4 +79,14 @@ class LinkSourceHandlerIT extends AbstractPostgresIT {
         + "WHERE subject_id = ?", Boolean.class, s1)).isTrue();
     assertThat(s2).isGreaterThan(s1);
   }
+
+  @Test
+  void columnSchemesAreNeverStoredForASource() {
+    long s = source("ACTIVE", "3333-3330", "S5");
+    sourceLookup.answers.put(s, List.of(new Identifier("ISSN", "3333-3330"), new Identifier("ISSN_L", "3333-3330"),
+        new Identifier("OPENALEX", "S5"), new Identifier("WIKIDATA", "Q7")));
+    handler.handle(task("{\"sourceId\":" + s + "}"));
+    assertThat(jdbc.queryForList("SELECT scheme FROM source_identifier WHERE source_id = ?", String.class, s))
+        .containsExactly("WIKIDATA");
+  }
 }

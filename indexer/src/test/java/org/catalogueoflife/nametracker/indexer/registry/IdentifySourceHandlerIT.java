@@ -101,7 +101,7 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
     String base = w.getHttpBaseUrl();
     JournalCompletion completion = new JournalCompletion(new CrossrefClient(http, null, base + "/crossref"),
         new OpenAlexClient(http, budget, null, base + "/openalex"), new DoajClient(http, doajBase), true,
-        sources, links, raw, routes, beacon, locks, fold, disciplines, queue, tx);
+        sources, links, raw, routes, beacon, locks, fold, disciplines, queue, tx, clock);
     return new IdentifySourceHandler(completion, null, sources, outage, clock);
   }
 
@@ -186,7 +186,7 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
         .containsPattern("\"sourceId\": ?" + id + "\\b");
     verify(0, getRequestedFor(urlPathEqualTo("/crossref/journals/" + ZOOTAXA_E))); // the ISSN-L answered first
     assertThat(jdbc.queryForList("SELECT dedup_key FROM task WHERE type = 'LINK_SOURCE'", String.class))
-        .containsExactly("link:s" + id + ":" + java.time.YearMonth.now(java.time.ZoneOffset.UTC));
+        .containsExactly("link:s" + id + ":" + java.time.YearMonth.now(clock.withZone(java.time.ZoneOffset.UTC)));
   }
 
   @Test

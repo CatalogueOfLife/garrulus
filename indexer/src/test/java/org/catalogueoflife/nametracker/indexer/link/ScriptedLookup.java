@@ -19,6 +19,7 @@ class ScriptedLookup implements IdentifierLookup {
   final List<List<LinkTarget>> asked = new ArrayList<>();
   volatile Supplier<RuntimeException> failure;
   volatile boolean enabled = true;
+  volatile boolean applies = true;
   int batchSize = 1;
 
   ScriptedLookup(String name, IdScheme.Entity entity, String... schemes) {
@@ -32,6 +33,7 @@ class ScriptedLookup implements IdentifierLookup {
     asked.clear();
     failure = null;
     enabled = true;
+    applies = true;
     batchSize = 1;
   }
 
@@ -44,7 +46,7 @@ class ScriptedLookup implements IdentifierLookup {
   @Override public IdScheme.Entity appliesTo() { return entity; }
   @Override public boolean enabled() { return enabled; }
   @Override public int batchSize() { return batchSize; }
-  @Override public boolean applies(LinkTarget t) { return true; }
+  @Override public boolean applies(LinkTarget t) { return applies; }
 
   @Override
   public synchronized Map<Long, List<Identifier>> lookup(List<LinkTarget> batch) throws IOException {

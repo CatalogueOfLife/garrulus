@@ -50,6 +50,7 @@ public class LinkRunner {
 
   static final int FIRST_RETRY_DAYS = 30;
   static final int SECOND_RETRY_DAYS = 180;
+  private static final Set<String> COLUMN_SCHEMES = Set.of("ISSN", "ISSN_L", "OPENALEX");
   private static final Logger LOG = LoggerFactory.getLogger(LinkRunner.class);
 
   private final ObjectProvider<IdentifierLookup> lookups;
@@ -96,17 +97,27 @@ public class LinkRunner {
         .filter(l -> schemes == null || l.schemes().stream().anyMatch(schemes::contains))
         .sorted(Comparator.comparingInt(IdentifierLookup::order).thenComparing(IdentifierLookup::name)).toList();
     if (active.isEmpty()) return;
-    List<LinkTarget> current = load(entity, ids);
-    if (current.isEmpty()) return;
     char key = key(entity);
+    List<LinkTarget> current = load(entity, ids);
+    if (schemes == null) {
+      // a subject that is no longer eligible (a work not listed any more, a ceased or deleted source) is not retried
+      Set<Long> eligible = current.stream().map(LinkTarget::id).collect(java.util.stream.Collectors.toSet());
+      attempts.clearNextTryOf(key, ids.stream().filter(i -> !eligible.contains(i)).toList());
+    }
+    if (current.isEmpty()) return;
     Map<Long, Map<String, LinkAttempt>> tried = new HashMap<>();
     for (LinkAttempt a : attempts.forSubjects(key, current.stream().map(LinkTarget::id).toList())) {
       tried.computeIfAbsent(a.subjectId(), k -> new HashMap<>()).put(a.lookup(), a);
     }
     Instant now = clock.instant();
     for (IdentifierLookup lookup : active) {
-      List<LinkTarget> due = current.stream().filter(lookup::applies)
-          .filter(t -> due(tried.getOrDefault(t.id(), Map.of()).get(lookup.name()), now)).toList();
+      List<LinkTarget> due = new ArrayList<>();
+      for (LinkTarget t : current) {
+        LinkAttempt a = tried.getOrDefault(t.id(), Map.of()).get(lookup.name());
+        if (!due(a, now)) continue;
+        if (lookup.applies(t)) due.add(t);
+        else if (a != null) attempts.clearNextTry(key, t.id(), lookup.name()); // nothing left to look for: no more retries
+      }
       boolean wrote = false;
       for (int i = 0; i < due.size(); i += Math.max(1, lookup.batchSize())) {
         List<LinkTarget> chunk = due.subList(i, Math.min(due.size(), i + Math.max(1, lookup.batchSize())));
@@ -190,7 +201,9 @@ public class LinkRunner {
     Set<Identifier> out = new LinkedHashSet<>();
     for (Identifier id : raw) {
       IdScheme s = registry.find(id.scheme());
-      if (s == null || !produced.contains(s.code()) || !s.entities().contains(entity)) {
+      // a journal's ISSN, ISSN-L and OpenAlex id are its columns, never stored as lookup identifiers
+      boolean column = entity == Entity.SOURCE && COLUMN_SCHEMES.contains(id.scheme());
+      if (column || s == null || !produced.contains(s.code()) || !s.entities().contains(entity)) {
         LOG.warn("Dropping identifier {} {}: not a scheme of this lookup and entity", id.scheme(), id.value());
         continue;
       }

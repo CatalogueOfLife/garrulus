@@ -67,13 +67,13 @@ class SourceIdentifierMapperIT extends AbstractPostgresIT {
     assertThat(a.nextTry()).isNotNull();
     assertThat(attempts.due('S', Instant.now(), 10)).extracting(LinkAttempt::subjectId).contains(s);
     assertThat(attempts.due('W', Instant.now(), 10)).extracting(LinkAttempt::subjectId).doesNotContain(s);
-    assertThat(attempts.dueIds('S', Instant.now(), 10)).contains(s);
+    assertThat(attempts.dueIds('S', Instant.now(), 10, List.of("wikidata"))).contains(s);
     attempts.record('S', s, "wikidata", true, null);
     a = attempts.get('S', s, "wikidata");
     assertThat(a.attempts()).isEqualTo(3);
     assertThat(a.found()).isTrue();
     assertThat(a.nextTry()).isNull();
-    assertThat(attempts.dueIds('S', Instant.now(), 10)).doesNotContain(s);
+    assertThat(attempts.dueIds('S', Instant.now(), 10, List.of("wikidata"))).doesNotContain(s);
   }
 
   @Test

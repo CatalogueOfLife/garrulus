@@ -23,8 +23,18 @@ public interface LinkAttemptMapper {
   /** Rows of the entity whose next_try has come, oldest first. */
   List<LinkAttempt> due(@Param("entity") char entity, @Param("now") Instant now, @Param("limit") int limit);
 
-  /** Distinct subject ids of the entity with a row due, ascending. */
-  List<Long> dueIds(@Param("entity") char entity, @Param("now") Instant now, @Param("limit") int limit);
+  /**
+   * Distinct subject ids of the entity with a row due, ascending, counting only rows of the given lookups (the enabled
+   * ones; none: nothing) and only works that are INDEXED or NOTIFIED, sources that have not CEASED.
+   */
+  List<Long> dueIds(@Param("entity") char entity, @Param("now") Instant now, @Param("limit") int limit,
+      @Param("lookups") List<String> lookups);
+
+  /** Ends the retries of one row (its lookup no longer applies to the subject); the row stays as the record of the tries. */
+  int clearNextTry(@Param("entity") char entity, @Param("subjectId") long subjectId, @Param("lookup") String lookup);
+
+  /** Ends the retries of every row of the subjects (they are no longer eligible); returns the rows changed. */
+  int clearNextTryOf(@Param("entity") char entity, @Param("ids") List<Long> ids);
 
   /** Deletes the rows of the entity whose subject no longer exists; returns the rows deleted. */
   int deleteOrphans(@Param("entity") char entity);

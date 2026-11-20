@@ -46,12 +46,37 @@
   </select>
 
   <select id="dueIds" resultType="long">
-    SELECT subject_id FROM (
-      SELECT DISTINCT subject_id FROM link_attempt
-      WHERE entity = #{entity}::char(1) AND next_try IS NOT NULL AND next_try &lt;= #{now}
-        AND (entity = 'W' OR NOT EXISTS (SELECT 1 FROM source c WHERE c.id = subject_id AND c.publication_status = 'CEASED'))
-    ) d ORDER BY subject_id LIMIT #{limit}
+    <choose>
+      <when test="lookups != null and !lookups.isEmpty()">
+        SELECT subject_id FROM (
+          SELECT DISTINCT a.subject_id FROM link_attempt a
+          WHERE a.entity = #{entity}::char(1) AND a.next_try IS NOT NULL AND a.next_try &lt;= #{now}
+            AND a.lookup IN <foreach collection="lookups" item="l" open="(" separator="," close=")">#{l}</foreach>
+            AND (
+            <choose>
+              <when test="entity == 'W'">EXISTS (SELECT 1 FROM work w WHERE w.id = a.subject_id AND w.state IN ('INDEXED','NOTIFIED'))</when>
+              <otherwise>EXISTS (SELECT 1 FROM source c WHERE c.id = a.subject_id AND c.publication_status IS DISTINCT FROM 'CEASED')</otherwise>
+            </choose>)
+        ) d ORDER BY subject_id LIMIT #{limit}
+      </when>
+      <otherwise>SELECT 0::bigint WHERE false</otherwise>
+    </choose>
   </select>
+
+  <update id="clearNextTry" flushCache="true">
+    UPDATE link_attempt SET next_try = NULL
+    WHERE entity = #{entity}::char(1) AND subject_id = #{subjectId} AND lookup = #{lookup}
+  </update>
+
+  <update id="clearNextTryOf" flushCache="true">
+    <choose>
+      <when test="ids != null and !ids.isEmpty()">
+        UPDATE link_attempt SET next_try = NULL WHERE entity = #{entity}::char(1) AND next_try IS NOT NULL
+          AND subject_id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+      </when>
+      <otherwise>UPDATE link_attempt SET next_try = NULL WHERE false</otherwise>
+    </choose>
+  </update>
 
   <delete id="deleteOrphans" flushCache="true">
     DELETE FROM link_attempt a WHERE a.entity = #{entity}::char(1) AND NOT EXISTS (

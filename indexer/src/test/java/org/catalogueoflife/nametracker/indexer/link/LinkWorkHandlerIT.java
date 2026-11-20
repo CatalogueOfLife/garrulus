@@ -300,4 +300,64 @@ class LinkWorkHandlerIT extends AbstractPostgresIT {
     assertThat(workLookup.calls()).isEqualTo(before + 1);
     assertThat(attempt(w1)).containsEntry("attempts", 2);
   }
+
+  private Object nextTry(long work) {
+    return attempt(work).get("next_try");
+  }
+
+  private int sweep() {
+    return scheduler.sweep(org.catalogueoflife.nametracker.store.ident.IdScheme.Entity.WORK, LinkWorkHandler.TYPE);
+  }
+
+  @Test
+  void dueRowOfALookupThatNoLongerAppliesIsClearedAndNotSelected() {
+    long w = indexed();
+    handler.handle(task("{\"workId\":" + w + "}"));
+    makeDue(w);
+    workLookup.applies = false; // e.g. the id arrived from another layer meanwhile
+
+    handler.handle(task("{\"workId\":" + w + "}"));
+
+    assertThat(workLookup.calls()).isEqualTo(1);
+    assertThat(nextTry(w)).isNull();
+    assertThat(attempt(w)).containsEntry("attempts", 1);
+    assertThat(sweep()).isZero();
+  }
+
+  @Test
+  void aSchemesFilterLeavesDueRowsOfOtherLookupsAlone() {
+    long w = indexed();
+    handler.handle(task("{\"workId\":" + w + "}"));
+    makeDue(w);
+    workLookup.applies = false;
+
+    handler.handle(task("{\"ids\":[" + w + "],\"schemes\":[\"BHL_PART\"]}"));
+
+    assertThat(nextTry(w)).isNotNull();
+  }
+
+  @Test
+  void dueRowOfADisabledLookupIsNotSelected() {
+    long w = indexed();
+    handler.handle(task("{\"workId\":" + w + "}"));
+    makeDue(w);
+    workLookup.enabled = false;
+
+    assertThat(sweep()).isZero();
+    assertThat(nextTry(w)).isNotNull(); // kept for the day the lookup is switched on again
+    workLookup.enabled = true;
+    assertThat(sweep()).isEqualTo(1);
+  }
+
+  @Test
+  void dueRowOfAWorkThatIsNoLongerListedIsNotSelectedAndCleared() {
+    long w = indexed();
+    handler.handle(task("{\"workId\":" + w + "}"));
+    makeDue(w);
+    jdbc.update("UPDATE work SET state = 'CONTENT_RESOLVED' WHERE id = ?", w);
+
+    assertThat(sweep()).isZero();
+    handler.handle(task("{\"ids\":[" + w + "]}"));
+    assertThat(nextTry(w)).isNull();
+  }
 }

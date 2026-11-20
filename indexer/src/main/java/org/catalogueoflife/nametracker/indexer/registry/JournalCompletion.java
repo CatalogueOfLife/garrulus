@@ -1,5 +1,6 @@
 package org.catalogueoflife.nametracker.indexer.registry;
 
+import java.time.Clock;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -77,12 +78,14 @@ public class JournalCompletion {
   private final DisciplineService disciplines;
   private final TaskQueue queue;
   private final TransactionTemplate tx;
+  private final Clock clock;
 
   public JournalCompletion(CrossrefClient crossref, OpenAlexClient openalex, DoajClient doaj,
       @Value("${nametracker.discovery.doaj.enabled:true}") boolean doajEnabled, SourceMapper sources,
       IssnLinkMapper links, ClassificationRawMapper raw, SourceRouteMapper routes, PkpBeaconMapper beacon,
       IdentityLocks locks, SourceFold fold, DisciplineService disciplines, TaskQueue queue,
-      TransactionTemplate tx) {
+      TransactionTemplate tx, Clock clock) {
+    this.clock = clock;
     this.crossref = crossref;
     this.openalex = openalex;
     this.doaj = doaj;
@@ -117,7 +120,7 @@ public class JournalCompletion {
     ProbeEuropePmcHandler.enqueue(queue, id);
     disciplines.apply(id);
     // the identifier lookups run for the source that holds the journal now (a fold may have changed the id), once a month
-    LinkSourceHandler.enqueue(queue, id, TaskPriority.BACKFILL, "link:s" + id + ":" + YearMonth.now(ZoneOffset.UTC));
+    LinkSourceHandler.enqueue(queue, id, TaskPriority.BACKFILL, "link:s" + id + ":" + YearMonth.now(clock.withZone(ZoneOffset.UTC)));
   }
 
   /** Gone, or folded into a ceased journal (which gets no calls): the completion ends there. */

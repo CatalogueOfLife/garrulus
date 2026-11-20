@@ -12,6 +12,7 @@ import org.catalogueoflife.nametracker.store.ident.LinkAttemptMapper;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.slf4j.Logger;
+import org.springframework.beans.factory.ObjectProvider;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -37,8 +38,11 @@ public class LinkScheduler {
   private final TaskQueue queue;
   private final Clock clock;
   private final Environment env;
+  private final ObjectProvider<IdentifierLookup> lookups;
 
-  public LinkScheduler(LinkAttemptMapper attempts, TaskQueue queue, Clock clock, Environment env) {
+  public LinkScheduler(LinkAttemptMapper attempts, TaskQueue queue, Clock clock, Environment env,
+      ObjectProvider<IdentifierLookup> lookups) {
+    this.lookups = lookups;
     this.attempts = attempts;
     this.queue = queue;
     this.clock = clock;
@@ -70,7 +74,8 @@ public class LinkScheduler {
     char key = LinkRunner.key(entity);
     int orphans = attempts.deleteOrphans(key);
     if (orphans > 0) LOG.info("Link attempts: {} rows of deleted {}s removed", orphans, entity.name().toLowerCase());
-    List<Long> due = attempts.dueIds(key, clock.instant(), DUE_LIMIT);
+    List<Long> due = attempts.dueIds(key, clock.instant(), DUE_LIMIT,
+        lookups.orderedStream().filter(l -> l.appliesTo() == entity && l.enabled()).map(IdentifierLookup::name).toList());
     if (due.isEmpty()) return 0;
     String payload = "{\"ids\":[" + due.stream().map(String::valueOf).collect(Collectors.joining(",")) + "]}";
     queue.enqueue(type, payload, TaskPriority.BACKFILL,
