@@ -184,7 +184,7 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   the scheduler enqueues nothing and a task that runs anyway ends DONE without a call. Open question for Markus: the zip
   URL is the file the ISSN IC's "on demand" form serves and is undocumented; switch on only after he confirms it may be
   used. Without the table the `CandidateRegistry` still works and matches by plain ISSN, then OpenAlex id.
-- `indexer` `DISCOVER_SOURCES` (`{"origin":"DOAJ"|"PKP_BEACON",…position}`, M6b Task 7; continuation key
+- `indexer` `DISCOVER_SOURCES` (`{"origin":"DOAJ"|"PKP_BEACON"|"PLAZI"|"COL_REFERENCES"|"BLR",…position}`, M6b Tasks 7 and 8; continuation key
   `discover:<origin>:<sha12 of the payload>` at the task's priority; offers to the `CandidateRegistry` go in at
   `BACKFILL`): nothing is harvested, a discovered journal is a `CANDIDATE` until an admin promotes it. Each origin's switch
   `nametracker.discovery.<origin, lower case, hyphens>.enabled` (default true) is read on every run: a disabled origin
@@ -201,6 +201,28 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   zoolog, taxonom, entomolog, botan, mycolog, fauna, flora, natural history, museum, ... museu, museo), none of
   `….exclude` (blank = museolog, museum studies, veterinar, medic, pharmac), endpoint not unresponsive, and
   `records2025 >= 5` or a last OAI response within 365 days (a zero count alone never excludes: Zootaxa reports 0).
+- `indexer` discovery from titles and BLR (M6b Task 8), all offers at `BACKFILL`, a signal per journal (`signal_key` empty,
+  or the title key for a journal found through a title). **Titles** (Plazi, COL references) are kept in `discovery_title`
+  (`origin`, `title_key` = `JournalTitleKey`, `refs`, `datasets`, `detail`, `resolved_issns`, `resolved_at`) and phase 2
+  (`{"origin","resolve":true,"after":key}`, 100 rows per task) asks Crossref `/journals?query=` (5 items) and takes the
+  first whose title key equals the row's: found → offer with the row's detail; else only `resolved_at` is set, and a row is
+  looked at again after 180 days. **Plazi** (`PLAZI`, phase 1 `{}`): `nametracker.discovery.plazi.base-url` (default
+  `https://tb.plazi.org/GgServer/srsStats/stats`, 1 s per request) for the current year and the two before, summed per
+  journal label (labels without a letter such as "183" skipped), `plazi.min-articles` (3) articles, detail
+  `{"treatments","articles","label"}`. **COL references** (`COL_REFERENCES`, phase 1 `{}`): streams
+  `nametracker.finder.xr-zip-url` (read timeout `nametracker.finder.xr-zip-read-timeout`, outages as `BUILD_DICTIONARY`),
+  reads `Reference.tsv|txt|csv` (headers with or without `col:`), groups by normalised `issn` else by title key of
+  `containerTitle`; groups with `col-references.min-references` (10) references: ISSN groups are offered at once, title
+  groups (the `col-references.max-titles` = 2000 largest) go to `discovery_title`; detail `{"references","datasets","title"}`.
+  **BLR** (`BLR`, one task, no call): `layer_unmatched` DOIs of the last 12 months by ISSN, `blr.min-dois` (2) or more
+  offered, detail `{"dois","lastSeen","example"}`; `lastSeen` (newest first sighting) is the dated evidence of life.
+  Switches `nametracker.discovery.<plazi|col-references|blr>.enabled` (default true). `DiscoveryScheduler`
+  (`nametracker.discovery.cron`, default `0 15 1 1 * *` UTC, behind `nametracker.harvest.enabled`) enqueues per month
+  `DISCOVER_SOURCES` for each enabled origin of `DOAJ,PKP_BEACON,PLAZI,COL_REFERENCES,BLR` (key `discover:<o>:<yyyy-mm>`)
+  and `REFRESH_ISSNL` (key `issnl:<yyyy-mm>`) only when `nametracker.discovery.issnl.enabled` is true (default false); a
+  disabled origin enqueues nothing. The OpenAlex seeding (`SEED_SOURCES`, origin `SEED_TOPIC`) stays on its own cron; it now
+  writes a `SEED_TOPIC` signal `{"taxonomyWorks","broadWorks","totalWorks"}`, adopts an ISSN-only candidate (sets its OpenAlex
+  id) instead of adding a second row, and never re-tiers a CEASED source.
 - `indexer` `IDENTIFY_SOURCE` (`{"sourceId":n}`, M6b Task 6; queued by the registry for every new candidate, key
   `identify:s<n>`): completes the source step by step, each written at once: ISSN-L and siblings from `issn_link`;
   Crossref `/journals/{issn}` (ISSNs, the title while it is still an ISSN, a missing publisher); OpenAlex by id or

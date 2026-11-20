@@ -1,0 +1,49 @@
+{
+ "fields": [
+  "DocCount",
+  "BibSource",
+  "DocArticleUuid"
+ ],
+ "types": {
+  "DocCount": "integer",
+  "BibSource": "string",
+  "DocArticleUuid": "integer"
+ },
+ "labels": {
+  "DocCount": "Number of Treatments",
+  "BibSource": "Journal / Publisher",
+  "DocArticleUuid": "Article UUID"
+ },
+ "data": [
+  {
+   "DocCount": 547,
+   "BibSource": "Acarologia",
+   "DocArticleUuid": 60
+  },
+  {
+   "DocCount": 33,
+   "BibSource": "Acta Zoológica Lilloana",
+   "DocArticleUuid": 10
+  },
+  {
+   "DocCount": 287,
+   "BibSource": "Adansonia",
+   "DocArticleUuid": 19
+  },
+  {
+   "DocCount": 7,
+   "BibSource": "African Biodiversity & Conservation",
+   "DocArticleUuid": 1
+  },
+  {
+   "DocCount": 75,
+   "BibSource": "African Journal of Herpetology",
+   "DocArticleUuid": 1
+  },
+  {
+   "DocCount": 4,
+   "BibSource": "183",
+   "DocArticleUuid": 4
+  }
+ ]
+}

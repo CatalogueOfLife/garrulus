@@ -7,4 +7,22 @@
     ON CONFLICT DO NOTHING
   </insert>
 
+  <resultMap id="unmatchedIssn" type="org.catalogueoflife.nametracker.store.layer.UnmatchedIssn">
+    <constructor>
+      <arg column="issn" javaType="string"/>
+      <arg column="container_title" javaType="string"/>
+      <arg column="dois" javaType="_int"/>
+      <arg column="last_seen" javaType="java.time.Instant"/>
+      <arg column="example" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <select id="byIssn" resultMap="unmatchedIssn">
+    SELECT issn, max(container_title) AS container_title, count(DISTINCT doi)::int AS dois, max(first_seen) AS last_seen,
+           min(doi) AS example
+    FROM layer_unmatched
+    WHERE layer = 'BLR' AND issn IS NOT NULL AND issn &lt;&gt; '' AND first_seen &gt;= #{since}
+    GROUP BY issn ORDER BY issn
+  </select>
+
 </mapper>

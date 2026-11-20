@@ -1,0 +1,62 @@
+{
+ "status": "ok",
+ "message-type": "journal-list",
+ "message-version": "1.0.0",
+ "message": {
+  "items-per-page": 5,
+  "query": {
+   "start-index": 0,
+   "search-terms": "Adansonia"
+  },
+  "total-results": 3,
+  "items": [
+   {
+    "publisher": "BioOne (Museum National d'Histoire Naturelle, Paris, France)",
+    "title": "Adansonia",
+    "subjects": [],
+    "ISSN": [
+     "1280-8571",
+     "1639-4798"
+    ],
+    "issn-type": [
+     {
+      "type": "print",
+      "value": "1280-8571"
+     },
+     {
+      "type": "electronic",
+      "value": "1639-4798"
+     }
+    ]
+   },
+   {
+    "publisher": "Biodiversity Heritage Library",
+    "title": "Adansonia",
+    "subjects": [],
+    "ISSN": [
+     "0001-804X"
+    ],
+    "issn-type": [
+     {
+      "value": "0001-804X",
+      "type": "print"
+     }
+    ]
+   },
+   {
+    "publisher": "Biodiversity Heritage Library",
+    "title": "Bulletin du Muse\u0301um National d Histoire Naturelle Section B Adansonia botanique phytochimie",
+    "subjects": [],
+    "ISSN": [
+     "0240-8937"
+    ],
+    "issn-type": [
+     {
+      "value": "0240-8937",
+      "type": "print"
+     }
+    ]
+   }
+  ]
+ }
+}

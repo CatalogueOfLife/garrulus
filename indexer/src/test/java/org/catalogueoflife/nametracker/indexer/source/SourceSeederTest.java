@@ -28,7 +28,9 @@ import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClassifications;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient;
 import org.catalogueoflife.nametracker.store.discipline.RawClassification;
 import tools.jackson.databind.JsonNode;
+import org.catalogueoflife.nametracker.indexer.registry.SourceIdentity;
 import org.catalogueoflife.nametracker.indexer.stats.DisciplineService;
+import org.catalogueoflife.nametracker.store.registry.SourceSignalMapper;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
@@ -44,6 +46,8 @@ class SourceSeederTest {
   private final SourceMapper sources = mock(SourceMapper.class);
   private final TaskQueue queue = mock(TaskQueue.class);
   private final DisciplineService disciplines = mock(DisciplineService.class);
+  private final SourceIdentity identity = mock(SourceIdentity.class);
+  private final SourceSignalMapper signals = mock(SourceSignalMapper.class);
   private final AtomicLong ids = new AtomicLong(100);
 
   static String group(String meta, String... keyCount) {
@@ -62,7 +66,7 @@ class SourceSeederTest {
     OpenAlexBudget budget = new OpenAlexBudget(new FakeApiUsage(), new BigDecimal("1.00"), new BigDecimal("0.30"), NOON);
     OpenAlexClient client = new OpenAlexClient(http, budget, null, w.getHttpBaseUrl());
     when(sources.upsertSeed(any())).thenAnswer(i -> ids.incrementAndGet());
-    return new SourceSeeder(client, sources, queue, SeedProperties.DEFAULTS, NOON, disciplines, false);
+    return new SourceSeeder(client, sources, queue, SeedProperties.DEFAULTS, NOON, disciplines, identity, signals, false);
   }
 
   private static void stubGroups(String taxonomy, String broad, String totals) {
@@ -210,6 +214,41 @@ class SourceSeederTest {
 
     verify(sources).setTier(1L, "CORE", true, "SEED");
     verify(sources, never()).setTier(eq(2L), anyString(), org.mockito.ArgumentMatchers.anyBoolean(), anyString());
+  }
+
+  @Test
+  void seedAdoptsIssnOnlyCandidateAndSignals(WireMockRuntimeInfo w) {
+    stubGroups(group("t", "S1", "50"), group("b", "S1", "60"), group("n", "S1", "100"));
+    stubFor(get(urlPathEqualTo("/sources/S1")).willReturn(okJson(source("S1", "A", "").replace("1111-2221", "1313-2989"))));
+    SourceSeeder seeder = seeder(w);
+    Source candidate = new Source(5L, null, null, List.of("1313-2989"), "A", null, null, null, null, "CANDIDATE",
+        "DOAJ", "{}", true, List.of(), null, null, List.of(), "{}", List.of(), null, null, null, null, null, null, null,
+        null, null, null);
+    when(identity.find(List.of("1313-2989"), null)).thenReturn(candidate);
+
+    seeder.seed();
+
+    verify(sources).updateIdentity(5L, null, List.of("1313-2989"), null, null, null, "S1", null);
+    verify(signals).upsert(eq(101L), eq("SEED_TOPIC"), eq(""), org.mockito.ArgumentMatchers.contains("\"totalWorks\":100"));
+  }
+
+  @Test
+  void ceasedSourceIsNotReTiered(WireMockRuntimeInfo w) {
+    stubGroups(group("t", "S1", "50"), group("b", "S1", "60"), group("n", "S1", "100"));
+    stubFor(get(urlPathEqualTo("/sources/S1")).willReturn(okJson(source("S1", "A", ""))));
+    SourceSeeder seeder = seeder(w);
+    Source ceased = mock(Source.class);
+    when(ceased.id()).thenReturn(1L);
+    when(ceased.tier()).thenReturn("BROAD");
+    when(ceased.tierSetBy()).thenReturn("SEED");
+    when(ceased.active()).thenReturn(true);
+    when(ceased.publicationStatus()).thenReturn("CEASED");
+    when(sources.findByOpenalexId("S1")).thenReturn(ceased);
+    when(sources.upsertSeed(any())).thenReturn(1L);
+
+    seeder.seed();
+
+    verify(sources, never()).setTier(eq(1L), anyString(), org.mockito.ArgumentMatchers.anyBoolean(), anyString());
   }
 
   @Test

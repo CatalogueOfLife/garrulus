@@ -13,7 +13,10 @@ import java.util.Set;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClassifications;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient.GroupCount;
+import org.catalogueoflife.nametracker.indexer.registry.SourceIdentity;
 import org.catalogueoflife.nametracker.indexer.stats.DisciplineService;
+import org.catalogueoflife.nametracker.store.ident.Issn;
+import org.catalogueoflife.nametracker.store.registry.SourceSignalMapper;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
@@ -21,6 +24,7 @@ import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -48,11 +52,15 @@ public class SourceSeeder {
   private final SeedProperties props;
   private final Clock clock;
   private final DisciplineService disciplines;
+  private final SourceIdentity identity;
+  private final SourceSignalMapper signals;
   private final boolean paging;
 
   /** @param paging true with an API key, when group-by calls return all pages */
   public SourceSeeder(OpenAlexClient client, SourceMapper sources, TaskQueue queue, SeedProperties props, Clock clock,
-      DisciplineService disciplines, boolean paging) {
+      DisciplineService disciplines, SourceIdentity identity, SourceSignalMapper signals, boolean paging) {
+    this.identity = identity;
+    this.signals = signals;
     this.disciplines = disciplines;
     this.client = client;
     this.sources = sources;
@@ -97,9 +105,14 @@ public class SourceSeeder {
       long total = totals.get(id);
       Source row = build(node, id, tier, "SEED_TOPIC", "SEED", (int) (total / YEARS));
       Source existing = sources.findByOpenalexId(id);
+      if (existing == null) existing = adoptCandidate(id, row);
       long sourceId = sources.upsertSeed(row);
       disciplines.applyOpenAlex(sourceId, node);
-      if (existing != null && "SEED".equals(existing.tierSetBy()) && !tier.equals(existing.tier())) {
+      signals.upsert(sourceId, "SEED_TOPIC", "", FinderJson.mapper().createObjectNode()
+          .put("taxonomyWorks", taxonomy.getOrDefault(id, 0L)).put("broadWorks", broad.getOrDefault(id, 0L))
+          .put("totalWorks", total).toString());
+      if (existing != null && "SEED".equals(existing.tierSetBy()) && !tier.equals(existing.tier())
+          && !"CEASED".equals(existing.publicationStatus())) {
         sources.setTier(sourceId, tier, Boolean.TRUE.equals(existing.active()), "SEED");
       }
       switch (tier) {
@@ -112,6 +125,26 @@ public class SourceSeeder {
     LOG.info("Seeded sources: {} core, {} broad, {} candidate, {} skipped{}; {} awaiting onboarding", core, bro, cand,
         skipped, truncated ? " (truncated)" : "", queued);
     return new SeedReport(core, bro, cand, skipped, truncated);
+  }
+
+  /**
+   * A journal the registry already holds as an ISSN-only candidate (found through its ISSNs or ISSN-L) gets the OpenAlex
+   * id, so the seed updates that row instead of adding a second one. Returns that source, or null.
+   */
+  private @Nullable Source adoptCandidate(String openalexId, Source row) {
+    List<String> issns = new ArrayList<>();
+    for (String i : row.issns()) {
+      String n = Issn.normalise(i);
+      if (n != null && !issns.contains(n)) issns.add(n);
+    }
+    if (row.issnL() != null && Issn.normalise(row.issnL()) != null && !issns.contains(Issn.normalise(row.issnL()))) {
+      issns.add(Issn.normalise(row.issnL()));
+    }
+    if (issns.isEmpty()) return null;
+    Source hit = identity.find(issns, null);
+    if (hit == null || hit.openalexId() != null) return null;
+    sources.updateIdentity(hit.id(), null, issns, null, null, null, openalexId, null);
+    return hit;
   }
 
   /** One ONBOARD_SOURCE task per active CORE/BROAD source not yet onboarded; the dedup key keeps it to one. */

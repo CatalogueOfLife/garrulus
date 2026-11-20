@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
 /**
- * {@code DISCOVER_SOURCES}, payload {@code {"origin":"DOAJ"|"PKP_BEACON",…position}}: one page of one discovery origin.
+ * {@code DISCOVER_SOURCES}, payload {@code {"origin":"DOAJ", "PKP_BEACON", "PLAZI", "COL_REFERENCES", "BLR",…position}}: one page of one discovery origin.
  * The continuation goes in at the task's priority under {@code discover:<origin>:<sha12 of the payload>}. The origin's
  * switch {@code nametracker.discovery.<origin, lower case, hyphens>.enabled} (default true) is read on every run: a
  * disabled origin ends DONE with an INFO and no call. An outage defers the task without using an attempt. Nothing is

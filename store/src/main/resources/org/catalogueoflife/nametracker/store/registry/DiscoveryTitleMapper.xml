@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.nametracker.store.registry.DiscoveryTitleMapper">
+
+  <resultMap id="result" type="org.catalogueoflife.nametracker.store.registry.DiscoveryTitle">
+    <constructor>
+      <arg column="origin" javaType="string"/>
+      <arg column="title_key" javaType="string"/>
+      <arg column="title" javaType="string"/>
+      <arg column="issn" javaType="string"/>
+      <arg column="refs" javaType="_int"/>
+      <arg column="datasets" javaType="java.lang.Integer"/>
+      <arg column="detail" javaType="string" typeHandler="org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler"/>
+      <arg column="resolved_issns" javaType="java.util.List" typeHandler="org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler"/>
+      <arg column="resolved_at" javaType="java.time.Instant"/>
+    </constructor>
+  </resultMap>
+
+  <insert id="upsert">
+    INSERT INTO discovery_title (origin, title_key, title, issn, refs, datasets, detail)
+    VALUES (#{origin}, #{titleKey}, #{title}, #{issn}, #{refs}, #{datasets},
+            #{detail, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler})
+    ON CONFLICT (origin, title_key) DO UPDATE SET title = EXCLUDED.title, issn = EXCLUDED.issn, refs = EXCLUDED.refs,
+      datasets = EXCLUDED.datasets, detail = EXCLUDED.detail
+  </insert>
+
+  <delete id="deleteExcept">
+    DELETE FROM discovery_title WHERE origin = #{origin}
+    <if test="keep != null and !keep.isEmpty()">
+      AND title_key &lt;&gt; ALL (#{keep, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler})
+    </if>
+  </delete>
+
+  <select id="unresolved" resultMap="result">
+    SELECT * FROM discovery_title
+    WHERE origin = #{origin} AND (resolved_at IS NULL OR resolved_at &lt; #{staleBefore})
+    <if test="afterKey != null">AND title_key &gt; #{afterKey}</if>
+    ORDER BY title_key LIMIT #{size}
+  </select>
+
+  <update id="markResolved">
+    UPDATE discovery_title SET resolved_issns = #{issns, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler, jdbcType=ARRAY},
+      resolved_at = #{at}
+    WHERE origin = #{origin} AND title_key = #{titleKey}
+  </update>
+
+</mapper>
