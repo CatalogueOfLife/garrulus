@@ -14,6 +14,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
@@ -76,6 +78,23 @@ public class OaiPmhClient {
     return new OaiPage(records, token(lr));
   }
 
+  /**
+   * {@code GetRecord} of one identifier in a metadata prefix. Empty when the repository does not know the identifier
+   * ({@code idDoesNotExist}), cannot give it in that prefix ({@code cannotDisseminateFormat}) or the record is deleted;
+   * any other OAI error is a non-retryable problem, an outage or a bad status the usual {@code HttpProblem}.
+   */
+  public Optional<OaiRecord> getRecord(URI base, String identifier, String prefix) {
+    Map<String, String> q = new LinkedHashMap<>();
+    q.put("verb", "GetRecord");
+    q.put("identifier", identifier);
+    q.put("metadataPrefix", prefix);
+    Element gr = child(request(base, q, Set.of("idDoesNotExist", "cannotDisseminateFormat")), "GetRecord");
+    Element r = gr == null ? null : child(gr, "record");
+    if (r == null) return Optional.empty();
+    OaiRecord rec = record(r, prefix);
+    return rec.deleted() ? Optional.empty() : Optional.of(rec);
+  }
+
   public Identify identify(URI base) {
     Element id = child(request(base, Map.of("verb", "Identify")), "Identify");
     if (id == null) throw unreadable(base, "no Identify element", null);
@@ -102,6 +121,11 @@ public class OaiPmhClient {
   }
 
   private Element request(URI base, Map<String, String> params) {
+    return request(base, params, Set.of());
+  }
+
+  /** {@code emptyCodes}: OAI error codes that mean "nothing here" for this verb and give the root without a payload. */
+  private Element request(URI base, Map<String, String> params, Set<String> emptyCodes) {
     StringBuilder sb = new StringBuilder(base.toString());
     char sep = base.getRawQuery() == null ? '?' : '&';
     for (Map.Entry<String, String> e : params.entrySet()) {
@@ -129,7 +153,10 @@ public class OaiPmhClient {
         case "noRecordsMatch" -> {
           return root; // no ListRecords child: an empty page
         }
-        default -> throw new HttpProblem(uri, status, false, "OAI-PMH error " + code + ": " + msg + ": " + uri, null);
+        default -> {
+          if (emptyCodes.contains(code)) return root;
+          throw new HttpProblem(uri, status, false, "OAI-PMH error " + code + ": " + msg + ": " + uri, null);
+        }
       }
     }
     return root;

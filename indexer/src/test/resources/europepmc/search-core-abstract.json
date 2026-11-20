@@ -1,0 +1,3 @@
+{"version":"6.9","hitCount":1,"request":{"queryString":"DOI:\"10.1234/abc.1\"","resultType":"core","cursorMark":"*","pageSize":100,"sort":"","synonym":false},
+ "resultList":{"result":[{"id":"12345678","source":"MED","pmid":"12345678","doi":"10.1234/ABC.1","title":"Aus bus sp. nov.",
+ "abstractText":"<h4>Background</h4><p>A new species, <i>Aus bus</i> sp. nov., is described from Peru.</p>","language":"eng","pubYear":"2025"}]}}

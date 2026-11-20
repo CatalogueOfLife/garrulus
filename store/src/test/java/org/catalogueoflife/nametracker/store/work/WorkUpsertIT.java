@@ -122,6 +122,27 @@ class WorkUpsertIT extends AbstractPostgresIT {
   }
 
   @Test
+  void teiAppearedOnlyForAResolvedWorkWithoutFullText() {
+    WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
+    Work noTei = new Work(null, "W-tei", "10.7/tei", null, "T", null, null, null, null, null, null, null, null, null,
+        null, null, null, null, "LIVE", null, null, null, null, null, null, null, null, null, false, null, null, null,
+        null);
+    Work tei = new Work(null, "W-tei", "10.7/tei", null, "T", null, null, null, null, null, null, null, null, null,
+        null, null, null, null, "LIVE", null, null, null, null, null, null, null, null, null, true, null, null, null,
+        null);
+    long id = legacyUpsert(upsert, noTei).id();
+
+    // still DISCOVERED: the first resolve will see the flag
+    assertThat(legacyUpsert(upsert, tei).teiAppeared()).isFalse();
+    jdbc.update("UPDATE work SET openalex_has_tei = false, state = 'CONTENT_RESOLVED', text_level = 'ABSTRACT_ONLY' WHERE id = ?", id);
+    assertThat(legacyUpsert(upsert, tei).teiAppeared()).isTrue();
+    assertThat(legacyUpsert(upsert, tei).teiAppeared()).isFalse(); // it was there already
+
+    jdbc.update("UPDATE work SET openalex_has_tei = false, text_level = 'FULLTEXT' WHERE id = ?", id);
+    assertThat(legacyUpsert(upsert, tei).teiAppeared()).isFalse(); // the work has its full text
+  }
+
+  @Test
   void doiFormsNormalise() {
     WorkUpsert upsert = new WorkUpsert(works, identifiers, sightings);
     long id = legacyUpsert(upsert, work(null, "http://dx.doi.org/10.5/ABC", null, "LIVE")).id();

@@ -33,4 +33,19 @@ public final class RouteTestSupport {
     return new Work(id, null, doi, null, "T", null, null, null, null, null, null, null, null, null, null, null, null,
         null, "LIVE", null, null, null, null, null, null, null, null, pmcid, null, null, null, null, null);
   }
+
+  /** A work with a DOI, abstract text, publication year and source id. */
+  public static Work work(Long id, String doi, String abstractText, Short year, Long sourceId) {
+    return new Work(id, null, doi, sourceId, "T", null, year, null, null, null, null, null, null, null, null, null,
+        abstractText, abstractText == null ? null : "CROSSREF_JATS", "LIVE", null, null, null, null, null, null, null,
+        null, null, null, null, null, null, null);
+  }
+
+  /** A source with the id, country and ISSNs. */
+  public static org.catalogueoflife.nametracker.store.source.Source source(long id, String country,
+      String... issns) {
+    return new org.catalogueoflife.nametracker.store.source.Source(id, null, null, java.util.List.of(issns), "J", null,
+        null, null, null, "CORE", "MANUAL", null, true, null, null, null, null, null, null, null, country, null, null,
+        null, null, null, null, null, null);
+  }
 }

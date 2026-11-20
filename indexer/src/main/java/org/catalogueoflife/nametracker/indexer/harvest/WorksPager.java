@@ -140,6 +140,7 @@ public class WorksPager {
         queue.enqueue(RESOLVE_CONTENT, "{\"workId\":" + r.id() + "}", contentPriority, "content:" + r.id());
       } else {
         enqueueAbstractResolve(queue, r, contentPriority);
+        enqueueTei(queue, r, contentPriority);
       }
       enqueueMerge(queue, r, contentPriority);
       return r.created();
@@ -217,6 +218,18 @@ public class WorksPager {
   public static void enqueueAbstractResolve(TaskQueue queue, WorkUpsert.UpsertResult r, TaskPriority priority) {
     if (r.abstractChanged()) {
       enqueueReresolve(queue, r.id(), priority, "content:" + r.id() + ":abs:" + r.abstractSha(), null);
+    }
+  }
+
+  /**
+   * When OpenAlex now says the work has TEI that it did not say before, queues RESOLVE_CONTENT for it again (key
+   * {@code content:<id>:tei}): all routes run, the TEI one within the OpenAlex budget (it is the paid route, so this is
+   * not a {@code freeOnly} run); {@code "tei":true} makes a spent budget defer the task to the next day instead of
+   * dropping the route. Call it in the transaction of the upsert.
+   */
+  public static void enqueueTei(TaskQueue queue, WorkUpsert.UpsertResult r, TaskPriority priority) {
+    if (r.teiAppeared()) {
+      queue.enqueue(RESOLVE_CONTENT, "{\"workId\":" + r.id() + ",\"tei\":true}", priority, "content:" + r.id() + ":tei");
     }
   }
 

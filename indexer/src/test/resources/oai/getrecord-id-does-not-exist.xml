@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/">
+	<responseDate>2026-11-19T13:31:27Z</responseDate>
+	<request verb="GetRecord">https://threatenedtaxa.org/index.php/JoTT/oai</request>
+	<error code="idDoesNotExist">No matching identifier</error>
+</OAI-PMH>

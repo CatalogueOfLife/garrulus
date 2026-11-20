@@ -1,0 +1,4 @@
+{"meta":{"limit":100,"offset":0,"filter":{"processing_date":{"$gte":"2024-12-01","$lte":"2026-01-01"},"collection":"scl","code_title":"1984-4670"},"total":3},
+ "objects":[{"code":"S1984-46702025000100401","collection":"scl","processing_date":"2025-01-28","doi":"10.1590/S1984-4689.V42.E24009"},
+ {"code":"S1984-46702025000100400","collection":"scl","processing_date":"2025-01-21","doi":"10.1590/S1984-4689.V42.E24044"},
+ {"code":"S1984-46702025000100402","collection":"scl","processing_date":"2025-01-28","doi":"10.1590/S1984-4689.V42.E23037"}]}

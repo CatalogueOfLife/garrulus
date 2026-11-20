@@ -2,6 +2,8 @@ package org.catalogueoflife.nametracker.indexer.content;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -93,6 +95,11 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
   @Autowired org.catalogueoflife.nametracker.store.index.IndexMapper index;
   @Autowired TransactionTemplate tx;
   @Autowired JdbcTemplate jdbc;
+  @Autowired org.catalogueoflife.nametracker.store.content.TextLookupMapper lookups;
+  @Autowired org.catalogueoflife.nametracker.store.lang.WorkTextMapper texts;
+  @Autowired org.catalogueoflife.nametracker.store.ident.WorkIdentifierMapper identifiers;
+  @Autowired org.catalogueoflife.nametracker.indexer.lang.ParallelTexts parallelTexts;
+  @Autowired org.catalogueoflife.nametracker.indexer.lang.LanguageService languages;
 
   @BeforeEach
   void clean() throws IOException {
@@ -427,6 +434,176 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
 
     assertThat(count("SELECT count(*) FROM task WHERE type = 'FIND_NAMES'")).isZero();
     assertThat(works.get(id).state()).isEqualTo("INDEXED");
+  }
+
+  // ---- the abstract top-up chain ----
+
+  private ResolveContentHandler withTopUps(List<ContentRoute> routes,
+      org.catalogueoflife.nametracker.indexer.content.topup.AbstractTopUp... ups) {
+    var chain = new org.catalogueoflife.nametracker.indexer.content.topup.AbstractTopUps(List.of(ups), works, lookups,
+        texts, parallelTexts, languages, tx, Clock.systemUTC());
+    return new ResolveContentHandler(routes, works, sources, contents, blobs, policy, spool, index, queue, tx,
+        Clock.systemUTC(), chain);
+  }
+
+  private org.catalogueoflife.nametracker.indexer.content.topup.EuropePmcAbstract europePmc(WireMockRuntimeInfo w) {
+    return new org.catalogueoflife.nametracker.indexer.content.topup.EuropePmcAbstract(http(), identifiers,
+        w.getHttpBaseUrl());
+  }
+
+  private long noAbstractWork(String doi) {
+    return jdbc.queryForObject("INSERT INTO work (doi, title, license, origin) VALUES (?, 'Aus bus sp. nov.', 'cc-by', 'LIVE') RETURNING id",
+        Long.class, doi);
+  }
+
+  private static void europePmcAbstract() {
+    stubFor(get(urlPathEqualTo("/rest/search")).willReturn(aResponse().withBody(fixture("europepmc/search-core-abstract.json"))));
+  }
+
+  @Test
+  void europePmcFillsMissingAbstract(WireMockRuntimeInfo w) throws Exception {
+    europePmcAbstract();
+    long id = noAbstractWork("10.1234/abc.1");
+
+    withTopUps(List.of(), europePmc(w)).handle(task(id));
+
+    Work work = works.get(id);
+    assertThat(work.abstractJats()).contains("Aus bus");
+    assertThat(work.abstractJatsSource()).isEqualTo("EUROPEPMC");
+    assertThat(work.textLevel()).isEqualTo("ABSTRACT_ONLY");
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'FIND_NAMES'")).isEqualTo(1);
+    assertThat(lookups.triedSince(id, "EUROPEPMC", Instant.now().minus(Duration.ofMinutes(1)))).isTrue();
+    assertThat(jdbc.queryForObject("SELECT found FROM text_lookup WHERE work_id = ? AND service = 'EUROPEPMC'",
+        Boolean.class, id)).isTrue();
+  }
+
+  /** The ABSTRACT row is built from the work read again after the top-up, not from the one read at the start. */
+  @Test
+  void topUpAbstractIsNamed(WireMockRuntimeInfo w) throws Exception {
+    europePmcAbstract();
+    long id = noAbstractWork("10.1234/abc.1");
+
+    withTopUps(List.of(), europePmc(w)).handle(task(id));
+
+    var abs = contents.listByWork(id).stream().filter(c -> c.route().equals("ABSTRACT")).findFirst().orElseThrow();
+    assertThat(new String(blobs.get(abs.docSha256()).orElseThrow(), StandardCharsets.UTF_8)).contains("A new species");
+    String namesDoc = jdbc.queryForObject("SELECT payload::text FROM task WHERE type = 'FIND_NAMES'", String.class);
+    assertThat(namesDoc.replace(" ", "")).contains("\"workId\":" + id);
+  }
+
+  @Test
+  void triedWithin180DaysSkipped(WireMockRuntimeInfo w) throws Exception {
+    europePmcAbstract();
+    long id = noAbstractWork("10.1234/abc.1");
+    jdbc.update("INSERT INTO text_lookup (work_id, service, tried_at, found) VALUES (?, 'EUROPEPMC', now() - interval '179 days', false)", id);
+
+    withTopUps(List.of(), europePmc(w)).handle(task(id));
+
+    verify(0, getRequestedFor(urlPathEqualTo("/rest/search")));
+    assertThat(works.get(id).abstractJats()).isNull();
+    assertThat(works.get(id).textLevel()).isEqualTo("ABSTRACT_ONLY"); // the title alone
+
+    jdbc.update("UPDATE text_lookup SET tried_at = now() - interval '181 days' WHERE work_id = ?", id);
+    withTopUps(List.of(), europePmc(w)).handle(task(id));
+    verify(1, getRequestedFor(urlPathEqualTo("/rest/search")));
+    assertThat(works.get(id).abstractJats()).contains("Aus bus");
+  }
+
+  @Test
+  void existingAbstractNeverReplaced(WireMockRuntimeInfo w) throws Exception {
+    europePmcAbstract();
+    long id = freeWork("10.1234/abc.1", null, "The harvest's own abstract.");
+
+    withTopUps(List.of(), europePmc(w)).handle(task(id));
+
+    verify(0, getRequestedFor(urlPathEqualTo("/rest/search")));
+    assertThat(works.get(id).abstractText()).isEqualTo("The harvest's own abstract.");
+    assertThat(works.get(id).abstractJats()).isNull();
+    // and a top-up that finds an abstract after another one filled the work cannot replace it either
+    assertThat(jdbc.update("UPDATE work SET abstract = abstract WHERE id = ?", id)).isEqualTo(1);
+    assertThat(works.fillAbstract(id, "other", null, "SPRINGER")).isZero();
+  }
+
+  @Test
+  void outageNotRemembered(WireMockRuntimeInfo w) throws Exception {
+    stubFor(get(urlPathEqualTo("/rest/search")).willReturn(aResponse().withStatus(503).withHeader("Retry-After", "0")));
+    long id = noAbstractWork("10.1234/abc.1");
+
+    withTopUps(List.of(), europePmc(w)).handle(task(id)); // not a reprocess: logged and skipped
+
+    assertThat(count("SELECT count(*) FROM text_lookup")).isZero();
+    assertThat(works.get(id).state()).isEqualTo("CONTENT_RESOLVED");
+  }
+
+  @Test
+  void outageOnReprocessDefersTheTask(WireMockRuntimeInfo w) throws Exception {
+    stubFor(get(urlPathEqualTo("/rest/search")).willReturn(aResponse().withStatus(503).withHeader("Retry-After", "0")));
+    Document doc = new Document("work:x", null, List.of(), Map.of());
+    ContentRoute good = route("PMC", x -> Optional.of(new FetchedContent("PMC", "JATS",
+        "<article/>".getBytes(StandardCharsets.UTF_8), doc, "cc-by", "https://example.org/x", true)));
+    long id = noAbstractWork("10.1234/abc.1");
+
+    var h = withTopUps(List.of(good), europePmc(w));
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> h.handle(new Task(1, "RESOLVE_CONTENT",
+        "{\"workId\":" + id + ",\"reprocess\":true}", TaskPriority.LIVE, null, 1, Instant.now(), null, null, null,
+        "x", null))).isInstanceOf(org.catalogueoflife.nametracker.indexer.task.ServiceOutageException.class);
+
+    assertThat(count("SELECT count(*) FROM text_lookup")).isZero();
+  }
+
+  @Test
+  void aMissIsRemembered(WireMockRuntimeInfo w) throws Exception {
+    stubFor(get(urlPathEqualTo("/rest/search")).willReturn(aResponse().withBody(fixture("europepmc/search-empty.json"))));
+    long id = noAbstractWork("10.1234/abc.1");
+
+    withTopUps(List.of(), europePmc(w)).handle(task(id));
+
+    assertThat(jdbc.queryForObject("SELECT found FROM text_lookup WHERE work_id = ? AND service = 'EUROPEPMC'",
+        Boolean.class, id)).isFalse();
+  }
+
+  @Test
+  void scieloAddsParallelsAndDeclaredLanguage(WireMockRuntimeInfo w) throws Exception {
+    stubFor(get(urlPathEqualTo("/api/v1/article/identifiers/"))
+        .willReturn(aResponse().withBody(fixture("scielo/identifiers.json"))));
+    stubFor(get(urlPathEqualTo("/api/v1/article/"))
+        .willReturn(aResponse().withBody(fixture("scielo/article-S1984-46702025000100400.json"))));
+    long src = jdbc.queryForObject("INSERT INTO source (title, tier, origin, issns) VALUES ('Linguas', 'CORE', 'MANUAL', "
+        + "ARRAY['1984-4670']) RETURNING id", Long.class);
+    long id = jdbc.queryForObject("INSERT INTO work (doi, source_id, title, abstract, abstract_source, year, "
+        + "publication_date, origin) VALUES ('10.1590/s1984-4689.v42.e24044', ?, 'Filogenia e taxonomia', "
+        + "'Um resumo que ja existe.', 'CROSSREF_JATS', 2025, '2025-01-16', 'LIVE') RETURNING id", Long.class, src);
+    var scielo = new org.catalogueoflife.nametracker.indexer.content.topup.ScieloAbstract(http(), w.getHttpBaseUrl(),
+        "10.1590/=scl");
+
+    withTopUps(List.of(), scielo).handle(task(id));
+
+    assertThat(works.get(id).abstractText()).isEqualTo("Um resumo que ja existe."); // never replaced
+    assertThat(jdbc.queryForList("SELECT field || ':' || lang || ':' || kind || ':' || source FROM work_text "
+        + "WHERE work_id = ? ORDER BY 1", String.class, id)).containsExactly("ABSTRACT:en:PARALLEL:SCIELO",
+        "ABSTRACT:pt:PARALLEL:SCIELO", "TITLE:en:PARALLEL:SCIELO", "TITLE:pt:PARALLEL:SCIELO");
+    assertThat(jdbc.queryForList("SELECT kind || ':' || source || ':' || lang FROM work_language_evidence WHERE work_id = ?",
+        String.class, id)).contains("DECLARED:SCIELO:en");
+    assertThat(jdbc.queryForObject("SELECT found FROM text_lookup WHERE work_id = ? AND service = 'SCIELO'",
+        Boolean.class, id)).isTrue();
+
+    // asked once per work: a second resolve within the period does not ask again
+    withTopUps(List.of(), scielo).handle(task(id));
+    verify(1, getRequestedFor(urlPathEqualTo("/api/v1/article/")));
+  }
+
+  @Test
+  void aSpentBudgetOfTheTeiRouteDefersATeiRun() throws Exception {
+    ContentRoute tei = route("OPENALEX_TEI", x -> { throw new BudgetExhaustedException(Instant.parse("2030-01-02T00:05:00Z")); });
+    long id = work(source("CORE"), "T", "A", "cc-by", Instant.now());
+    var h = withTopUps(List.of(tei));
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> h.handle(new Task(1, "RESOLVE_CONTENT",
+        "{\"workId\":" + id + ",\"tei\":true}", TaskPriority.LIVE, null, 1, Instant.now(), null, null, null, "x",
+        null))).isInstanceOfSatisfying(org.catalogueoflife.nametracker.indexer.task.ServiceOutageException.class,
+        e -> assertThat(e.retryAt()).isEqualTo(Instant.parse("2030-01-02T00:05:00Z")));
+    // a run that was not queued for TEI just goes on without it
+    withTopUps(List.of(tei)).handle(task(id));
+    assertThat(works.get(id).textLevel()).isEqualTo("ABSTRACT_ONLY");
   }
 
   private interface Fetch {

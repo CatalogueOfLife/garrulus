@@ -180,6 +180,18 @@ nametracker:
     spool-dir: ${NAMETRACKER_SPOOL_DIR:./data/spool}
     spool-max-age: ${NAMETRACKER_SPOOL_MAX_AGE:14d}
     open-licences: ${NAMETRACKER_CONTENT_OPEN_LICENCES:cc-by,cc-by-sa,cc0,public-domain}
+    # abstract top-up after the full-text routes: Europe PMC (always on), Springer Nature Meta, SciELO, CiNii Research
+    topup:
+      springer:
+        # free key from dev.springernature.com; blank = off. Requests a UTC day, counted in api_usage (SPRINGER_META)
+        api-key: ${SPRINGER_API_KEY:}
+        daily-cap: ${NAMETRACKER_TOPUP_SPRINGER_DAILY_CAP:100}
+      scielo:
+        # "<doi prefix>=<collection>", comma-separated
+        collections: ${NAMETRACKER_TOPUP_SCIELO_COLLECTIONS:10.1590/=scl}
+      cinii:
+        # free application id; blank = off. Only abstracts whose abstractLicenseFlag is allow are taken
+        app-id: ${CINII_APPID:}
   crossref:
     base-url: ${NAMETRACKER_CROSSREF_BASE_URL:https://api.crossref.org}
     # blank means the public pool

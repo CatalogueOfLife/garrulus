@@ -1,0 +1,50 @@
+{
+ "code": "S1984-46702025000100400",
+ "collection": "scl",
+ "doi": "10.1590/S1984-4689.V42.E24044",
+ "code_title": [
+  "1984-4689",
+  "1984-4670"
+ ],
+ "publication_year": "2025",
+ "article": {
+  "code": "S1984-46702025000100400",
+  "v40": [
+   {
+    "_": "en"
+   }
+  ],
+  "v35": [
+   {
+    "_": "1984-4670"
+   }
+  ],
+  "v237": [
+   {
+    "_": "10.1590/s1984-4689.v42.e24044"
+   }
+  ],
+  "v12": [
+   {
+    "l": "en",
+    "_": "Phylogeny and taxonomy of the shore-fly tribe Ephydrini with comments on related tribes in Ephydrinae (Diptera: Ephydridae)"
+   },
+   {
+    "l": "pt",
+    "_": "Filogenia e taxonomia da tribo Ephydrini com comentarios sobre tribos relacionadas em Ephydrinae (Diptera: Ephydridae)"
+   }
+  ],
+  "v83": [
+   {
+    "l": "en",
+    "_": "",
+    "a": "ABSTRACT Ephydrini comprises 118 species (plus seven nomina dubia species) that are distributed in all biogeographical regions except Antarctica. The tribe currently includes 13 genera, of which three (Calocoenia Mathis, Ephydra Fallen, Paracoenia Cresson) include subgenera."
+   },
+   {
+    "l": "pt",
+    "_": "",
+    "a": "RESUMO Ephydrini compreende 118 especies (mais sete nomina dubia) distribuidas em todas as regioes biogeograficas, exceto a Antartida. A tribo inclui atualmente 13 generos, dos quais tres (Calocoenia Mathis, Ephydra Fallen, Paracoenia Cresson) incluem subgeneros."
+   }
+  ]
+ }
+}

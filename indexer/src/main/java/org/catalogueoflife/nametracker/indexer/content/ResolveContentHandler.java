@@ -17,6 +17,7 @@ import org.catalogueoflife.nametracker.indexer.finder.FindNamesHandler;
 import org.catalogueoflife.nametracker.indexer.finder.Spool;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
 import org.catalogueoflife.nametracker.indexer.content.route.AbstractRoute;
+import org.catalogueoflife.nametracker.indexer.content.topup.AbstractTopUps;
 import org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException;
 import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
@@ -59,6 +60,10 @@ import tools.jackson.databind.JsonNode;
  * (it threw a retryable problem, {@link HarvestOutage#retryable}) and none had the text, the task is deferred by 30
  * minutes as an outage instead, without using an attempt and without writing anything. A route that failed for good
  * (a 4xx, an unreadable answer) counts as having no text: deferring would repeat the same failure for ever.
+ *
+ * <p>After the routes the abstract top-up ({@link AbstractTopUps}) fills a missing abstract, and the work is read again
+ * so the ABSTRACT row and the finder see it. {@code "tei":true} comes from an OpenAlex record that newly has TEI: when
+ * the TEI route found nothing because the OpenAlex budget is spent, the task is deferred to the budget's reset.
  */
 @Component
 public class ResolveContentHandler implements TaskHandler {
@@ -83,11 +88,20 @@ public class ResolveContentHandler implements TaskHandler {
   private final TaskQueue queue;
   private final TransactionTemplate tx;
   private final Clock clock;
+  private final @Nullable AbstractTopUps topUps;
 
-  /** The full-text routes in the order given. */
+  /** The full-text routes in the order given, no abstract top-up. */
   public ResolveContentHandler(List<ContentRoute> routes, WorkMapper works, SourceMapper sources,
       ContentMapper contents, BlobStore blobs, LicencePolicy policy, Spool spool, IndexMapper index, TaskQueue queue,
       TransactionTemplate tx, Clock clock) {
+    this(routes, works, sources, contents, blobs, policy, spool, index, queue, tx, clock, null);
+  }
+
+  /** The full-text routes in the order given and the abstract top-up chain run after them (null: none). */
+  public ResolveContentHandler(List<ContentRoute> routes, WorkMapper works, SourceMapper sources,
+      ContentMapper contents, BlobStore blobs, LicencePolicy policy, Spool spool, IndexMapper index, TaskQueue queue,
+      TransactionTemplate tx, Clock clock, @Nullable AbstractTopUps topUps) {
+    this.topUps = topUps;
     this.routes = List.copyOf(routes);
     this.works = works;
     this.sources = sources;
@@ -105,8 +119,9 @@ public class ResolveContentHandler implements TaskHandler {
   @Autowired
   public ResolveContentHandler(ObjectProvider<ContentRoute> routes, WorkMapper works, SourceMapper sources,
       ContentMapper contents, BlobStore blobs, LicencePolicy policy, Spool spool, IndexMapper index, TaskQueue queue,
-      TransactionTemplate tx, Clock clock) {
-    this(routes.orderedStream().toList(), works, sources, contents, blobs, policy, spool, index, queue, tx, clock);
+      TransactionTemplate tx, Clock clock, AbstractTopUps topUps) {
+    this(routes.orderedStream().toList(), works, sources, contents, blobs, policy, spool, index, queue, tx, clock,
+        topUps);
   }
 
   @Override
@@ -120,6 +135,7 @@ public class ResolveContentHandler implements TaskHandler {
     long workId = payload.path("workId").asLong();
     boolean freeOnly = payload.path("freeOnly").asBoolean(false);
     boolean reprocess = payload.path("reprocess").asBoolean(false);
+    boolean tei = payload.path("tei").asBoolean(false);
     Work work = works.get(workId);
     if (work == null) {
       LOG.warn("RESOLVE_CONTENT for unknown work {}", workId);
@@ -139,7 +155,14 @@ public class ResolveContentHandler implements TaskHandler {
           kept.incrementAndGet());
       return;
     }
+    if (tei && full == null && found.budgetRetry() != null) {
+      // the TEI download this run was queued for waits for the OpenAlex budget; nothing else changed since
+      throw new ServiceOutageException("OpenAlex budget", found.budgetRetry());
+    }
     if (full != null) results.add(full);
+    if (topUps != null && topUps.run(work, source, reprocess)) {
+      work = works.get(workId); // the abstract the top-up stored is what the ABSTRACT row and the finder read
+    }
     if (AbstractRoute.present(work)) results.add(AbstractRoute.fetch(work));
 
     String level = full != null ? "FULLTEXT" : AbstractRoute.present(work) ? "ABSTRACT_ONLY" : "NO_TEXT";
@@ -194,24 +217,26 @@ public class ResolveContentHandler implements TaskHandler {
   }
 
   /** The first full text of the routes, or null; {@code routeDown} when a route threw a retryable problem on the way. */
-  private record FullText(@Nullable FetchedContent content, boolean routeDown) {}
+  private record FullText(@Nullable FetchedContent content, boolean routeDown, @Nullable Instant budgetRetry) {}
 
   private FullText fullText(Work work, Source source, boolean freeOnly) {
     boolean down = false;
+    Instant budgetRetry = null;
     for (ContentRoute r : routes) {
       try {
         if (freeOnly && r.paid()) continue;
         if (!r.applies(work, source)) continue;
         Optional<FetchedContent> got = r.fetch(work, source);
-        if (got.isPresent() && got.get().fulltext()) return new FullText(got.get(), down);
+        if (got.isPresent() && got.get().fulltext()) return new FullText(got.get(), down, null);
       } catch (BudgetExhaustedException e) {
         LOG.info("Route {} skipped for work {}: budget spent until {}", r.route(), work.id(), e.retryAt());
+        budgetRetry = e.retryAt();
       } catch (RuntimeException e) {
         if (HarvestOutage.retryable(e) != null || e instanceof ServiceOutageException) down = true;
         LOG.warn("Route {} failed for work {}: {}", r.route(), work.id(), e.toString());
       }
     }
-    return new FullText(null, down);
+    return new FullText(null, down, budgetRetry);
   }
 
   private void scheduleRecheck(Task task, Work work, Source source) {

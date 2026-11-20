@@ -38,9 +38,16 @@ public class WorkUpsert {
    * {@code abstractSha} is then the first 12 hex digits of the SHA-256 of the new effective abstract, else null.
    * {@code duplicateOf}: another work that holds one of the incoming identifiers (the lowest such id); the caller
    * enqueues MERGE_WORKS.
+   * {@code teiAppeared}: {@code openalex_has_tei} went from false to true on a work past DISCOVERED whose text level is
+   * not FULLTEXT, so the TEI route, which could not apply before, may now give its full text.
    */
   public record UpsertResult(long id, boolean created, boolean abstractChanged, @Nullable String abstractSha,
-      @Nullable Long duplicateOf) {
+      @Nullable Long duplicateOf, boolean teiAppeared) {
+
+    public UpsertResult(long id, boolean created, boolean abstractChanged, @Nullable String abstractSha,
+        @Nullable Long duplicateOf) {
+      this(id, created, abstractChanged, abstractSha, duplicateOf, false);
+    }
   }
 
   private static final List<String> FIRST_SCHEMES = List.of(IdScheme.DOI.code(), IdScheme.OPENALEX.code());
@@ -102,7 +109,9 @@ public class WorkUpsert {
       String after = effectiveAbstract(merged.work());
       String sha = after != null && !after.equals(before) && !"DISCOVERED".equals(stored.state())
           ? BlobStore.sha256(after).substring(0, 12) : null;
-      return new UpsertResult(found, false, sha != null, sha, record(found, incoming, layer, all));
+      boolean tei = !Boolean.TRUE.equals(stored.openalexHasTei()) && Boolean.TRUE.equals(merged.work().openalexHasTei())
+          && !"DISCOVERED".equals(stored.state()) && !"FULLTEXT".equals(stored.textLevel());
+      return new UpsertResult(found, false, sha != null, sha, record(found, incoming, layer, all), tei);
     }
     throw new IllegalStateException("Could not upsert work " + all);
   }
