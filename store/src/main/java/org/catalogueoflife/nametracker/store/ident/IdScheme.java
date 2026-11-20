@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
 import org.catalogueoflife.nametracker.store.work.WorkUpsert;
 import org.jspecify.annotations.Nullable;
 
-/** An identifier scheme of a work and the rule that turns a raw value into its normalised form. */
+/** An identifier scheme of a work or a journal, its label, link templates and the rule that turns a raw value into its normalised form. */
 public final class IdScheme {
 
   private static final Pattern DOI_RE = Pattern.compile("^10\\.\\d{4,9}/\\S+$");
@@ -31,6 +31,9 @@ public final class IdScheme {
   private static final Pattern WIKIDATA_RE = Pattern.compile("^Q\\d+$");
   private static final Pattern IPNI_RE = Pattern.compile("^\\d+-\\d$");
   private static final Pattern DOAJ_ID_RE = Pattern.compile("^[0-9a-fA-F]{32}$");
+  private static final Pattern HTTP_TEMPLATE = Pattern.compile("^https?://", Pattern.CASE_INSENSITIVE);
+  private static final Pattern AUTHORITY_PART = Pattern.compile("^https?://\\{0}", Pattern.CASE_INSENSITIVE);
+  private static final Pattern PLAIN_HOST = Pattern.compile("^[A-Za-z0-9.-]+$");
   private static final Set<Entity> WORK_ONLY = EnumSet.of(Entity.WORK);
   private static final Set<Entity> SOURCE_ONLY = EnumSet.of(Entity.SOURCE);
 
@@ -143,6 +146,11 @@ public final class IdScheme {
    */
   public static IdScheme define(String code, String label, Set<Entity> entities,
       Function<String, @Nullable String> normaliser, Map<Entity, String> urlTemplates, int sortOrder, boolean shown) {
+    for (String t : urlTemplates.values()) {
+      if (!HTTP_TEMPLATE.matcher(t).find()) {
+        throw new IllegalArgumentException("URL template of " + code + " must start with http:// or https://: " + t);
+      }
+    }
     return new IdScheme(code, label, entities, normaliser, urlTemplates, sortOrder, shown);
   }
 
@@ -176,6 +184,9 @@ public final class IdScheme {
     int i = value.lastIndexOf(':');
     if (t.contains("{0}")) {
       if (i < 0) {
+        return null;
+      }
+      if (AUTHORITY_PART.matcher(t).find() && !PLAIN_HOST.matcher(value.substring(0, i)).matches()) {
         return null;
       }
       return t.replace("{0}", encodePathValue(value.substring(0, i))).replace("{1}", encodePathValue(value.substring(i + 1)));

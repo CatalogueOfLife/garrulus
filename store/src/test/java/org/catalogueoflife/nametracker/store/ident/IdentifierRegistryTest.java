@@ -90,4 +90,59 @@ class IdentifierRegistryTest {
     assertThat(IdScheme.OPENALEX.entities()).containsExactlyInAnyOrder(Entity.WORK, Entity.SOURCE);
     assertThat(IdScheme.OAI.shown()).isFalse();
   }
+
+  @Test
+  void everyBuiltInTemplate() {
+    assertThat(IdScheme.DOI.url(WORK, "10.1/x")).isEqualTo("https://doi.org/10.1/x");
+    assertThat(IdScheme.CROSSREF.url(WORK, "10.1/x")).isEqualTo("https://api.crossref.org/works/10.1/x");
+    assertThat(IdScheme.OPENALEX.url(WORK, "W1")).isEqualTo("https://openalex.org/works/W1");
+    assertThat(IdScheme.OPENALEX.url(SOURCE, "S1")).isEqualTo("https://openalex.org/sources/S1");
+    assertThat(IdScheme.PMID.url(WORK, "5")).isEqualTo("https://europepmc.org/article/MED/5");
+    assertThat(IdScheme.PMCID.url(WORK, "PMC5")).isEqualTo("https://europepmc.org/articles/PMC5");
+    assertThat(IdScheme.BIODIVERSITY_PMC.url(WORK, "medline/9")).isEqualTo("https://biodiversitypmc.sibils.org/medline/9");
+    assertThat(IdScheme.BLR.url(WORK, "123")).isEqualTo("https://zenodo.org/records/123");
+    assertThat(IdScheme.PLAZI.url(WORK, "AB")).isEqualTo("https://tb.plazi.org/GgServer/summary/AB");
+    assertThat(IdScheme.BHL_PART.url(WORK, "14315")).isEqualTo("https://www.biodiversitylibrary.org/part/14315");
+    assertThat(IdScheme.MAGTECH.url(WORK, "example.org:7")).isEqualTo("https://example.org/EN/abstract/abstract7.shtml");
+    assertThat(IdScheme.OAI.url(WORK, "oai:x:1")).isNull();
+    assertThat(IdScheme.ISSN.url(SOURCE, "1175-5326")).isEqualTo("https://portal.issn.org/resource/ISSN/1175-5326");
+    assertThat(IdScheme.ISSN_L.url(SOURCE, "1175-5326")).isEqualTo("https://portal.issn.org/resource/ISSN/1175-5326");
+    assertThat(IdScheme.CROSSREF_JOURNAL.url(SOURCE, "1175-5326")).isEqualTo("https://api.crossref.org/journals/1175-5326");
+    assertThat(IdScheme.WIKIDATA.url(SOURCE, "Q1")).isEqualTo("https://www.wikidata.org/wiki/Q1");
+    assertThat(IdScheme.IPNI_PUB.url(SOURCE, "20011462-1")).isEqualTo("https://www.ipni.org/p/20011462-1");
+    assertThat(IdScheme.BPH.url(SOURCE, "1")).isNull();
+    assertThat(IdScheme.BHL_TITLE.url(SOURCE, "39620")).isEqualTo("https://www.biodiversitylibrary.org/bibliography/39620");
+    assertThat(IdScheme.DOAJ.url(SOURCE, "abc")).isEqualTo("https://doaj.org/toc/abc");
+  }
+
+  @Test
+  void m6aCodesPinned() {
+    assertThat(List.of(IdScheme.DOI, IdScheme.OPENALEX, IdScheme.OAI, IdScheme.PMID, IdScheme.PMCID, IdScheme.BLR,
+        IdScheme.MAGTECH)).extracting(IdScheme::code)
+        .containsExactly("DOI", "OPENALEX", "OAI", "PMID", "PMCID", "BLR", "MAGTECH");
+  }
+
+  @Test
+  void partsAreEncoded() {
+    IdScheme t = IdScheme.define("PARTS", "Parts", Set.of(WORK), raw -> raw,
+        Map.of(WORK, "https://x.example/{0}/{1}"), 1, true);
+    assertThat(t.url(WORK, "a?b#c:d?e#f\u00e9")).isEqualTo("https://x.example/a%3Fb%23c/d%3Fe%23f%C3%A9");
+  }
+
+  @Test
+  void templateMustBeHttp() {
+    for (String bad : List.of("javascript:{v}", "{v}", "data:text/html,{v}", "ftp://x/{v}", " https://x/{v}")) {
+      assertThatThrownBy(() -> IdScheme.define("BAD", "Bad", Set.of(WORK), raw -> raw, Map.of(WORK, bad), 1, true))
+          .isInstanceOf(IllegalArgumentException.class);
+    }
+    IdScheme.define("OK", "Ok", Set.of(WORK), raw -> raw, Map.of(WORK, "HTTP://x/{v}"), 1, true);
+  }
+
+  @Test
+  void magtechHostMustBePlain() {
+    assertThat(IdScheme.MAGTECH.url(WORK, "user@evil.example:93333")).isNull();
+    assertThat(IdScheme.MAGTECH.url(WORK, "evil.example:8080:93333")).isNull();
+    assertThat(IdScheme.MAGTECH.url(WORK, "www.biodiversity-science.net:93333"))
+        .isEqualTo("https://www.biodiversity-science.net/EN/abstract/abstract93333.shtml");
+  }
 }
