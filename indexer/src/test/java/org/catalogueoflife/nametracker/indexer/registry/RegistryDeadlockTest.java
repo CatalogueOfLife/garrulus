@@ -38,9 +38,14 @@ class RegistryDeadlockTest {
 
   @Test
   void recognisesDeadlocks() {
-    assertThat(Deadlock.is(new PessimisticLockingFailureException("deadlock"))).isTrue();
+    assertThat(Deadlock.is(new PessimisticLockingFailureException("deadlock",
+        new SQLException("deadlock detected", "40P01")))).isTrue();
     assertThat(Deadlock.is(new UncategorizedSQLException("x", "SELECT 1",
         new SQLException("deadlock detected", "40P01")))).isTrue();
+    // a lock timeout (55P03) or any other pessimistic failure is no deadlock: it uses attempts like any error
+    assertThat(Deadlock.is(new PessimisticLockingFailureException("lock timeout",
+        new SQLException("canceling statement due to lock timeout", "55P03")))).isFalse();
+    assertThat(Deadlock.is(new PessimisticLockingFailureException("no cause"))).isFalse();
     assertThat(Deadlock.is(new IllegalStateException("x", new SQLException("unique", "23505")))).isFalse();
   }
 
@@ -51,7 +56,8 @@ class RegistryDeadlockTest {
     when(sources.get(7L)).thenReturn(new Source(7L, null, null, List.of("1175-5326"), "T", null, null, null, null,
         "CANDIDATE", "DOAJ", null, true, null, null, null, null, null, null, null, null, null, null, null, null, null,
         null, null, "SEED"));
-    doThrow(new PessimisticLockingFailureException("deadlock detected")).when(completion).complete(anyLong(), any());
+    doThrow(new PessimisticLockingFailureException("deadlock detected", new SQLException("deadlock", "40P01")))
+        .when(completion).complete(anyLong(), any());
     IdentifySourceHandler h = new IdentifySourceHandler(completion, null, sources, new HarvestOutage(Duration.ofMinutes(30),
         CLOCK), CLOCK);
     Task task = new Task(1, IdentifySourceHandler.TYPE, "{\"sourceId\":7}", TaskPriority.BACKFILL, TaskState.RUNNING,
@@ -64,7 +70,8 @@ class RegistryDeadlockTest {
   @Test
   void offerDeadlockDefersWithoutAttempt() {
     TransactionTemplate tx = mock(TransactionTemplate.class);
-    when(tx.execute(any())).thenThrow(new PessimisticLockingFailureException("deadlock detected"));
+    when(tx.execute(any())).thenThrow(new PessimisticLockingFailureException("deadlock detected",
+        new SQLException("deadlock", "40P01")));
     CandidateRegistry registry = new CandidateRegistry(mock(SourceIdentity.class), mock(SourceMapper.class),
         mock(SourceSignalMapper.class), mock(ClassificationRawMapper.class), mock(SourceRouteMapper.class),
         mock(TaskQueue.class), tx, mock(IdentityLocks.class), mock(SourceFold.class), CLOCK);
