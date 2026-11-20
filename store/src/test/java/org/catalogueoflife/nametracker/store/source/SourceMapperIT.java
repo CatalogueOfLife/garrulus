@@ -33,6 +33,17 @@ class SourceMapperIT extends AbstractPostgresIT {
   }
 
   @Test
+  void upsertSeedKeepsIssnsAlreadyHeld() {
+    long id = sources.upsertSeed(new Source(null, "S-keep", null, List.of("1313-2989"), "A", null, null, null, null,
+        "CORE", "SEED_TOPIC", "{}", true, List.of(), null, null, List.of(), "{}", List.of(), null, null, null, null, null,
+        null, null, null, null, "SEED"));
+    sources.upsertSeed(new Source(null, "S-keep", null, List.of("1175-5326"), "A", null, null, null, null, "CORE",
+        "SEED_TOPIC", "{}", true, List.of(), null, null, List.of(), "{}", List.of(), null, null, null, null, null, null,
+        null, null, null, "SEED"));
+    assertThat(sources.get(id).issns()).containsExactlyInAnyOrder("1313-2989", "1175-5326");
+  }
+
+  @Test
   void listHarvestableNeedsOnboarding() {
     long a = sources.upsertSeed(source("S-h-a", "A", "CORE"));
     long b = sources.upsertSeed(source("S-h-b", "B", "CORE"));

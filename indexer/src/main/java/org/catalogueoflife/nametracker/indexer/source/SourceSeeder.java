@@ -143,7 +143,9 @@ public class SourceSeeder {
     if (issns.isEmpty()) return null;
     Source hit = identity.find(issns, null);
     if (hit == null || hit.openalexId() != null) return null;
-    sources.updateIdentity(hit.id(), null, issns, null, null, null, openalexId, null);
+    List<String> union = new ArrayList<>(issns);
+    for (String i : hit.issns()) if (!union.contains(i)) union.add(i); // keeps the candidate's own (a DOAJ-only ISSN)
+    sources.updateIdentity(hit.id(), null, union, null, null, null, openalexId, null);
     return hit;
   }
 

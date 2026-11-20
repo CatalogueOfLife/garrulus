@@ -229,6 +229,25 @@ class SourceSeederTest {
     seeder.seed();
 
     verify(sources).updateIdentity(5L, null, List.of("1313-2989"), null, null, null, "S1", null);
+  }
+
+  @Test
+  void adoptionKeepsTheCandidatesOwnIssns(WireMockRuntimeInfo w) {
+    stubGroups(group("t", "S1", "50"), group("b", "S1", "60"), group("n", "S1", "100"));
+    stubFor(get(urlPathEqualTo("/sources/S1")).willReturn(okJson(source("S1", "A", "").replace("1111-2221", "1313-2989"))));
+    SourceSeeder seeder = seeder(w);
+    Source candidate = new Source(5L, null, null, List.of("1175-5326"), "A", null, null, null, null, "CANDIDATE",
+        "DOAJ", "{}", true, List.of(), null, null, List.of(), "{}", List.of(), null, null, null, null, null, null, null,
+        null, null, null);
+    when(identity.find(List.of("1313-2989"), null)).thenReturn(candidate);
+
+    seeder.seed();
+
+    ArgumentCaptor<Source> cap = ArgumentCaptor.forClass(Source.class);
+    verify(sources).upsertSeed(cap.capture());
+    verify(sources).updateIdentity(eq(5L), org.mockito.ArgumentMatchers.isNull(),
+        org.mockito.ArgumentMatchers.argThat(l -> l.containsAll(List.of("1313-2989", "1175-5326"))), any(), any(), any(),
+        eq("S1"), any());
     verify(signals).upsert(eq(101L), eq("SEED_TOPIC"), eq(""), org.mockito.ArgumentMatchers.contains("\"totalWorks\":100"));
   }
 

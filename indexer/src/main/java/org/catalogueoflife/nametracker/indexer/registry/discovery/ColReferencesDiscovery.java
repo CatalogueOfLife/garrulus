@@ -25,6 +25,7 @@ import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
 import org.catalogueoflife.nametracker.indexer.http.StreamingGet;
 import org.catalogueoflife.nametracker.indexer.registry.Candidate;
 import org.catalogueoflife.nametracker.indexer.registry.CandidateRegistry;
+import org.catalogueoflife.nametracker.indexer.task.NonRetryableTaskException;
 import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
 import org.catalogueoflife.nametracker.store.ident.Issn;
 import org.catalogueoflife.nametracker.store.registry.DiscoveryTitleMapper;
@@ -38,7 +39,7 @@ import tools.jackson.databind.JsonNode;
 /**
  * Discovery from the references of the COL extended release. Phase 1 (payload {@code {}}) streams the XR zip
  * ({@code nametracker.finder.xr-zip-url}, never kept on disk, outages as in {@code BuildDictionaryHandler}), reads its
- * {@code Reference.tsv} (also {@code .txt}/{@code .csv}, any directory; headers with or without {@code col:}) and
+ * {@code Reference.tsv} (also {@code .txt}, any directory; headers with or without {@code col:}) and
  * groups the references by normalised {@code issn}, else by the {@link JournalTitleKey} of the {@code containerTitle}
  * (references with neither are skipped). A group needs {@code nametracker.discovery.col-references.min-references} (10)
  * references. ISSN groups are offered at once, detail {@code {"references","datasets","title"}}; title groups (the
@@ -148,8 +149,16 @@ public class ColReferencesDiscovery implements DiscoverySource {
       try (InputStream raw = conn.getInputStream(); ZipInputStream zin = new ZipInputStream(raw, StandardCharsets.UTF_8)) {
         ZipEntry e;
         while ((e = zin.getNextEntry()) != null) {
-          if (isReferenceFile(e.getName())) return readTable(zin, byIssn, byTitle);
+          if (isReferenceFile(e.getName())) {
+            try {
+              return readTable(zin, byIssn, byTitle);
+            } catch (IllegalStateException bad) { // unreadable table: not an outage, the task fails
+              throw new NonRetryableTaskException("Reference table " + e.getName() + " of " + zipUrl + ": " + bad.getMessage());
+            }
+          }
         }
+      } catch (NonRetryableTaskException ex) {
+        throw ex;
       } catch (IOException | UncheckedIOException ex) {
         throw new ServiceOutageException("xr-zip", outage.retryAt(), ex); // broke off or stalled
       }
@@ -161,16 +170,19 @@ public class ColReferencesDiscovery implements DiscoverySource {
 
   static boolean isReferenceFile(String entry) {
     String n = entry.substring(entry.lastIndexOf('/') + 1).toLowerCase(Locale.ROOT);
-    return n.equals("reference.tsv") || n.equals("reference.txt") || n.equals("reference.csv");
+    return n.equals("reference.tsv") || n.equals("reference.txt");
   }
 
   /** Reads the table from the stream (not closing it); a broken stream is an IOException. */
   static long readTable(InputStream in, Map<String, Group> byIssn, Map<String, Group> byTitle) throws IOException {
     BufferedReader r = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8), 1 << 16);
     String header = r.readLine();
-    if (header == null) return 0;
+    if (header == null) throw new IllegalStateException("the table is empty");
     String[] cols = header.split("\t", -1);
     int issn = column(cols, "issn"), title = column(cols, "containertitle"), source = column(cols, "sourceid");
+    if (issn < 0 || title < 0) {
+      throw new IllegalStateException("no " + (issn < 0 ? "issn" : "containerTitle") + " column in header " + header);
+    }
     long skipped = 0;
     String line;
     while ((line = r.readLine()) != null) {

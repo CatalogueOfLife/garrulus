@@ -3,8 +3,12 @@ package org.catalogueoflife.nametracker.indexer.registry.discovery;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.catalogueoflife.nametracker.indexer.crossref.CrossrefClient;
+import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
+import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
 import org.catalogueoflife.nametracker.indexer.registry.Candidate;
 import org.catalogueoflife.nametracker.indexer.registry.CandidateRegistry;
 import org.catalogueoflife.nametracker.store.registry.DiscoveryTitle;
@@ -17,7 +21,7 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * Turns the journal titles of a discovery origin into ISSNs through Crossref {@code /journals?query} (free) and offers
- * the journals found. A row is taken from the first of the five best items whose {@link JournalTitleKey} equals the row's; any
+ * the journals found. A row is taken from the five best items whose {@link JournalTitleKey} equals the row's, when they are one journal (two with different ISSN sets leave the title unresolved); any
  * other row is only marked looked at ({@code resolved_at}) and tried again after 180 days. A Crossref outage throws and
  * defers the page; rows of the page that were done are marked and not repeated.
  */
@@ -46,7 +50,16 @@ public class TitleResolver {
     Offers offers = new Offers(registry);
     int unmatched = 0;
     for (DiscoveryTitle row : rows) {
-      List<String> issns = match(row);
+      List<String> issns;
+      try {
+        issns = match(row);
+      } catch (ServiceOutageException e) {
+        throw e;
+      } catch (RuntimeException e) {
+        if (HarvestOutage.retryable(e) != null) throw e; // an outage defers the page
+        LOG.warn("{} title '{}' not resolved: {}", origin, row.title(), e.toString());
+        issns = null;
+      }
       titles.markResolved(origin, row.titleKey(), issns, clock.instant());
       if (issns == null) {
         unmatched++;
@@ -59,13 +72,23 @@ public class TitleResolver {
     return rows.size() < size ? null : rows.getLast().titleKey();
   }
 
+  /** The ISSNs of the one journal whose title key equals the row's; null for none or for several different ones. */
   private @Nullable List<String> match(DiscoveryTitle row) {
+    List<List<String>> hits = new ArrayList<>();
     for (JsonNode item : crossref.journalsByTitle(row.title(), 5)) {
       if (!row.titleKey().equals(JournalTitleKey.of(item.path("title").asString("")))) continue;
       List<String> issns = new ArrayList<>();
       item.path("ISSN").forEach(i -> issns.add(i.asString("")));
-      return issns.isEmpty() ? null : issns;
+      if (!issns.isEmpty()) hits.add(issns);
     }
-    return null;
+    if (hits.isEmpty()) return null;
+    Set<Set<String>> distinct = new HashSet<>();
+    hits.forEach(h -> distinct.add(new HashSet<>(h)));
+    if (distinct.size() > 1) {
+      LOG.info("{} title '{}' is ambiguous in Crossref ({} journals with that title): left unresolved", row.origin(),
+          row.title(), distinct.size());
+      return null;
+    }
+    return hits.getFirst();
   }
 }

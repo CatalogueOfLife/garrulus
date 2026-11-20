@@ -153,4 +153,21 @@ class ColReferencesDiscoveryIT extends AbstractPostgresIT {
     assertThat(jdbc.queryForObject("SELECT detail->>'references' FROM source_signal WHERE origin = 'COL_REFERENCES' "
         + "AND signal_key <> ''", String.class)).isEqualTo("11");
   }
+
+  @Test
+  void tableWithoutIssnColumnFails(WireMockRuntimeInfo w) throws Exception {
+    stubFor(get("/xr.zip").willReturn(aResponse().withStatus(200)
+        .withBody(zip("xr/Reference.tsv", "col:ID\tcol:sourceID\tcol:containerTitle\nr1\td1\tZootaxa\n"))));
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+        () -> handler(w).handle(task(DiscoverSourcesHandler.start("COL_REFERENCES"))))
+        .isInstanceOf(org.catalogueoflife.nametracker.indexer.task.NonRetryableTaskException.class).hasMessageContaining("Reference.tsv").hasMessageContaining("issn");
+  }
+
+  @Test
+  void csvTableIsNotRead(WireMockRuntimeInfo w) throws Exception {
+    stubFor(get("/xr.zip").willReturn(aResponse().withStatus(200).withBody(zip("xr/Reference.csv", table("")))));
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+        () -> handler(w).handle(task(DiscoverSourcesHandler.start("COL_REFERENCES"))))
+        .isInstanceOf(java.io.IOException.class).hasMessageContaining("No Reference");
+  }
 }

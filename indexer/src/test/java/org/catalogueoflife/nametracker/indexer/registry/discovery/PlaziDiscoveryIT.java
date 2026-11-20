@@ -103,39 +103,77 @@ class PlaziDiscoveryIT extends AbstractPostgresIT {
         Long.class)).isEqualTo(1);
   }
 
-  @Test
-  void resolvesTitlesThroughCrossrefAndOffers(WireMockRuntimeInfo w) throws Exception {
-    stubStats();
-    stubFor(get(urlPathEqualTo("/crossref/journals")).willReturn(okJson(fixture("crossref-journals-query.json"))));
+  static String acarologia() {
+    return "{\"message\":{\"items\":[{\"title\":\"Acarologia\",\"ISSN\":[\"0044-586X\",\"2107-7207\"]}]}}";
+  }
+
+  void resolveAll(WireMockRuntimeInfo w) throws Exception {
     var h = handler(w);
     h.handle(task(DiscoverSourcesHandler.start("PLAZI")));
     h.handle(task("{\"origin\":\"PLAZI\",\"resolve\":true}"));
+  }
+
+  @Test
+  void resolvesTitlesThroughCrossrefAndOffers(WireMockRuntimeInfo w) throws Exception {
+    stubStats();
+    stubFor(get(urlPathEqualTo("/crossref/journals")).willReturn(okJson(acarologia())));
+    resolveAll(w);
 
     Map<String, Object> s = jdbc.queryForMap("SELECT title, origin, issns, tier FROM source WHERE origin = 'PLAZI'");
-    assertThat(s.get("title")).isEqualTo("Adansonia");
+    assertThat(s.get("title")).isEqualTo("Acarologia");
     assertThat(s.get("tier")).isEqualTo("CANDIDATE");
-    assertThat(s.get("issns").toString()).contains("1280-8571").contains("1639-4798");
+    assertThat(s.get("issns").toString()).contains("0044-586X").contains("2107-7207");
     assertThat(jdbc.queryForObject("SELECT detail->>'articles' FROM source_signal WHERE origin = 'PLAZI'", String.class))
-        .isEqualTo("21");
-    assertThat(jdbc.queryForObject("SELECT resolved_issns::text FROM discovery_title WHERE title_key = 'adansonia'",
-        String.class)).isEqualTo("{1280-8571,1639-4798}");
+        .isEqualTo("60");
+    assertThat(jdbc.queryForObject("SELECT resolved_issns::text FROM discovery_title WHERE title_key = 'acarologia'",
+        String.class)).isEqualTo("{0044-586X,2107-7207}");
+  }
+
+  @Test
+  void ambiguousTitleStaysUnresolved(WireMockRuntimeInfo w) throws Exception {
+    stubStats();
+    // the fixture has two journals called Adansonia with different ISSNs
+    stubFor(get(urlPathEqualTo("/crossref/journals")).willReturn(okJson(fixture("crossref-journals-query.json"))));
+    resolveAll(w);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM source", Long.class)).isZero();
+    assertThat(jdbc.queryForObject("SELECT resolved_at IS NOT NULL AND resolved_issns IS NULL FROM discovery_title "
+        + "WHERE title_key = 'adansonia'", Boolean.class)).isTrue();
+  }
+
+  @Test
+  void aFailingTitleIsMarkedAndTheRestGoesOn(WireMockRuntimeInfo w) throws Exception {
+    stubStats();
+    stubFor(get(urlPathEqualTo("/crossref/journals")).willReturn(okJson(acarologia())));
+    stubFor(get(urlPathEqualTo("/crossref/journals")).withQueryParam("query", equalTo("Acta Zoológica Lilloana"))
+        .willReturn(aResponse().withStatus(400)));
+    resolveAll(w);
+    assertThat(jdbc.queryForObject("SELECT resolved_at IS NOT NULL AND resolved_issns IS NULL FROM discovery_title "
+        + "WHERE title_key = 'acta zoologica lilloana'", Boolean.class)).isTrue();
+    assertThat(jdbc.queryForList("SELECT title FROM source WHERE origin = 'PLAZI'")).hasSize(1);
+  }
+
+  @Test
+  void aCrossrefOutageStillDefers(WireMockRuntimeInfo w) throws Exception {
+    stubStats();
+    stubFor(get(urlPathEqualTo("/crossref/journals")).willReturn(aResponse().withStatus(503)));
+    var h = handler(w);
+    h.handle(task(DiscoverSourcesHandler.start("PLAZI")));
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> h.handle(task("{\"origin\":\"PLAZI\",\"resolve\":true}")))
+        .isInstanceOf(org.catalogueoflife.nametracker.indexer.task.ServiceOutageException.class);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM discovery_title WHERE resolved_at IS NOT NULL", Long.class)).isZero();
   }
 
   @Test
   void unmatchedTitleIsMarkedNotOffered(WireMockRuntimeInfo w) throws Exception {
     stubStats();
-    stubFor(get(urlPathEqualTo("/crossref/journals")).willReturn(okJson(fixture("crossref-journals-query.json"))));
-    var h = handler(w);
-    h.handle(task(DiscoverSourcesHandler.start("PLAZI")));
-    h.handle(task("{\"origin\":\"PLAZI\",\"resolve\":true}"));
-
-    // the fixture only knows Adansonia: the other three are marked looked at, without ISSNs, and not offered
+    stubFor(get(urlPathEqualTo("/crossref/journals")).willReturn(okJson(
+        "{\"message\":{\"items\":[{\"title\":\"Another Journal\",\"ISSN\":[\"1313-2989\"]}]}}")));
+    resolveAll(w);
     assertThat(jdbc.queryForObject("SELECT count(*) FROM discovery_title WHERE resolved_at IS NOT NULL "
-        + "AND resolved_issns IS NULL", Long.class)).isEqualTo(3);
-    assertThat(jdbc.queryForObject("SELECT count(*) FROM source", Long.class)).isEqualTo(1);
-    // a second run within 180 days looks at nothing again
+        + "AND resolved_issns IS NULL", Long.class)).isEqualTo(4);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM source", Long.class)).isZero();
     int calls = findAll(getRequestedFor(urlPathEqualTo("/crossref/journals"))).size();
-    h.handle(task("{\"origin\":\"PLAZI\",\"resolve\":true}"));
+    handler(w).handle(task("{\"origin\":\"PLAZI\",\"resolve\":true}"));
     assertThat(findAll(getRequestedFor(urlPathEqualTo("/crossref/journals")))).hasSize(calls);
   }
 }

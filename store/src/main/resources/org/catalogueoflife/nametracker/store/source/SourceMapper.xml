@@ -239,7 +239,8 @@
     INSERT INTO source (openalex_id, issn_l, issns, title, publisher, host, is_oa, in_doaj, tier, origin, adapter_config, active, subfields, primary_subfield, journal_type, taxgroups, taxgroup_shares, codes, oa_model, country, name_density, act_rate, works_per_year, last_harvested, tier_set_by)
     VALUES (#{o.openalexId}, #{o.issnL}, COALESCE(#{o.issns, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[]), #{o.title}, #{o.publisher}, #{o.host}, #{o.isOa}, #{o.inDoaj}, COALESCE(#{o.tier}, 'CANDIDATE'), #{o.origin}, COALESCE(#{o.adapterConfig, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, '{}'::jsonb), COALESCE(#{o.active}, true), COALESCE(#{o.subfields, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[]), #{o.primarySubfield}, #{o.journalType}, COALESCE(#{o.taxgroups, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[]), COALESCE(#{o.taxgroupShares, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, '{}'::jsonb), COALESCE(#{o.codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[]), #{o.oaModel}, #{o.country}, #{o.nameDensity}, #{o.actRate}, #{o.worksPerYear}, #{o.lastHarvested}, COALESCE(#{o.tierSetBy}, 'SEED'))
     ON CONFLICT (openalex_id) DO UPDATE SET
-      issn_l = EXCLUDED.issn_l, issns = EXCLUDED.issns, title = EXCLUDED.title, publisher = EXCLUDED.publisher,
+      issn_l = EXCLUDED.issn_l,
+      issns = ARRAY(SELECT DISTINCT x FROM unnest(source.issns || EXCLUDED.issns) AS x ORDER BY x), title = EXCLUDED.title, publisher = EXCLUDED.publisher,
       host = EXCLUDED.host, is_oa = EXCLUDED.is_oa, in_doaj = EXCLUDED.in_doaj, oa_model = EXCLUDED.oa_model, country = EXCLUDED.country,
       works_per_year = EXCLUDED.works_per_year, modified = now()
     RETURNING id
