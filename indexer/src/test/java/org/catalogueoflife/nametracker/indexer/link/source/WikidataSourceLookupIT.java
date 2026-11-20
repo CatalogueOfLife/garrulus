@@ -49,6 +49,17 @@ class WikidataSourceLookupIT {
   }
 
   @Test
+  void severalValuesOfAPropertyGiveTheSmallestOne(WireMockRuntimeInfo w) {
+    String b = "{\"results\":{\"bindings\":[%s]}}";
+    String row = "{\"issn\":{\"value\":\"1179-3155\"},\"item\":{\"value\":\"http://www.wikidata.org/entity/Q1\"},"
+        + "\"ipni\":{\"value\":\"%s\"}}";
+    stubFor(get(urlPathEqualTo("/sparql")).willReturn(aResponse().withBody(
+        b.formatted(row.formatted("20011463-1") + "," + row.formatted("20011462-1")))));
+    var out = lookup(w).lookup(List.of(source(1, List.of("1179-3155"))));
+    assertThat(out.get(1L)).containsExactly(new Identifier("WIKIDATA", "Q1"), new Identifier("IPNI_PUB", "20011462-1"));
+  }
+
+  @Test
   void appliesToAJournalWithAnIssnAndNoItem(WireMockRuntimeInfo w) {
     var l = lookup(w);
     assertThat(l.applies(source(1, List.of("1179-3155")))).isTrue();

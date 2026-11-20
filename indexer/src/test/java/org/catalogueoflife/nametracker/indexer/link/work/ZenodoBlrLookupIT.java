@@ -37,8 +37,32 @@ class ZenodoBlrLookupIT {
     assertThat(out).containsOnlyKeys(1L);
     assertThat(out.get(1L)).containsExactly(new Identifier("BLR", "10446357"));
     verify(1, getRequestedFor(urlPathEqualTo("/api/records")).withQueryParam("communities", equalTo("biosyslit"))
-        .withQueryParam("type", equalTo("publication")).withQueryParam("size", equalTo("25"))
+        .withQueryParam("type", equalTo("publication")).withQueryParam("size", equalTo("100"))
         .withQueryParam("q", equalTo("doi:(\"" + ZOOKEYS + "\" OR \"10.3897/not.there\")")));
+  }
+
+  @Test
+  void aTargetBeyondATruncatedPageIsAskedAloneBeforeItIsAMiss(WireMockRuntimeInfo w) throws IOException {
+    // the batch page holds 1 record of a total of 3: work 2 (not on it) is asked alone and found there
+    String batchPage = fixture("zenodo-blr.json").replaceFirst("\"total\"\\s*:\\s*\\d+", "\"total\":3");
+    String single = "{\"hits\":{\"total\":1,\"hits\":[{\"id\":777,\"doi\":\"10.3897/second\"}]}}";
+    stubFor(get(urlPathEqualTo("/api/records")).withQueryParam("q", containing(" OR "))
+        .willReturn(aResponse().withBody(batchPage)));
+    stubFor(get(urlPathEqualTo("/api/records")).withQueryParam("q", equalTo("doi:(\"10.3897/second\")"))
+        .willReturn(aResponse().withBody(single)));
+    stubFor(get(urlPathEqualTo("/api/records")).withQueryParam("q", equalTo("doi:(\"10.3897/third\")"))
+        .willReturn(aResponse().withBody("{\"hits\":{\"total\":0,\"hits\":[]}}")));
+    var out = lookup(w).lookup(List.of(work(1, ZOOKEYS), work(2, "10.3897/second"), work(3, "10.3897/third")));
+    assertThat(out).containsOnlyKeys(1L, 2L);
+    assertThat(out.get(2L)).containsExactly(new Identifier("BLR", "777"));
+    verify(1, getRequestedFor(urlPathEqualTo("/api/records")).withQueryParam("q", equalTo("doi:(\"10.3897/third\")")));
+  }
+
+  @Test
+  void aCompletePageIsNotAskedAgain(WireMockRuntimeInfo w) throws IOException {
+    stubFor(get(urlPathEqualTo("/api/records")).willReturn(aResponse().withBody(fixture("zenodo-blr.json"))));
+    lookup(w).lookup(List.of(work(1, ZOOKEYS), work(2, "10.3897/not.there")));
+    verify(1, getRequestedFor(urlPathEqualTo("/api/records")));
   }
 
   @Test

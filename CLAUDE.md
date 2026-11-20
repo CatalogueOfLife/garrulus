@@ -323,6 +323,13 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   subfields, DOAJ LCC, taxonomic focus) unless an admin set them (`discipline_set_by`). Seeding thresholds:
   `nametracker.seed.{core-min-works=20, core-min-share=0.30, broad-min-works=30, broad-min-share=0.50,
   candidate-min-works=10}` (env `NAMETRACKER_SEED_*`).
+- `indexer` identifier lookups (M6c; `LINK_WORK`, `LINK_SOURCE`): `nametracker.links.enabled` (master) and
+  `nametracker.links.<name>.enabled` (default true) for `crossref openalex europepmc biodiversitypmc zenodo-blr plazi
+  wikidata ipni crossref-journal`. `nametracker.links.biodiversitypmc.max-requests-per-day` (200): Biodiversity PMC
+  answers about 860 KB a document and cannot be asked for less, so that lookup applies only to works with acts or from
+  a Plazi/BLR journal and counts its requests per UTC day in `api_usage` (`biodiversitypmc`); when the cap is spent the
+  task is deferred to 00:05 UTC without using an attempt. Base URLs: `nametracker.links.{plazi,wikidata,ipni,
+  biodiversitypmc}.base-url`.
 - `indexer` salience (properties only, no env variables; set them in `application.yml`, `.env` or as `-D`/args):
   `nametracker.salience.{title=0.40, abstract=0.20, act=0.35, heading=0.15, share=0.25, repeat=0.15, ubiquity=0.50,
   ubiquity-full-share=0.02, threshold=0.35}`. A name with salience >= threshold is a main subject of the work.

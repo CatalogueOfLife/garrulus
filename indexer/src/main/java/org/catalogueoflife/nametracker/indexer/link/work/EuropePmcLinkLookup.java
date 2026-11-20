@@ -50,7 +50,7 @@ public class EuropePmcLinkLookup implements IdentifierLookup {
     for (List<JsonNode> rows : DoiBatching.each(batch.stream().map(LinkTarget::doi).distinct().toList(), this::search)) {
       for (JsonNode r : rows) {
         String doi = r.path("doi").asString("");
-        if (!doi.isBlank() && !r.path("pmid").asString("").isBlank()) byDoi.putIfAbsent(DoiBatching.key(doi), r);
+        if (!doi.isBlank() && (!r.path("pmid").asString("").isBlank() || !r.path("pmcid").asString("").isBlank())) byDoi.putIfAbsent(DoiBatching.key(doi), r);
       }
     }
     Map<Long, List<Identifier>> out = new HashMap<>();
@@ -58,7 +58,8 @@ public class EuropePmcLinkLookup implements IdentifierLookup {
       JsonNode r = byDoi.get(DoiBatching.key(t.doi()));
       if (r == null) continue;
       List<Identifier> ids = new ArrayList<>();
-      ids.add(new Identifier(IdScheme.PMID.code(), r.path("pmid").asString()));
+      String pmid = r.path("pmid").asString("");
+      if (!pmid.isBlank()) ids.add(new Identifier(IdScheme.PMID.code(), pmid));
       String pmc = r.path("pmcid").asString("");
       if (!pmc.isBlank()) ids.add(new Identifier(IdScheme.PMCID.code(), pmc));
       out.put(t.id(), ids);

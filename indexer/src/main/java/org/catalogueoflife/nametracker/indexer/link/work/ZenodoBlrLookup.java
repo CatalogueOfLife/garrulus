@@ -47,15 +47,21 @@ public class ZenodoBlrLookup implements IdentifierLookup {
         && DoiBatching.quotable(t.doi());
   }
 
+  /** The DOIs of one request and what Zenodo answered. */
+  private record Asked(List<String> dois, ZenodoClient.DoiHits hits) {
+  }
+
   @Override
   public Map<Long, List<Identifier>> lookup(List<LinkTarget> batch) {
     Map<String, String> byDoi = new HashMap<>();
-    for (List<JsonNode> records : DoiBatching.each(batch.stream().map(LinkTarget::doi).distinct().toList(),
-        zenodo::byDois)) {
-      for (JsonNode r : records) {
-        String doi = r.path("doi").asString("");
-        String id = r.path("id").asString("");
-        if (!doi.isBlank() && !id.isBlank()) byDoi.putIfAbsent(DoiBatching.key(doi), id);
+    List<Asked> asked = DoiBatching.each(batch.stream().map(LinkTarget::doi).distinct().toList(),
+        dois -> new Asked(dois, zenodo.byDois(dois)));
+    for (Asked a : asked) collect(a.hits(), byDoi);
+    for (Asked a : asked) {
+      // a page cut short may leave out a target: ask each one it lacks alone before it counts as a miss
+      if (!a.hits().truncated()) continue;
+      for (String doi : a.dois()) {
+        if (!byDoi.containsKey(DoiBatching.key(doi))) collect(zenodo.byDois(List.of(doi)), byDoi);
       }
     }
     Map<Long, List<Identifier>> out = new HashMap<>();
@@ -64,5 +70,13 @@ public class ZenodoBlrLookup implements IdentifierLookup {
       if (id != null) out.put(t.id(), List.of(new Identifier(IdScheme.BLR.code(), id)));
     }
     return out;
+  }
+
+  private static void collect(ZenodoClient.DoiHits hits, Map<String, String> byDoi) {
+    for (JsonNode r : hits.records()) {
+      String doi = r.path("doi").asString("");
+      String id = r.path("id").asString("");
+      if (!doi.isBlank() && !id.isBlank()) byDoi.putIfAbsent(DoiBatching.key(doi), id);
+    }
   }
 }

@@ -84,7 +84,7 @@ public class WikidataSourceLookup implements IdentifierLookup {
         "application/sparql-results+json", "Wikidata");
 
     // item -> its identifiers (first value per scheme, in answer order); target -> the items its ISSNs matched
-    Map<String, Map<String, String>> items = new LinkedHashMap<>();
+    Map<String, Map<String, java.util.SortedSet<String>>> items = new LinkedHashMap<>();
     Map<Long, Set<String>> itemsOf = new HashMap<>();
     Map<String, Set<Long>> targetsOf = new HashMap<>();
     for (JsonNode b : root.path("results").path("bindings")) {
@@ -92,7 +92,7 @@ public class WikidataSourceLookup implements IdentifierLookup {
       String item = b.path("item").path("value").asString("");
       if (issn == null || !item.startsWith(ENTITY) || !byIssn.containsKey(issn)) continue;
       String qid = item.substring(ENTITY.length());
-      Map<String, String> ids = items.computeIfAbsent(qid, k -> new LinkedHashMap<>());
+      Map<String, java.util.SortedSet<String>> ids = items.computeIfAbsent(qid, k -> new LinkedHashMap<>());
       put(ids, IdScheme.IPNI_PUB, b.path("ipni"));
       put(ids, IdScheme.BPH, b.path("bph"));
       put(ids, IdScheme.BHL_TITLE, b.path("bhl"));
@@ -115,17 +115,18 @@ public class WikidataSourceLookup implements IdentifierLookup {
       }
       List<Identifier> ids = new ArrayList<>();
       ids.add(new Identifier(IdScheme.WIKIDATA.code(), qid));
-      items.get(qid).forEach((scheme, v) -> ids.add(new Identifier(scheme, v)));
+      // several values of one property: the smallest, so a repeat chooses the same
+      items.get(qid).forEach((scheme, v) -> ids.add(new Identifier(scheme, v.first())));
       out.put(e.getKey(), ids);
     }
     return out;
   }
 
-  /** Keeps the first value the scheme accepts (a value of another form, such as a non-numeric BPH, is left out). */
-  private static void put(Map<String, String> ids, IdScheme scheme, JsonNode value) {
+  /** Collects the values the scheme accepts (a value of another form, such as a non-numeric BPH, is left out). */
+  private static void put(Map<String, java.util.SortedSet<String>> ids, IdScheme scheme, JsonNode value) {
     String v = value.path("value").asString("");
-    if (v.isBlank() || ids.containsKey(scheme.code())) return;
+    if (v.isBlank()) return;
     String n = scheme.normalise(v);
-    if (n != null) ids.put(scheme.code(), n);
+    if (n != null) ids.computeIfAbsent(scheme.code(), k -> new TreeSet<>()).add(n);
   }
 }

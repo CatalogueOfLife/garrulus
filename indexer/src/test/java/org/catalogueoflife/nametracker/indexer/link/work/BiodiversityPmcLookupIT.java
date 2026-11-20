@@ -16,8 +16,17 @@ import org.springframework.mock.env.MockEnvironment;
 @WireMockTest
 class BiodiversityPmcLookupIT {
 
+  private static final java.time.Clock NOON = java.time.Clock.fixed(java.time.Instant.parse("2026-11-20T12:00:00Z"),
+      java.time.ZoneOffset.UTC);
+
   private static BiodiversityPmcLookup lookup(WireMockRuntimeInfo w) {
-    return new BiodiversityPmcLookup(http(), new LinkProperties(new MockEnvironment(), true), w.getHttpBaseUrl());
+    return lookup(w, new org.catalogueoflife.nametracker.indexer.cost.FakeApiUsage(), 200);
+  }
+
+  private static BiodiversityPmcLookup lookup(WireMockRuntimeInfo w,
+      org.catalogueoflife.nametracker.indexer.cost.FakeApiUsage usage, int cap) {
+    return new BiodiversityPmcLookup(http(), new LinkProperties(new MockEnvironment(), true), usage, NOON,
+        w.getHttpBaseUrl(), cap);
   }
 
   @Test
@@ -51,5 +60,26 @@ class BiodiversityPmcLookupIT {
     assertThat(l.applies(work(1, ZOOKEYS))).isFalse();
     assertThat(l.applies(work(1, ZOOKEYS, "PMID", "1", "BIODIVERSITY_PMC", "medline/1"))).isFalse();
     assertThat(l.order()).isEqualTo(40);
+  }
+
+  @Test
+  void aWorkWithoutActsOrAPlaziOrBlrJournalIsNotAsked(WireMockRuntimeInfo w) {
+    var l = lookup(w);
+    assertThat(l.applies(work(1, ZOOKEYS, false, false, "PMID", "1"))).isFalse();
+    assertThat(l.applies(work(1, ZOOKEYS, false, true, "PMID", "1"))).isTrue();
+    assertThat(l.applies(work(1, ZOOKEYS, true, false, "PMCID", "PMC1"))).isTrue();
+  }
+
+  @Test
+  void theDailyCapStopsRequestsAndDefersToTheNextUtcDay(WireMockRuntimeInfo w) throws IOException {
+    stubFor(get(urlPathEqualTo("/api/fetch")).willReturn(aResponse().withBody(fixture("biodivpmc-pmc.json"))));
+    var usage = new org.catalogueoflife.nametracker.indexer.cost.FakeApiUsage();
+    var l = lookup(w, usage, 1);
+    l.lookup(List.of(work(1, ZOOKEYS, "PMCID", "PMC10768028")));
+    assertThat(usage.get("biodiversitypmc", java.time.LocalDate.of(2026, 11, 20)).get("calls")).isEqualTo(1);
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> l.lookup(List.of(work(2, "10.3897/b", "PMCID", "PMC2"))))
+        .isInstanceOfSatisfying(org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException.class,
+            e -> assertThat(e.retryAt()).isEqualTo(java.time.Instant.parse("2026-11-21T00:05:00Z")));
+    verify(1, getRequestedFor(urlPathEqualTo("/api/fetch")));
   }
 }

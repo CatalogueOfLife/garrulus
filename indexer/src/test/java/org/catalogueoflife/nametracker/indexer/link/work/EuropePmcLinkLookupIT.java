@@ -42,6 +42,14 @@ class EuropePmcLinkLookupIT {
   }
 
   @Test
+  void aRowWithAPmcidButNoPmidIsKept(WireMockRuntimeInfo w) {
+    stubFor(get(urlPathEqualTo("/rest/search")).willReturn(aResponse().withBody(
+        "{\"resultList\":{\"result\":[{\"id\":\"PMC9\",\"source\":\"PMC\",\"pmcid\":\"PMC9\",\"doi\":\"10.3897/x\"}]}}")));
+    var out = lookup(w).lookup(List.of(work(1, "10.3897/x")));
+    assertThat(out.get(1L)).containsExactly(new Identifier("PMCID", "PMC9"));
+  }
+
+  @Test
   void siciDoiIsQuotedAlone(WireMockRuntimeInfo w) throws IOException {
     stubFor(get(urlPathEqualTo("/rest/search")).willReturn(aResponse().withBody(fixture("epmc-lite.json"))));
     lookup(w).lookup(List.of(work(1, ZOOKEYS), work(2, SICI)));

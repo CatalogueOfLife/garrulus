@@ -61,26 +61,37 @@ public class ZenodoClient {
     return new ZenodoPage(records, next);
   }
 
+  /** The records of a DOI query and the total number of hits Zenodo reports (more than the records when truncated). */
+  public record DoiHits(List<JsonNode> records, long total) {
+    public boolean truncated() {
+      return total > records.size();
+    }
+  }
+
+  /** The rows a DOI query asks for (Zenodo's own maximum for anonymous requests is 100 on this endpoint). */
+  public static final int DOI_ROWS = 100;
+
   /**
    * The publication records of the community whose DOI is one of {@code dois}
-   * ({@code q=doi:("a" OR "b")}, one page of at most {@link #PAGE_SIZE}); a record of another DOI (a figure of the
-   * article) may come with them, the caller compares the DOIs. The DOIs must be quotable.
+   * ({@code q=doi:("a" OR "b")}, {@value #DOI_ROWS} rows); a record of another DOI (a figure of the article) may come
+   * with them, the caller compares the DOIs, and checks {@link DoiHits#truncated()}. The DOIs must be quotable.
    */
-  public List<JsonNode> byDois(List<String> dois) {
-    if (dois.isEmpty()) return List.of();
+  public DoiHits byDois(List<String> dois) {
+    if (dois.isEmpty()) return new DoiHits(List.of(), 0);
     List<String> terms = new ArrayList<>();
     for (String d : dois) terms.add("\"" + d + "\"");
     URI uri = URI.create(base + "/api/records?communities=biosyslit&type=publication&q="
-        + enc("doi:(" + String.join(" OR ", terms) + ")") + "&size=" + PAGE_SIZE);
+        + enc("doi:(" + String.join(" OR ", terms) + ")") + "&size=" + DOI_ROWS);
     HttpResponse<byte[]> resp = http.get(uri, Map.of("Accept", "application/json"));
     int status = resp.statusCode();
     if (status != 200) {
       throw new HttpProblem(uri, status, status >= 500 || status == 429, "Zenodo answered " + status, null);
     }
     try {
+      JsonNode hits = FinderJson.mapper().readTree(resp.body()).path("hits");
       List<JsonNode> records = new ArrayList<>();
-      FinderJson.mapper().readTree(resp.body()).path("hits").path("hits").forEach(records::add);
-      return records;
+      hits.path("hits").forEach(records::add);
+      return new DoiHits(records, hits.path("total").asLong(records.size()));
     } catch (RuntimeException e) {
       throw new HttpProblem(uri, status, false, "Zenodo answered unreadable JSON", e);
     }
