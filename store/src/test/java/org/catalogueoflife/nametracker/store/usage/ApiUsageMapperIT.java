@@ -31,6 +31,15 @@ class ApiUsageMapperIT extends AbstractPostgresIT {
     assertThat(usage.get("crossref", d)).isNull();
   }
 
+  @Test
+  void reserveCountsAtomicallyAndReturnsTheNewTotal() {
+    LocalDate d = LocalDate.of(2026, 11, 21);
+    assertThat(usage.reserve("biodiversitypmc", d, 2)).isEqualTo(2);
+    assertThat(usage.reserve("biodiversitypmc", d, 1)).isEqualTo(3);
+    assertThat(usage.reserve("biodiversitypmc", d, -1)).isEqualTo(2);
+    assertThat(((Number) usage.get("biodiversitypmc", d).get("calls")).intValue()).isEqualTo(2);
+  }
+
   private void assertRow(LocalDate d, String remaining, String fingerprint) {
     Map<String, Object> row = usage.get("openalex", d);
     if (remaining == null) assertThat(row.get("remaining_usd")).isNull();

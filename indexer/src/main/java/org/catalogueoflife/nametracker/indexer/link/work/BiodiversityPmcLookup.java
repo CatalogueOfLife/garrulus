@@ -1,6 +1,5 @@
 package org.catalogueoflife.nametracker.indexer.link.work;
 
-import java.math.BigDecimal;
 import java.net.URI;
 import java.time.Clock;
 import java.time.Instant;
@@ -78,21 +77,44 @@ public class BiodiversityPmcLookup implements IdentifierLookup {
 
   @Override
   public Map<Long, List<Identifier>> lookup(List<LinkTarget> batch) {
-    Map<Long, List<Identifier>> out = new HashMap<>();
     List<LinkTarget> withPmc = batch.stream().filter(t -> t.has(IdScheme.PMCID.code())).toList();
-    Set<String> pmc = fetch("pmc", withPmc.stream().map(t -> t.first(IdScheme.PMCID.code())).toList());
-    for (LinkTarget t : withPmc) {
-      String id = t.first(IdScheme.PMCID.code()).toUpperCase(Locale.ROOT);
-      if (pmc.contains(id)) out.put(t.id(), List.of(new Identifier(IdScheme.BIODIVERSITY_PMC.code(), "pmc/" + id)));
+    boolean anyPmid = batch.stream().anyMatch(t -> t.has(IdScheme.PMID.code()));
+    // the requests this batch may send are reserved before the first one: a cap reached half way would discard what
+    // was downloaded already. Reserved requests that are not sent are given back.
+    int reserved = (withPmc.isEmpty() ? 0 : 1) + (anyPmid ? 1 : 0);
+    LocalDate today = LocalDate.now(clock.withZone(ZoneOffset.UTC));
+    if (reserved == 0) return Map.of();
+    if (usage.reserve(SERVICE, today, reserved) > maxRequestsPerDay) {
+      usage.reserve(SERVICE, today, -reserved);
+      Instant retry = today.plusDays(1).atTime(LocalTime.of(0, 5)).toInstant(ZoneOffset.UTC);
+      throw new BudgetExhaustedException(retry);
     }
-    List<LinkTarget> withPmid = batch.stream().filter(t -> !out.containsKey(t.id()) && t.has(IdScheme.PMID.code()))
-        .toList();
-    Set<String> medline = fetch("medline", withPmid.stream().map(t -> t.first(IdScheme.PMID.code())).toList());
-    for (LinkTarget t : withPmid) {
-      String id = t.first(IdScheme.PMID.code());
-      if (medline.contains(id)) out.put(t.id(), List.of(new Identifier(IdScheme.BIODIVERSITY_PMC.code(), "medline/" + id)));
+    int unsent = reserved;
+    try {
+      Map<Long, List<Identifier>> out = new HashMap<>();
+      Set<String> pmc = Set.of();
+      if (!withPmc.isEmpty()) {
+        unsent--; // counted from the send on, whether it succeeds or not
+        pmc = fetch("pmc", withPmc.stream().map(t -> t.first(IdScheme.PMCID.code())).toList());
+      }
+      for (LinkTarget t : withPmc) {
+        String id = t.first(IdScheme.PMCID.code()).toUpperCase(Locale.ROOT);
+        if (pmc.contains(id)) out.put(t.id(), List.of(new Identifier(IdScheme.BIODIVERSITY_PMC.code(), "pmc/" + id)));
+      }
+      List<LinkTarget> withPmid = batch.stream().filter(t -> !out.containsKey(t.id()) && t.has(IdScheme.PMID.code()))
+          .toList();
+      if (!withPmid.isEmpty()) {
+        unsent--;
+        Set<String> medline = fetch("medline", withPmid.stream().map(t -> t.first(IdScheme.PMID.code())).toList());
+        for (LinkTarget t : withPmid) {
+          String id = t.first(IdScheme.PMID.code());
+          if (medline.contains(id)) out.put(t.id(), List.of(new Identifier(IdScheme.BIODIVERSITY_PMC.code(), "medline/" + id)));
+        }
+      }
+      return out;
+    } finally {
+      if (unsent > 0) usage.reserve(SERVICE, today, -unsent);
     }
-    return out;
   }
 
   /** The {@code _id}s of the documents the collection has among the ids. */
@@ -101,14 +123,7 @@ public class BiodiversityPmcLookup implements IdentifierLookup {
     if (ids.isEmpty()) return found;
     URI uri = URI.create(base + "/api/fetch?ids=" + String.join(",", ids.stream().map(LinkHttp::enc).toList())
         + "&col=" + collection);
-    LocalDate today = LocalDate.now(clock.withZone(ZoneOffset.UTC));
-    Map<String, Object> row = usage.get(SERVICE, today);
-    if (row != null && ((Number) row.get("calls")).intValue() >= maxRequestsPerDay) {
-      Instant retry = today.plusDays(1).atTime(LocalTime.of(0, 5)).toInstant(ZoneOffset.UTC);
-      throw new BudgetExhaustedException(retry);
-    }
     JsonNode root = LinkHttp.json(http, uri, "application/json", "Biodiversity PMC");
-    usage.add(SERVICE, today, 1, BigDecimal.ZERO, null);
     if (!root.path("success").asBoolean(true)) {
       LOG.warn("Biodiversity PMC {} answered an error: {}", collection, root.path("error").asString(""));
       return found;

@@ -44,24 +44,32 @@ public class EuropePmcLinkLookup implements IdentifierLookup {
     return t.doi() != null && !t.has(IdScheme.PMID.code()) && DoiBatching.quotable(t.doi());
   }
 
+  /** The PMID and PMCID Europe PMC gives a DOI, merged over its rows (a PMC copy or preprint may carry only a PMCID). */
+  private record Ids(String pmid, String pmcid) {
+    Ids merge(Ids o) {
+      return new Ids(pmid.isBlank() ? o.pmid : pmid, pmcid.isBlank() ? o.pmcid : pmcid);
+    }
+  }
+
   @Override
   public Map<Long, List<Identifier>> lookup(List<LinkTarget> batch) {
-    Map<String, JsonNode> byDoi = new HashMap<>();
+    Map<String, Ids> byDoi = new HashMap<>();
     for (List<JsonNode> rows : DoiBatching.each(batch.stream().map(LinkTarget::doi).distinct().toList(), this::search)) {
       for (JsonNode r : rows) {
         String doi = r.path("doi").asString("");
-        if (!doi.isBlank() && (!r.path("pmid").asString("").isBlank() || !r.path("pmcid").asString("").isBlank())) byDoi.putIfAbsent(DoiBatching.key(doi), r);
+        Ids ids = new Ids(r.path("pmid").asString(""), r.path("pmcid").asString(""));
+        if (!doi.isBlank() && !(ids.pmid().isBlank() && ids.pmcid().isBlank())) {
+          byDoi.merge(DoiBatching.key(doi), ids, Ids::merge);
+        }
       }
     }
     Map<Long, List<Identifier>> out = new HashMap<>();
     for (LinkTarget t : batch) {
-      JsonNode r = byDoi.get(DoiBatching.key(t.doi()));
+      Ids r = byDoi.get(DoiBatching.key(t.doi()));
       if (r == null) continue;
       List<Identifier> ids = new ArrayList<>();
-      String pmid = r.path("pmid").asString("");
-      if (!pmid.isBlank()) ids.add(new Identifier(IdScheme.PMID.code(), pmid));
-      String pmc = r.path("pmcid").asString("");
-      if (!pmc.isBlank()) ids.add(new Identifier(IdScheme.PMCID.code(), pmc));
+      if (!r.pmid().isBlank()) ids.add(new Identifier(IdScheme.PMID.code(), r.pmid()));
+      if (!r.pmcid().isBlank()) ids.add(new Identifier(IdScheme.PMCID.code(), r.pmcid()));
       out.put(t.id(), ids);
     }
     return out;

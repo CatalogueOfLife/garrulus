@@ -29,6 +29,12 @@ public class FakeApiUsage implements ApiUsageMapper {
   }
 
   @Override
+  public int reserve(String service, LocalDate day, int delta) {
+    add(service, day, delta, BigDecimal.ZERO, null);
+    return (Integer) rows.get(service + "|" + day).get("calls");
+  }
+
+  @Override
   public Map<String, Object> get(String service, LocalDate day) {
     return rows.get(service + "|" + day);
   }

@@ -49,6 +49,22 @@ class EuropePmcLinkLookupIT {
     assertThat(out.get(1L)).containsExactly(new Identifier("PMCID", "PMC9"));
   }
 
+  private static String rows(String... rows) {
+    return "{\"resultList\":{\"result\":[" + String.join(",", rows) + "]}}";
+  }
+
+  private static final String PMC_ONLY = "{\"pmcid\":\"PMC9\",\"doi\":\"10.3897/x\"}";
+  private static final String WITH_PMID = "{\"pmid\":\"55\",\"doi\":\"10.3897/x\"}";
+
+  @Test
+  void aPmidRowWinsInEitherOrderAndTheyMerge(WireMockRuntimeInfo w) {
+    for (String body : List.of(rows(PMC_ONLY, WITH_PMID), rows(WITH_PMID, PMC_ONLY))) {
+      stubFor(get(urlPathEqualTo("/rest/search")).willReturn(aResponse().withBody(body)));
+      var out = lookup(w).lookup(List.of(work(1, "10.3897/x")));
+      assertThat(out.get(1L)).containsExactly(new Identifier("PMID", "55"), new Identifier("PMCID", "PMC9"));
+    }
+  }
+
   @Test
   void siciDoiIsQuotedAlone(WireMockRuntimeInfo w) throws IOException {
     stubFor(get(urlPathEqualTo("/rest/search")).willReturn(aResponse().withBody(fixture("epmc-lite.json"))));

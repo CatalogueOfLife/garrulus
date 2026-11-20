@@ -14,6 +14,13 @@
       key_fingerprint = EXCLUDED.key_fingerprint
   </insert>
 
+  <select id="reserve" resultType="int">
+    INSERT INTO api_usage (service, day, calls, usd, remaining_usd, key_fingerprint)
+    VALUES (#{service}, #{day}, GREATEST(#{delta}, 0), 0, NULL, 'none')
+    ON CONFLICT (service, day) DO UPDATE SET calls = GREATEST(api_usage.calls + #{delta}, 0)
+    RETURNING calls
+  </select>
+
   <select id="get" resultType="map">
     SELECT service, day, calls, usd, remaining_usd, key_fingerprint FROM api_usage WHERE service = #{service} AND day = #{day}
   </select>

@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Pattern;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
 import org.catalogueoflife.nametracker.indexer.link.IdentifierLookup;
@@ -55,7 +56,7 @@ public class IpniSourceLookup implements IdentifierLookup {
   public Map<Long, List<Identifier>> lookup(List<LinkTarget> batch) {
     Map<Long, List<Identifier>> out = new HashMap<>();
     for (LinkTarget t : batch) {
-      for (String issn : t.issns().stream().map(Issn::normalise).filter(java.util.Objects::nonNull).distinct().toList()) {
+      for (String issn : t.issns().stream().map(Issn::normalise).filter(Objects::nonNull).distinct().toList()) {
         JsonNode root = LinkHttp.json(http, URI.create(base + "/api/1/search?q=" + LinkHttp.enc("issn:" + issn)),
             "application/json", "IPNI");
         List<Identifier> ids = new ArrayList<>();

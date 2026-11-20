@@ -22,6 +22,12 @@ public interface ApiUsageMapper {
     add(service, day, calls, usd, remainingUsd, "none");
   }
 
+  /**
+   * Adds {@code delta} (negative to give back) to the day's call count in one statement and returns the new count, so
+   * concurrent callers reserve requests against a cap without overshooting it.
+   */
+  int reserve(@Param("service") String service, @Param("day") LocalDate day, @Param("delta") int delta);
+
   /** Columns service, day, calls, usd, remaining_usd, key_fingerprint; null when there is no row. */
   Map<String, Object> get(@Param("service") String service, @Param("day") LocalDate day);
 

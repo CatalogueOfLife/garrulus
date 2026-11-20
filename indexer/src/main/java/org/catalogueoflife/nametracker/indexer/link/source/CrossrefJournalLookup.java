@@ -3,6 +3,7 @@ package org.catalogueoflife.nametracker.indexer.link.source;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.catalogueoflife.nametracker.indexer.crossref.CrossrefClient;
 import org.catalogueoflife.nametracker.indexer.link.IdentifierLookup;
 import org.catalogueoflife.nametracker.indexer.link.LinkProperties;
@@ -41,7 +42,7 @@ public class CrossrefJournalLookup implements IdentifierLookup {
   public Map<Long, List<Identifier>> lookup(List<LinkTarget> batch) {
     Map<Long, List<Identifier>> out = new HashMap<>();
     for (LinkTarget t : batch) {
-      for (String issn : t.issns().stream().map(Issn::normalise).filter(java.util.Objects::nonNull).distinct().toList()) {
+      for (String issn : t.issns().stream().map(Issn::normalise).filter(Objects::nonNull).distinct().toList()) {
         if (crossref.journal(issn).isPresent()) {
           out.put(t.id(), List.of(new Identifier(IdScheme.CROSSREF_JOURNAL.code(), issn)));
           break;

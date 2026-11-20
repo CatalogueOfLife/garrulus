@@ -2,12 +2,20 @@ package org.catalogueoflife.nametracker.indexer.link.work;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.catalogueoflife.nametracker.indexer.link.LookupFixtures.*;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import java.io.IOException;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
+import org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException;
+import org.catalogueoflife.nametracker.indexer.cost.FakeApiUsage;
+import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
 import org.catalogueoflife.nametracker.indexer.link.LinkProperties;
 import org.catalogueoflife.nametracker.store.ident.Identifier;
 import org.junit.jupiter.api.Test;
@@ -16,15 +24,15 @@ import org.springframework.mock.env.MockEnvironment;
 @WireMockTest
 class BiodiversityPmcLookupIT {
 
-  private static final java.time.Clock NOON = java.time.Clock.fixed(java.time.Instant.parse("2026-11-20T12:00:00Z"),
-      java.time.ZoneOffset.UTC);
+  private static final Clock NOON = Clock.fixed(Instant.parse("2026-11-20T12:00:00Z"),
+      ZoneOffset.UTC);
 
   private static BiodiversityPmcLookup lookup(WireMockRuntimeInfo w) {
-    return lookup(w, new org.catalogueoflife.nametracker.indexer.cost.FakeApiUsage(), 200);
+    return lookup(w, new FakeApiUsage(), 200);
   }
 
   private static BiodiversityPmcLookup lookup(WireMockRuntimeInfo w,
-      org.catalogueoflife.nametracker.indexer.cost.FakeApiUsage usage, int cap) {
+      FakeApiUsage usage, int cap) {
     return new BiodiversityPmcLookup(http(), new LinkProperties(new MockEnvironment(), true), usage, NOON,
         w.getHttpBaseUrl(), cap);
   }
@@ -70,16 +78,52 @@ class BiodiversityPmcLookupIT {
     assertThat(l.applies(work(1, ZOOKEYS, true, false, "PMCID", "PMC1"))).isTrue();
   }
 
+  private static int calls(FakeApiUsage usage) {
+    var row = usage.get("biodiversitypmc", LocalDate.of(2026, 11, 20));
+    return row == null ? 0 : ((Number) row.get("calls")).intValue();
+  }
+
   @Test
   void theDailyCapStopsRequestsAndDefersToTheNextUtcDay(WireMockRuntimeInfo w) throws IOException {
     stubFor(get(urlPathEqualTo("/api/fetch")).willReturn(aResponse().withBody(fixture("biodivpmc-pmc.json"))));
-    var usage = new org.catalogueoflife.nametracker.indexer.cost.FakeApiUsage();
+    var usage = new FakeApiUsage();
     var l = lookup(w, usage, 1);
     l.lookup(List.of(work(1, ZOOKEYS, "PMCID", "PMC10768028")));
-    assertThat(usage.get("biodiversitypmc", java.time.LocalDate.of(2026, 11, 20)).get("calls")).isEqualTo(1);
-    org.assertj.core.api.Assertions.assertThatThrownBy(() -> l.lookup(List.of(work(2, "10.3897/b", "PMCID", "PMC2"))))
-        .isInstanceOfSatisfying(org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException.class,
-            e -> assertThat(e.retryAt()).isEqualTo(java.time.Instant.parse("2026-11-21T00:05:00Z")));
+    assertThat(calls(usage)).isEqualTo(1);
+    assertThatThrownBy(() -> l.lookup(List.of(work(2, "10.3897/b", "PMCID", "PMC2"))))
+        .isInstanceOfSatisfying(BudgetExhaustedException.class,
+            e -> assertThat(e.retryAt()).isEqualTo(Instant.parse("2026-11-21T00:05:00Z")));
     verify(1, getRequestedFor(urlPathEqualTo("/api/fetch")));
+    assertThat(calls(usage)).isEqualTo(1); // the refused reservation left no count
+  }
+
+  @Test
+  void aFailedRequestStillCounts(WireMockRuntimeInfo w) {
+    stubFor(get(urlPathEqualTo("/api/fetch")).willReturn(aResponse().withStatus(400)));
+    var usage = new FakeApiUsage();
+    assertThatThrownBy(() -> lookup(w, usage, 200).lookup(List.of(work(1, ZOOKEYS, "PMCID", "PMC1"))))
+        .isInstanceOf(HttpProblem.class);
+    assertThat(calls(usage)).isEqualTo(1);
+  }
+
+  @Test
+  void aBatchThatWouldCrossTheCapSendsNothingAndDefers(WireMockRuntimeInfo w) {
+    stubFor(get(urlPathEqualTo("/api/fetch")).willReturn(aResponse().withBody("{\"sibils_article_set\":[]}")));
+    var usage = new FakeApiUsage();
+    usage.reserve("biodiversitypmc", LocalDate.of(2026, 11, 20), 199);
+    // a pmc fetch and a possible medline fallback: two requests reserved, only one is left
+    var l = lookup(w, usage, 200);
+    assertThatThrownBy(() -> l.lookup(List.of(work(1, ZOOKEYS, "PMCID", "PMC1", "PMID", "1"))))
+        .isInstanceOf(BudgetExhaustedException.class);
+    verify(0, getRequestedFor(urlPathEqualTo("/api/fetch")));
+    assertThat(calls(usage)).isEqualTo(199);
+  }
+
+  @Test
+  void anUnusedFallbackReservationIsGivenBack(WireMockRuntimeInfo w) throws IOException {
+    stubFor(get(urlPathEqualTo("/api/fetch")).willReturn(aResponse().withBody(fixture("biodivpmc-pmc.json"))));
+    var usage = new FakeApiUsage();
+    lookup(w, usage, 200).lookup(List.of(work(1, ZOOKEYS, "PMCID", "PMC10768028", "PMID", "38187161")));
+    assertThat(calls(usage)).isEqualTo(1);
   }
 }

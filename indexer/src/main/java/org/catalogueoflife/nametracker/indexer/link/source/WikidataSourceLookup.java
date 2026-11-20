@@ -7,7 +7,9 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.SortedSet;
 import java.util.TreeSet;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
 import org.catalogueoflife.nametracker.indexer.link.IdentifierLookup;
@@ -63,7 +65,7 @@ public class WikidataSourceLookup implements IdentifierLookup {
   }
 
   private static List<String> issns(LinkTarget t) {
-    return t.issns().stream().map(Issn::normalise).filter(java.util.Objects::nonNull).distinct().toList();
+    return t.issns().stream().map(Issn::normalise).filter(Objects::nonNull).distinct().toList();
   }
 
   /** What one item says: its identifiers by scheme. */
@@ -84,7 +86,7 @@ public class WikidataSourceLookup implements IdentifierLookup {
         "application/sparql-results+json", "Wikidata");
 
     // item -> its identifiers (first value per scheme, in answer order); target -> the items its ISSNs matched
-    Map<String, Map<String, java.util.SortedSet<String>>> items = new LinkedHashMap<>();
+    Map<String, Map<String, SortedSet<String>>> items = new LinkedHashMap<>();
     Map<Long, Set<String>> itemsOf = new HashMap<>();
     Map<String, Set<Long>> targetsOf = new HashMap<>();
     for (JsonNode b : root.path("results").path("bindings")) {
@@ -92,7 +94,7 @@ public class WikidataSourceLookup implements IdentifierLookup {
       String item = b.path("item").path("value").asString("");
       if (issn == null || !item.startsWith(ENTITY) || !byIssn.containsKey(issn)) continue;
       String qid = item.substring(ENTITY.length());
-      Map<String, java.util.SortedSet<String>> ids = items.computeIfAbsent(qid, k -> new LinkedHashMap<>());
+      Map<String, SortedSet<String>> ids = items.computeIfAbsent(qid, k -> new LinkedHashMap<>());
       put(ids, IdScheme.IPNI_PUB, b.path("ipni"));
       put(ids, IdScheme.BPH, b.path("bph"));
       put(ids, IdScheme.BHL_TITLE, b.path("bhl"));
@@ -123,7 +125,7 @@ public class WikidataSourceLookup implements IdentifierLookup {
   }
 
   /** Collects the values the scheme accepts (a value of another form, such as a non-numeric BPH, is left out). */
-  private static void put(Map<String, java.util.SortedSet<String>> ids, IdScheme scheme, JsonNode value) {
+  private static void put(Map<String, SortedSet<String>> ids, IdScheme scheme, JsonNode value) {
     String v = value.path("value").asString("");
     if (v.isBlank()) return;
     String n = scheme.normalise(v);
