@@ -40,6 +40,12 @@
     RETURNING id
   </select>
 
+  <select id="latestFor" resultMap="result">
+    SELECT DISTINCT ON (source_id) * FROM source_sample
+    WHERE source_id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+    ORDER BY source_id, sampled_at DESC, id DESC
+  </select>
+
   <select id="recent" resultMap="result">
     SELECT * FROM source_sample WHERE source_id = #{sourceId} ORDER BY sampled_at DESC, id DESC LIMIT #{limit}
   </select>

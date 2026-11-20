@@ -98,15 +98,16 @@ public class AdminSourceViews {
   public List<SourceView> views(List<Source> list) {
     Map<Long, AdminSourceFlags> flags = sources.adminFlags(list.stream().map(Source::id).toList(), thresholds).stream()
         .collect(Collectors.toMap(AdminSourceFlags::id, Function.identity()));
-    return list.stream().map(s -> view(s, flags.get(s.id()))).toList();
+    Map<Long, SourceSample> latest = list.isEmpty() ? Map.of() : samples.latestFor(list.stream().map(Source::id)
+        .toList()).stream().collect(Collectors.toMap(SourceSample::sourceId, Function.identity()));
+    return list.stream().map(s -> view(s, flags.get(s.id()), latest.get(s.id()))).toList();
   }
 
   public SourceView view(Source s) {
     return views(List.of(s)).getFirst();
   }
 
-  private SourceView view(Source s, @Nullable AdminSourceFlags f) {
-    SourceSample sample = samples.latest(s.id());
+  private SourceView view(Source s, @Nullable AdminSourceFlags f, @Nullable SourceSample sample) {
     return new SourceView(s.id(), s.openalexId(), s.title(), s.tier(), Boolean.TRUE.equals(s.active()),
         s.onboardedAt(), s.lastHarvested(), s.worksPerYear(), s.issnL(), s.issns() == null ? List.of() : s.issns(),
         s.origin(), s.country(), s.publisher(), s.candidateScore(), s.publicationStatus(),

@@ -418,14 +418,43 @@ class AdminSourceControllerIT extends AbstractPostgresIT {
     jdbc.update("INSERT INTO source_signal (source_id, origin, signal_key, detail) VALUES "
         + "(?, 'BLR', '', ('{\"lastSeen\":\"' || (current_date - 3) || '\"}')::jsonb)", revived);
 
+    // a PKP signal alone is no dated evidence
+    long pkp = harvested("S115", "PkpOnly", "CORE", 0.1f, 5f);
+    jdbc.update("UPDATE source SET publication_status = 'CEASED', ceased_reason = 'STOPPED', status_changed = now() "
+        + "- interval '30 days' WHERE id = ?", pkp);
+    jdbc.update("INSERT INTO source_signal (source_id, origin, signal_key, detail) VALUES "
+        + "(?, 'PKP_BEACON', '', '{\"records2025\":40}'::jsonb)", pkp);
+    // malformed dates must not break the list
+    long bad = harvested("S116", "BadDate", "CORE", 0.1f, 5f);
+    jdbc.update("UPDATE source SET publication_status = 'CEASED', ceased_reason = 'STOPPED', status_changed = now() "
+        + "- interval '30 days' WHERE id = ?", bad);
+    jdbc.update("INSERT INTO source_signal (source_id, origin, signal_key, detail) VALUES "
+        + "(?, 'BLR', '', '{\"lastSeen\":\"garbage\"}'::jsonb), (?, 'BLR', 'b', '{\"lastSeen\":\"2026-02-31\"}'::jsonb),"
+        + " (?, 'BLR', 'c', '{\"lastSeen\":7}'::jsonb)", bad, bad, bad);
+    // an excluded journal: only a recent registration (a user asking again) proposes a revival, a BLR sighting does not
+    long exReg = harvested("S117", "ExcludedAsked", "EXCLUDED", null, null);
+    jdbc.update("INSERT INTO source_signal (source_id, origin, signal_key, detail) VALUES (?, 'REGISTERED', '1', '{}'::jsonb)",
+        exReg);
+    long exBlr = harvested("S118", "ExcludedBlr", "EXCLUDED", null, null);
+    jdbc.update("INSERT INTO source_signal (source_id, origin, signal_key, detail) VALUES "
+        + "(?, 'BLR', '', ('{\"lastSeen\":\"' || (current_date - 3) || '\"}')::jsonb)", exBlr);
+    long exOld = harvested("S119", "ExcludedOld", "EXCLUDED", null, null);
+    jdbc.update("INSERT INTO source_signal (source_id, origin, signal_key, first_seen, detail) VALUES "
+        + "(?, 'REGISTERED', '2', now() - interval '200 days', '{}'::jsonb)", exOld);
+
     JsonNode all = items("");
+    assertThat(flag(all, pkp, "revival")).isFalse();
+    assertThat(flag(all, bad, "revival")).isFalse();
+    assertThat(flag(all, exReg, "revival")).isTrue();
+    assertThat(flag(all, exBlr, "revival")).isFalse();
+    assertThat(flag(all, exOld, "revival")).isFalse();
     assertThat(flag(all, dormant, "dormant")).isTrue();
     assertThat(flag(all, ceased, "revival")).isFalse();
     assertThat(flag(all, stale, "revival")).isFalse();
     assertThat(flag(all, revived, "revival")).isTrue();
     assertThat(flag(all, revived, "dormant")).isFalse();
     assertThat(items("?dormant=true")).extracting(n -> n.path("id").asLong()).containsExactly(dormant);
-    assertThat(items("?revival=true")).extracting(n -> n.path("id").asLong()).containsExactly(revived);
+    assertThat(items("?revival=true")).extracting(n -> n.path("id").asLong()).containsExactlyInAnyOrder(revived, exReg);
     // never applied
     assertThat(jdbc.queryForObject("SELECT publication_status FROM source WHERE id = ?", String.class, revived))
         .isEqualTo("CEASED");

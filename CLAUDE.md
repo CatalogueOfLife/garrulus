@@ -399,9 +399,9 @@ curl ... -d '{"type":"BACKFILL","payload":{"fromYear":2020,"toYear":2024,"files"
   number of registrations, and the proposals, which are shown and never applied: `proposal` (`PROMOTE` for a BROAD journal
   with act rate >= 0.10 and >= 5 names per work, `DEMOTE` for a CORE one with act rate < 0.02 and < 1 name per work and for
   a BROAD one with < 0.5; properties `nametracker.admin.proposals.{promote-act-rate,promote-names,demote-core-act-rate,
-  demote-core-names,demote-broad-names}`), `dormant` (the coverage check's proposal) and `revival` (a CEASED or EXCLUDED
-  journal with dated signs of life: a BLR `lastSeen`, a REGISTERED signal or PKP current-year records newer than the
-  status change, for an EXCLUDED one in the last 90 days; a signal's `last_seen` is no evidence).
+  demote-core-names,demote-broad-names}`), `dormant` (the coverage check's proposal) and `revival` (a CEASED journal with dated signs of life: a BLR `lastSeen` or a REGISTERED
+  signal newer than the status change; an EXCLUDED one: a REGISTERED signal of the last 90 days; a signal's `last_seen`
+  and PKP records are no evidence).
 - `GET /api/admin/sources/{id}` is the detail: signals (a `REGISTERED` one with the user's note and display name),
   samples, routes, registrations, disciplines with who set them, raw classifications, status and dormancy evidence.
 - `PATCH /api/admin/sources/{id}` with any of `tier`, `active`, `publicationStatus` (+ `ceasedReason`, `lastIssueYear`,
