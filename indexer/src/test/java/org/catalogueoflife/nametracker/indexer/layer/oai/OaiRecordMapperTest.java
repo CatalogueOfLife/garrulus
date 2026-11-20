@@ -208,6 +208,15 @@ class OaiRecordMapperTest {
   }
 
   @Test
+  void parallelDescriptionIsCleaned() throws Exception {
+    HarvestedWork hw = inline("oai_dc", DCNS + "<dc:title>T title of the article</dc:title>"
+        + "<dc:description xml:lang=\"es\">Primero.</dc:description>"
+        + "<dc:description xml:lang=\"en\">Two &lt;i&gt;species&lt;/i&gt; &amp;amp; more\u0001.</dc:description>"
+        + "</oai-dc:dc>");
+    assertThat(hw.texts()).extracting(t -> t.text()).containsExactly("Two species & more.");
+  }
+
+  @Test
   void untaggedVersionKeptWithoutLanguageForDetection() throws Exception {
     HarvestedWork hw = inline("oai_dc", DCNS + "<dc:title>Main title of the article</dc:title>"
         + "<dc:title>Another title without any language tag</dc:title></oai-dc:dc>");

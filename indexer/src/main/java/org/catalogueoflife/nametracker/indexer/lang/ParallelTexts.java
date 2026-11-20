@@ -42,7 +42,7 @@ public class ParallelTexts {
         lang = d == null ? null : d.lang();
       }
       if (lang == null) continue;
-      if (seen.add(v.field() + "|" + lang + "|" + v.kind())) out.add(new TextIn(v.field(), lang, v.kind(), v.text()));
+      if (seen.add(v.field() + "|" + lang + "|" + v.kind())) out.add(new TextIn(v.field(), lang, v.kind(), v.text(), v.source()));
     }
     return out;
   }

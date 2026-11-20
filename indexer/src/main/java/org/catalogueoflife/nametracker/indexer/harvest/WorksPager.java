@@ -8,6 +8,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.lang.LanguageService;
 import org.catalogueoflife.nametracker.indexer.lang.ParallelTexts;
@@ -164,19 +165,34 @@ public class WorksPager {
    */
   public void recordLanguage(long workId, Work work, Layer layer, @Nullable String declaredLanguage,
       List<TextIn> textVersions, @Nullable String titleLang, @Nullable String abstractLang) {
+    // what the upsert kept is the reference: versions are compared with the STORED title and abstract, and the
+    // layer's title_lang/abstract_lang count only for text it supplied or where nothing is stored yet
+    Work stored = workMapper.get(workId);
+    String title = stored != null ? stored.title() : work.title();
+    String abs = stored != null ? effective(stored) : effective(work);
+    boolean titleKept = stored == null || Objects.equals(stored.title(), work.title());
+    boolean absKept = stored == null || abs != null && Objects.equals(abs, effective(work));
     String tl = LanguageCodes.normalise(titleLang);
     String al = LanguageCodes.normalise(abstractLang);
-    String abs = work.abstractText() != null ? work.abstractText() : work.abstractJats();
-    List<TextIn> kept = parallelTexts.of(work.title(), abs, textVersions);
-    if (tl == null && kept.stream().anyMatch(t -> "TITLE".equals(t.field()) && "ORIGINAL".equals(t.kind()))) {
-      tl = parallelTexts.titleLanguage(work.title());
-      String same = tl;
+    if (stored != null && !titleKept && stored.titleLang() != null) tl = null;
+    if (stored != null && !absKept && stored.abstractLang() != null) al = null;
+    List<TextIn> kept = parallelTexts.of(title, abs, textVersions);
+    if (tl == null && titleLang == null
+        && kept.stream().anyMatch(t -> "TITLE".equals(t.field()) && "ORIGINAL".equals(t.kind()))) {
+      // an ORIGINAL title says the work's own title is not the article's language: only with a confident language of
+      // that title (and a different one for the original) is it a version worth storing
+      String own = parallelTexts.titleLanguage(title);
       kept = kept.stream().filter(t -> !("TITLE".equals(t.field()) && "ORIGINAL".equals(t.kind())
-          && t.lang().equals(same))).toList();
-      if (kept.stream().noneMatch(t -> "TITLE".equals(t.field()) && "ORIGINAL".equals(t.kind()))) tl = null;
+          && (own == null || t.lang().equals(own)))).toList();
+      if (own != null && kept.stream().anyMatch(t -> "TITLE".equals(t.field()) && "ORIGINAL".equals(t.kind()))
+          && (stored == null || stored.titleLang() == null || titleKept)) {
+        tl = own;
+      }
     }
     for (TextIn t : kept) {
-      texts.upsert(new WorkText(workId, t.field(), t.lang(), t.kind(), t.text(), layer.name(), null, null));
+      Layer from = t.source() != null ? t.source() : layer;
+      texts.upsertRanked(new WorkText(workId, t.field(), t.lang(), t.kind(), t.text(), from.name(), null, null),
+          from.biblioRank());
     }
     if (tl != null || al != null) workMapper.setTextLangs(workId, tl, al);
     if (!kept.isEmpty() || tl != null) texts.refreshTitleEn(workId);
@@ -187,6 +203,11 @@ public class WorksPager {
     } else {
       languages.decide(workId);
     }
+  }
+
+  private static @Nullable String effective(Work w) {
+    return w.abstractJats() != null && !w.abstractJats().isBlank() ? w.abstractJats()
+        : w.abstractText() != null && !w.abstractText().isBlank() ? w.abstractText() : null;
   }
 
   /**

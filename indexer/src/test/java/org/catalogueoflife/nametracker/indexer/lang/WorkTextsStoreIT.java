@@ -97,4 +97,50 @@ class WorkTextsStoreIT extends AbstractPostgresIT {
     assertThat(jdbc.queryForMap("SELECT abstract, abstract_source FROM work WHERE id = " + id))
         .containsEntry("abstract", "First.").containsEntry("abstract_source", "EUROPEPMC");
   }
+
+  @Test
+  void unsureTitleLanguageDropsTheOriginal() {
+    long id = store("10.1234/g", "Notes", null, Layer.CROSSREF, List.of(new TextIn("TITLE", null, "ORIGINAL", ZH)),
+        null, null);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM work_text WHERE work_id = " + id, Long.class)).isZero();
+    assertThat(jdbc.queryForObject("SELECT title_lang FROM work WHERE id = " + id, String.class)).isNull();
+  }
+
+  @Test
+  void lateLowerRankedLayerDoesNotRelabelOrOverwrite() {
+    long id = store("10.1234/h", EN, "An abstract.", Layer.CROSSREF, List.of(
+        new TextIn("TITLE", "zh", "PARALLEL", ZH)), "en", "en");
+    long better = store("10.1234/i", EN, null, Layer.OPENALEX, List.of(new TextIn("TITLE", "es", "PARALLEL", ES)),
+        null, null);
+    // a later OAI record: another title (not kept by the merge), another parallel of the same language, a claimed lang
+    store("10.1234/h", "Dos especies nuevas", null, Layer.OAI, List.of(new TextIn("TITLE", "zh", "PARALLEL", "其他")),
+        "es", "es");
+    store("10.1234/i", "Dos especies", null, Layer.OAI, List.of(new TextIn("TITLE", "es", "PARALLEL", "Otro título")),
+        "fr", null);
+    assertThat(jdbc.queryForMap("SELECT title, title_lang, abstract_lang FROM work WHERE id = " + id))
+        .containsEntry("title", EN).containsEntry("title_lang", "en").containsEntry("abstract_lang", "en");
+    // the OpenAlex work had no title_lang: a lower-ranked layer may fill it, but not replace the better row
+    assertThat(jdbc.queryForMap("SELECT text, source FROM work_text WHERE work_id = " + better))
+        .containsEntry("text", ES).containsEntry("source", "OPENALEX");
+  }
+
+  @Test
+  void reharvestIsIdempotentAndAHigherRankReplaces() {
+    List<TextIn> v = List.of(new TextIn("TITLE", "es", "PARALLEL", ES));
+    long id = store("10.1234/j", EN, null, Layer.OAI, v, "en", null);
+    store("10.1234/j", EN, null, Layer.OAI, v, "en", null);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM work_text WHERE work_id = " + id, Long.class)).isEqualTo(1);
+    store("10.1234/j", EN, null, Layer.OPENALEX, List.of(new TextIn("TITLE", "es", "PARALLEL", "Otro título de especies")),
+        null, null);
+    assertThat(jdbc.queryForMap("SELECT text, source FROM work_text WHERE work_id = " + id))
+        .containsEntry("text", "Otro título de especies").containsEntry("source", "OPENALEX");
+  }
+
+  @Test
+  void textKeepsItsOriginatingLayer() {
+    long id = store("10.1234/k", EN, null, Layer.OPENALEX, List.of(
+        new TextIn("TITLE", null, "ORIGINAL", ZH, Layer.CROSSREF)), null, null);
+    assertThat(jdbc.queryForList("SELECT source FROM work_text WHERE work_id = ?", String.class, id))
+        .containsExactly("CROSSREF");
+  }
 }

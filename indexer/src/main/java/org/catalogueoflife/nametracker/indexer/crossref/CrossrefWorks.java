@@ -61,7 +61,7 @@ public final class CrossrefWorks {
     String title = TitleText.clean(first(w, "title"));
     String original = TitleText.clean(first(w, "original-title"));
     if (original == null || original.isBlank() || original.equals(title)) return List.of();
-    return List.of(new TextIn("TITLE", null, "ORIGINAL", original));
+    return List.of(new TextIn("TITLE", null, "ORIGINAL", original, org.catalogueoflife.nametracker.store.work.Layer.CROSSREF));
   }
 
   /**

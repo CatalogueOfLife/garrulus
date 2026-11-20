@@ -11,6 +11,13 @@ public interface WorkTextMapper {
   /** Inserts the text, or replaces text, source and model of the row with the same work, field, lang and kind. */
   int upsert(@Param("t") WorkText t);
 
+  /**
+   * As {@link #upsert}, for a text a harvest layer delivered: an existing row whose source is a layer ranked better than
+   * {@code rank} (ADR-0008 {@code Layer.biblioRank}, lower wins) is left as it is; equal or worse is replaced. A source
+   * that is no layer is replaced.
+   */
+  int upsertRanked(@Param("t") WorkText t, @Param("rank") int rank);
+
   List<WorkText> forWork(@Param("workId") long workId);
 
   List<WorkText> forWorks(@Param("ids") Collection<Long> ids);

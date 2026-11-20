@@ -132,7 +132,8 @@ public final class OaiRecordMapper {
         p.abstractText = text;
         p.abstractLang = lang(d);
       } else {
-        p.texts.add(new TextIn("ABSTRACT", lang(d), "PARALLEL", text));
+        String clean = TitleText.clean(OaiPmhClient.stripIllegal(text)); // markup stripped like any other text
+        if (clean != null) p.texts.add(new TextIn("ABSTRACT", lang(d), "PARALLEL", clean));
       }
     }
     for (Element rt : elements(dc, DC, "rights")) {
