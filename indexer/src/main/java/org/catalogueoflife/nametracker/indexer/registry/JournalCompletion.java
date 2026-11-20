@@ -8,7 +8,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.ToLongFunction;
-import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException;
 import org.catalogueoflife.nametracker.indexer.crossref.CrossrefClient;
 import org.catalogueoflife.nametracker.indexer.layer.europepmc.ProbeEuropePmcHandler;
