@@ -15,6 +15,7 @@ import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
 import org.catalogueoflife.nametracker.store.discipline.RawClassification;
 import org.catalogueoflife.nametracker.store.ident.Issn;
+import org.catalogueoflife.nametracker.store.lang.LanguageCodes;
 import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.JsonNode;
 
@@ -29,7 +30,7 @@ public class DoajClient {
   /** One DOAJ journal: {@code issns} print then electronic, {@code lcc} its LCC subjects as raw rows. */
   public record DoajJournal(String id, String title, List<String> issns, @Nullable String publisher,
       @Nullable String country, List<RawClassification> lcc, @Nullable String licenceUrl,
-      @Nullable LocalDate discontinued, List<String> replacedBy, @Nullable String homepage) {
+      @Nullable LocalDate discontinued, List<String> replacedBy, @Nullable String homepage, List<String> languages) {
   }
 
   /** One page of a search and the total hit count. */
@@ -99,10 +100,15 @@ public class DoajClient {
       String n = Issn.normalise(i.asString(""));
       if (n != null && !replacedBy.contains(n)) replacedBy.add(n);
     }
+    List<String> languages = new ArrayList<>();
+    for (JsonNode l : b.path("language")) {
+      String code = LanguageCodes.normalise(l.asString(""));
+      if (code != null && !languages.contains(code)) languages.add(code);
+    }
     String title = text(b, "title");
     return new DoajJournal(r.path("id").asString(""), title == null ? "" : title, issns,
         text(b.path("publisher"), "name"), text(b.path("publisher"), "country"), lcc, licence,
-        date(text(b, "discontinued_date")), replacedBy, text(b.path("ref"), "journal"));
+        date(text(b, "discontinued_date")), replacedBy, text(b.path("ref"), "journal"), languages);
   }
 
   private static @Nullable LocalDate date(@Nullable String s) {

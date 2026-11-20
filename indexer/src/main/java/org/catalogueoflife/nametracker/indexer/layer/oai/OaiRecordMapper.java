@@ -57,7 +57,7 @@ public final class OaiRecordMapper {
         p.pages, p.authors, "article", LanguageCodes.normalise(p.language), null, p.license, null, jats ? null : p.abstractText,
         !jats && p.abstractText != null ? "OAI" : null, null, null, null, null, null, null, null, null, p.abstractJats,
         null, null, null, null, jats ? "OAI" : null, null);
-    return Optional.of(new HarvestedWork(w, Layer.OAI, ids));
+    return Optional.of(new HarvestedWork(w, Layer.OAI, ids, p.language, List.of()));
   }
 
   private static final class Parsed {

@@ -51,7 +51,7 @@ class DoajDiscoveryTest {
     CandidateRegistry registry = mock(CandidateRegistry.class);
     Offers o = new Offers(registry);
     o.offer(DoajDiscovery.candidate(new DoajClient.DoajJournal("a", "A", java.util.List.of("1175-5326"), null, null,
-        java.util.List.of(), null, null, java.util.List.of(), null)));
+        java.util.List.of(), null, null, java.util.List.of(), null, java.util.List.of())));
     assertThat(o.summary()).isEqualTo("0 offered, 1 rejected (no usable ISSN), 0 failed");
   }
 }

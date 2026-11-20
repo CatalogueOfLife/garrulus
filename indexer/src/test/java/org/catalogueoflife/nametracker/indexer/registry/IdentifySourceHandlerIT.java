@@ -176,6 +176,7 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
     assertThat(s.host()).isEqualTo("www.mapress.com");
     assertThat(s.isOa()).isFalse();
     assertThat(s.inDoaj()).isTrue(); // DOAJ answers for DOAJ membership
+    assertThat(sources.languages(id)).containsExactly("en"); // DOAJ's journal languages, for the decision of works
     assertThat(s.tier()).isEqualTo("CANDIDATE");
     assertThat(rawCodes(id, "OPENALEX_SUBFIELD")).containsExactly("1105", "1910");
     assertThat(rawCodes(id, "OPENALEX_TOPIC")).hasSize(4);

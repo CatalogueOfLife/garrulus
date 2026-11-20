@@ -64,6 +64,31 @@ class LanguageDetectorTest {
   }
 
   @Test
+  void sentenceInitialCapitalIsNotABinomial() {
+    // "Las aves de Chile" has four counted words now, but Lingua cannot tell it from Romanian (margin 0.01): it
+    // stays undecided, which is the margin gate working, not the word count
+    assertThat(LanguageDetector.countedWords("Las aves de Chile")).isEqualTo(4);
+    String[][] titles = {{"Contribución al conocimiento de las aves de Chile", "es"},
+        {"Aves da Mata Atlântica brasileira", "pt"}, {"Les oiseaux de France", "fr"}, {"The birds of Chile", "en"}};
+    for (String[] t : titles) {
+      LanguageDetector.Detection d = D.titleAndAbstract(t[0], null, List.of());
+      assertThat(d).as(t[0]).isNotNull();
+      assertThat(d.lang()).as(t[0]).isEqualTo(t[1]);
+    }
+    // a name with its author, and a name with nothing else, are still no language evidence
+    assertThat(LanguageDetector.countedWords("Carabus auratus Linnaeus, 1761")).isZero();
+    assertThat(D.titleAndAbstract("Carabus auratus Linnaeus, 1761", null, List.of())).isNull();
+    assertThat(D.titleAndAbstract("Poa annua L.", null, List.of())).isNull();
+  }
+
+  @Test
+  void detectionCarriesItsMargin() {
+    LanguageDetector.Detection d = D.detectTitle("Two new species of cockroaches from southwestern China");
+    assertThat(d.lang()).isEqualTo("en");
+    assertThat(d.margin()).isGreaterThanOrEqualTo(0.10f).isLessThanOrEqualTo(d.confidence());
+  }
+
+  @Test
   void englishTitleAndAbstractAreEnglish() {
     assertThat(D.titleAndAbstract("Two new species of cockroaches from southwestern China", EN_ABSTRACT, List.of())
         .lang()).isEqualTo("en");

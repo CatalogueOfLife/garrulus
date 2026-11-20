@@ -21,8 +21,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class LanguageDetector {
 
-  /** {@code lang} is an ISO 639-1 code, null when nothing was detected. */
-  public record Detection(@Nullable String lang, float confidence) {}
+  /**
+   * {@code lang} is an ISO 639-1 code, null when nothing was detected. {@code confidence} is Lingua's top value, which
+   * is max-normalised (about 1.0 whatever the text); {@code margin} is the top value minus the second best, the
+   * measure that says how clear the call is.
+   */
+  public record Detection(@Nullable String lang, float confidence, float margin) {}
 
   private static final Language[] LANGUAGES = {
       Language.ENGLISH, Language.CHINESE, Language.JAPANESE, Language.KOREAN, Language.RUSSIAN, Language.UKRAINIAN,
@@ -79,7 +83,7 @@ public class LanguageDetector {
 
   private Scored scored(@Nullable String text) {
     String t = clean(text);
-    Detection none = new Detection(null, 0f);
+    Detection none = new Detection(null, 0f, 0f);
     if (t.isEmpty()) return new Scored(none, 0f);
     Map<Language, Double> values = lingua().computeLanguageConfidenceValues(t);
     var it = values.entrySet().iterator();
@@ -87,8 +91,8 @@ public class LanguageDetector {
     var top = it.next();
     if (top.getValue() <= 0) return new Scored(none, 0f);
     double second = it.hasNext() ? it.next().getValue() : 0;
-    return new Scored(new Detection(code(top.getKey()), top.getValue().floatValue()),
-        (float) (top.getValue() - second));
+    float margin = (float) (top.getValue() - second);
+    return new Scored(new Detection(code(top.getKey()), top.getValue().floatValue(), margin), margin);
   }
 
   /** A detection that is confident and clearly ahead of the second best, else null. */
@@ -111,11 +115,18 @@ public class LanguageDetector {
    */
   public @Nullable Detection titleAndAbstract(@Nullable String title, @Nullable String abstractText,
       List<String> parallelTexts) {
+    Detection d = detectTitle(title);
+    return d != null ? d : detectAbstract(abstractText, parallelTexts);
+  }
+
+  /** The language of a title when it is long enough and the call is clear, else null. */
+  public @Nullable Detection detectTitle(@Nullable String title) {
     String t = clean(title);
-    if (titleQualifies(t)) {
-      Detection d = decided(t);
-      if (d != null) return d;
-    }
+    return titleQualifies(t) ? decided(t) : null;
+  }
+
+  /** The language of an abstract after its parallel texts were removed ({@link #detectText}), null when unclear. */
+  public @Nullable Detection detectAbstract(@Nullable String abstractText, List<String> parallelTexts) {
     return detectText(withoutParallels(abstractText, parallelTexts));
   }
 
@@ -130,6 +141,12 @@ public class LanguageDetector {
    * followed by a lowercase one), not the author and year that follow a binomial ("Linnaeus", "L.", "Smith, 2001").
    */
   static int countedWords(String title) {
+    // the first token, a capital followed by a lowercase word, is a binomial only if nothing but name parts follows
+    // ("Carabus auratus Linnaeus, 1761"); in "Las aves de Chile" it is an ordinary sentence start
+    return countedWords(title, true) == 0 ? 0 : countedWords(title, false);
+  }
+
+  private static int countedWords(String title, boolean firstMayBeBinomial) {
     String[] raw = SPACES.split(title);
     String[] w = new String[raw.length];
     for (int i = 0; i < raw.length; i++) w[i] = raw[i].replaceAll("^[^\\p{L}\\p{N}]+|[^\\p{L}\\p{N}.]+$", "");
@@ -140,7 +157,7 @@ public class LanguageDetector {
       if (x.isEmpty() || hasDigit(x)) continue;
       if (x.endsWith(".") && letters(x) <= 3) continue; // "L.", "Sp."
       if (capitalised(x)) {
-        if (i + 1 < w.length && lower(w[i + 1])) {
+        if ((i > 0 || firstMayBeBinomial) && i + 1 < w.length && lower(w[i + 1])) {
           nameRun = true;
           i++;
           continue;

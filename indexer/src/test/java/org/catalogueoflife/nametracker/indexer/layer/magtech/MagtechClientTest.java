@@ -66,4 +66,18 @@ public class MagtechClientTest {
     assertThat(meta.date()).isEqualTo(LocalDate.of(2023, 3, 20));
     assertThat(meta.language()).isEqualTo("en");
   }
+
+  @Test
+  void titleLanguageIsThatOfANonEnglishCitationTitle(WireMockRuntimeInfo w) throws IOException {
+    String page = fixture("article-93333.html");
+    stubFor(get(urlPathEqualTo("/EN/abstract/abstract1.shtml")).willReturn(aResponse().withBody(page.replace(
+        "<meta name=\"citation_title\"", "<meta name=\"citation_title\" xml:lang=\"zh\" content=\"中国西南地区蜚蠊科两新属\" />\n"
+            + "<meta name=\"citation_title\" xml:lang=\"en\""))));
+    stubFor(get(urlPathEqualTo("/EN/abstract/abstract2.shtml")).willReturn(aResponse().withBody(page)));
+    assertThat(client().articleMeta(URI.create(w.getHttpBaseUrl() + "/EN/abstract/abstract1.shtml")).titleLanguage())
+        .isEqualTo("zh");
+    var plain = client().articleMeta(URI.create(w.getHttpBaseUrl() + "/EN/abstract/abstract2.shtml"));
+    assertThat(plain.titleLanguage()).isNull();
+    assertThat(plain.language()).isEqualTo("en"); // citation_language stays what the page says, and is no evidence
+  }
 }

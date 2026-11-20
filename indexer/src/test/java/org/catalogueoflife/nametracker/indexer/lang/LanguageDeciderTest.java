@@ -51,9 +51,17 @@ class LanguageDeciderTest {
 
   @Test
   void lowConfidenceDetectionSkipped() {
-    var r = D.decide(List.of(ev("OPENALEX", "OPENALEX", "pt", null), ev("DETECTED", "TITLE", "en", 0.6f)),
+    var r = D.decide(List.of(ev("OPENALEX", "OPENALEX", "pt", null), ev("DETECTED", "TITLE", "en", 0.05f)),
         List.of());
     assertThat(r).isEqualTo(new LanguageDecider.Decision("pt", "OPENALEX"));
+  }
+
+  @Test
+  void detectedIsGatedByItsMarginNotByTheMinimumConfidence() {
+    // the stored value is the margin: 0.15 is clear (min-margin 0.10) although it is below min-confidence 0.80
+    assertThat(D.decide(List.of(ev("DETECTED", "TITLE", "en", 0.15f)), List.of()))
+        .isEqualTo(new LanguageDecider.Decision("en", "DETECTED"));
+    assertThat(D.decide(List.of(ev("DETECTED", "TITLE", "en", 0.09f)), List.of()).source()).isEqualTo("UNDECIDED");
   }
 
   @Test

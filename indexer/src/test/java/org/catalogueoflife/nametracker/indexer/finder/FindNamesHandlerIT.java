@@ -173,6 +173,25 @@ class FindNamesHandlerIT extends AbstractPostgresIT {
   }
 
   @Test
+  void namingAWorkDecidesItsLanguage() throws Exception {
+    stub.fn = FindNamesHandlerIT::standard;
+    long id = work("Two new species of cockroaches from southwestern China", "We describe two new species of "
+        + "cockroaches from southwestern China and compare them with their congeners. The new species differ from all "
+        + "known members of the genus in the shape of the male genitalia and in the colour of the pronotum.",
+        "ABSTRACT_ONLY");
+    jdbc.update("UPDATE work SET language = 'uz' WHERE id = ?", id);
+    jdbc.update("INSERT INTO work_language_evidence (work_id, kind, source, lang, raw) VALUES (?, 'OPENALEX', "
+        + "'OPENALEX', 'uz', 'uz')", id);
+
+    handler.handle(find(id));
+
+    assertThat(jdbc.queryForMap("SELECT language, language_source FROM work WHERE id = ?", id))
+        .containsEntry("language", "en").containsEntry("language_source", "DETECTED");
+    // an abstract document has no PARAGRAPH block: no full text evidence
+    assertThat(count("SELECT count(*) FROM work_language_evidence WHERE kind = 'FULLTEXT'")).isZero();
+  }
+
+  @Test
   void findStoresMentionsWithExactSpans() throws Exception {
     stub.fn = FindNamesHandlerIT::standard;
     long id = work("On Homo sapiens Linnaeus", ABSTRACT, "ABSTRACT_ONLY");

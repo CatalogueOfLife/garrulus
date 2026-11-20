@@ -40,6 +40,7 @@ class DoajClientTest {
     assertThat(j.licenceUrl()).isEqualTo("https://creativecommons.org/licenses/by/4.0/");
     assertThat(j.discontinued()).isNull();
     assertThat(j.replacedBy()).isEmpty();
+    assertThat(j.languages()).containsExactly("en");
     assertThat(j.homepage()).isEqualTo("http://www.europeanjournaloftaxonomy.eu/index.php/ejt");
   }
 

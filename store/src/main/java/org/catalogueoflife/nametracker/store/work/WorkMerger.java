@@ -51,7 +51,7 @@ public final class WorkMerger {
         pick(s.pages(), in.pages(), biblio),
         pick(s.authors(), in.authors(), biblio),
         pick(s.type(), in.type(), biblio),
-        fill(s.language(), in.language()),
+        s.language(), // decided from evidence (LanguageService), never merged from a layer's raw value
         pick(s.oaStatus(), in.oaStatus(), access),
         pick(s.license(), in.license(), access),
         pick(s.bestOaUrl(), in.bestOaUrl(), access),

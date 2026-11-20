@@ -44,7 +44,8 @@ public class LayerWriter {
     if (year != null && year < MIN_YEAR) return Stored.SKIPPED_PRE_2000;
     String origin = origin(w, mode);
     TaskPriority priority = "BACKFILL".equals(origin) ? TaskPriority.BACKFILL : contentPriority;
-    return pager.store(withOrigin(w, origin), hw.layer(), hw.ids(), priority) ? Stored.CREATED : Stored.MERGED;
+    return pager.store(withOrigin(w, origin), hw.layer(), hw.ids(), priority, null, hw.declaredLanguage(), hw.texts())
+        ? Stored.CREATED : Stored.MERGED;
   }
 
   private static @Nullable Integer year(Work w) {

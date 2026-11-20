@@ -9,11 +9,16 @@ import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
+import org.catalogueoflife.nametracker.indexer.lang.LanguageService;
+import org.catalogueoflife.nametracker.indexer.layer.TextIn;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexWorks;
 import org.catalogueoflife.nametracker.indexer.openalex.WorkRecord;
 import org.catalogueoflife.nametracker.store.ident.Identifier;
 import org.catalogueoflife.nametracker.store.ident.WorkSightingMapper;
+import org.catalogueoflife.nametracker.store.lang.LanguageCodes;
+import org.catalogueoflife.nametracker.store.lang.WorkText;
+import org.catalogueoflife.nametracker.store.lang.WorkTextMapper;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.catalogueoflife.nametracker.store.work.Layer;
@@ -43,10 +48,14 @@ public class WorksPager {
   private final TaskQueue queue;
   private final TransactionTemplate tx;
   private final WorkSightingMapper sightings;
+  private final LanguageService languages;
+  private final WorkTextMapper texts;
 
   public WorksPager(OpenAlexClient client, WorkUpsert upsert, TaskQueue queue, TransactionTemplate tx,
-      WorkSightingMapper sightings) {
+      WorkSightingMapper sightings, LanguageService languages, WorkTextMapper texts) {
     this.sightings = sightings;
+    this.languages = languages;
+    this.texts = texts;
     this.client = client;
     this.upsert = upsert;
     this.queue = queue;
@@ -94,9 +103,21 @@ public class WorksPager {
    */
   public boolean store(Work work, Layer layer, List<Identifier> ids, TaskPriority contentPriority,
       @Nullable Layer alsoSeenBy) {
+    return store(work, layer, ids, contentPriority, alsoSeenBy, null, List.of());
+  }
+
+  /**
+   * As above, and in the same transaction: the layer's language evidence is recorded and the language decided
+   * ({@link LanguageService}). OpenAlex's own {@code language} is OPENALEX evidence; {@code declaredLanguage} (what a
+   * layer read from the record) is DECLARED evidence of that layer; Crossref gives none, its {@code language} is often
+   * the metadata's. {@code textVersions} are stored as {@code work_text} rows, the source being the layer.
+   */
+  public boolean store(Work work, Layer layer, List<Identifier> ids, TaskPriority contentPriority,
+      @Nullable Layer alsoSeenBy, @Nullable String declaredLanguage, List<TextIn> textVersions) {
     return Boolean.TRUE.equals(tx.execute(status -> {
       WorkUpsert.UpsertResult r = upsert.upsert(work, layer, ids);
       if (alsoSeenBy != null) sightings.sight(r.id(), alsoSeenBy.name(), work.sourceId());
+      recordLanguage(r.id(), work, layer, declaredLanguage, textVersions);
       if (r.created()) {
         queue.enqueue(RESOLVE_CONTENT, "{\"workId\":" + r.id() + "}", contentPriority, "content:" + r.id());
       } else {
@@ -105,6 +126,22 @@ public class WorksPager {
       enqueueMerge(queue, r, contentPriority);
       return r.created();
     }));
+  }
+
+  private void recordLanguage(long workId, Work work, Layer layer, @Nullable String declaredLanguage,
+      List<TextIn> textVersions) {
+    for (TextIn t : textVersions) {
+      if (t.lang() == null || t.text().isBlank()) continue;
+      String lang = LanguageCodes.normalise(t.lang());
+      if (lang != null) texts.upsert(new WorkText(workId, t.field(), lang, t.kind(), t.text(), layer.name(), null, null));
+    }
+    if (layer == Layer.OPENALEX && work.language() != null) {
+      languages.evidence(workId, LanguageService.openAlex(workId, work.language()));
+    } else if (declaredLanguage != null && !declaredLanguage.isBlank()) {
+      languages.evidence(workId, LanguageService.declared(workId, layer.name(), declaredLanguage));
+    } else {
+      languages.decide(workId);
+    }
   }
 
   /**

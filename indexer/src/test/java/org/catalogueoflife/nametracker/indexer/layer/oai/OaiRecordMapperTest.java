@@ -166,4 +166,15 @@ class OaiRecordMapperTest {
       assertThat(OaiRecordMapper.toHarvested(rec, 7L).orElseThrow().work().language()).as(c[0]).isEqualTo(c[1]);
     }
   }
+
+  @Test
+  void declaredLanguageIsTheRawCode() throws Exception {
+    String xml = OaiPmhClientTest.fixture("pensoft-listrecords-oai_dc.xml")
+        .replace("<dc:language>en</dc:language>", "<dc:language>English</dc:language>");
+    var rec = OaiPmhClient.readRecords(xml.getBytes(StandardCharsets.UTF_8), "oai_dc").get(1);
+    HarvestedWork hw = OaiRecordMapper.toHarvested(rec, 7L).orElseThrow();
+    assertThat(hw.declaredLanguage()).isEqualTo("English");
+    assertThat(hw.work().language()).isEqualTo("en");
+    assertThat(hw.texts()).isEmpty();
+  }
 }

@@ -115,7 +115,7 @@ public class MagtechLayer implements HarvestLayer {
     } catch (HttpProblem e) {
       if (e.retryable()) throw e;
       LOG.warn("Magtech article page {} unreadable ({}); the item is stored from the feed alone", page, e.getMessage());
-      return new MagtechClient.ArticleMeta(null, null, null);
+      return new MagtechClient.ArticleMeta(null, null, null, null);
     }
   }
 
@@ -136,7 +136,9 @@ public class MagtechLayer implements HarvestLayer {
     Work w = new Work(null, null, doi == null ? null : doi.value(), sourceId, title, date, year, null, null, null,
         authors, "article", LanguageCodes.normalise(meta.language()), null, null, null, null, null, null, null, null, null, null, null, null,
         null, abs, null, null, null, null, abs == null ? null : "MAGTECH", null);
-    return new HarvestedWork(w, Layer.MAGTECH, ids);
+    // the English page's own title, abstract and citation_language are the English parallel: only the language of a
+    // non-English citation_title says what the article is written in
+    return new HarvestedWork(w, Layer.MAGTECH, ids, meta.titleLanguage(), List.of());
   }
 
   /** The feed's comma separated author names as the JSON the work stores: {@code [{"name":…},…]}. */

@@ -5,7 +5,10 @@ import org.catalogueoflife.nametracker.indexer.harvest.WorksPager;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.account.HitMapper;
 import org.catalogueoflife.nametracker.store.content.ContentMapper;
+import org.catalogueoflife.nametracker.indexer.lang.LanguageService;
 import org.catalogueoflife.nametracker.store.ident.WorkIdentifierMapper;
+import org.catalogueoflife.nametracker.store.lang.LanguageEvidenceMapper;
+import org.catalogueoflife.nametracker.store.lang.WorkTextMapper;
 import org.catalogueoflife.nametracker.store.ident.WorkSightingMapper;
 import org.catalogueoflife.nametracker.store.task.Task;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
@@ -28,7 +31,8 @@ import tools.jackson.databind.JsonNode;
  * younger is deleted, its mentions with it. When content moved or the survivor's abstract changed (and it is past
  * DISCOVERED), its text level and document may differ: RESOLVE_CONTENT, free routes only, at REPROCESS (key
  * {@code merge-content:<survivor>:<other>}, this task's run_after), which recomputes the level and names the work
- * again when its document changed. A missing work (already merged) is a no-op; two different DOIs are never merged.
+ * again when its document changed. The younger's language evidence and text versions move too (a signal the survivor
+ * has already is dropped) and the survivor's language is decided again. A missing work (already merged) is a no-op; two different DOIs are never merged.
  * Idempotent.
  */
 @Component
@@ -43,9 +47,16 @@ public class MergeWorksHandler implements TaskHandler {
   private final HitMapper hits;
   private final TaskQueue queue;
   private final TransactionTemplate tx;
+  private final LanguageEvidenceMapper evidence;
+  private final WorkTextMapper texts;
+  private final LanguageService languages;
 
   public MergeWorksHandler(WorkMapper works, WorkIdentifierMapper identifiers, WorkSightingMapper sightings,
-      ContentMapper contents, HitMapper hits, TaskQueue queue, TransactionTemplate tx) {
+      ContentMapper contents, HitMapper hits, TaskQueue queue, TransactionTemplate tx, LanguageEvidenceMapper evidence,
+      WorkTextMapper texts, LanguageService languages) {
+    this.evidence = evidence;
+    this.texts = texts;
+    this.languages = languages;
     this.works = works;
     this.identifiers = identifiers;
     this.sightings = sightings;
@@ -89,8 +100,11 @@ public class MergeWorksHandler implements TaskHandler {
     int sights = sightings.moveAll(otherId, survivorId);
     int moved = contents.moveContents(otherId, survivorId);
     int movedHits = hits.moveHits(otherId, survivorId);
+    evidence.moveAll(otherId, survivorId); // evidence and text versions the survivor lacks; the decision follows below
+    texts.moveAll(otherId, survivorId);
     works.deleteWork(otherId); // frees its DOI and OpenAlex id for the survivor
     if (merged.changed()) works.updateMerged(merged.work());
+    languages.decide(survivorId);
     Work after = merged.work();
     boolean abstractChanged = !java.util.Objects.equals(survivor.abstractText(), after.abstractText())
         || !java.util.Objects.equals(survivor.abstractJats(), after.abstractJats())

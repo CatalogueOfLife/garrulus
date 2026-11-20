@@ -10,8 +10,9 @@ import org.springframework.stereotype.Component;
 
 /**
  * Decides the language of a work from its evidence. The first that applies: FULLTEXT (confidence at least the
- * minimum), DECLARED (by layer MAGTECH, SCIELO, OAI, EUROPEPMC, other layers after them), DETECTED (at least the
- * minimum; evidence from the title ranks before the abstract, whatever the confidence), OPENALEX or else LEGACY (both reported as {@code OPENALEX}: the legacy values came from the first layer,
+ * minimum), DECLARED (by layer MAGTECH, SCIELO, OAI, EUROPEPMC, other layers after them), DETECTED (its stored
+ * confidence is the detector's margin over the second best language, at least {@code min-margin}; evidence from the
+ * title ranks before the abstract, whatever the margin), OPENALEX or else LEGACY (both reported as {@code OPENALEX}: the legacy values came from the first layer,
  * almost always OpenAlex), JOURNAL (the journal has exactly one language), else UNDECIDED with no language.
  */
 @Component
@@ -37,7 +38,7 @@ public class LanguageDecider {
     if (declared.isPresent()) return decision(declared.get(), "DECLARED");
 
     Optional<LanguageEvidence> detected = ev.stream()
-        .filter(e -> "DETECTED".equals(e.kind()) && usable(e))
+        .filter(e -> "DETECTED".equals(e.kind()) && clear(e))
         .min(Comparator.<LanguageEvidence>comparingInt(e -> e.source().contains("TITLE") ? 0 : 1)
             .thenComparing(Comparator.comparing(LanguageEvidence::confidence).reversed()));
     if (detected.isPresent()) return decision(detected.get(), "DETECTED");
@@ -66,6 +67,11 @@ public class LanguageDecider {
   private boolean usable(LanguageEvidence e) {
     return LanguageCodes.normalise(e.lang()) != null && e.confidence() != null
         && e.confidence() >= props.minConfidence();
+  }
+
+  /** DETECTED evidence stores the margin of the best over the second best language, not Lingua's top value. */
+  private boolean clear(LanguageEvidence e) {
+    return LanguageCodes.normalise(e.lang()) != null && e.confidence() != null && e.confidence() >= props.minMargin();
   }
 
   private static Decision decision(LanguageEvidence e, String source) {

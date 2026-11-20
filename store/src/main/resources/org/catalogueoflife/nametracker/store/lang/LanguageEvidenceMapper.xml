@@ -20,6 +20,10 @@
       SET lang = EXCLUDED.lang, confidence = EXCLUDED.confidence, raw = EXCLUDED.raw
   </insert>
 
+  <delete id="delete" flushCache="true">
+    DELETE FROM work_language_evidence WHERE work_id = #{workId} AND kind = #{kind} AND source = #{source}
+  </delete>
+
   <select id="forWork" resultMap="evidence">
     SELECT work_id, kind, source, lang, confidence, raw FROM work_language_evidence
     WHERE work_id = #{workId} ORDER BY kind, source

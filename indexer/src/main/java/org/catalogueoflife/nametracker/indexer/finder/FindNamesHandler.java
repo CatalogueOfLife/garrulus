@@ -24,6 +24,7 @@ import org.catalogueoflife.nametracker.finder.api.NameFinder;
 import org.catalogueoflife.nametracker.finder.gnfinder.GnfinderUnavailableException;
 import org.catalogueoflife.nametracker.finder.remote.FinderUnavailableException;
 import org.catalogueoflife.nametracker.indexer.content.ResolveContentHandler;
+import org.catalogueoflife.nametracker.indexer.lang.LanguageService;
 import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.content.ContentMapper;
@@ -85,9 +86,12 @@ public class FindNamesHandler implements TaskHandler {
   private final TaskQueue queue;
   private final TransactionTemplate tx;
   private final Clock clock;
+  private final LanguageService languages;
 
   public FindNamesHandler(ObjectProvider<NameFinder> finder, DocumentLoader loader, Spool spool, WorkMapper works,
-      ContentMapper contents, IndexMapper index, TaskQueue queue, TransactionTemplate tx, Clock clock) {
+      ContentMapper contents, IndexMapper index, TaskQueue queue, TransactionTemplate tx, Clock clock,
+      LanguageService languages) {
+    this.languages = languages;
     this.finder = finder.getIfAvailable();
     this.loader = loader;
     this.spool = spool;
@@ -177,7 +181,24 @@ public class FindNamesHandler implements TaskHandler {
       }
       namedSha[0] = loaded.docSha();
     });
+    decideLanguage(work, loaded);
     finish(task, workId, runId[0], namedSha[0], loaded.docSha());
+  }
+
+  /**
+   * After the names are stored: the language evidence of the work's title and abstract and, for a full text that was
+   * read (not the abstract fallback), of its body; then the decision. Done here, with the work named, so that the
+   * decision does not depend on when the harvest ran, and a translation of the title (when enabled) finds its mentions.
+   * Redelivery repeats it harmlessly.
+   */
+  private void decideLanguage(Work work, DocumentLoader.Loaded loaded) {
+    Work current = works.get(work.id());
+    if (current == null) return;
+    languages.detectFromWork(current);
+    if ("FULLTEXT".equals(current.textLevel()) && !"abstract".equals(loaded.diagnostics().get("fallback"))) {
+      languages.detectFromDocument(current.id(), loaded.doc());
+    }
+    languages.decide(current.id());
   }
 
   /**

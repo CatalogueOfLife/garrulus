@@ -27,13 +27,20 @@ public class MagtechClient {
   public record MagtechItem(String title, URI link, String descriptionHtml, String authors, @Nullable String pubDate) {
   }
 
-  /** What the {@code citation_*} meta tags of an article page add to the feed. */
-  public record ArticleMeta(@Nullable String doi, @Nullable LocalDate date, @Nullable String language) {
+  /**
+   * What the {@code citation_*} meta tags of an article page add to the feed. {@code language} is
+   * {@code citation_language}, which the English page gives as {@code en} for a Chinese article too: not evidence.
+   * {@code titleLanguage} is the {@code xml:lang} of a {@code citation_title} that is not English: the language the
+   * article is written in.
+   */
+  public record ArticleMeta(@Nullable String doi, @Nullable LocalDate date, @Nullable String language,
+      @Nullable String titleLanguage) {
   }
 
   private static final Pattern META = Pattern.compile("<meta\\s[^>]*>", Pattern.CASE_INSENSITIVE);
   private static final Pattern NAME = Pattern.compile("\\bname\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)')", Pattern.CASE_INSENSITIVE);
   private static final Pattern CONTENT = Pattern.compile("\\bcontent\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)')", Pattern.CASE_INSENSITIVE);
+  private static final Pattern LANG = Pattern.compile("\\b(?:xml:)?lang\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)')", Pattern.CASE_INSENSITIVE);
   private static final Pattern DATE = Pattern.compile("^(\\d{4})[-/.](\\d{1,2})[-/.](\\d{1,2})");
 
   private final PoliteHttp http;
@@ -83,6 +90,7 @@ public class MagtechClient {
     String html = new String(resp.body(), StandardCharsets.UTF_8);
     int head = html.toLowerCase(Locale.ROOT).indexOf("</head>");
     Map<String, String> meta = new HashMap<>();
+    String titleLanguage = null;
     Matcher m = META.matcher(head < 0 ? html : html.substring(0, head));
     while (m.find()) {
       String tag = m.group();
@@ -91,10 +99,17 @@ public class MagtechClient {
       if (n.find() && c.find()) {
         String value = TitleText.clean(c.group(1) != null ? c.group(1) : c.group(2));
         if (value != null) meta.putIfAbsent(n.group(1).toLowerCase(Locale.ROOT), value);
+        if (titleLanguage == null && "citation_title".equalsIgnoreCase(n.group(1))) {
+          Matcher l = LANG.matcher(tag);
+          if (l.find()) {
+            String lang = (l.group(1) != null ? l.group(1) : l.group(2)).strip();
+            if (!lang.isEmpty() && !lang.toLowerCase(Locale.ROOT).startsWith("en")) titleLanguage = lang;
+          }
+        }
       }
     }
     String date = meta.getOrDefault("citation_publication_date", meta.get("citation_date"));
-    return new ArticleMeta(meta.get("citation_doi"), date(date), meta.get("citation_language"));
+    return new ArticleMeta(meta.get("citation_doi"), date(date), meta.get("citation_language"), titleLanguage);
   }
 
   static @Nullable LocalDate date(@Nullable String s) {

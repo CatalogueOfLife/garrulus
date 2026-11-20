@@ -219,9 +219,17 @@ public class JournalCompletion {
         : writeIdentity(s, j.issns(), null, null, null, s.country() == null ? j.country() : null);
     tx.executeWithoutResult(status -> {
       sources.setDoaj(target, j != null, j == null ? null : j.discontinued(), j == null ? List.of() : j.replacedBy());
+      if (j != null) addLanguages(target, j.languages());
       raw.replace(target, DoajClient.LCC, j == null ? List.of() : j.lcc());
     });
     return target;
+  }
+
+  /** DOAJ's journal languages join those the source has (a fold unions them too); they are never removed here. */
+  private void addLanguages(long target, List<String> doajLanguages) {
+    List<String> all = new ArrayList<>(sources.languages(target));
+    for (String l : doajLanguages) if (!all.contains(l)) all.add(l);
+    sources.setLanguages(target, all);
   }
 
   private void beaconRoutes(Source s, TaskPriority priority) {

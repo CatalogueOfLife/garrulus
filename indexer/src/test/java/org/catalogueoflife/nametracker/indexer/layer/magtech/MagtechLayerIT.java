@@ -130,6 +130,27 @@ class MagtechLayerIT extends AbstractPostgresIT {
   }
 
   @Test
+  void chineseOriginalDeclaredFromTitleLang(WireMockRuntimeInfo w) throws Exception {
+    route(w, "1005-0094");
+    stubSite();
+    String zh = MagtechClientTest.fixture("article-93333.html").replace("<meta name=\"citation_title\"",
+        "<meta name=\"citation_title\" xml:lang=\"zh\" content=\"中国西南地区蜚蠊科两新属\" />\n"
+            + "<meta name=\"citation_title\"");
+    stubFor(get(urlPathEqualTo("/EN/abstract/abstract93333.shtml")).willReturn(aResponse().withBody(zh)));
+    run(handler());
+
+    // the page's citation_language is "en" (the English page says so for a Chinese article too)
+    assertThat(jdbc.queryForMap("SELECT language, language_source FROM work WHERE doi = '10.17520/biods.2022520'"))
+        .containsEntry("language", "zh").containsEntry("language_source", "DECLARED");
+    assertThat(jdbc.queryForMap("SELECT lang, raw FROM work_language_evidence e JOIN work w ON w.id = e.work_id "
+        + "WHERE w.doi = '10.17520/biods.2022520' AND e.kind = 'DECLARED' AND e.source = 'MAGTECH'"))
+        .containsEntry("lang", "zh").containsEntry("raw", "zh");
+    // the other two pages declare no original: nothing decided from the English page's citation_language
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM work WHERE doi <> '10.17520/biods.2022520' AND language "
+        + "IS NOT NULL", Long.class)).isZero();
+  }
+
+  @Test
   void knownItemsCauseNoPageRequest(WireMockRuntimeInfo w) throws Exception {
     route(w, "1005-0094");
     stubSite();

@@ -108,7 +108,7 @@ public class EuropePmcLayer implements HarvestLayer {
         text(ji, "issue"), text(r, "pageInfo"), authors(r), "article", LanguageCodes.normalise(text(r, "language")), null, null, null,
         null, null, null, null, null, null, null, null, null, null, abs, pmcid == null ? null : pmcid.value(), null,
         null, null, abs == null ? null : "EUROPEPMC", null);
-    return new HarvestedWork(w, Layer.EUROPEPMC, ids);
+    return new HarvestedWork(w, Layer.EUROPEPMC, ids, text(r, "language"), List.of());
   }
 
   private static String authors(JsonNode r) {
