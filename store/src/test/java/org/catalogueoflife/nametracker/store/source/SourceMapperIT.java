@@ -12,6 +12,7 @@ class SourceMapperIT extends AbstractPostgresIT {
 
   @Autowired SourceMapper sources;
   @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
+  @Autowired org.apache.ibatis.session.SqlSessionFactory sqlSessions;
 
   private static Source source(String openalexId, String title, String tier) {
     return new Source(null, openalexId, "1111-2222", List.of("1111-2222"), title, "Pub", "host", true, true, tier,
@@ -88,6 +89,29 @@ class SourceMapperIT extends AbstractPostgresIT {
     assertThat(sources.findByIssn("5555-666x")).extracting(Source::id).containsExactly(a);
     assertThat(sources.findByIssn("7777-8888")).extracting(Source::id).containsExactly(a);
     assertThat(sources.findByIssn("0000-0000")).isEmpty();
+  }
+
+  @Test
+  void findByIssnUsesTheIssnIndexes() {
+    String sql = sqlSessions.getConfiguration()
+        .getMappedStatement("org.catalogueoflife.nametracker.store.source.SourceMapper.findByIssn")
+        .getBoundSql(java.util.Map.of("issn", "1175-5326")).getSql().replace("?", "'1175-5326'");
+    List<String> plan = jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<List<String>>) c -> {
+      List<String> lines = new java.util.ArrayList<>();
+      c.setAutoCommit(false);
+      try (var st = c.createStatement()) {
+        st.execute("SET LOCAL enable_seqscan = off");
+        try (var rs = st.executeQuery("EXPLAIN " + sql)) {
+          while (rs.next()) lines.add(rs.getString(1));
+        }
+      } finally {
+        c.rollback();
+        c.setAutoCommit(true);
+      }
+      return lines;
+    });
+    assertThat(String.join("\n", plan)).contains("source_issns_idx").contains("source_issn_l_idx")
+        .doesNotContain("Seq Scan");
   }
 
   @Test

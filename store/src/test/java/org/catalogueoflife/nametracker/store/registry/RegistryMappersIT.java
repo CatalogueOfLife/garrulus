@@ -180,4 +180,25 @@ class RegistryMappersIT extends AbstractPostgresIT {
         String.class)).isNull();
     assertThat(j.queryForObject("SELECT count(*) FROM migcheck19.discipline", Integer.class)).isEqualTo(9);
   }
+
+  @Test
+  void migration20NormalisesIssnsAndIndexesTheNewForeignKeys() {
+    JdbcTemplate j = new JdbcTemplate(dataSource);
+    j.execute("CREATE SCHEMA migcheck20");
+    Flyway.configure().dataSource(dataSource).schemas("migcheck20").target("19").load().migrate();
+    j.execute("INSERT INTO migcheck20.source (openalex_id, title, origin, issn_l, issns) "
+        + "VALUES ('S-mig20', 'M', 'SEED_TOPIC', '0002-936x', '{0002-936x,13132989, 1313-2989,1175-5326}')");
+    j.execute("INSERT INTO migcheck20.source (openalex_id, title, origin, issn_l, issns) "
+        + "VALUES ('S-mig20b', 'N', 'SEED_TOPIC', '1175-5326', '{1175-5326}')");
+    Flyway.configure().dataSource(dataSource).schemas("migcheck20").target("20").load().migrate();
+    assertThat(j.queryForObject("SELECT issn_l FROM migcheck20.source WHERE openalex_id = 'S-mig20'", String.class))
+        .isEqualTo("0002-936X");
+    assertThat(j.queryForObject("SELECT array_to_string(issns, ',') FROM migcheck20.source WHERE openalex_id = 'S-mig20'",
+        String.class)).isEqualTo("0002-936X,1313-2989,1175-5326");
+    assertThat(j.queryForObject("SELECT array_to_string(issns, ',') FROM migcheck20.source WHERE openalex_id = 'S-mig20b'",
+        String.class)).isEqualTo("1175-5326");
+    assertThat(j.queryForList("SELECT indexname FROM pg_indexes WHERE schemaname = 'migcheck20' AND indexname IN "
+        + "('source_registration_source_idx', 'source_continued_by_idx') ORDER BY 1", String.class))
+        .containsExactly("source_continued_by_idx", "source_registration_source_idx");
+  }
 }

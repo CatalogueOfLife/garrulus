@@ -14,6 +14,15 @@ class IssnTest {
   }
 
   @Test
+  void storedFormIsTheNormalisedOneElseTheTrimmedUpperCaseInput() {
+    assertThat(Issn.stored(" 0002-936x")).isEqualTo("0002-936X");
+    assertThat(Issn.stored("13132989")).isEqualTo("1313-2989");
+    assertThat(Issn.stored("1175-5327 ")).isEqualTo("1175-5327"); // a wrong check digit is kept as OpenAlex has it
+    assertThat(Issn.stored("  ")).isNull();
+    assertThat(Issn.stored(null)).isNull();
+  }
+
+  @Test
   void checkDigitX() {
     assertThat(Issn.normalise("0002-936x")).isEqualTo("0002-936X");
   }

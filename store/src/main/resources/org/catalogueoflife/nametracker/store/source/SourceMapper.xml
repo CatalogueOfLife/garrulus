@@ -111,9 +111,10 @@
     SELECT * FROM source WHERE openalex_id = #{id}
   </select>
 
+  <!-- stored ISSNs are upper case (V20 and every writer), so both sides are plain column lookups on the indexes -->
   <select id="findByIssn" resultMap="result">
     SELECT * FROM source
-    WHERE upper(issn_l) = upper(#{issn}) OR EXISTS (SELECT 1 FROM unnest(issns) i WHERE upper(i) = upper(#{issn}))
+    WHERE issn_l = upper(#{issn}) OR issns @&gt; ARRAY[upper(#{issn})]::text[]
     ORDER BY id
   </select>
 

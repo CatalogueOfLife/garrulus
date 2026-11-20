@@ -43,6 +43,18 @@ public final class Issn {
   }
 
   /**
+   * The form an ISSN from a structured field (OpenAlex) is stored in: the normalised ISSN, else the trimmed, upper-cased
+   * input (a wrong check digit is kept as the service has it), null for a blank one. Stored ISSNs are upper case so the
+   * source lookups compare them as they are and use the indexes.
+   */
+  public static @Nullable String stored(@Nullable String raw) {
+    String n = normalise(raw);
+    if (n != null) return n;
+    if (raw == null || raw.isBlank()) return null;
+    return raw.strip().toUpperCase(Locale.ROOT);
+  }
+
+  /**
    * Every valid ISSN in a free text, in order of first occurrence, deduplicated. Only the hyphenated form is accepted
    * anywhere (not after "pp." or in a DOI, not followed by more digits); the forms with a space, NBSP or nothing between
    * the halves only directly after a label (ISSN, ISSN-L, eISSN, pISSN, e-ISSN, p-ISSN). Linear in the text: the

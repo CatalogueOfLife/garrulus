@@ -193,12 +193,18 @@ public class SourceSeeder {
     return build(n, id, tier, origin, tierSetBy, worksPerYear, List.of());
   }
 
-  /** As above; {@code keepIssns} (those of an adopted candidate, a DOAJ-only ISSN) follow OpenAlex's own. */
+  /**
+   * As above; {@code keepIssns} (those of an adopted candidate, a DOAJ-only ISSN) follow OpenAlex's own. ISSNs and the
+   * ISSN-L are stored in the lookup form ({@link Issn#stored}).
+   */
   static Source build(JsonNode n, String id, String tier, String origin, String tierSetBy,
       @Nullable Integer worksPerYear, List<String> keepIssns) {
-    String issnL = text(n, "issn_l");
+    String issnL = Issn.stored(text(n, "issn_l"));
     List<String> own = new ArrayList<>();
-    n.path("issn").forEach(i -> own.add(i.asString()));
+    n.path("issn").forEach(i -> {
+      String stored = Issn.stored(i.asString(""));
+      if (stored != null && !own.contains(stored)) own.add(stored);
+    });
     List<String> issns = union(own, keepIssns);
     Boolean isOa = bool(n, "is_oa");
     Boolean inDoaj = bool(n, "is_in_doaj");

@@ -153,6 +153,15 @@ class SourceSeederTest {
   }
 
   @Test
+  void buildStoresIssnsInTheLookupForm() {
+    JsonNode node = tools.jackson.databind.json.JsonMapper.builder().build().readTree(
+        "{\"issn_l\":\"0002-936x\",\"issn\":[\"0002-936x\",\"13132989\",\"1313-2989\"],\"display_name\":\"J\"}");
+    Source s = SourceSeeder.build(node, "S1", "CORE", "SEED_TOPIC", "SEED", null);
+    assertThat(s.issnL()).isEqualTo("0002-936X");
+    assertThat(s.issns()).containsExactly("0002-936X", "1313-2989");
+  }
+
+  @Test
   void seedWritesRawSubfieldsAndTopics() {
     JsonNode node = tools.jackson.databind.json.JsonMapper.builder().build().readTree("{\"topics\":["
         + "{\"id\":\"https://openalex.org/T1\",\"display_name\":\"One\",\"count\":60,"

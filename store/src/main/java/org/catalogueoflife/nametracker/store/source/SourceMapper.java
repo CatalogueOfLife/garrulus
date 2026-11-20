@@ -21,7 +21,10 @@ public interface SourceMapper {
 
   Source findByOpenalexId(@Param("id") String id);
 
-  /** Sources with the ISSN as linking or other ISSN (case-insensitive), ordered by id. */
+  /**
+   * Sources with the ISSN as linking or other ISSN, ordered by id. The argument is upper-cased; stored ISSNs are upper
+   * case (normalised on write), so the lookup uses {@code source_issn_l_idx} and {@code source_issns_idx}.
+   */
   List<Source> findByIssn(@Param("issn") String issn);
 
   /** ACTIVE (not ceased), active CORE/BROAD sources that have been onboarded, ordered by id. */
