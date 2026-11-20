@@ -77,7 +77,9 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   mapped (404). Admin notices the indexer writes (`admin_notice`: layer failing, still failing, recovered, OAI route
   restart cap) are mailed by `web` (`NAMETRACKER_ADMIN_MAIL_CRON`, `0 */5 * * * *`, `-` = off, ShedLock `admin-mail`): up
   to 20 per run, once each, to every verified address of an account whose ORCID iD is in the admin list; without such an
-  address or `spring.mail.host` the outcome is `SUPPRESSED` and it is logged (notice id only). Registrations (M6b Task 9):
+  address or `spring.mail.host` the outcome is `SUPPRESSED` and it is logged (notice id only). A notice claimed more than
+  10 minutes ago (the job's lock time) without an outcome was lost by a run that died and is claimed again. A coverage
+  check of a day older than the layer's latest notice writes no notice. Registrations (M6b Task 9):
   `NAMETRACKER_REGISTRATIONS_MAIL_CRON` (`0 */5 * * * *`, ShedLock `registration-mail`) mails the user once when a
   journal registered as a `CANDIDATE` becomes CORE/BROAD (ACCEPTED) or EXCLUDED (DECLINED), never for withdrawn ones;
   `NAMETRACKER_REGISTRATIONS_ADMIN_NOTE_CRON` (`0 0 7 * * *` UTC) writes the admin notice `REGISTRATIONS_WAITING` (key
@@ -122,8 +124,9 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
     route's last good run (120 days back if it never ran; Europe PMC always 14 days back); BLR one job from the end of
     its last DONE run (2 days back without one; a window past 9,000 records is cut by day, Zenodo pages no further than
     10,000). The monthly `PROBE_EUROPEPMC` (`0 0 1 1 * *`) needs the harvest and the Europe PMC switch (the handler
-    itself is off with the Europe PMC switch); its new route is VERIFIED for a journal without an OpenAlex id (the
-    rollout onboards it), else ACTIVE. A route job that fails writes the route's `last_error`; the attempt that makes
+    itself is off with the Europe PMC switch); its new route is ACTIVE for a followed (CORE/BROAD) journal with an
+    OpenAlex id, else VERIFIED (a journal without an OpenAlex id: the rollout onboards it; a candidate: nothing is
+    harvested before an admin promotes it, the rollout then gives it its onboarding pass). A route job that fails writes the route's `last_error`; the attempt that makes
     its task DEAD marks the route BROKEN (no more nightly jobs until `VERIFY_ROUTE` or an admin revives it). Page
     continuations keep their task's `run_after` (depth first). A second lost OAI resumption token marks a route BROKEN
     in a LIVE job only; an ONBOARDING or BACKFILL pass starts again a day later. A set-less OAI route with `issns` keeps
@@ -245,7 +248,7 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   minutes without an attempt. The score (`CandidateScore`, 0 to 1; weights `nametracker.candidates.score.*`, properties
   only: see `application.yml`) is `0.7 * sample + 0.3 * signals` with a sample of at least 5 articles, else `0.5 * signals`;
   signals count distinct origins, Plazi `articles` and COL `references` (**summed over all signal keys** of a source), and a
-  registration. `CandidateScorer.rescoreAll` recomputes every active CANDIDATE. `SampleScheduler`
+  registration. `CandidateScorer.rescoreAll` recomputes every active CANDIDATE and writes only changed scores. `SampleScheduler`
   (`nametracker.candidates.sample-cron`, default `0 30 1 * * *` UTC, env `NAMETRACKER_CANDIDATES_SAMPLE_CRON`; behind
   `nametracker.harvest.enabled` and `nametracker.candidates.sampling.enabled`, env `NAMETRACKER_CANDIDATES_SAMPLING_ENABLED`,
   default true): rescoring, then `SAMPLE_SOURCE` (never for a source that already has a QUEUED or RUNNING one; the handler skips a source sampled within 365 days unless `"force":true`) for up to `nametracker.candidates.sample-per-night` (200, env
@@ -261,13 +264,24 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   OAI route (`VERIFY_ROUTE` only for a CORE or BROAD source) unless an OAI route with that base and set exists; then `PROBE_EUROPEPMC` and the derived
   disciplines. A CEASED or deleted source is skipped; an outage defers the whole task. After every identity write
   (locked transaction) any other source sharing an ISSN, the ISSN-L or the OpenAlex id is a duplicate (`SourceFold`):
-  the younger folds into the older (ISSNs, OpenAlex id, signals, routes, raw rows, samples, registrations, follows move;
-  duplicates dropped; the younger is deleted) if it is a `CANDIDATE` without works, without an `ACTIVE` route, without
-  admin curation (`tier_set_by`/`discipline_set_by` ADMIN) and without a different OpenAlex id; otherwise WARN and both
-  stay (a held OpenAlex id is then not written). Folding runs to a fixpoint (the survivor's grown keys are scanned
-  again); when the identified source is folded away, the remaining steps (DOAJ, Beacon, Europe PMC probe) run for the
-  survivor. `CandidateRegistry.offer` folds the same way after it adds keys to an existing source and names the
-  survivor. A lost database deadlock (40P01) in identify or offer defers the task by one minute without an attempt.
+  the loser is chosen by foldability, not by age: only a `CANDIDATE` without works, without an `ACTIVE` route that has
+  harvested (`last_ok`/`onboarded_at`), without admin curation (`tier_set_by`/`discipline_set_by` ADMIN) and without a
+  different OpenAlex id folds (ISSNs, OpenAlex id, signals, routes, raw rows, samples, registrations, follows move;
+  duplicates dropped; the loser is deleted). So a candidate folds into a followed, curated or EXCLUDED partner whatever
+  the ids, and of two foldable candidates the younger into the older; when neither may fold, WARN and both stay (a held
+  OpenAlex id is then not written, nor that OpenAlex answer's ISSNs). The fold's delete only removes a candidate without
+  admin curation (a concurrent promotion wins; the fold's transaction fails and the task retries), and a registration
+  that lands on an EXCLUDED journal counts as a direct hit (no "declined" mail). Folding runs to a fixpoint (the
+  survivor's grown keys are scanned again); when the identified source is folded away, the remaining steps (DOAJ,
+  Beacon, Europe PMC probe) run for the survivor, and stop when it is CEASED. `CandidateRegistry.offer` folds the same
+  way after it adds keys to an existing source and names the survivor; seeding and `ADD_SOURCE` write through
+  `SeedUpsert` (locked find by OpenAlex id, adoption of an ISSN-only candidate, upsert, the tier, fold). Only a lost
+  database deadlock (SQLState 40P01) in identify, offer or a seed write defers the task by one minute without an
+  attempt; a lock timeout uses attempts. Only offers with identity evidence (`Candidate.evidence`: DOAJ discovery, a
+  title resolved by Crossref) widen a known source's ISSNs; PKP Beacon, COL ISSN groups, BLR and registrations only add
+  their signal there (a PKP Beacon offer also adds its OAI route to a known live journal: PENDING, `VERIFY_ROUTE` at
+  once only when followed). `Issn.normalise` rejects the placeholder `0000-0000`. Stored ISSNs are upper case in the
+  hyphenated form (V20), so ISSN lookups use the indexes.
 - `indexer` `IDENTIFY_SOURCE {"registrationId":n}` (M6b Task 9; enqueued by `web` at `LIVE`, key `identify:r<n>`): a
   no-op unless the registration is `IDENTIFYING`. ISSN as given; DOI: Crossref's work (ISSNs, container title,
   publisher), else OpenAlex's source of the work, else `DOI_UNKNOWN`; URL: `JournalPage` reads the page only from public
@@ -294,7 +308,9 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   `public-url`, gnfinder or a finder service) and the entries of `nametracker.http.trusted-hosts` (comma-separated
   `host:port` or URL; a bare host trusts every port of it), and only while the chain never left them: a public site
   cannot redirect into a trusted local service. A source folded into a CORE/BROAD one gets `VERIFY_ROUTE` for its
-  PENDING routes. The JDK client resolves again when it connects (DNS rebinding is a known limit, ADR-0009). In
+  PENDING routes. A name that does not resolve (in the check or at connect) is looked up once more after 2 s before it
+  is an unknown host (non-retryable, a route BROKEN; an outage for the fixed API hosts). The JDK client resolves again
+  when it connects (DNS rebinding is a known limit, ADR-0009). In
   production list `host:port` in `nametracker.http.trusted-hosts` (env `NAMETRACKER_HTTP_TRUSTED_HOSTS`) only for a local
   service; a route URL equal to a trusted (dev, local) authority is fetched with trust.
 - `indexer` ceased journals and disciplines (M6b Tasks 2 and 11, ADR-0009). `source.publication_status` ACTIVE or CEASED
@@ -423,7 +439,9 @@ curl ... -d '{"type":"BACKFILL","payload":{"fromYear":2020,"toYear":2024,"files"
   `releaseDisciplines` (back to the derivation). A promotion to CORE/BROAD of an active, not yet onboarded source
   enqueues its onboarding (`ONBOARD_SOURCE`; for a journal without an OpenAlex id and without a PENDING, VERIFIED or ACTIVE
   route that is a 120-day Crossref `ONBOARDING` pass, key `onboard-crossref:<id>`, whose last page onboards it) and
-  verifies its PENDING routes. 404 for an unknown id, 400 for a bad value or no recognised field.
+  verifies its PENDING routes. When `VERIFY_ROUTE` marks the last PENDING/VERIFIED/ACTIVE route of such a followed,
+  not yet onboarded journal BROKEN, it enqueues `ONBOARD_SOURCE` again at once. The PATCH runs in one transaction that
+  locks the row first (a concurrent fold waits and then finds it promoted). 404 for an unknown id, 400 for a bad value or no recognised field.
 - `POST /api/admin/sources/{id}/sample` (202) queues `SAMPLE_SOURCE` with `"force":true`, key
   `sample:<id>:manual:<yyyy-mm-dd>`.
 - `GET /api/admin/registrations?state=&limit=&offset=`: what users registered, newest first, with the source's current
@@ -436,7 +454,7 @@ curl ... -d '{"type":"BACKFILL","payload":{"fromYear":2020,"toYear":2024,"files"
   public host: the name is resolved there, the only outbound request of `web`, and every address must be public, not
   loopback, link-local or private; single-label and unresolvable names are refused too); `PATCH /api/admin/sources/{id}/routes/{routeId}`
   with `{"status":"PAUSED"|"ACTIVE"}`. ACTIVE is an admin override: it skips `VERIFY_ROUTE`, also for a PENDING or
-  BROKEN route.
+  BROKEN route (the journal page asks before it activates such a route).
   - Task types: `SEED_ROUTES` (`{}`, the routes of `indexer/src/main/resources/routes-seed.tsv` for the journals with
     those ISSNs), `VERIFY_ROUTE` (`{"routeId":n}`: pass → VERIFIED, or ACTIVE when the route was onboarded before or
     its journal has an OpenAlex id and is not onboarded yet; fail → BROKEN with the reason), `ROUTE_BACKFILL`
@@ -483,7 +501,10 @@ proxy targets `http://localhost:18080` on another port (never edit `vite.config.
   `Cache-Control: no-store` (ADR-0006).
 - Journal registration (M6b Task 9): `POST /api/sources/register` (session and XSRF) with exactly one of `issn`
   (`Issn.normalise`, a bad check digit is a 400), `doi` (≤ 300 characters) or `url` (http(s), a host, no user info,
-  ≤ 2000 characters) and an optional `note` (≤ 500); body ≤ 8 KB (413); the 21st within 24 hours is a 429; the same
+  ≤ 2000 characters) and an optional `note` (≤ 500); body ≤ 8 KB (413); the 21st within 24 hours is a 429, and so is any
+  registration once all users together made `nametracker.registration.daily-cap` (200, env
+  `NAMETRACKER_REGISTRATION_DAILYCAP`) in 24 hours ("paused for today"; not locked, parallel requests may pass it by a
+  few); deleting the account deletes the `REGISTERED` signals of its registrations; the same
   input again while one is identifying or identified answers that registration's id. `web` stores the row (`IDENTIFYING`), enqueues
   `IDENTIFY_SOURCE {"registrationId":n}` and answers 202 `{"id":n}`; no outbound call. `GET /api/me/registrations`
   (newest first, 100), `GET`/`DELETE /api/me/registrations/{id}` (another user's is 404; DELETE sets `WITHDRAWN` and

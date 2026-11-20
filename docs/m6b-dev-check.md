@@ -17,7 +17,23 @@ are for the controller or Markus at the terminal; the browser steps (B1 to B5) a
    `NAMETRACKER_PUBLIC_URL=http://127.0.0.1:5173` and the usual ports (`SERVER_PORT=18080`,
    `NAMETRACKER_INDEXER_PORT=18081`). **`NAMETRACKER_DISCOVERY_ISSNL_ENABLED` stays false** (no `REFRESH_ISSNL`) until
    Markus confirms that the ISSN IC download URL may be used.
-3. Flyway applied V19: `data/run/psql.sh -c "select version, success from flyway_schema_history order by installed_rank desc limit 2"`.
+3. Flyway applied V19 and V20: `data/run/psql.sh -c "select version, success from flyway_schema_history order by installed_rank desc limit 2"`.
+   V20 back-fills stored ISSNs into the upper-case hyphenated form; it changes only rows that differ.
+3a. Fix-wave checks on the populated dev DB (the final review's recommendations):
+
+   ```
+   # ISSN lookups use the indexes (expect Bitmap Index Scans on source_issn_l_idx and source_issns_idx)
+   data/run/psql.sh -c "explain analyze select * from source where issn_l = '1175-5326' or issns @> array['1175-5326']::text[]"
+   # sampling and dormancy queries on real numbers (M8, deferred: add an index on work (source_id, publication_date)
+   # and a max-then-window two-step only if dormancyBase is slow); copy the SQL of dueForSampling and dormancyBase
+   # from their mapper XML and run it with explain analyze
+   ```
+
+   After the first Beacon load (step 4), the ISSNs typed into more than one OJS row (placeholders, shared cells) are
+   signals only on known journals since the fix wave, but list them:
+   `data/run/psql.sh -c "select issn, count(*) from pkp_beacon, unnest(issns) issn group by 1 having count(*) > 1 order by 2 desc limit 30"`.
+   And an `ADD_SOURCE` of a journal that is already a candidate (pick one with an OpenAlex journal whose ISSNs it holds)
+   ends with one source, the candidate adopted and promoted.
 4. Discovery by hand (the master switch can stay off; every task is `BACKFILL` priority, so a busy queue delays them):
 
    ```
@@ -77,8 +93,11 @@ data/run/psql.sh -c "select state, outcome, reason, count(*) from source_registr
 
 Run after the M6b deployment on the always-on installation, in this order. Deployment checks first:
 
-- Flyway applied V19 (`select version, success from flyway_schema_history order by installed_rank desc limit 2`); the
-  GBIF database starts empty at V18, so V19 is quick.
+- Flyway applied V19 and V20 (`select version, success from flyway_schema_history order by installed_rank desc limit
+  2`); the GBIF database starts empty at V18, so both are quick.
+- Before the first Beacon run: `select issn, count(*) from pkp_beacon, unnest(issns) issn group by 1 having count(*) > 1
+  order by 2 desc` (after the load) shows the ISSN cells shared by several OJS rows; since the fix wave they only add
+  signals to a known journal.
 - `NAMETRACKER_ADMIN_ORCIDS`, `ADMIN_TOKEN`, `spring.mail.host`, `NAMETRACKER_PUBLIC_URL` (the public https URL) and
   `NAMETRACKER_COOKIE_SECURE=true` are set; `nametracker.http.trusted-hosts` lists `host:port` of local services only
   (CLB match bundle, if any), nothing else.

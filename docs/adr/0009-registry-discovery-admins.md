@@ -13,7 +13,7 @@ endpoints are in CLAUDE.md and are not repeated here. The dev check is `docs/m6b
 
 Binding constraints: **free only**, every handler idempotent, every outage defers without using an attempt (ADR-0004),
 **nothing a user registers or discovery finds is harvested before an admin promotes it** (a discovered journal is a
-`CANDIDATE`), expand-only migrations: **one migration, V19**.
+`CANDIDATE`), expand-only migrations: **one migration, V19** (plus the fix wave's V20, below).
 
 ## Decisions
 
@@ -54,7 +54,10 @@ the seeding offer a candidate and never insert a `source` row themselves.
   not written, nor are the ISSNs of that OpenAlex answer, which would cement two sources sharing them). ISSNs, OpenAlex
   id, signals, routes, raw rows, samples, registrations and follows move; the loser is deleted. A fold into a
   CORE/BROAD survivor verifies the moved PENDING routes. The holder of an OpenAlex id is re-read after its keys are
-  locked.
+  locked. An `ACTIVE` route counts against folding only once it harvested (`last_ok` or `onboarded_at`). The fold's
+  delete only removes a candidate without admin curation, so a concurrent admin promotion wins (the fold rolls back; the
+  admin PATCH locks the row in one transaction). A registration that waited as a candidate and lands on an EXCLUDED
+  survivor counts as a direct hit on it: no "declined" mail, since no admin decided anything.
 - **Seeding and `ADD_SOURCE`** write through the same sequence (`SeedUpsert`, fix wave): one transaction under the
   identity locks finds the source by its OpenAlex id, else adopts an ISSN-only source found through its ISSNs, upserts
   the row, writes the tier (an admin's for `ADD_SOURCE`) and folds the duplicates. An admin adding a journal that
@@ -67,6 +70,14 @@ the seeding offer a candidate and never insert a `source` row themselves.
 - **Free-text ISSN extraction** (`Issn.all`) accepts only the **hyphenated** form (hyphen or en dash) anywhere, and
   space, NBSP or glued forms only directly after an ISSN **label** (ISSN, ISSN-L, eISSN, pISSN, e-ISSN, p-ISSN, optional
   colon); never after `/` or `.` (DOI suffixes, page ranges, dates). Structured fields go through `Issn.normalise`.
+
+### V20 (fix wave)
+
+Expand-only: stored ISSNs are upper case in the hyphenated form (seeding stores OpenAlex's ISSNs through `Issn.stored`;
+V20 back-fills existing rows, idempotently), so `findByIssn` compares `issn_l = x OR issns @> ARRAY[x]` and uses
+`source_issn_l_idx` and the GIN `source_issns_idx` (it was a sequential scan through `upper()` over `unnest`). V20 also
+indexes the foreign keys V19 added: `source_registration (source_id)` (every fold's move, `ON DELETE SET NULL`, the
+admin list) and `source (continued_by)` (partial, the FK check of every fold's delete). M6c's migrations start at V21.
 
 ### Identification (`IDENTIFY_SOURCE`)
 
@@ -154,7 +165,12 @@ A user-supplied URL and the hosts of discovered routes are hostile input. Layers
   `host:port` in `nametracker.http.trusted-hosts`; a bare host trusts every port.
 - **The route gate:** `VERIFY_ROUTE` is not enqueued for a route whose source is a CANDIDATE (origin `REGISTERED` or
   `DISCOVERED`), so a hostile route host is never contacted before an admin promotes the journal; a promotion (tier to
-  CORE/BROAD) and a fold into a CORE/BROAD survivor enqueue `VERIFY_ROUTE` for the PENDING routes.
+  CORE/BROAD) and a fold into a CORE/BROAD survivor enqueue `VERIFY_ROUTE` for the PENDING routes. The Europe PMC
+  probe gives a candidate's route VERIFIED, never ACTIVE (fix wave). The journal page asks before an admin activates a
+  PENDING or BROKEN route (that skips `VERIFY_ROUTE`).
+- **Unresolved names** (fix wave): `PoliteHttp` looks a name up once more after 2 s, in its check and at connect,
+  before it reports an unknown host, so a resolver hiccup no longer breaks a route. A followed journal without an
+  OpenAlex id that loses its last usable route before onboarding gets `ONBOARD_SOURCE` again at once.
 
 ### Admins and notices
 
