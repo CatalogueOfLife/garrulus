@@ -74,7 +74,10 @@ values to tune after the first real month:
   is left out), one page of 100 per task.
 - **PKP Beacon** table (CC0) loaded into `pkp_beacon` in one transaction; offered when the context name passes the
   keyword filter (include/exclude terms at word starts, accent-folded) and the endpoint is alive (`records2025 >= 5` or
-  a response within 365 days), with a PENDING OAI route hint.
+  a response within 365 days), with a PENDING OAI route hint. The hint also reaches a journal the registry already
+  holds (fix wave): its OAI route is added PENDING/DISCOVERED unless it has an OAI route with that base and set, and
+  `VERIFY_ROUTE` runs at once only when the journal is followed. A registration's route hint never reaches a known
+  journal.
 - **Plazi** treatment statistics for three years, summed per journal label, at least 3 articles. **COL references**
   grouped by ISSN, else by container-title key, at least 10 references (the 2000 biggest title groups). Titles go to
   `discovery_title`; phase 2 asks Crossref `/journals?query=`.

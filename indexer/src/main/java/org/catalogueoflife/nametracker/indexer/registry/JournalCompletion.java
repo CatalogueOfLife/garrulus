@@ -1,11 +1,9 @@
 package org.catalogueoflife.nametracker.indexer.registry;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -25,7 +23,6 @@ import org.catalogueoflife.nametracker.store.ident.Issn;
 import org.catalogueoflife.nametracker.store.registry.IssnLinkMapper;
 import org.catalogueoflife.nametracker.store.registry.PkpBeaconMapper;
 import org.catalogueoflife.nametracker.store.registry.PkpBeaconRow;
-import org.catalogueoflife.nametracker.store.route.SourceRoute;
 import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
@@ -204,31 +201,13 @@ public class JournalCompletion {
 
   private void beaconRoutes(Source s, TaskPriority priority) {
     for (PkpBeaconRow b : beacon.byIssns(lookupIssns(s))) {
-      if (b.oaiUrl() == null || b.oaiUrl().isBlank()) continue;
-      String base = b.oaiUrl().strip();
-      if (hasOaiRoute(s.id(), base, b.setSpec())) continue;
-      Map<String, Object> config = new LinkedHashMap<>();
-      config.put("base", base);
-      config.put("set", b.setSpec());
-      config.put("prefix", "oai_dc");
-      config.put("issns", b.issns());
-      Long routeId = routes.insertIfAbsent(new SourceRoute(0, s.id(), "OAI",
-          FinderJson.mapper().writeValueAsString(config), "PENDING", "DISCOVERED", null, null, null, null, null, null));
+      Long routeId = BeaconRoutes.add(routes, s.id(), b.oaiUrl(), b.setSpec(), b.issns());
       if (routeId != null) {
         // a candidate's route waits for the promotion, which verifies it
         if (VerifyRouteHandler.followed(sources.get(s.id()))) VerifyRouteHandler.enqueue(queue, routeId, priority);
-        LOG.info("Source {}: OAI route {} from the PKP Beacon ({})", s.id(), routeId, base);
+        LOG.info("Source {}: OAI route {} from the PKP Beacon ({})", s.id(), routeId, b.oaiUrl().strip());
       }
     }
-  }
-
-  private boolean hasOaiRoute(long sourceId, String base, @Nullable String set) {
-    for (SourceRoute r : routes.forSource(sourceId)) {
-      if (!"OAI".equals(r.layer())) continue;
-      JsonNode c = FinderJson.mapper().readTree(r.config());
-      if (base.equals(text(c, "base")) && Objects.equals(set, text(c, "set"))) return true;
-    }
-    return false;
   }
 
   /**

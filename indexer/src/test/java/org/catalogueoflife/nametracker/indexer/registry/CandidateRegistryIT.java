@@ -155,6 +155,58 @@ class CandidateRegistryIT extends AbstractPostgresIT {
     assertThat(routes.forSource(cand.sourceId())).isEmpty(); // a user's page adds no route to a known journal
   }
 
+  static Candidate beacon(List<String> issns, String base, String set) {
+    return new Candidate("PKP_BEACON", "", issns, "OJS journal", null, null, null, "{}", List.of(),
+        new RouteHint("OAI", "{\"base\":\"" + base + "\",\"set\":\"" + set + "\",\"prefix\":\"oai_dc\"}"));
+  }
+
+  @Test
+  void beaconRouteReachesAFollowedJournalOnce() {
+    long core = jdbc.queryForObject("INSERT INTO source (title, origin, tier, issns) VALUES ('Followed', 'MANUAL', "
+        + "'CORE', ?::text[]) RETURNING id", Long.class, "{" + PRINT + "}");
+    registry.offer(beacon(List.of(PRINT), "https://ojs.example.org/index.php/j/oai", "j"), TaskPriority.BACKFILL);
+    registry.offer(beacon(List.of(PRINT), "https://ojs.example.org/index.php/j/oai", "j"), TaskPriority.BACKFILL);
+    assertThat(routes.forSource(core)).singleElement().satisfies(r -> {
+      assertThat(r.layer()).isEqualTo("OAI");
+      assertThat(r.status()).isEqualTo("PENDING");
+      assertThat(r.origin()).isEqualTo("DISCOVERED");
+      assertThat(r.config()).contains("https://ojs.example.org/index.php/j/oai");
+    });
+    long route = routes.forSource(core).getFirst().id();
+    assertThat(jdbc.queryForList("SELECT dedup_key FROM task WHERE type = 'VERIFY_ROUTE'", String.class))
+        .containsExactly("verify-route:" + route);
+  }
+
+  @Test
+  void beaconRouteOnAKnownCandidateWaitsForThePromotion() {
+    CandidateRegistry.Offer known = registry.offer(new Candidate("BLR", "", List.of(PRINT), "Candidate", null, null,
+        null, "{}", List.of(), null), TaskPriority.BACKFILL);
+    registry.offer(beacon(List.of(PRINT), "https://ojs.example.org/oai", "j"), TaskPriority.BACKFILL);
+    assertThat(routes.forSource(known.sourceId())).singleElement()
+        .satisfies(r -> assertThat(r.status()).isEqualTo("PENDING"));
+    assertThat(tasks("VERIFY_ROUTE")).isZero();
+  }
+
+  @Test
+  void beaconRouteIsNotAddedNextToAnOaiRouteWithTheSameBaseAndSet() {
+    long core = jdbc.queryForObject("INSERT INTO source (title, origin, tier, issns) VALUES ('Followed', 'MANUAL', "
+        + "'CORE', ?::text[]) RETURNING id", Long.class, "{" + PRINT + "}");
+    jdbc.update("INSERT INTO source_route (source_id, layer, config, status, origin) VALUES (?, 'OAI', "
+        + "'{\"base\":\"https://ojs.example.org/oai\",\"set\":\"j\",\"prefix\":\"jats\"}', 'ACTIVE', 'ADMIN')", core);
+    registry.offer(beacon(List.of(PRINT), "https://ojs.example.org/oai", "j"), TaskPriority.BACKFILL);
+    assertThat(routes.forSource(core)).hasSize(1);
+    assertThat(tasks("VERIFY_ROUTE")).isZero();
+  }
+
+  @Test
+  void registeredRouteHintNeverReachesAFollowedJournal() {
+    long core = jdbc.queryForObject("INSERT INTO source (title, origin, tier, issns) VALUES ('Followed', 'MANUAL', "
+        + "'CORE', ?::text[]) RETURNING id", Long.class, "{" + PRINT + "}");
+    registry.offer(cand("REGISTERED", "9", List.of(PRINT), "Page"), TaskPriority.LIVE);
+    assertThat(routes.forSource(core)).isEmpty();
+    assertThat(tasks("VERIFY_ROUTE")).isZero();
+  }
+
   @Test
   void placeholderIssnAloneIsNoIdentity() {
     assertThat(registry.offer(cand("PKP_BEACON", "", List.of("0000-0000"), "Placeholder"), TaskPriority.BACKFILL))

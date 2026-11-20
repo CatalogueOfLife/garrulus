@@ -2,6 +2,7 @@ package org.catalogueoflife.nametracker.indexer.registry;
 
 import java.util.List;
 import java.time.Clock;
+import org.catalogueoflife.nametracker.indexer.route.VerifyRouteHandler;
 import org.catalogueoflife.nametracker.store.discipline.ClassificationRawMapper;
 import org.catalogueoflife.nametracker.store.discipline.RawClassification;
 import org.catalogueoflife.nametracker.store.ident.Issn;
@@ -106,7 +107,23 @@ public class CandidateRegistry {
         return new Offer(survivor, false, kept.tier(), kept.publicationStatus());
       }
     }
+    if (live) beaconRoute(c, s); // a Beacon offer is no evidence: it never folds, s is still the journal
     return new Offer(s.id(), false, s.tier(), s.publicationStatus());
+  }
+
+  /**
+   * The PKP Beacon's OAI route of a journal the registry already holds (the followed OJS journals among them): PENDING
+   * unless it has an OAI route with that base and set; verified at once only when the journal is followed (a
+   * candidate's waits for the promotion). Other origins' route hints never reach a known journal: a registered page
+   * must not add a route to a harvested journal.
+   */
+  private void beaconRoute(Candidate c, Source s) {
+    RouteHint hint = c.route();
+    if (hint == null || !c.origin().equals("PKP_BEACON") || !hint.layer().equals("OAI")) return;
+    Long routeId = BeaconRoutes.add(routes, s.id(), hint.configJson());
+    if (routeId == null) return;
+    if (VerifyRouteHandler.followed(s)) VerifyRouteHandler.enqueue(queue, routeId, TaskPriority.BACKFILL);
+    LOG.info("Source {}: OAI route {} from the PKP Beacon", s.id(), routeId);
   }
 
   private Offer create(Candidate c, List<String> issns, @Nullable String issnL, TaskPriority identifyPriority) {
