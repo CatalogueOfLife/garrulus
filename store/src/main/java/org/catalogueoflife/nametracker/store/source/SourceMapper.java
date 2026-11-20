@@ -233,4 +233,10 @@ public interface SourceMapper {
 
   /** Clears the dormancy proposal of every source that is no longer an active CORE/BROAD ACTIVE-status one; returns the count. */
   int clearDormancyOfCeased();
+
+  /** The languages of the journal (ISO 639-1 codes, from DOAJ); empty when none are known. */
+  List<String> languages(@Param("id") long id);
+
+  /** Sets the languages of the journal; writes only on a change. */
+  int setLanguages(@Param("id") long id, @Param("languages") List<String> languages);
 }

@@ -71,7 +71,8 @@ public final class WorkMerger {
         fill(s.openalexCheckedAt(), in.openalexCheckedAt()),
         (biblio && hasBiblio) ? layer.name() : s.metaLayer(),
         jatsSource,
-        (access && hasAccess) ? layer.name() : s.accessLayer());
+        (access && hasAccess) ? layer.name() : s.accessLayer(),
+        s.languageSource(), s.titleLang(), s.abstractLang(), s.titleEn(), s.titleEnKind());
     return new Merged(m, !m.equals(s));
   }
 

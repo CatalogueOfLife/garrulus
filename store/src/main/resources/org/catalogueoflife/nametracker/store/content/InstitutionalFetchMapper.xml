@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.nametracker.store.content.InstitutionalFetchMapper">
+
+  <select id="insert" resultType="long" flushCache="true">
+    INSERT INTO institutional_fetch (work_id, doi, publisher, api, status, bytes, outcome)
+    VALUES (#{workId}, #{doi}, #{publisher}, #{api}, #{status}, #{bytes}, #{outcome})
+    RETURNING id
+  </select>
+
+  <select id="countSince" resultType="int">
+    SELECT count(*) FROM institutional_fetch WHERE publisher = #{publisher} AND fetched_at &gt;= #{since}
+  </select>
+
+</mapper>

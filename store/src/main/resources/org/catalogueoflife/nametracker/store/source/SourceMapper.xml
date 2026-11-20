@@ -165,6 +165,15 @@
         (#{inDoaj}, #{discontinued}::date, #{successorIssns, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler})
   </update>
 
+  <select id="languages" resultType="string">
+    SELECT unnest(languages) FROM source WHERE id = #{id}
+  </select>
+
+  <update id="setLanguages" flushCache="true">
+    UPDATE source SET languages = #{languages, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, modified = now()
+    WHERE id = #{id} AND languages IS DISTINCT FROM #{languages, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}
+  </update>
+
   <select id="hasWorks" resultType="boolean">
     SELECT EXISTS (SELECT 1 FROM work WHERE source_id = #{id})
   </select>

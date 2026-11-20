@@ -22,12 +22,13 @@
       <arg column="xr_note" javaType="string"/>
       <arg column="xr_note_at" javaType="java.time.Instant"/>
       <arg column="previous_target" javaType="string"/>
+      <arg column="mentioned_in" javaType="java.util.List" typeHandler="org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler"/>
     </constructor>
   </resultMap>
 
   <sql id="cols">id, user_id, type, target, label, main_subject_only, new_names_only, include_abstract_only,
     include_references, filters::text AS filters, feed_token, since_year, paused, created,
-    target_status, xr_note, xr_note_at, previous_target</sql>
+    target_status, xr_note, xr_note_at, previous_target, mentioned_in</sql>
 
   <select id="listByUser" resultMap="sub">
     SELECT <include refid="cols"/> FROM subscription WHERE user_id = #{userId} ORDER BY id
@@ -37,10 +38,11 @@
 
   <select id="insert" resultType="long" flushCache="true">
     INSERT INTO subscription (user_id, type, target, label, main_subject_only, new_names_only, include_abstract_only,
-      include_references, filters, feed_token, since_year, paused)
+      include_references, filters, feed_token, since_year, paused, mentioned_in)
     VALUES (#{o.userId}, #{o.type}, #{o.target}, #{o.label}, #{o.mainSubjectOnly}, #{o.newNamesOnly},
       #{o.includeAbstractOnly}, #{o.includeReferences},
-      COALESCE(#{o.filters, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, '{}'::jsonb), #{o.feedToken}, #{o.sinceYear}, #{o.paused})
+      COALESCE(#{o.filters, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, '{}'::jsonb), #{o.feedToken}, #{o.sinceYear}, #{o.paused},
+      #{o.mentionedIn, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler})
     RETURNING id
   </select>
 
@@ -48,7 +50,8 @@
     UPDATE subscription SET label = #{o.label}, main_subject_only = #{o.mainSubjectOnly},
       new_names_only = #{o.newNamesOnly}, include_abstract_only = #{o.includeAbstractOnly},
       include_references = #{o.includeReferences},
-      filters = COALESCE(#{o.filters, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, '{}'::jsonb), since_year = #{o.sinceYear}, paused = #{o.paused}
+      filters = COALESCE(#{o.filters, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, '{}'::jsonb), since_year = #{o.sinceYear}, paused = #{o.paused},
+      mentioned_in = #{o.mentionedIn, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}
     WHERE id = #{o.id} AND user_id = #{o.userId}
   </update>
 

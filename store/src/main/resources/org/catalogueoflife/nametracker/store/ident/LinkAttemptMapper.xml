@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.nametracker.store.ident.LinkAttemptMapper">
+
+  <resultMap id="attempt" type="org.catalogueoflife.nametracker.store.ident.LinkAttempt">
+    <constructor>
+      <arg column="entity" javaType="_char"/>
+      <arg column="subject_id" javaType="_long"/>
+      <arg column="lookup" javaType="string"/>
+      <arg column="attempts" javaType="_int"/>
+      <arg column="last_tried" javaType="java.time.Instant"/>
+      <arg column="next_try" javaType="java.time.Instant"/>
+      <arg column="found" javaType="_boolean"/>
+    </constructor>
+  </resultMap>
+
+  <sql id="cols">entity, subject_id, lookup, attempts, last_tried, next_try, found</sql>
+
+  <select id="get" resultMap="attempt">
+    SELECT <include refid="cols"/> FROM link_attempt
+    WHERE entity = #{entity}::char(1) AND subject_id = #{subjectId} AND lookup = #{lookup}
+  </select>
+
+  <insert id="record" flushCache="true">
+    INSERT INTO link_attempt (entity, subject_id, lookup, attempts, last_tried, next_try, found)
+    VALUES (#{entity}::char(1), #{subjectId}, #{lookup}, 1, now(), #{nextTry}, #{found})
+    ON CONFLICT (entity, subject_id, lookup) DO UPDATE
+      SET attempts = link_attempt.attempts + 1, last_tried = now(), next_try = EXCLUDED.next_try, found = EXCLUDED.found
+  </insert>
+
+  <select id="due" resultMap="attempt">
+    SELECT <include refid="cols"/> FROM link_attempt
+    WHERE entity = #{entity}::char(1) AND next_try IS NOT NULL AND next_try &lt;= #{now}
+    ORDER BY next_try, subject_id, lookup LIMIT #{limit}
+  </select>
+
+  <select id="dueIds" resultType="long">
+    SELECT subject_id FROM (
+      SELECT DISTINCT subject_id FROM link_attempt
+      WHERE entity = #{entity}::char(1) AND next_try IS NOT NULL AND next_try &lt;= #{now}
+    ) d ORDER BY subject_id LIMIT #{limit}
+  </select>
+
+  <delete id="deleteOrphans" flushCache="true">
+    DELETE FROM link_attempt a WHERE a.entity = #{entity}::char(1) AND NOT EXISTS (
+      SELECT 1 FROM
+      <choose>
+        <when test="entity == 'W'">work s</when>
+        <otherwise>source s</otherwise>
+      </choose>
+      WHERE s.id = a.subject_id)
+  </delete>
+
+</mapper>

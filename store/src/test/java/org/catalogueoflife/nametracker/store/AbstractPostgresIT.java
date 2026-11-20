@@ -9,7 +9,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 public abstract class AbstractPostgresIT {
 
   @ServiceConnection
-  static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17");
+  protected static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17");
 
   static {
     POSTGRES.start();

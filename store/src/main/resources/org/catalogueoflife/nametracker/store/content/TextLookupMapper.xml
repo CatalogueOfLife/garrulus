@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.nametracker.store.content.TextLookupMapper">
+
+  <select id="triedSince" resultType="boolean">
+    SELECT EXISTS (SELECT 1 FROM text_lookup WHERE work_id = #{workId} AND service = #{service}
+                   AND tried_at &gt;= #{since})
+  </select>
+
+  <insert id="record" flushCache="true">
+    INSERT INTO text_lookup (work_id, service, tried_at, found) VALUES (#{workId}, #{service}, now(), #{found})
+    ON CONFLICT (work_id, service) DO UPDATE SET tried_at = now(), found = EXCLUDED.found
+  </insert>
+
+</mapper>

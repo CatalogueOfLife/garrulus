@@ -437,4 +437,26 @@ class AccountMappersIT extends AbstractPostgresIT {
     assertThat(tokens.purgeExpiredOneTimeTokens(Instant.now())).isEqualTo(1);
     assertThat(jdbc.queryForList("SELECT token_value FROM one_time_tokens", String.class)).containsExactly("t1");
   }
+
+  @Test
+  void mentionedInRoundTrips() {
+    long u = user("m@example.org");
+    long id = subs.insert(new Subscription(null, u, "TAXON", "T9", "l", false, false, true, false, null, null, null,
+        false, null, "OK", null, null, null, List.of("TITLE", "ABSTRACT")));
+    assertThat(subs.listByUser(u).get(0).mentionedIn()).containsExactly("TITLE", "ABSTRACT");
+    subs.update(new Subscription(id, u, "TAXON", "T9", "l", false, false, true, false, null, null, null, false, null,
+        "OK", null, null, null, List.of("BODY")));
+    assertThat(subs.listByUser(u).get(0).mentionedIn()).containsExactly("BODY");
+    assertThatThrownBy(() -> jdbc.update("UPDATE subscription SET mentioned_in = ARRAY['FOOTNOTE'] WHERE id = ?", id))
+        .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+  }
+
+  @Test
+  void existingRowsReadEmpty() {
+    long u = user("e@example.org");
+    long id = sub(u, "TAXON", "T8"); // the 14-argument form: no filter
+    assertThat(subs.listByUser(u).get(0).mentionedIn()).isEmpty();
+    jdbc.update("UPDATE subscription SET mentioned_in = DEFAULT WHERE id = ?", id);
+    assertThat(subs.listByUser(u).get(0).mentionedIn()).isEmpty();
+  }
 }

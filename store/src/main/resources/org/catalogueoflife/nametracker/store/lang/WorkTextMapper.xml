@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.nametracker.store.lang.WorkTextMapper">
+
+  <resultMap id="text" type="org.catalogueoflife.nametracker.store.lang.WorkText">
+    <constructor>
+      <arg column="work_id" javaType="_long"/>
+      <arg column="field" javaType="string"/>
+      <arg column="lang" javaType="string"/>
+      <arg column="kind" javaType="string"/>
+      <arg column="text" javaType="string"/>
+      <arg column="source" javaType="string"/>
+      <arg column="model" javaType="string"/>
+      <arg column="created" javaType="java.time.Instant"/>
+    </constructor>
+  </resultMap>
+
+  <insert id="upsert" flushCache="true">
+    INSERT INTO work_text (work_id, field, lang, kind, text, source, model)
+    VALUES (#{t.workId}, #{t.field}, #{t.lang}, #{t.kind}, #{t.text}, #{t.source}, #{t.model})
+    ON CONFLICT (work_id, field, lang, kind) DO UPDATE
+      SET text = EXCLUDED.text, source = EXCLUDED.source, model = EXCLUDED.model
+  </insert>
+
+  <select id="forWork" resultMap="text">
+    SELECT work_id, field, lang, kind, text, source, model, created FROM work_text
+    WHERE work_id = #{workId} ORDER BY field, kind, lang
+  </select>
+
+  <select id="forWorks" resultMap="text">
+    <choose>
+      <when test="ids != null and !ids.isEmpty()">
+        SELECT work_id, field, lang, kind, text, source, model, created FROM work_text
+        WHERE work_id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+        ORDER BY work_id, field, kind, lang
+      </when>
+      <otherwise>SELECT work_id, field, lang, kind, text, source, model, created FROM work_text WHERE false</otherwise>
+    </choose>
+  </select>
+
+  <delete id="deleteMachine" flushCache="true">
+    DELETE FROM work_text WHERE work_id = #{workId} AND field = #{field} AND kind = 'MACHINE'
+  </delete>
+
+  <update id="refreshTitleEn" flushCache="true">
+    UPDATE work w SET (title_en, title_en_kind) = (
+      SELECT t.text, t.kind FROM work_text t
+      WHERE t.work_id = w.id AND t.field = 'TITLE' AND t.lang = 'en' AND t.kind IN ('PARALLEL', 'MACHINE')
+        AND coalesce(w.title_lang, w.language) IS DISTINCT FROM 'en'
+      ORDER BY (t.kind = 'PARALLEL') DESC LIMIT 1)
+    WHERE w.id = #{workId}
+  </update>
+
+  <update id="moveAll" flushCache="true">
+    UPDATE work_text f SET work_id = #{to} WHERE f.work_id = #{from}
+      AND NOT EXISTS (SELECT 1 FROM work_text o WHERE o.work_id = #{to} AND o.field = f.field AND o.lang = f.lang
+                      AND o.kind = f.kind)
+  </update>
+
+</mapper>

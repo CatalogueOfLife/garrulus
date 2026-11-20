@@ -37,6 +37,11 @@
       <arg column="meta_layer" javaType="string"/>
       <arg column="abstract_jats_source" javaType="string"/>
       <arg column="access_layer" javaType="string"/>
+      <arg column="language_source" javaType="string"/>
+      <arg column="title_lang" javaType="string"/>
+      <arg column="abstract_lang" javaType="string"/>
+      <arg column="title_en" javaType="string"/>
+      <arg column="title_en_kind" javaType="string"/>
     </constructor>
   </resultMap>
 

@@ -304,6 +304,7 @@ public class WorkUpsert {
         w.issue(), w.pages(), authors, w.type(), w.language(), w.oaStatus(), w.license(), w.bestOaUrl(),
         w.abstractText(), w.abstractSource(), w.origin(), w.state(), w.textLevel(), w.codes(), w.taxgroups(),
         w.hasActs(), w.firstSeenAt(), w.modified(), w.abstractJats(), pmcid, w.openalexHasTei(),
-        w.openalexCheckedAt(), metaLayer, abstractJatsSource, accessLayer);
+        w.openalexCheckedAt(), metaLayer, abstractJatsSource, accessLayer, w.languageSource(), w.titleLang(),
+        w.abstractLang(), w.titleEn(), w.titleEnKind());
   }
 }

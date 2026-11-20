@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.nametracker.store.ident.SourceIdentifierMapper">
+
+  <insert id="insertAll">
+    <choose>
+      <when test="ids != null and !ids.isEmpty()">
+        INSERT INTO source_identifier (source_id, scheme, value, origin) VALUES
+        <foreach collection="ids" item="i" separator=",">(#{sourceId}, #{i.scheme}, #{i.value}, #{origin})</foreach>
+        ON CONFLICT DO NOTHING
+      </when>
+      <otherwise>SELECT 0 WHERE false</otherwise>
+    </choose>
+  </insert>
+
+  <select id="list" resultType="org.catalogueoflife.nametracker.store.ident.Identifier">
+    SELECT scheme, value FROM source_identifier WHERE source_id = #{sourceId} ORDER BY scheme, value
+  </select>
+
+  <select id="findSource" resultType="long">
+    SELECT source_id FROM source_identifier WHERE scheme = #{scheme} AND value = #{value}
+  </select>
+
+  <update id="moveAll">
+    UPDATE source_identifier f SET source_id = #{toSource} WHERE f.source_id = #{fromSource}
+      AND NOT EXISTS (SELECT 1 FROM source_identifier o WHERE o.scheme = f.scheme AND o.value = f.value
+                      AND o.source_id = #{toSource})
+  </update>
+
+</mapper>
