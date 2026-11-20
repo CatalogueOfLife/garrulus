@@ -43,10 +43,16 @@ class CandidateRegistryIT extends AbstractPostgresIT {
     jdbc.update("DELETE FROM source s WHERE NOT EXISTS (SELECT 1 FROM work w WHERE w.source_id = s.id)");
   }
 
+  /** A candidate as the origin offers it: DOAJ's ISSNs are identity evidence, the other origins' are not. */
   static Candidate cand(String origin, String key, List<String> issns, String title) {
     return new Candidate(origin, key, issns, title, "Publisher", "NZ", null, "{\"n\":1}",
         List.of(new RawClassification("DOAJ_LCC", "QL", "Zoology", null, 0)),
-        new RouteHint("OAI", "{\"url\":\"https://example.org/oai\"}"));
+        new RouteHint("OAI", "{\"url\":\"https://example.org/oai\"}"), origin.equals("DOAJ"));
+  }
+
+  /** A candidate whose ISSNs are Crossref, OpenAlex or DOAJ evidence (a resolved title, a DOAJ record). */
+  static Candidate evidence(String origin, String key, List<String> issns, String title) {
+    return new Candidate(origin, key, issns, title, "Publisher", "NZ", null, "{\"n\":1}", List.of(), null, true);
   }
 
   long tasks(String type) {
@@ -94,7 +100,7 @@ class CandidateRegistryIT extends AbstractPostgresIT {
         null, null));
     jdbc.update("UPDATE source SET tier = 'CORE' WHERE id = ?", id);
     jdbc.update("DELETE FROM task");
-    CandidateRegistry.Offer o = registry.offer(cand("PKP_BEACON", "pkp", List.of(PRINT, "0002-936X"), "Other title"),
+    CandidateRegistry.Offer o = registry.offer(cand("BLR", "blr", List.of(PRINT, "0002-936X"), "Other title"),
         TaskPriority.BACKFILL);
     assertThat(o.created()).isFalse();
     assertThat(o.sourceId()).isEqualTo(id);
@@ -102,11 +108,58 @@ class CandidateRegistryIT extends AbstractPostgresIT {
     Source s = sources.get(id);
     assertThat(s.tier()).isEqualTo("CORE");
     assertThat(s.title()).isEqualTo("Existing");
-    assertThat(s.issns()).containsExactly("0002-936X", PRINT);
+    assertThat(s.issns()).containsExactly(PRINT); // self-declared ISSNs are a signal, not identity
     assertThat(signals.forSource(id)).hasSize(1);
     assertThat(routes.forSource(id)).isEmpty();
     assertThat(jdbc.queryForObject("SELECT count(*) FROM task", Long.class)).isZero();
+    assertThat(raw.forSource(id)).isEmpty();
+  }
+
+  @Test
+  void evidenceOfferWidensAnExistingSource() {
+    long id = sources.insertCandidate(new Source(null, null, null, List.of(PRINT), "Existing", null, null, null, null,
+        null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+        null, null));
+    jdbc.update("UPDATE source SET tier = 'CORE' WHERE id = ?", id);
+    CandidateRegistry.Offer o = registry.offer(cand("DOAJ", "doaj", List.of(PRINT, "0002-936X"), "Other title"),
+        TaskPriority.BACKFILL);
+    assertThat(o.sourceId()).isEqualTo(id);
+    assertThat(sources.get(id).issns()).containsExactly("0002-936X", PRINT);
     assertThat(raw.forSource(id)).extracting(RawClassification::code).containsExactly("QL");
+  }
+
+  @Test
+  void beaconIssnsNeverWidenOrFoldAFollowedJournal() {
+    long core = jdbc.queryForObject("INSERT INTO source (title, origin, tier, issns) VALUES ('Zootaxa', 'MANUAL', "
+        + "'CORE', ?::text[]) RETURNING id", Long.class, "{" + PRINT + "}");
+    CandidateRegistry.Offer other = registry.offer(cand("BLR", "blr", List.of(ONLINE), "Another journal"),
+        TaskPriority.BACKFILL);
+    // one OJS row typed with the CORE journal's ISSN and another journal's (and the 0000-0000 placeholder)
+    CandidateRegistry.Offer o = registry.offer(cand("PKP_BEACON", "", List.of(PRINT, ONLINE, "0000-0000"), "Mixed"),
+        TaskPriority.BACKFILL);
+    assertThat(o.sourceId()).isEqualTo(core);
+    assertThat(sources.get(core).issns()).containsExactly(PRINT);
+    assertThat(sources.get(other.sourceId())).isNotNull();
+    assertThat(sources.get(other.sourceId()).issns()).containsExactly(ONLINE);
+    assertThat(signals.forSource(core)).extracting(org.catalogueoflife.nametracker.store.registry.SourceSignal::origin)
+        .containsExactly("PKP_BEACON");
+  }
+
+  @Test
+  void registrationPageIssnsDoNotWidenACandidate() {
+    CandidateRegistry.Offer cand = registry.offer(new Candidate("BLR", "", List.of(PRINT), "Candidate", null, null, null,
+        "{}", List.of(), null), TaskPriority.BACKFILL);
+    CandidateRegistry.Offer o = registry.offer(cand("REGISTERED", "7", List.of(PRINT, ONLINE), "Page"), TaskPriority.LIVE);
+    assertThat(o.sourceId()).isEqualTo(cand.sourceId());
+    assertThat(sources.get(cand.sourceId()).issns()).containsExactly(PRINT);
+    assertThat(routes.forSource(cand.sourceId())).isEmpty(); // a user's page adds no route to a known journal
+  }
+
+  @Test
+  void placeholderIssnAloneIsNoIdentity() {
+    assertThat(registry.offer(cand("PKP_BEACON", "", List.of("0000-0000"), "Placeholder"), TaskPriority.BACKFILL))
+        .isNull();
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM source", Long.class)).isZero();
   }
 
   @Test
@@ -116,7 +169,7 @@ class CandidateRegistryIT extends AbstractPostgresIT {
         TaskPriority.BACKFILL);
     assertThat(e.sourceId()).isNotEqualTo(p.sourceId());
 
-    CandidateRegistry.Offer both = registry.offer(cand("PLAZI", "plazi", List.of(PRINT, ONLINE), "Zootaxa"),
+    CandidateRegistry.Offer both = registry.offer(evidence("PLAZI", "plazi", List.of(PRINT, ONLINE), "Zootaxa"),
         TaskPriority.BACKFILL);
 
     assertThat(both.sourceId()).isEqualTo(p.sourceId());
@@ -135,7 +188,7 @@ class CandidateRegistryIT extends AbstractPostgresIT {
     long route = routes.forSource(e.sourceId()).getFirst().id();
     assertThat(tasks("VERIFY_ROUTE")).isZero(); // a candidate's route waits
 
-    registry.offer(cand("PLAZI", "plazi", List.of(PRINT, ONLINE), "Zootaxa"), TaskPriority.BACKFILL);
+    registry.offer(evidence("PLAZI", "plazi", List.of(PRINT, ONLINE), "Zootaxa"), TaskPriority.BACKFILL);
 
     assertThat(sources.get(e.sourceId())).isNull();
     assertThat(routes.get(route).sourceId()).isEqualTo(core);
@@ -151,7 +204,7 @@ class CandidateRegistryIT extends AbstractPostgresIT {
     assertThat(b.created()).isFalse();
     assertThat(b.sourceId()).isEqualTo(a.sourceId());
     assertThat(signals.forSource(a.sourceId())).hasSize(2);
-    assertThat(sources.get(a.sourceId()).issns()).containsExactly(PRINT, ONLINE);
+    assertThat(sources.get(a.sourceId()).issns()).containsExactly(PRINT); // the Beacon's ISSN is only a signal
   }
 
   @Test

@@ -30,8 +30,16 @@ discipline columns, DOAJ's `doaj_discontinued` and `successor_issns`, and the ta
 the seeding offer a candidate and never insert a `source` row themselves.
 
 - **Matching order:** any ISSN, then the ISSN-L (own `issn_link` table, filled by `REFRESH_ISSNL`), then the OpenAlex
-  id; the first hit is the existing source and the offer only adds its signal (and unions new ISSNs and route hints).
-  An offer with no valid ISSN and no OpenAlex id is rejected with a WARN. Without the ISSN-L table the registry matches
+  id; the first hit is the existing source and the offer adds its signal.
+- **Only evidence widens an identity** (fix wave): an offer whose ISSNs come from Crossref, OpenAlex or DOAJ (DOAJ
+  discovery, a Plazi or COL title resolved by Crossref; completion and seeding write directly) unions its new ISSNs into
+  a live existing source and folds what then shares a key. Every other offer (PKP Beacon, COL ISSN groups, BLR, a
+  registration) is **signal-only** on an existing source: self-declared ISSNs typed by an OJS manager or found on a
+  page are no identity evidence, and one wrong cell must not widen a followed journal or cascade into folds. A new
+  candidate may still start from them; `IDENTIFY_SOURCE` then confirms it from the services.
+- **Placeholder ISSNs:** `Issn.normalise` rejects `0000-0000` (it passes the check digit; forms and OJS use it for
+  "none") through a small blocklist, like an invalid ISSN.
+- An offer with no valid ISSN and no OpenAlex id is rejected with a WARN. Without the ISSN-L table the registry matches
   by plain ISSN and OpenAlex id; print/e-ISSN pairs then meet only through `IDENTIFY_SOURCE`.
 - **Locks:** one transaction takes `pg_advisory_xact_lock` on **all identity keys** (every ISSN, every known ISSN-L, the
   OpenAlex id) **sorted** (`IdentityLocks`), so two offers with overlapping keys serialise and cannot both create a
@@ -96,7 +104,8 @@ Outcomes `NEW_CANDIDATE`, `EXISTING`, `CEASED`; reasons for no result: `DOI_UNKN
 error ends `NOT_IDENTIFIED`, never stuck `IDENTIFYING`; outages defer).
 
 - **A page offers at most 4 ISSNs.** When they hit more than one source or a non-CANDIDATE, the offer only **adds the
-  signal** to the best match: **no identity widening and no fold** from a user-supplied page. `IDENTIFY_SOURCE` widens
+  signal** to the best match: **no identity widening and no fold** from a user-supplied page. A hit on a single
+  candidate is an ordinary offer, which is signal-only on an existing source too (fix wave). `IDENTIFY_SOURCE` widens
   an identity only from Crossref, OpenAlex or DOAJ evidence.
 - An account **merge moves registrations** to the survivor before the loser is deleted; `/api/me/export` includes
   registrations with their notes. The user's status is read from the holder's current tier: `COVERED`, `CANDIDATE`,

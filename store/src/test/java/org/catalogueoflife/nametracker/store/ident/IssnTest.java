@@ -23,6 +23,14 @@ class IssnTest {
   }
 
   @Test
+  void placeholderIsNoIssn() {
+    assertThat(Issn.normalise("0000-0000")).isNull();
+    assertThat(Issn.normalise("ISSN 0000 0000")).isNull();
+    assertThat(Issn.stored("0000-0000")).isNull();
+    assertThat(Issn.all("ISSN 0000-0000, eISSN 1175-5334")).containsExactly("1175-5334");
+  }
+
+  @Test
   void checkDigitX() {
     assertThat(Issn.normalise("0002-936x")).isEqualTo("0002-936X");
   }

@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -24,10 +25,18 @@ public final class Issn {
   /** "pp. " or "p." right before: a page range. Looked for in the few characters before a match only. */
   private static final Pattern PAGES = Pattern.compile("(?i)\\bpp?\\.?\\s{0,8}$");
   private static final int PAGES_LOOK_BACK = 16;
+  /**
+   * Placeholders that pass the check digit but name no journal: {@code 0000-0000} is what forms and OJS fill in for
+   * "none". Rejected like an invalid ISSN, so they never match or join two journals.
+   */
+  private static final Set<String> PLACEHOLDERS = Set.of("0000-0000");
 
   private Issn() {}
 
-  /** The ISSN as {@code NNNN-NNNC}, or null unless the input has 8 characters with a valid check digit. */
+  /**
+   * The ISSN as {@code NNNN-NNNC}, or null unless the input has 8 characters with a valid check digit and is not a
+   * placeholder ({@code 0000-0000}).
+   */
   public static @Nullable String normalise(@Nullable String raw) {
     if (raw == null) return null;
     String s = raw.strip().toUpperCase(Locale.ROOT).replaceFirst("^[\\s\\u00A0]+", "");
@@ -39,19 +48,21 @@ public final class Issn {
     int check = (11 - sum % 11) % 11;
     char expected = check == 10 ? 'X' : (char) ('0' + check);
     if (s.charAt(7) != expected) return null;
-    return s.substring(0, 4) + "-" + s.substring(4);
+    String issn = s.substring(0, 4) + "-" + s.substring(4);
+    return PLACEHOLDERS.contains(issn) ? null : issn;
   }
 
   /**
    * The form an ISSN from a structured field (OpenAlex) is stored in: the normalised ISSN, else the trimmed, upper-cased
-   * input (a wrong check digit is kept as the service has it), null for a blank one. Stored ISSNs are upper case so the
+   * input (a wrong check digit is kept as the service has it), null for a blank one or a placeholder. Stored ISSNs are upper case so the
    * source lookups compare them as they are and use the indexes.
    */
   public static @Nullable String stored(@Nullable String raw) {
     String n = normalise(raw);
     if (n != null) return n;
     if (raw == null || raw.isBlank()) return null;
-    return raw.strip().toUpperCase(Locale.ROOT);
+    String upper = raw.strip().toUpperCase(Locale.ROOT);
+    return PLACEHOLDERS.contains(upper) ? null : upper;
   }
 
   /**

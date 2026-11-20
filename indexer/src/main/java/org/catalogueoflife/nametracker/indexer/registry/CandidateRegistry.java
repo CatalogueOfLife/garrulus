@@ -18,9 +18,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * The one door every discovery origin and the registration go through. An offer finds its journal through
- * {@link SourceIdentity} and then either records a signal (and, for a live source, its new ISSNs and classifications)
- * or creates a CANDIDATE with the route hint (PENDING; verified only after promotion) and an {@code IDENTIFY_SOURCE}
- * task. Nothing is harvested here.
+ * {@link SourceIdentity} and then either records a signal (and, for a live source and an offer with identity evidence
+ * ({@link Candidate#evidence}), its new ISSNs and classifications) or creates a CANDIDATE with the route hint (PENDING;
+ * verified only after promotion) and an {@code IDENTIFY_SOURCE} task. Nothing is harvested here.
  */
 @Component
 public class CandidateRegistry {
@@ -62,7 +62,7 @@ public class CandidateRegistry {
    * OpenAlex id; taken in sorted order), so offers of one journal that share any key cannot create two rows. Returns
    * null, with a WARN, for a candidate with no valid ISSN and no OpenAlex id.
    * {@code identifyPriority} is that of the {@code IDENTIFY_SOURCE} task of a new source (discovery BACKFILL, a
-   * registration LIVE). An offer that adds keys to an existing source folds the duplicates that now share a key with it
+   * registration LIVE). An evidence offer that adds keys to an existing source folds the duplicates that now share a key with it
    * ({@link SourceFold#foldDuplicates}); the offer then names the survivor. A deadlock defers the calling task shortly
    * ({@link Deadlock}).
    */
@@ -88,7 +88,7 @@ public class CandidateRegistry {
   private Offer existing(Candidate c, Source s, List<String> issns, @Nullable String issnL) {
     signals.upsert(s.id(), c.origin(), c.signalKey(), c.detailJson());
     boolean live = s.publicationStatus().equals("ACTIVE") && !s.tier().equals("EXCLUDED");
-    if (live) {
+    if (live && c.evidence()) { // only Crossref, OpenAlex or DOAJ evidence widens a known journal's identity
       String oa = c.openalexId() != null && s.openalexId() == null && sources.findByOpenalexId(c.openalexId()) == null
           ? c.openalexId() : null;
       sources.updateIdentity(s.id(), s.issnL() == null ? issnL : null, issns, null, null, null, oa, null);

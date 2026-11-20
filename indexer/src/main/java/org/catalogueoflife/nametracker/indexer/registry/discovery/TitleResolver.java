@@ -65,8 +65,9 @@ public class TitleResolver {
         unmatched++;
         continue;
       }
+      // the ISSNs are Crossref's for the one journal with that title: identity evidence
       offers.offer(new Candidate(origin, row.titleKey(), issns, row.title(), null, null, null, row.detail(),
-          List.of(), null));
+          List.of(), null, true));
     }
     LOG.info("{} titles: {} of {} not found in Crossref; {}", origin, unmatched, rows.size(), offers.summary());
     return rows.size() < size ? null : rows.getLast().titleKey();

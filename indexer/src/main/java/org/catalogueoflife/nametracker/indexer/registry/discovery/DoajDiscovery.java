@@ -69,7 +69,7 @@ public class DoajDiscovery implements DiscoverySource {
     ArrayNode lcc = detail.putArray("lcc");
     j.lcc().forEach(c -> lcc.add(c.code()));
     return new Candidate(ORIGIN, "", j.issns(), j.title().isBlank() ? null : j.title(), j.publisher(), j.country(), null,
-        detail.toString(), j.lcc(), null);
+        detail.toString(), j.lcc(), null, true);
   }
 
   private static String position(String code, int page) {

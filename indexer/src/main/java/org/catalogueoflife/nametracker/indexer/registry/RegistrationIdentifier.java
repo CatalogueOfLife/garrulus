@@ -103,7 +103,8 @@ public class RegistrationIdentifier {
 
   /**
    * When the page's ISSNs hit more than one source, or one that is not a CANDIDATE: the signal on the best match, no
-   * identity change. Returns false when the ordinary offer applies (no hit, or a single candidate).
+   * identity change. Returns false when the ordinary offer applies (no hit, or a single candidate); that offer carries no
+   * identity evidence either, so on an existing candidate it only adds the signal too.
    */
   private boolean signalOnly(long id, List<String> issns, String detail) {
     locks.lock(issns, null);
