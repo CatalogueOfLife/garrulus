@@ -22,7 +22,7 @@ public interface SourceSampleMapper {
   List<CandidateRow> candidateRows();
 
   /**
-   * Up to {@code limit} ids of active, not ceased CANDIDATEs without a sample newer than {@code sampledBefore}: the
+   * Up to {@code limit} ids of active, not ceased CANDIDATEs without a sample newer than {@code sampledBefore} and without a QUEUED or RUNNING SAMPLE_SOURCE task: the
    * registered ones first, then those never sampled, then by candidate score descending (unscored last), then by id.
    */
   List<Long> dueForSampling(@Param("sampledBefore") Instant sampledBefore, @Param("limit") int limit);

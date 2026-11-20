@@ -153,6 +153,11 @@ class SampleSourceHandlerIT extends AbstractPostgresIT {
         new CandidateScorer(signals, samples, sources, new MockEnvironment()), tx, clock);
   }
 
+  private static Task task(long sourceId, String extra) {
+    return new Task(0, SampleSourceHandler.TYPE, "{\"sourceId\":" + sourceId + extra + "}", TaskPriority.BACKFILL,
+        TaskState.RUNNING, 1, null, null, null, null, null, null);
+  }
+
   private static Task task(long sourceId) {
     return new Task(0, SampleSourceHandler.TYPE, "{\"sourceId\":" + sourceId + "}", TaskPriority.BACKFILL,
         TaskState.RUNNING, 1, null, null, null, null, null, null);
@@ -216,7 +221,7 @@ class SampleSourceHandlerIT extends AbstractPostgresIT {
     long id = candidate("S1", ISSN);
     signals.upsert(id, "DOAJ", "", "{}");
     int[] before = {count("work"), count("mention"), count("name_string"), count("name_match"),
-        count("classification_context")};
+        count("classification_context"), count("work_identifier"), count("name_ubiquity")};
 
     handler(w).handle(task(id));
 
@@ -241,7 +246,7 @@ class SampleSourceHandlerIT extends AbstractPostgresIT {
     assertThat(src.candidateScoredAt()).isNotNull();
     // the sample papers live only inside the task
     assertThat(new int[] {count("work"), count("mention"), count("name_string"), count("name_match"),
-        count("classification_context")}).containsExactly(before);
+        count("classification_context"), count("work_identifier"), count("name_ubiquity")}).containsExactly(before);
   }
 
   @Test
@@ -404,6 +409,54 @@ class SampleSourceHandlerIT extends AbstractPostgresIT {
 
     assertThat(count("source_sample")).isZero();
     verify(0, getRequestedFor(urlPathMatching("/.*")));
+  }
+
+  @Test
+  void secondDeliveryAfterFreshSampleMakesNoRequestAndNoRow(WireMockRuntimeInfo w) throws Exception {
+    stubClb();
+    stubCrossref(6, 0);
+    long id = candidate(null, ISSN);
+    handler(w).handle(task(id));
+    assertThat(count("source_sample")).isEqualTo(1);
+    int requests = findAll(getRequestedFor(urlMatching(".*"))).size();
+
+    handler(w).handle(task(id)); // a duplicate delivery
+
+    assertThat(count("source_sample")).isEqualTo(1);
+    assertThat(findAll(getRequestedFor(urlMatching(".*")))).hasSize(requests);
+  }
+
+  @Test
+  void aSampleOverAYearOldIsReplaced(WireMockRuntimeInfo w) throws Exception {
+    stubClb();
+    stubCrossref(6, 0);
+    long id = candidate(null, ISSN);
+    handler(w).handle(task(id));
+    jdbc.update("UPDATE source_sample SET sampled_at = now() - interval '400 days'");
+    handler(w).handle(task(id));
+    assertThat(count("source_sample")).isEqualTo(2);
+  }
+
+  @Test
+  void forceResamplesAFreshSample(WireMockRuntimeInfo w) throws Exception {
+    stubClb();
+    stubCrossref(6, 0);
+    long id = candidate(null, ISSN);
+    handler(w).handle(task(id));
+    handler(w).handle(task(id, ",\"force\":true"));
+    assertThat(count("source_sample")).isEqualTo(2);
+  }
+
+  @Test
+  void pausedOaiRouteIsNotFetched(WireMockRuntimeInfo w) throws Exception {
+    stubClb();
+    stubCrossref(2, 0);
+    stubNoOtherRoutes();
+    stubFor(get(urlPathEqualTo("/oai")).willReturn(aResponse().withBody(oai(7, LocalDate.now(ZoneOffset.UTC)))));
+    long id = candidate(null, ISSN);
+    insertRoute(id, "PAUSED", "{\"base\":\"" + w.getHttpBaseUrl() + "/oai\",\"set\":null,\"prefix\":\"oai_dc\"}");
+    handler(w).handle(task(id));
+    verify(0, getRequestedFor(urlPathMatching("/oai.*")));
   }
 
   // --- helpers ----------------------------------------------------------------------------------------------------

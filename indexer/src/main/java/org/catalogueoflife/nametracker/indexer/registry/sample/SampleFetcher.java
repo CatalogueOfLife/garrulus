@@ -46,9 +46,9 @@ import tools.jackson.databind.JsonNode;
  * newest articles are returned:
  * <ol>
  *   <li>{@code CROSSREF} by the journal's ISSNs;
- *   <li>{@code OAI}: a route of the source whose status is neither PENDING nor BROKEN, at most 3 pages from two years
- *       ago. A PENDING route is a candidate's unverified (possibly user-supplied) address and is never fetched; the
- *       others have passed verification, and every request still goes through {@link PoliteHttp};
+ *   <li>{@code OAI}: a route of the source whose status is VERIFIED or ACTIVE (never PENDING, BROKEN or PAUSED), at most 3 pages from two years
+ *       ago. A PENDING route is a candidate's unverified (possibly user-supplied) address and is never fetched; these
+ *       have passed verification, and every request still goes through {@link PoliteHttp};
  *   <li>{@code EUROPEPMC} by ISSN ({@code FIRST_PDATE}, newest first);
  *   <li>{@code OPENALEX} by the source's OpenAlex id (through the budget).
  * </ol>
@@ -148,7 +148,7 @@ public class SampleFetcher {
 
   private List<SampleArticle> oai(Source s, LocalDate from) {
     for (SourceRoute r : routes.forSource(s.id())) {
-      if (!"OAI".equals(r.layer()) || "PENDING".equals(r.status()) || "BROKEN".equals(r.status())) continue;
+      if (!"OAI".equals(r.layer()) || !Set.of("VERIFIED", "ACTIVE").contains(r.status())) continue;
       List<SampleArticle> got = oaiRoute(s, r, from);
       if (!got.isEmpty()) return got;
     }

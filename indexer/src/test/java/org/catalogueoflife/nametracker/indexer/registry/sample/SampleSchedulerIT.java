@@ -82,4 +82,21 @@ class SampleSchedulerIT extends AbstractPostgresIT {
     assertThat(jdbc.queryForObject("SELECT count(*) FROM task WHERE type = 'SAMPLE_SOURCE' AND priority = 2",
         Integer.class)).isEqualTo(200);
   }
+
+  @Test
+  void twoNightsWithTheQueueNotDrainedEnqueueEachCandidateOnce() {
+    for (int i = 0; i < 5; i++) candidate("c" + i, i / 10f);
+    MockEnvironment env = new MockEnvironment().withProperty("nametracker.harvest.enabled", "true");
+    new SampleScheduler(queue, samples, scorer, Clock.fixed(NOW, ZoneOffset.UTC), env).nightly();
+    new SampleScheduler(queue, samples, scorer, Clock.fixed(NOW.plus(java.time.Duration.ofDays(1)), ZoneOffset.UTC),
+        env).nightly();
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM task WHERE type = 'SAMPLE_SOURCE'", Integer.class))
+        .isEqualTo(5);
+    // a running task counts too
+    jdbc.update("UPDATE task SET state = 'RUNNING'");
+    new SampleScheduler(queue, samples, scorer, Clock.fixed(NOW.plus(java.time.Duration.ofDays(2)), ZoneOffset.UTC),
+        env).nightly();
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM task WHERE type = 'SAMPLE_SOURCE'", Integer.class))
+        .isEqualTo(5);
+  }
 }

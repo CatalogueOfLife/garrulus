@@ -56,6 +56,8 @@
     SELECT s.id FROM source s
     WHERE <include refid="sampleable"/>
       AND NOT EXISTS (SELECT 1 FROM source_sample x WHERE x.source_id = s.id AND x.sampled_at &gt; #{sampledBefore})
+      AND NOT EXISTS (SELECT 1 FROM task t WHERE t.type = 'SAMPLE_SOURCE' AND t.state IN ('QUEUED', 'RUNNING')
+                      AND t.payload ->> 'sourceId' = s.id::text)
     ORDER BY <include refid="isRegistered"/> DESC,
              NOT EXISTS (SELECT 1 FROM source_sample x2 WHERE x2.source_id = s.id) DESC,
              s.candidate_score DESC NULLS LAST, s.id

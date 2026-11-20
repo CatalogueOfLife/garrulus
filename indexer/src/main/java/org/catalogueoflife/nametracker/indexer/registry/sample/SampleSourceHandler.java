@@ -53,7 +53,8 @@ import tools.jackson.databind.JsonNode;
  * is then recomputed. The articles are transient {@link Work}s that are never inserted: nothing is written to
  * {@code work}, {@code mention}, {@code name_string} or {@code name_match}.
  *
- * <p>Skipped: an unknown, CEASED or non-CANDIDATE source (a promoted journal is harvested, not sampled). A finder that
+ * <p>Skipped: an unknown, CEASED or non-CANDIDATE source (a promoted journal is harvested, not sampled), and a source
+ * whose latest sample is younger than 365 days unless the payload has {@code "force":true} (a duplicate delivery). A finder that
  * is not ready or down, CLB, or a route that is down defers the task by 30 minutes without using an attempt. Without a
  * finder the handler is not enabled and its tasks wait.
  */
@@ -102,10 +103,18 @@ public class SampleSourceHandler implements TaskHandler {
 
   @Override
   public void handle(Task task) {
-    long id = FinderJson.mapper().readTree(task.payload()).path("sourceId").asLong();
+    var payload = FinderJson.mapper().readTree(task.payload());
+    long id = payload.path("sourceId").asLong();
     Source s = sources.get(id);
     if (s == null || "CEASED".equals(s.publicationStatus()) || !"CANDIDATE".equals(s.tier())) {
       LOG.info("SAMPLE_SOURCE: source {} is gone, ceased or not a candidate, skipped", id);
+      return;
+    }
+    SourceSample last = samples.latest(id);
+    if (!payload.path("force").asBoolean(false) && last != null && last.sampledAt() != null
+        && last.sampledAt().isAfter(clock.instant().minus(SampleScheduler.RESAMPLE_AFTER))) {
+      LOG.info("SAMPLE_SOURCE: source {} was sampled at {}, skipped (\"force\":true samples again)", id,
+          last.sampledAt());
       return;
     }
     if (finder instanceof ReloadableNameFinder r && !r.ready()) {

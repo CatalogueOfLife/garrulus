@@ -237,7 +237,7 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   current release through `ClbClient` + `TaxGroups`); the articles are transient and nothing goes to `work`, `mention`,
   `name_string` or `name_match`. Routes in order, the first with at least 5 articles of the last 2 years wins (at most 20, newest
   first; with none the route with most articles is kept): Crossref by ISSN (`filter=issn:…,from-pub-date:…,type:journal-article`,
-  `sort=published&order=desc`), an OAI route of the source (status neither PENDING nor BROKEN: **an unverified route's host is
+  `sort=published&order=desc`), an OAI route of the source (status VERIFIED or ACTIVE: **an unverified (or BROKEN, PAUSED) route's host is
   never fetched**; at most 3 pages from 2 years ago), Europe PMC by ISSN (`FIRST_PDATE`, `P_PDATE_D desc`), OpenAlex by source id
   (through the budget; a spent budget defers). A finder that is not ready or down, CLB, or any route that is down defers 30
   minutes without an attempt. The score (`CandidateScore`, 0 to 1; weights `nametracker.candidates.score.*`, properties
@@ -246,7 +246,7 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   registration. `CandidateScorer.rescoreAll` recomputes every active CANDIDATE. `SampleScheduler`
   (`nametracker.candidates.sample-cron`, default `0 30 1 * * *` UTC, env `NAMETRACKER_CANDIDATES_SAMPLE_CRON`; behind
   `nametracker.harvest.enabled` and `nametracker.candidates.sampling.enabled`, env `NAMETRACKER_CANDIDATES_SAMPLING_ENABLED`,
-  default true): rescoring, then `SAMPLE_SOURCE` for up to `nametracker.candidates.sample-per-night` (200, env
+  default true): rescoring, then `SAMPLE_SOURCE` (never for a source that already has a QUEUED or RUNNING one; the handler skips a source sampled within 365 days unless `"force":true`) for up to `nametracker.candidates.sample-per-night` (200, env
   `NAMETRACKER_CANDIDATES_SAMPLE_PER_NIGHT`) active, not ceased candidates without a sample or with one older than 365 days:
   registered first, then never sampled, then by score descending.
 - `indexer` `IDENTIFY_SOURCE` (`{"sourceId":n}`, M6b Task 6; queued by the registry for every new candidate, key
