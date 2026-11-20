@@ -76,6 +76,12 @@ public interface WorkMapper {
   /** Up to {@code limit} works with an id above {@code afterId}, in id order. */
   List<Work> listAfter(@Param("afterId") long afterId, @Param("limit") int limit);
 
+  /**
+   * Up to {@code limit} works with an id above {@code afterId} whose language was never decided ({@code
+   * language_source} null, the legacy rows) or is UNDECIDED, in id order.
+   */
+  List<Work> listUndecidedAfter(@Param("afterId") long afterId, @Param("limit") int limit);
+
   /** Sets the title and bumps modified; nothing else changes. */
   int setTitle(@Param("id") long id, @Param("title") @Nullable String title);
 

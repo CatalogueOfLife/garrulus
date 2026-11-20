@@ -350,6 +350,26 @@ class CrossrefHarvestHandlerIT extends AbstractPostgresIT {
   }
 
   @Test
+  void recheckBringingALanguageRecordsEvidence() throws Exception {
+    source();
+    stubCrossref();
+    stubFor(get(urlPathEqualTo("/works/doi:" + DOI1)).willReturn(aResponse().withStatus(404)));
+    stubFor(get(urlPathEqualTo("/works/doi:" + DOI2)).willReturn(aResponse().withStatus(404)));
+    harvestYesterday();
+    long id = works.findByDoi(DOI1).id();
+    jdbc.update("UPDATE work SET first_seen_at = first_seen_at - interval '3 days' WHERE id = ?", id);
+    String withLanguage = openAlexWork("W88", DOI1).replaceFirst("\\}$", ",\"language\":\"fr\"}");
+    stubFor(get(urlPathEqualTo("/works/doi:" + DOI1)).atPriority(1).willReturn(okJson(withLanguage)));
+    queue.enqueue("OPENALEX_RECHECK", "{}", TaskPriority.LIVE, "openalex-recheck");
+    drain(recheck);
+
+    assertThat(jdbc.queryForMap("SELECT language, language_source FROM work WHERE id = ?", id))
+        .containsEntry("language", "fr").containsEntry("language_source", "OPENALEX");
+    assertThat(count("SELECT count(*) FROM work_language_evidence WHERE work_id = " + id + " AND kind = 'OPENALEX'"))
+        .isEqualTo(1);
+  }
+
+  @Test
   void recheckBringingAnAbstractReResolvesTheWork() throws Exception {
     source();
     stubCrossref();

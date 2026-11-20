@@ -405,6 +405,10 @@ curl ... -d '{"type":"HARVEST_CROSSREF","payload":{"date":"2026-11-14"},"priorit
     RUNNING run re-enqueues only the files not done (a DEAD file gets a new task); of a DONE run it starts a new run.
     A deploy (restart) during a backfill can use up attempts of the files being read; re-run the same `BACKFILL` to
     revive files that ended DEAD.
+- `DETECT_LANGUAGE` (M6c, `{"afterId":0,"batch":1000,"all":false}` or `{"workIds":[…]}`, admin): detects the language from title,
+  abstract and retained full text and decides again. By default only works whose `language_source` is null (legacy rows) or
+  `UNDECIDED` are read; `"all":true` re-decides every work (after changing the detector or `nametracker.language.*`);
+  `workIds` always decides the works named. `LanguageService.decide` is the only writer of `work.language`/`language_source`.
 - Re-indexing: a work that is `INDEXED` stays `INDEXED` and listed while a new `FIND_NAMES` result waits in
   `mention_pending` / `classification_context_pending`; `MATCH_NAMES` swaps it in one transaction, without a gap.
   A re-index gives a follow an `ARTICLE` hit only if the follow did not match the previous index (ADR-0006,

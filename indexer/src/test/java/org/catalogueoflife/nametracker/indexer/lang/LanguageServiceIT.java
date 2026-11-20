@@ -98,6 +98,16 @@ class LanguageServiceIT extends AbstractPostgresIT {
   }
 
   @Test
+  void anOpenAlexRecordWithoutLanguageDropsItsEvidence() {
+    long id = store("10.1000/stale-oa", "Some title", null, "pt", Layer.OPENALEX, null);
+    assertThat(decision(id)).containsEntry("language", "pt");
+    store("10.1000/stale-oa", "Some title", null, null, Layer.OPENALEX, null);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM work_language_evidence WHERE work_id = ? AND kind = "
+        + "'OPENALEX'", Long.class, id)).isZero();
+    assertThat(decision(id)).containsEntry("language_source", "UNDECIDED");
+  }
+
+  @Test
   void fulltextDecides() {
     long id = store("10.1000/ft", EN_TITLE, EN_ABSTRACT, null, Layer.OAI, "en");
     assertThat(decision(id)).containsEntry("language", "en");

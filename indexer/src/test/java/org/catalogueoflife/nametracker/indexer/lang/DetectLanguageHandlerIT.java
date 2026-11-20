@@ -76,6 +76,41 @@ class DetectLanguageHandlerIT extends AbstractPostgresIT {
     assertThat(jdbc.queryForObject("SELECT count(*) FROM task WHERE type = 'DETECT_LANGUAGE'", Long.class)).isZero();
   }
 
+  private long decided(String lang, String source) {
+    return jdbc.queryForObject("INSERT INTO work (doi, title, language, language_source, origin, state, text_level) "
+        + "VALUES ('10.1000/d' || nextval('work_id_seq'), ?, ?, ?, 'LIVE', 'INDEXED', 'ABSTRACT_ONLY') RETURNING id",
+        Long.class, LanguageServiceIT.EN_TITLE, lang, source);
+  }
+
+  @Test
+  void decidedWorksAreSkippedUnlessAll() throws Exception {
+    long det = decided("fr", "DETECTED");
+    long dec = decided("fr", "DECLARED");
+    long ft = decided("fr", "FULLTEXT");
+    long undecided = decided(null, "UNDECIDED");
+    handler.handle(task("{\"afterId\":0}"));
+    assertThat(jdbc.queryForList("SELECT language FROM work WHERE id IN (" + det + "," + dec + "," + ft + ")",
+        String.class)).containsExactly("fr", "fr", "fr");
+    assertThat(jdbc.queryForObject("SELECT language FROM work WHERE id = ?", String.class, undecided)).isEqualTo("en");
+
+    handler.handle(task("{\"afterId\":0,\"all\":true,\"batch\":2}"));
+    assertThat(jdbc.queryForObject("SELECT payload->>'all' FROM task WHERE type = 'DETECT_LANGUAGE'", String.class))
+        .isEqualTo("true");
+    handler.handle(task("{\"afterId\":0,\"all\":true}"));
+    assertThat(count("language = 'en'")).isEqualTo(4);
+  }
+
+  @Test
+  void fulltextEvidenceOfAWorkWithoutRetainedTextIsRemoved() throws Exception {
+    long id = decided(null, "UNDECIDED");
+    jdbc.update("INSERT INTO work_language_evidence (work_id, kind, source, lang, confidence) VALUES (?, 'FULLTEXT', "
+        + "'BODY', 'es', 1.0)", id);
+    handler.handle(task("{\"workIds\":[" + id + "]}"));
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM work_language_evidence WHERE kind = 'FULLTEXT'", Long.class))
+        .isZero();
+    assertThat(jdbc.queryForObject("SELECT language FROM work WHERE id = ?", String.class, id)).isEqualTo("en");
+  }
+
   @Test
   void workIdsPayloadDecidesJustThose() throws Exception {
     legacyUzbek();

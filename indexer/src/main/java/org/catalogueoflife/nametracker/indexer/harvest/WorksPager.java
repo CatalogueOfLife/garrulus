@@ -128,15 +128,19 @@ public class WorksPager {
     }));
   }
 
-  private void recordLanguage(long workId, Work work, Layer layer, @Nullable String declaredLanguage,
+  /**
+   * Records what the layer's record says about the language and decides it: the only writer of
+   * {@code work.language}. Call it in the transaction of the upsert.
+   */
+  public void recordLanguage(long workId, Work work, Layer layer, @Nullable String declaredLanguage,
       List<TextIn> textVersions) {
     for (TextIn t : textVersions) {
       if (t.lang() == null || t.text().isBlank()) continue;
       String lang = LanguageCodes.normalise(t.lang());
       if (lang != null) texts.upsert(new WorkText(workId, t.field(), lang, t.kind(), t.text(), layer.name(), null, null));
     }
-    if (layer == Layer.OPENALEX && work.language() != null) {
-      languages.evidence(workId, LanguageService.openAlex(workId, work.language()));
+    if (layer == Layer.OPENALEX) {
+      languages.openAlexLanguage(workId, work.language()); // a record without language drops the old evidence
     } else if (declaredLanguage != null && !declaredLanguage.isBlank()) {
       languages.evidence(workId, LanguageService.declared(workId, layer.name(), declaredLanguage));
     } else {

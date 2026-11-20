@@ -69,6 +69,24 @@ public class LanguageService {
     return decide(workId);
   }
 
+  /**
+   * OpenAlex's language of the work as of its latest record: the OPENALEX evidence row, or no row when the record has
+   * no language any more. Decides again.
+   */
+  public void openAlexLanguage(long workId, @Nullable String raw) {
+    if (raw == null || raw.isBlank()) {
+      evidence.delete(workId, "OPENALEX", "OPENALEX");
+      decide(workId);
+    } else {
+      evidence(workId, openAlex(workId, raw));
+    }
+  }
+
+  /** Removes the FULLTEXT evidence of a work whose full text is no longer available; the caller decides again. */
+  public void dropFulltext(long workId) {
+    evidence.delete(workId, "FULLTEXT", "BODY");
+  }
+
   /** DECLARED evidence of a layer: the value is normalised, the raw code is kept. */
   public static LanguageEvidence declared(long workId, String layer, String raw) {
     return new LanguageEvidence(workId, "DECLARED", layer, LanguageCodes.normalise(raw), null, cap(raw));

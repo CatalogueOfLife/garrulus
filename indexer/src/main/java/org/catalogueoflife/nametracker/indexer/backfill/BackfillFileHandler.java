@@ -67,9 +67,11 @@ public class BackfillFileHandler implements TaskHandler {
   private final TaskQueue queue;
   private final TransactionTemplate tx;
   private final HarvestOutage outage;
+  private final WorksPager pager;
 
   public BackfillFileHandler(SnapshotClient snapshot, BackfillMapper backfill, SourceMapper sources, WorkUpsert upsert,
-      TaskQueue queue, TransactionTemplate tx, HarvestOutage outage) {
+      TaskQueue queue, TransactionTemplate tx, HarvestOutage outage, WorksPager pager) {
+    this.pager = pager;
     this.snapshot = snapshot;
     this.backfill = backfill;
     this.sources = sources;
@@ -206,6 +208,7 @@ public class BackfillFileHandler implements TaskHandler {
         for (Kept k : pending) {
           Optional<Long> id = upsert.insertIfNew(k.work(), Layer.OPENALEX, k.ids());
           if (id.isEmpty()) continue;
+          pager.recordLanguage(id.get(), k.work(), Layer.OPENALEX, null, List.of());
           queue.enqueue(WorksPager.RESOLVE_CONTENT, "{\"workId\":" + id.get() + "}", TaskPriority.BACKFILL,
               "content:" + id.get());
           c++;

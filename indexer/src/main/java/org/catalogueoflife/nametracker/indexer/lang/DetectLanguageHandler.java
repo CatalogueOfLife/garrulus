@@ -23,10 +23,14 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
 /**
- * {@code DETECT_LANGUAGE}, payload {@code {"afterId":0,"batch":1000}} (both optional) or {@code {"workIds":[…]}}: detects
- * the language of each work from its title and abstract and, when the full text is retained (open licence), from that
+ * {@code DETECT_LANGUAGE}, payload {@code {"afterId":0,"batch":1000,"all":false}} (all optional) or {@code {"workIds":[…]}}:
+ * detects the language of each work from its title and abstract and, when the full text is retained (open licence), from that
  * as well, then decides again. A full batch enqueues the continuation {@code detect-language:<lastId>} at this task's
- * priority and run_after; a {@code workIds} task has none (its enqueuer uses {@link #idsKey}). Idempotent: evidence
+ * priority and run_after. By default only works whose language was never decided (no {@code language_source}, the legacy
+ * rows) or is UNDECIDED are read, so a repeated run costs little; {@code "all":true} decides every work again (after a
+ * change of the detector or its thresholds); {@code workIds} always decides the works named. A FULLTEXT row whose
+ * full text is no longer retained is removed.
+ * The continuation carries the same {@code all}. a {@code workIds} task has none (its enqueuer uses {@link #idsKey}). Idempotent: evidence
  * rows are replaced and a decision is written only when it changes. Enqueued by hand, to re-decide existing works
  * after a change of the detector or of the decision rule; a work's own harvest and naming decide it otherwise.
  */
@@ -88,25 +92,32 @@ public class DetectLanguageHandler implements TaskHandler {
     }
     long afterId = p.path("afterId").asLong(0);
     int batch = Math.max(1, Math.min(MAX_BATCH, p.path("batch").asInt(DEFAULT_BATCH)));
-    List<Work> ws = works.listAfter(afterId, batch);
+    boolean all = p.path("all").asBoolean(false);
+    List<Work> ws = all ? works.listAfter(afterId, batch) : works.listUndecidedAfter(afterId, batch);
     for (Work w : ws) redecide(w);
     LOG.info("Detected the language of {} works after work id {}", ws.size(), afterId);
     if (ws.size() == batch) {
       long last = ws.get(ws.size() - 1).id();
-      queue.enqueue(TYPE, "{\"afterId\":" + last + ",\"batch\":" + batch + "}", task.priority(),
+      queue.enqueue(TYPE, "{\"afterId\":" + last + ",\"batch\":" + batch + (all ? ",\"all\":true" : "") + "}",
+          task.priority(),
           "detect-language:" + last, task.runAfter());
     }
   }
 
   private void redecide(Work w) {
     languages.detectFromWork(w);
+    boolean fulltext = false;
     if ("FULLTEXT".equals(w.textLevel())) {
       Optional<Content> row = Content.newestFullText(contents.listByWork(w.id()));
       if (row.isPresent() && Boolean.TRUE.equals(row.get().retained())) {
         DocumentLoader.Loaded loaded = loader.load(w);
-        if (!"abstract".equals(loaded.diagnostics().get("fallback"))) languages.detectFromDocument(w.id(), loaded.doc());
+        if (!"abstract".equals(loaded.diagnostics().get("fallback"))) {
+          languages.detectFromDocument(w.id(), loaded.doc());
+          fulltext = true;
+        }
       }
     }
+    if (!fulltext) languages.dropFulltext(w.id());
     languages.decide(w.id());
   }
 }

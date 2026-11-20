@@ -21,6 +21,9 @@ import org.junit.jupiter.api.Test;
 
 class BackfillFileIT extends AbstractBackfillIT {
 
+  @org.springframework.beans.factory.annotation.Autowired org.catalogueoflife.nametracker.indexer.lang.LanguageService languages;
+  @org.springframework.beans.factory.annotation.Autowired org.catalogueoflife.nametracker.store.work.WorkMapper works;
+
   static final String FILE = "data/jsonl/works/updated_date=2026-10-01/part_0000.gz";
   static final int N = 1200;
 
@@ -73,6 +76,26 @@ class BackfillFileIT extends AbstractBackfillIT {
     assertThat(f.recordsKept()).isEqualTo(N);
     assertThat(f.worksCreated()).isEqualTo(N); // over both passes: the chunks of the broken pass count too
     assertThat(runs.getRun(run).state()).isEqualTo("DONE");
+  }
+
+  @Test
+  void backfilledOpenAlexLanguageIsEvidenceAndSurvivesNaming() throws Exception {
+    source("S1", "CORE");
+    serve(FILE, gzip(List.of(record("W1", "S1", 2020, "article").replaceFirst("\\}$", ",\"language\":\"de\"}"))));
+    Task t = fileTask();
+    files.handle(t);
+    queue.complete(t.id(), t.attempts());
+
+    long id = count("SELECT id FROM work");
+    assertThat(jdbc.queryForMap("SELECT language, language_source FROM work WHERE id = ?", id))
+        .containsEntry("language", "de").containsEntry("language_source", "OPENALEX");
+    assertThat(count("SELECT count(*) FROM work_language_evidence WHERE work_id = " + id
+        + " AND kind = 'OPENALEX' AND lang = 'de'")).isEqualTo(1);
+    // naming: the title is too unclear to detect, the OpenAlex language stays
+    languages.detectFromWork(works.get(id));
+    languages.decide(id);
+    assertThat(jdbc.queryForMap("SELECT language, language_source FROM work WHERE id = ?", id))
+        .containsEntry("language", "de").containsEntry("language_source", "OPENALEX");
   }
 
   @Test

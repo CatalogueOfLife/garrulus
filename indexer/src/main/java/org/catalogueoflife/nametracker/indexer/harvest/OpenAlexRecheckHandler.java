@@ -44,9 +44,11 @@ public class OpenAlexRecheckHandler implements TaskHandler {
   private final TaskQueue queue;
   private final TransactionTemplate tx;
   private final Clock clock;
+  private final WorksPager pager;
 
   public OpenAlexRecheckHandler(OpenAlexClient openAlex, WorkMapper works, WorkUpsert upsert, SourceMapper sources,
-      TaskQueue queue, TransactionTemplate tx, Clock clock) {
+      TaskQueue queue, TransactionTemplate tx, Clock clock, WorksPager pager) {
+    this.pager = pager;
     this.openAlex = openAlex;
     this.works = works;
     this.upsert = upsert;
@@ -98,6 +100,7 @@ public class OpenAlexRecheckHandler implements TaskHandler {
       tx.executeWithoutResult(status -> {
         if (in != null) {
           WorkUpsert.UpsertResult r = upsert.upsert(in, Layer.OPENALEX, inIds);
+          pager.recordLanguage(r.id(), in, Layer.OPENALEX, null, List.of());
           WorksPager.enqueueAbstractResolve(queue, r, task.priority()); // OpenAlex may bring the first abstract
           WorksPager.enqueueMerge(queue, r, task.priority());
         }

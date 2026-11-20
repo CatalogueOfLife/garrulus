@@ -123,8 +123,8 @@
   </update>
 
   <select id="insertIfAbsent" resultType="long" flushCache="true">
-    INSERT INTO work (openalex_id, doi, source_id, title, publication_date, year, volume, issue, pages, authors, type, language, oa_status, license, best_oa_url, abstract, abstract_source, origin, state, text_level, codes, taxgroups, has_acts, abstract_jats, pmcid, openalex_has_tei, openalex_checked_at, meta_layer, abstract_jats_source, access_layer)
-    VALUES (#{o.openalexId}, #{o.doi}, #{o.sourceId}, #{o.title}, #{o.publicationDate}, #{o.year}, #{o.volume}, #{o.issue}, #{o.pages}, COALESCE(#{o.authors, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, '[]'::jsonb), #{o.type}, #{o.language}, #{o.oaStatus}, #{o.license}, #{o.bestOaUrl}, #{o.abstractText}, #{o.abstractSource}, #{o.origin}, COALESCE(#{o.state}, 'DISCOVERED'), #{o.textLevel}, COALESCE(#{o.codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[]), COALESCE(#{o.taxgroups, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[]), COALESCE(#{o.hasActs}, false), #{o.abstractJats}, #{o.pmcid}, COALESCE(#{o.openalexHasTei}, false), #{o.openalexCheckedAt}, #{o.metaLayer}, #{o.abstractJatsSource}, #{o.accessLayer})
+    INSERT INTO work (openalex_id, doi, source_id, title, publication_date, year, volume, issue, pages, authors, type, oa_status, license, best_oa_url, abstract, abstract_source, origin, state, text_level, codes, taxgroups, has_acts, abstract_jats, pmcid, openalex_has_tei, openalex_checked_at, meta_layer, abstract_jats_source, access_layer)
+    VALUES (#{o.openalexId}, #{o.doi}, #{o.sourceId}, #{o.title}, #{o.publicationDate}, #{o.year}, #{o.volume}, #{o.issue}, #{o.pages}, COALESCE(#{o.authors, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, '[]'::jsonb), #{o.type}, #{o.oaStatus}, #{o.license}, #{o.bestOaUrl}, #{o.abstractText}, #{o.abstractSource}, #{o.origin}, COALESCE(#{o.state}, 'DISCOVERED'), #{o.textLevel}, COALESCE(#{o.codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[]), COALESCE(#{o.taxgroups, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[]), COALESCE(#{o.hasActs}, false), #{o.abstractJats}, #{o.pmcid}, COALESCE(#{o.openalexHasTei}, false), #{o.openalexCheckedAt}, #{o.metaLayer}, #{o.abstractJatsSource}, #{o.accessLayer})
     ON CONFLICT DO NOTHING
     RETURNING id
   </select>
@@ -146,7 +146,6 @@
       pages = COALESCE(#{o.pages}, pages),
       authors = COALESCE(#{o.authors, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler}, authors),
       type = COALESCE(type, #{o.type}),
-      language = COALESCE(language, #{o.language}),
       oa_status = COALESCE(#{o.oaStatus}, oa_status),
       license = COALESCE(#{o.license}, license),
       best_oa_url = COALESCE(#{o.bestOaUrl}, best_oa_url),
@@ -226,6 +225,11 @@
 
   <select id="listAfter" resultMap="result">
     SELECT * FROM work WHERE id &gt; #{afterId} ORDER BY id LIMIT #{limit}
+  </select>
+
+  <select id="listUndecidedAfter" resultMap="result">
+    SELECT * FROM work WHERE id &gt; #{afterId} AND (language_source IS NULL OR language_source = 'UNDECIDED')
+    ORDER BY id LIMIT #{limit}
   </select>
 
   <update id="setTitle">
