@@ -1,6 +1,7 @@
 package org.catalogueoflife.nametracker.store.source;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import org.apache.ibatis.annotations.Mapper;
@@ -96,11 +97,44 @@ public interface SourceMapper {
    */
   long insertCandidate(@Param("o") Source s);
 
-  /** Each null argument keeps the column; the ISSNs are unioned with the existing ones. */
+  /**
+   * Each null argument keeps the column; the ISSNs are unioned with the existing ones. Writes (and sets {@code
+   * modified}) only when a value changes; returns 0 for an unchanged row.
+   */
   int updateIdentity(@Param("id") long id, @Param("issnL") @Nullable String issnL,
       @Param("issns") List<String> issns, @Param("title") @Nullable String title,
       @Param("publisher") @Nullable String publisher, @Param("country") @Nullable String country,
       @Param("openalexId") @Nullable String openalexId, @Param("host") @Nullable String host);
+
+  /** Sets OpenAlex's open-access flags; a null argument keeps the column. Writes only on a change. */
+  int setOpenAccess(@Param("id") long id, @Param("isOa") @Nullable Boolean isOa,
+      @Param("inDoaj") @Nullable Boolean inDoaj);
+
+  /** Sets what DOAJ says about the journal (membership, discontinued date, successor ISSNs). Writes only on a change. */
+  int setDoaj(@Param("id") long id, @Param("inDoaj") boolean inDoaj,
+      @Param("discontinued") @Nullable LocalDate discontinued, @Param("successorIssns") List<String> successorIssns);
+
+  /** True when any work belongs to the source. */
+  boolean hasWorks(@Param("id") long id);
+
+  /**
+   * Folds a duplicate source into the one that holds its identity: its routes, raw classifications, samples,
+   * registrations, layer coverage, sightings, follows and {@code continued_by} references move to {@code to} (a route,
+   * a classification scheme, a coverage layer or a follow the holder already has is dropped), then {@code from} is
+   * deleted. Its signals move separately ({@code SourceSignalMapper.moveAll}) and its ISSNs through
+   * {@link #updateIdentity}. Call in a transaction, for a source without works. Returns the number of moved rows.
+   */
+  default int foldInto(long from, long to) {
+    int moved = moveToHolder(from, to);
+    delete(from);
+    return moved;
+  }
+
+  /** The moves of {@link #foldInto} in one statement; returns the number of moved rows. */
+  int moveToHolder(@Param("from") long from, @Param("to") long to);
+
+  /** Deletes the source; its signals, routes, raw rows, samples and coverage go with it (cascade). */
+  int delete(@Param("id") long id);
 
   /** Stores the candidate score and stamps candidate_scored_at. */
   int setCandidateScore(@Param("id") long id, @Param("score") float score);

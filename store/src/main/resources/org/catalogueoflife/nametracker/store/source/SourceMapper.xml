@@ -128,18 +128,75 @@
     RETURNING id
   </select>
 
-  <update id="updateIdentity">
-    UPDATE source SET
-      issn_l = COALESCE(#{issnL}, issn_l),
-      issns = ARRAY(SELECT DISTINCT i FROM unnest(issns || COALESCE(#{issns, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[])) i WHERE i IS NOT NULL ORDER BY i),
-      title = COALESCE(#{title}, title),
-      publisher = COALESCE(#{publisher}, publisher),
-      country = COALESCE(#{country}, country),
-      openalex_id = COALESCE(#{openalexId}, openalex_id),
-      host = COALESCE(#{host}, host),
-      modified = now()
-    WHERE id = #{id}
+  <update id="updateIdentity" flushCache="true">
+    UPDATE source s SET issn_l = n.issn_l, issns = n.issns, title = n.title, publisher = n.publisher,
+      country = n.country, openalex_id = n.openalex_id, host = n.host, modified = now()
+    FROM (SELECT id,
+            COALESCE(#{issnL}, issn_l) AS issn_l,
+            ARRAY(SELECT DISTINCT i FROM unnest(issns || COALESCE(#{issns, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[])) i WHERE i IS NOT NULL ORDER BY i) AS issns,
+            COALESCE(#{title}, title) AS title,
+            COALESCE(#{publisher}, publisher) AS publisher,
+            COALESCE(#{country}, country) AS country,
+            COALESCE(#{openalexId}, openalex_id) AS openalex_id,
+            COALESCE(#{host}, host) AS host
+          FROM source WHERE id = #{id}) n
+    WHERE s.id = n.id
+      AND (s.issn_l, s.issns, s.title, s.publisher, s.country, s.openalex_id, s.host)
+        IS DISTINCT FROM (n.issn_l, n.issns, n.title, n.publisher, n.country, n.openalex_id, n.host)
   </update>
+
+  <update id="setOpenAccess" flushCache="true">
+    UPDATE source SET is_oa = COALESCE(#{isOa}, is_oa), in_doaj = COALESCE(#{inDoaj}, in_doaj), modified = now()
+    WHERE id = #{id}
+      AND (is_oa, in_doaj) IS DISTINCT FROM (COALESCE(#{isOa}, is_oa), COALESCE(#{inDoaj}, in_doaj))
+  </update>
+
+  <update id="setDoaj" flushCache="true">
+    UPDATE source SET in_doaj = #{inDoaj}, doaj_discontinued = #{discontinued},
+      successor_issns = #{successorIssns, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, modified = now()
+    WHERE id = #{id}
+      AND (in_doaj, doaj_discontinued, successor_issns) IS DISTINCT FROM
+        (#{inDoaj}, #{discontinued}::date, #{successorIssns, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler})
+  </update>
+
+  <select id="hasWorks" resultType="boolean">
+    SELECT EXISTS (SELECT 1 FROM work WHERE source_id = #{id})
+  </select>
+
+  <select id="moveToHolder" resultType="int" flushCache="true">
+    WITH r AS (
+      UPDATE source_route m SET source_id = #{to} WHERE m.source_id = #{from}
+        AND NOT EXISTS (SELECT 1 FROM source_route t WHERE t.source_id = #{to} AND t.layer = m.layer AND t.config = m.config)
+      RETURNING 1),
+    c AS (
+      UPDATE source_classification_raw m SET source_id = #{to} WHERE m.source_id = #{from}
+        AND NOT EXISTS (SELECT 1 FROM source_classification_raw t WHERE t.source_id = #{to} AND t.scheme = m.scheme)
+      RETURNING 1),
+    sm AS (UPDATE source_sample SET source_id = #{to} WHERE source_id = #{from} RETURNING 1),
+    rg AS (UPDATE source_registration SET source_id = #{to} WHERE source_id = #{from} RETURNING 1),
+    cv AS (
+      UPDATE source_layer_coverage m SET source_id = #{to} WHERE m.source_id = #{from}
+        AND NOT EXISTS (SELECT 1 FROM source_layer_coverage t WHERE t.source_id = #{to} AND t.layer = m.layer)
+      RETURNING 1),
+    ws AS (UPDATE work_sighting SET source_id = #{to} WHERE source_id = #{from} RETURNING 1),
+    sb AS (
+      UPDATE subscription m SET target = CAST(#{to} AS text) WHERE m.type = 'SOURCE' AND m.target = CAST(#{from} AS text)
+        AND NOT EXISTS (SELECT 1 FROM subscription t WHERE t.user_id = m.user_id AND t.type = 'SOURCE'
+                        AND t.target = CAST(#{to} AS text))
+      RETURNING 1),
+    sd AS (
+      DELETE FROM subscription m WHERE m.type = 'SOURCE' AND m.target = CAST(#{from} AS text)
+        AND EXISTS (SELECT 1 FROM subscription t WHERE t.user_id = m.user_id AND t.type = 'SOURCE'
+                    AND t.target = CAST(#{to} AS text))
+      RETURNING 1),
+    cb AS (UPDATE source SET continued_by = #{to} WHERE continued_by = #{from} RETURNING 1)
+    SELECT (SELECT count(*) FROM r) + (SELECT count(*) FROM c) + (SELECT count(*) FROM sm) + (SELECT count(*) FROM rg)
+      + (SELECT count(*) FROM cv) + (SELECT count(*) FROM ws) + (SELECT count(*) FROM sb) + (SELECT count(*) FROM cb)
+  </select>
+
+  <delete id="delete" flushCache="true">
+    DELETE FROM source WHERE id = #{id}
+  </delete>
 
   <update id="setCandidateScore">
     UPDATE source SET candidate_score = #{score}, candidate_scored_at = now(), modified = now() WHERE id = #{id}

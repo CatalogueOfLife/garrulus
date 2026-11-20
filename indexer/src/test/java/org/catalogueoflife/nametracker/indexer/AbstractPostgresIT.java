@@ -29,6 +29,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
     "nametracker.crossref.base-url=" + AbstractPostgresIT.UNROUTABLE,
     "nametracker.crossref.mailto=",
     "nametracker.europepmc.base-url=" + AbstractPostgresIT.UNROUTABLE,
+    "nametracker.doaj.base-url=" + AbstractPostgresIT.UNROUTABLE,
     "nametracker.pmc.base-url=" + AbstractPostgresIT.UNROUTABLE,
     "nametracker.pensoft.base-url=" + AbstractPostgresIT.UNROUTABLE + "/{slug}"})
 public abstract class AbstractPostgresIT {

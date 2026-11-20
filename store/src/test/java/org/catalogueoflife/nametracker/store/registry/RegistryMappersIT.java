@@ -18,6 +18,7 @@ class RegistryMappersIT extends AbstractPostgresIT {
   @Autowired SourceMapper sources;
   @Autowired SourceSignalMapper signals;
   @Autowired IssnLinkMapper issnLinks;
+  @Autowired PkpBeaconMapper beacon;
   @Autowired JdbcTemplate jdbc;
   @Autowired DataSource dataSource;
 
@@ -53,7 +54,43 @@ class RegistryMappersIT extends AbstractPostgresIT {
     signals.upsert(b, "DOAJ", "", "{}"); // already on the target
     assertThat(signals.moveAll(a, b)).isEqualTo(1);
     assertThat(signals.forSource(b)).extracting(SourceSignal::origin).containsExactlyInAnyOrder("DOAJ", "BLR");
-    assertThat(signals.forSource(a)).extracting(SourceSignal::origin).containsExactly("DOAJ");
+    assertThat(signals.forSource(a)).isEmpty(); // the duplicate is dropped, not left behind
+  }
+
+  @Test
+  void beaconRowsByAnyIssn() {
+    jdbc.update("DELETE FROM pkp_beacon");
+    jdbc.update("INSERT INTO pkp_beacon (context_name, issns, oai_url, set_spec, records_2025, unresponsive, loaded) "
+        + "VALUES ('a', '{1111-2222,3333-4445}', 'https://a.example/oai', 'a', 12, false, now()), "
+        + "('b', '{5555-6666}', null, null, null, true, now())");
+    assertThat(beacon.byIssns(List.of("3333-4445", "9999-9999"))).singleElement().satisfies(r -> {
+      assertThat(r.contextName()).isEqualTo("a");
+      assertThat(r.issns()).containsExactly("1111-2222", "3333-4445");
+      assertThat(r.oaiUrl()).isEqualTo("https://a.example/oai");
+      assertThat(r.setSpec()).isEqualTo("a");
+      assertThat(r.records2025()).isEqualTo(12);
+      assertThat(r.totalRecords()).isNull();
+      assertThat(r.unresponsive()).isFalse();
+    });
+    assertThat(beacon.byIssns(List.of("0000-0000"))).isEmpty();
+  }
+
+  @Test
+  void identityAndDoajWritesOnlyOnChange() {
+    long id = sources.insertCandidate(new Source(null, null, null, List.of("2222-3334"), "Cand", null, null, null,
+        null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+        null, null, null));
+    assertThat(sources.updateIdentity(id, null, List.of("2222-3334"), "Cand", null, null, null, null)).isZero();
+    assertThat(sources.setOpenAccess(id, true, null)).isEqualTo(1);
+    assertThat(sources.setOpenAccess(id, true, null)).isZero();
+    assertThat(sources.setDoaj(id, true, java.time.LocalDate.of(2024, 6, 30), List.of("2118-9781"))).isEqualTo(1);
+    assertThat(sources.setDoaj(id, true, java.time.LocalDate.of(2024, 6, 30), List.of("2118-9781"))).isZero();
+    Source s = sources.get(id);
+    assertThat(s.isOa()).isTrue();
+    assertThat(s.inDoaj()).isTrue();
+    assertThat(s.doajDiscontinued()).isEqualTo(java.time.LocalDate.of(2024, 6, 30));
+    assertThat(s.successorIssns()).containsExactly("2118-9781");
+    assertThat(sources.hasWorks(id)).isFalse();
   }
 
   @Test

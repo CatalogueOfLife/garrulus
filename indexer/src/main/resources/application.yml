@@ -120,6 +120,12 @@ nametracker:
       enabled: ${NAMETRACKER_DISCOVERY_ISSNL_ENABLED:false}
       url: ${NAMETRACKER_DISCOVERY_ISSNL_URL:https://www.issn.org/wp-content/uploads/2014/03/issnltables.zip}
       read-timeout: ${NAMETRACKER_DISCOVERY_ISSNL_READ_TIMEOUT:5m}
+    doaj:
+      # DOAJ lookups (IDENTIFY_SOURCE completes a candidate's DOAJ membership, LCC subjects, discontinued date)
+      enabled: ${NAMETRACKER_DISCOVERY_DOAJ_ENABLED:true}
+  doaj:
+    # the DOAJ search API v4, free, 2 requests a second (doaj.org is spaced 600 ms)
+    base-url: ${NAMETRACKER_DOAJ_BASE_URL:https://doaj.org/api/v4}
   finder:
     # the name finder of FIND_NAMES: a finder service at url, else the in-process pipeline built from the COL dictionary
     # (eval build-dictionary output; also used to de-hyphenate TEI text), else none and FIND_NAMES tasks wait

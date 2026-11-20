@@ -75,6 +75,11 @@ public class OpenAlexClient {
     return single("/sources/", id);
   }
 
+  /** A source by ISSN ({@code /sources/issn:…}); empty on 404. Through the budget like every call. */
+  public Optional<JsonNode> sourceByIssn(String issn) {
+    return source("issn:" + issn);
+  }
+
   /** A topic by {@code T…} id; empty on 404. */
   public Optional<JsonNode> topic(String id) {
     return single("/topics/", id);

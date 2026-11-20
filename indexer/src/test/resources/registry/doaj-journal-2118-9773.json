@@ -1,0 +1,68 @@
+{
+ "total": 1,
+ "page": 1,
+ "pageSize": 10,
+ "timestamp": "2026-11-20T02:07:34.078869Z",
+ "query": "issn:2118-9773",
+ "results": [
+  {
+   "id": "3ce203188e98448cbc18e51b320860c1",
+   "created_date": "2013-03-27T20:07:53Z",
+   "last_updated": "2026-09-17T10:53:58Z",
+   "bibjson": {
+    "subject": [
+     {
+      "code": "QL1-991",
+      "scheme": "LCC",
+      "term": "Zoology"
+     },
+     {
+      "code": "QK1-989",
+      "scheme": "LCC",
+      "term": "Botany"
+     }
+    ],
+    "eissn": "2118-9773",
+    "language": [
+     "EN"
+    ],
+    "title": "European Journal of Taxonomy",
+    "license": [
+     {
+      "NC": false,
+      "ND": false,
+      "BY": true,
+      "type": "CC BY",
+      "SA": false,
+      "url": "https://creativecommons.org/licenses/by/4.0/"
+     }
+    ],
+    "ref": {
+     "aims_scope": "https://europeanjournaloftaxonomy.eu/index.php/ejt/journalscope",
+     "journal": "http://www.europeanjournaloftaxonomy.eu/index.php/ejt",
+     "oa_statement": "https://europeanjournaloftaxonomy.eu/index.php/ejt/openaccess",
+     "author_instructions": "https://europeanjournaloftaxonomy.eu/index.php/ejt/authorguidelines",
+     "license_terms": "https://europeanjournaloftaxonomy.eu/index.php/ejt/copyrightnotice"
+    },
+    "apc": {
+     "has_apc": false,
+     "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/about"
+    },
+    "publisher": {
+     "country": "FR",
+     "name": "Consortium of European Natural History Museums"
+    },
+    "keywords": [
+     "taxonomy",
+     "natural history",
+     "systematics",
+     "zoology",
+     "botany",
+     "palaeontology"
+    ],
+    "oa_start": 2011
+   }
+  }
+ ],
+ "last": "https://doaj.org/api/v4/search/journals/issn:2118-9773?page=1&pageSize=10"
+}

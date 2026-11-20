@@ -141,7 +141,7 @@ public class SourceSeeder {
    * worksPerYear} may be null (admin-added sources).
    * Tier, origin and tier_set_by are only used when the row is new.
    */
-  static Source build(JsonNode n, String id, String tier, String origin, String tierSetBy,
+  public static Source build(JsonNode n, String id, String tier, String origin, String tierSetBy,
       @Nullable Integer worksPerYear) {
     String issnL = text(n, "issn_l");
     List<String> issns = new ArrayList<>();

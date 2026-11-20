@@ -1,0 +1,30 @@
+{
+ "status": "ok",
+ "message-type": "journal",
+ "message-version": "1.0.0",
+ "message": {
+  "last-status-check-time": 1791249925227,
+  "counts": {
+   "current-dois": 6892,
+   "backfile-dois": 43284,
+   "total-dois": 50176
+  },
+  "publisher": "Magnolia Press",
+  "title": "Zootaxa",
+  "subjects": [],
+  "ISSN": [
+   "1175-5326",
+   "1175-5334"
+  ],
+  "issn-type": [
+   {
+    "type": "print",
+    "value": "1175-5326"
+   },
+   {
+    "type": "electronic",
+    "value": "1175-5334"
+   }
+  ]
+ }
+}

@@ -184,6 +184,18 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   the scheduler enqueues nothing and a task that runs anyway ends DONE without a call. Open question for Markus: the zip
   URL is the file the ISSN IC's "on demand" form serves and is undocumented; switch on only after he confirms it may be
   used. Without the table the `CandidateRegistry` still works and matches by plain ISSN, then OpenAlex id.
+- `indexer` `IDENTIFY_SOURCE` (`{"sourceId":n}`, M6b Task 6; queued by the registry for every new candidate, key
+  `identify:s<n>`): completes the source step by step, each written at once: ISSN-L and siblings from `issn_link`;
+  Crossref `/journals/{issn}` (ISSNs, the title while it is still an ISSN, a missing publisher); OpenAlex by id or
+  `/sources/issn:` (id, ISSN-L, ISSNs, country, host, OA flags, raw subfields/topics; a spent budget skips the step);
+  DOAJ (`NAMETRACKER_DOAJ_BASE_URL`, default `https://doaj.org/api/v4`; switch `nametracker.discovery.doaj.enabled`,
+  env `NAMETRACKER_DISCOVERY_DOAJ_ENABLED`, true: `in_doaj`, raw `DOAJ_LCC`, `doaj_discontinued`, `successor_issns`,
+  a missing country); a PKP Beacon row of its ISSNs gives a PENDING OAI route (`VERIFY_ROUTE`) unless an OAI route with
+  that base and set exists; then `PROBE_EUROPEPMC` and the derived disciplines. A CEASED or deleted source is skipped;
+  an outage defers the whole task. When OpenAlex names an id another source holds, a `CANDIDATE` without works and
+  without an `ACTIVE` route is folded into that holder (`SourceFold`: ISSNs, signals, routes, raw rows, samples,
+  registrations, follows move; duplicates dropped; the candidate is deleted); otherwise WARN and both stay, the
+  candidate without the id.
 - `indexer` salience (properties only, no env variables; set them in `application.yml`, `.env` or as `-D`/args):
   `nametracker.salience.{title=0.40, abstract=0.20, act=0.35, heading=0.15, share=0.25, repeat=0.15, ubiquity=0.50,
   ubiquity-full-share=0.02, threshold=0.35}`. A name with salience >= threshold is a main subject of the work.

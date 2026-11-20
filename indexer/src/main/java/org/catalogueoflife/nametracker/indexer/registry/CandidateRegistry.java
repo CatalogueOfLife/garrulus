@@ -69,21 +69,32 @@ public class CandidateRegistry {
       return null;
     }
     return tx.execute(status -> {
-      TreeSet<String> keys = new TreeSet<>();
-      String issnL = null;
-      for (String issn : issns) {
-        keys.add("issn:" + issn);
-        String l = links.issnL(issn);
-        if (l != null) {
-          keys.add("issnl:" + l);
-          if (issnL == null) issnL = l;
-        }
-      }
-      if (c.openalexId() != null) keys.add("oa:" + c.openalexId());
-      for (String key : keys) links.lock("registry:" + key); // sorted: no deadlock between overlapping offers
+      String issnL = lockIdentity(issns, c.openalexId());
       Source s = identity.find(issns, c.openalexId());
       return s == null ? create(c, issns, issnL, identifyPriority) : existing(c, s, issns, issnL);
     });
+  }
+
+  /**
+   * Takes the transaction-level advisory locks of every identity key (each normalised ISSN, each ISSN-L the table knows,
+   * the OpenAlex id) in sorted order, so no deadlock arises between writers that share keys. Call inside a transaction;
+   * every write of a journal's identity (an offer, its completion, a fold) goes through it. Returns the first ISSN-L
+   * the table knows, or null.
+   */
+  public @Nullable String lockIdentity(List<String> issns, @Nullable String openalexId) {
+    TreeSet<String> keys = new TreeSet<>();
+    String issnL = null;
+    for (String issn : issns) {
+      keys.add("issn:" + issn);
+      String l = links.issnL(issn);
+      if (l != null) {
+        keys.add("issnl:" + l);
+        if (issnL == null) issnL = l;
+      }
+    }
+    if (openalexId != null) keys.add("oa:" + openalexId);
+    for (String key : keys) links.lock("registry:" + key);
+    return issnL;
   }
 
   private Offer existing(Candidate c, Source s, List<String> issns, @Nullable String issnL) {

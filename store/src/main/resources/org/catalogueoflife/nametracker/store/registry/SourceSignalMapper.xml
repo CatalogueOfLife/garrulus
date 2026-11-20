@@ -27,11 +27,14 @@
     DELETE FROM source_signal WHERE source_id = #{sourceId} AND origin = #{origin} AND signal_key = #{signalKey}
   </delete>
 
-  <update id="moveAll" flushCache="true">
-    UPDATE source_signal s SET source_id = #{to}
-    WHERE s.source_id = #{from}
-      AND NOT EXISTS (SELECT 1 FROM source_signal t WHERE t.source_id = #{to} AND t.origin = s.origin
-                      AND t.signal_key = s.signal_key)
-  </update>
+  <select id="moveAll" resultType="int" flushCache="true">
+    WITH gone AS (DELETE FROM source_signal WHERE source_id = #{from} RETURNING *),
+    moved AS (
+      INSERT INTO source_signal (source_id, origin, signal_key, first_seen, last_seen, detail)
+      SELECT #{to}, origin, signal_key, first_seen, last_seen, detail FROM gone
+      ON CONFLICT (source_id, origin, signal_key) DO NOTHING
+      RETURNING 1)
+    SELECT count(*) FROM moved
+  </select>
 
 </mapper>

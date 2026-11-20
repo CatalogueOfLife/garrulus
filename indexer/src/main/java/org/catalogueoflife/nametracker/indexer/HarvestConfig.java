@@ -25,6 +25,7 @@ import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
 import org.catalogueoflife.nametracker.indexer.match.ClbClient;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient;
+import org.catalogueoflife.nametracker.indexer.registry.DoajClient;
 import org.catalogueoflife.nametracker.indexer.source.SeedProperties;
 import org.catalogueoflife.nametracker.indexer.source.SourceSeeder;
 import org.catalogueoflife.nametracker.indexer.stats.DisciplineService;
@@ -109,6 +110,13 @@ public class HarvestConfig {
   CrossrefClient crossrefClient(PoliteHttp http, @Value("${nametracker.crossref.mailto:}") String mailto,
       @Value("${nametracker.crossref.base-url:https://api.crossref.org}") String baseUrl) {
     return new CrossrefClient(http, mailto.isBlank() ? null : mailto, baseUrl);
+  }
+
+  /** The DOAJ search API v4 (journal metadata for IDENTIFY_SOURCE and DOAJ discovery). */
+  @Bean
+  DoajClient doajClient(PoliteHttp http,
+      @Value("${nametracker.doaj.base-url:https://doaj.org/api/v4}") String baseUrl) {
+    return new DoajClient(http, baseUrl);
   }
 
   @Bean

@@ -1,0 +1,55 @@
+{
+ "id": "https://openalex.org/S171471881",
+ "issn_l": "1175-5326",
+ "issn": [
+  "1175-5326",
+  "1175-5334"
+ ],
+ "display_name": "Zootaxa",
+ "host_organization_name": "Magnolia Press",
+ "works_count": 50319,
+ "is_oa": false,
+ "is_in_doaj": false,
+ "homepage_url": "http://www.mapress.com/zootaxa/",
+ "apc_usd": null,
+ "country_code": "NZ",
+ "type": "journal",
+ "topics": [
+  {
+   "id": "https://openalex.org/T14399",
+   "display_name": "Invertebrate Taxonomy and Ecology",
+   "count": 12843,
+   "subfield": {
+    "id": "https://openalex.org/subfields/1105",
+    "display_name": "Ecology, Evolution, Behavior and Systematics"
+   }
+  },
+  {
+   "id": "https://openalex.org/T11494",
+   "display_name": "Coleoptera Taxonomy and Distribution",
+   "count": 12124,
+   "subfield": {
+    "id": "https://openalex.org/subfields/1105",
+    "display_name": "Ecology, Evolution, Behavior and Systematics"
+   }
+  },
+  {
+   "id": "https://openalex.org/T10765",
+   "display_name": "Marine Biology and Ecology Research",
+   "count": 7681,
+   "subfield": {
+    "id": "https://openalex.org/subfields/1910",
+    "display_name": "Oceanography"
+   }
+  },
+  {
+   "id": "https://openalex.org/T12606",
+   "display_name": "Diptera species taxonomy and behavior",
+   "count": 6934,
+   "subfield": {
+    "id": "https://openalex.org/subfields/1105",
+    "display_name": "Ecology, Evolution, Behavior and Systematics"
+   }
+  }
+ ]
+}

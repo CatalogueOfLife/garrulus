@@ -116,7 +116,27 @@ public class CrossrefClient {
   public Optional<JsonNode> work(String doi) {
     String path = base + "/works/" + URLEncoder.encode(doi, StandardCharsets.UTF_8).replace("+", "%20")
         .replace("%2F", "/");
-    URI uri = URI.create(mailto == null ? path : path + "?mailto=" + enc(mailto));
+    return message(URI.create(mailto == null ? path : path + "?mailto=" + enc(mailto)))
+        .filter(JsonNode::isObject);
+  }
+
+  /** One journal by ISSN ({@code /journals/{issn}}: title, publisher, ISSN); empty when Crossref does not know it. */
+  public Optional<JsonNode> journal(String issn) {
+    String path = base + "/journals/" + enc(issn);
+    return message(URI.create(mailto == null ? path : path + "?mailto=" + enc(mailto))).filter(JsonNode::isObject);
+  }
+
+  /** The best {@code rows} journals for a title ({@code /journals?query=…}), best match first. */
+  public List<JsonNode> journalsByTitle(String title, int rows) {
+    String path = base + "/journals?query=" + enc(title) + "&rows=" + rows;
+    List<JsonNode> items = new ArrayList<>();
+    message(URI.create(mailto == null ? path : path + "&mailto=" + enc(mailto)))
+        .ifPresent(m -> m.path("items").forEach(items::add));
+    return items;
+  }
+
+  /** The {@code message} of a single lookup; empty on 404. A 5xx or 429 is retryable, any other status is not. */
+  private Optional<JsonNode> message(URI uri) {
     HttpResponse<byte[]> resp = http.get(uri, Map.of("Accept", "application/json"));
     int status = resp.statusCode();
     if (status == 404) return Optional.empty();
@@ -126,8 +146,7 @@ public class CrossrefClient {
           null);
     }
     try {
-      JsonNode msg = FinderJson.mapper().readTree(resp.body()).path("message");
-      return msg.isObject() ? Optional.of(msg) : Optional.empty();
+      return Optional.of(FinderJson.mapper().readTree(resp.body()).path("message"));
     } catch (RuntimeException e) {
       throw new HttpProblem(safe, status, false, "Unreadable Crossref response: " + safe, e);
     }

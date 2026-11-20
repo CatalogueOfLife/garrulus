@@ -15,6 +15,9 @@ public interface SourceSignalMapper {
 
   int delete(@Param("sourceId") long sourceId, @Param("origin") String origin, @Param("signalKey") String signalKey);
 
-  /** Moves the signals of {@code from} to {@code to}, skipping those the target already has; returns the moved count. */
+  /**
+   * Moves the signals of {@code from} to {@code to} in one statement: a signal the target already has (same origin and
+   * key) is dropped, so {@code from} has none afterwards. Returns the moved count.
+   */
   int moveAll(@Param("from") long from, @Param("to") long to);
 }
