@@ -38,8 +38,11 @@ class OrcidLoginIT extends AbstractAuthIT {
   @Nested
   @TestPropertySource(properties = {
       "nametracker.orcid.client-id=APP-TEST", "nametracker.orcid.client-secret=test-secret",
-      "nametracker.orcid.base-url=https://orcid.example"})
+      "nametracker.orcid.base-url=https://orcid.example",
+      "nametracker.admin.orcids=0000-0003-4444-555x"})
   class Configured {
+
+    static final String LISTED = "0000-0003-4444-555X";
 
     @LocalServerPort int port;
     @Autowired JdbcTemplate jdbc;
@@ -59,9 +62,18 @@ class OrcidLoginIT extends AbstractAuthIT {
 
       /** The account id of the principal saved to the session. */
       long sessionUser() {
+        return ((GarrulusPrincipal) sessionAuthentication().getPrincipal()).userId();
+      }
+
+      Authentication sessionAuthentication() {
         SecurityContext c = (SecurityContext) request.getSession().getAttribute(
             HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
-        return ((GarrulusPrincipal) c.getAuthentication().getPrincipal()).userId();
+        return c.getAuthentication();
+      }
+
+      java.util.List<String> sessionRoles() {
+        return sessionAuthentication().getAuthorities().stream()
+            .map(org.springframework.security.core.GrantedAuthority::getAuthority).toList();
       }
     }
 
@@ -118,6 +130,34 @@ class OrcidLoginIT extends AbstractAuthIT {
           .isEqualTo(1);
       // the account has an address now: straight to the start page
       assertThat(second.redirect()).isEqualTo("http://localhost:5173/");
+    }
+
+    @Test
+    void listedOrcidGetsAdminRole() throws Exception {
+      jdbc.update("delete from app_user where orcid = ?", LISTED);
+      // ORCID sends the iD plain; the list entry had a lower-case x
+      Login admin = login(LISTED, t -> t.claim("name", "Admin"));
+      assertThat(admin.sessionRoles()).containsExactlyInAnyOrder("ROLE_USER", "ROLE_ADMIN");
+      assertThat(jdbc.queryForObject("select orcid from app_user where id = ?", String.class, admin.sessionUser()))
+          .isEqualTo(LISTED);
+
+      Login other = login(orcid(), t -> t.claim("name", "Other"));
+      assertThat(other.sessionRoles()).containsExactly("ROLE_USER");
+    }
+
+    @Autowired MeController me;
+
+    @Test
+    void meReportsAdmin() throws Exception {
+      jdbc.update("delete from app_user where orcid = ?", LISTED);
+      // the handler leaves the signed-in account in this thread's context, as for the request it answers
+      login(LISTED, t -> t.claim("name", "Admin"));
+      MeController.Me admin = me.me();
+      assertThat(admin.orcid()).isEqualTo(LISTED);
+      assertThat(admin.admin()).isTrue();
+
+      login(orcid(), t -> t.claim("name", "Other"));
+      assertThat(me.me().admin()).isFalse();
     }
 
     @Autowired org.springframework.security.web.FilterChainProxy filters;

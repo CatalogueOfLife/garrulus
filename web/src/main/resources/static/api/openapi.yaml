@@ -457,7 +457,7 @@ components:
   schemas:
     Me:
       type: object
-      required: [id, timeZone, digestFrequency, digestWeekday, digestHour, created]
+      required: [id, timeZone, digestFrequency, digestWeekday, digestHour, created, admin]
       properties:
         id: {type: integer, format: int64}
         email: {type: [string, "null"], description: "Verified address; null until one is verified."}
@@ -473,6 +473,10 @@ components:
           format: date-time
           description: "When the account was created. The web app proposes the browser's time zone once to an account
             created in the last few minutes that is still on UTC."
+        admin:
+          type: boolean
+          description: "True when this session may use the admin endpoints: signed in through ORCID with an iD on
+            the admin list."
     Error:
       type: object
       required: [status, error]

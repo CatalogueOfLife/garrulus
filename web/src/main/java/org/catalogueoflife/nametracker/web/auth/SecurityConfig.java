@@ -3,6 +3,7 @@ package org.catalogueoflife.nametracker.web.auth;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Clock;
+import org.catalogueoflife.nametracker.web.api.AdminAccess;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -26,12 +27,16 @@ import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.header.HeaderWriterFilter;
 import org.springframework.security.web.savedrequest.NullRequestCache;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.AndRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 /**
  * Security of web: public reads stay open, {@code /api/me/**} needs a session (401 JSON, never a redirect), the admin
- * endpoints keep their header token ({@code AdminAuth}). Sessions live in Postgres (Spring Session JDBC). Sign-in is
- * by email link through Spring's one-time-token login: {@code POST /api/auth/link} (SignInLinkController) generates
- * and mails the token, {@code POST /login/ott} with the form parameter {@code token} signs in. Spring's own token
+ * endpoints take the {@code X-Admin-Token} header or an admin session, checked in the controllers
+ * ({@link AdminAccess}). Sessions live in Postgres (Spring Session JDBC). Sign-in is by email link through Spring's
+ * one-time-token login: {@code POST /api/auth/link} (SignInLinkController) generates and mails the token,
+ * {@code POST /login/ott} with the form parameter {@code token} signs in. Spring's own token
  * generation endpoint and its default pages are switched off. ORCID sign-in ({@code /oauth2/authorization/orcid},
  * back at {@code /login/oauth2/code/orcid}) exists only when {@link OrcidConfig} registers the client.
  */
@@ -53,6 +58,10 @@ public class SecurityConfig {
     return service;
   }
 
+  /** An admin request that sends the token header: exempt from XSRF by the same test that AdminAccess applies. */
+  static final RequestMatcher ADMIN_BY_TOKEN = new AndRequestMatcher(
+      PathPatternRequestMatcher.withDefaults().matcher("/api/admin/**"), AdminAccess::tokenSent);
+
   /** 401 with the {status, error} body of the public API; never a redirect to a login page. */
   static final AuthenticationEntryPoint JSON_401 = (request, response, e) -> EmailLinkLoginHandler.write(
       response, HttpServletResponse.SC_UNAUTHORIZED, "{\"status\":401,\"error\":\"not signed in\"}");
@@ -72,7 +81,7 @@ public class SecurityConfig {
         .authorizeHttpRequests(auth -> auth
             .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
             .requestMatchers("/api/me", "/api/me/**", "/api/auth/verify-email").authenticated()
-            // AdminAuth checks the X-Admin-Token header in the controllers
+            // AdminAccess checks the X-Admin-Token header or the admin session in the controllers
             .requestMatchers("/api/admin/**").permitAll()
             .requestMatchers("/api/auth/**", "/api/unsubscribe", "/login/**", "/oauth2/**", "/feeds/**",
                 "/actuator/health", "/actuator/info", "/api/openapi.yaml", "/error").permitAll()
@@ -83,8 +92,11 @@ public class SecurityConfig {
         .csrf(csrf -> csrf
             .csrfTokenRepository(csrfTokens)
             .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
-            // admin: header token, no cookie; unsubscribe: signed token; link: no session yet, rate limited
-            .ignoringRequestMatchers("/api/admin/**", "/api/unsubscribe", "/api/auth/link"))
+            // admin by header token (scripts, no cookie; AdminAccess then never looks at the session); an admin
+            // session needs XSRF like every session write. unsubscribe: signed token; link: no session yet, rate
+            // limited
+            .ignoringRequestMatchers(ADMIN_BY_TOKEN)
+            .ignoringRequestMatchers("/api/unsubscribe", "/api/auth/link"))
         .addFilterAfter(new CsrfCookieFilter(CsrfCookieFilter.SPA_PATHS), BasicAuthenticationFilter.class)
         // the default no-cache headers would make every public read uncacheable; the account, sign-in and admin
         // paths get no-store from NoStoreFilter, the feeds set their own

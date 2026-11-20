@@ -23,15 +23,17 @@ import org.catalogueoflife.nametracker.store.task.TaskMapper;
 import org.catalogueoflife.nametracker.store.usage.ApiUsageMapper;
 import org.catalogueoflife.nametracker.store.work.WorkMapper;
 import org.jspecify.annotations.Nullable;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Read-only pipeline status for operators: grouped counts only, nothing that scans the work table beyond a GROUP BY. */
+/**
+ * Read-only pipeline status for operators (admin token or admin session, {@link AdminAccess}): grouped counts only,
+ * nothing that scans the work table beyond a GROUP BY.
+ */
 @RestController
-@Conditional(AdminTokenConfigured.class)
+@Conditional(AdminAccessConfigured.class)
 public class AdminStatusController {
 
   static final int RUNS = 20;
@@ -67,12 +69,12 @@ public class AdminStatusController {
   private final LayerHealthMapper health;
   private final SourceRouteMapper routes;
   private final Clock clock;
-  private final AdminAuth auth;
+  private final AdminAccess access;
 
   public AdminStatusController(TaskMapper tasks, WorkMapper works, SourceMapper sources, ApiUsageMapper usage,
       HarvestRunMapper runs, IndexMapper index, BackfillMapper backfill, FinderRolloutMapper rollouts,
       LayerHealthMapper health, SourceRouteMapper routes, Clock clock,
-      @Value("${nametracker.admin.token}") String token) {
+      AdminAccess access) {
     this.tasks = tasks;
     this.works = works;
     this.sources = sources;
@@ -84,12 +86,12 @@ public class AdminStatusController {
     this.health = health;
     this.routes = routes;
     this.clock = clock;
-    this.auth = new AdminAuth(token);
+    this.access = access;
   }
 
   @GetMapping("/api/admin/status")
-  public Status status(@RequestHeader(name = "X-Admin-Token", required = false) @Nullable String given) {
-    auth.check(given);
+  public Status status(@RequestHeader(name = AdminAccess.TOKEN_HEADER, required = false) @Nullable String given) {
+    access.check(given);
     LocalDate today = LocalDate.now(clock.withZone(ZoneOffset.UTC));
     List<Map<String, Object>> usageRows = new ArrayList<>();
     for (Map<String, Object> r : usage.listDay(today)) {

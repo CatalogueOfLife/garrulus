@@ -12,17 +12,21 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Loads the deferred CSRF token on the SPA's account and sign-in paths, so that the cookie repository writes the
+ * Loads the deferred CSRF token on the SPA's account, sign-in and admin paths, so that the cookie repository writes the
  * XSRF-TOKEN cookie (also on a plain GET), which the SPA then echoes in the X-XSRF-TOKEN header. Adapted from Blixa,
  * but scoped: public reads (and the portal's CORS calls) get no cookie, so caches in front of web can keep them.
  */
 final class CsrfCookieFilter extends OncePerRequestFilter {
 
-  /** The SPA reads GET /api/auth/config or GET /api/me before it posts anything. */
+  /**
+   * The SPA reads GET /api/auth/config or GET /api/me before it posts anything; an admin page reads an admin GET
+   * before its session writes.
+   */
   static final RequestMatcher SPA_PATHS = new OrRequestMatcher(
       PathPatternRequestMatcher.withDefaults().matcher("/api/me/**"),
       PathPatternRequestMatcher.withDefaults().matcher("/api/auth/**"),
-      PathPatternRequestMatcher.withDefaults().matcher("/login/**"));
+      PathPatternRequestMatcher.withDefaults().matcher("/login/**"),
+      PathPatternRequestMatcher.withDefaults().matcher("/api/admin/**"));
 
   private final RequestMatcher paths;
 

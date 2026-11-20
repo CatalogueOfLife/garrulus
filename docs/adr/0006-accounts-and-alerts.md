@@ -125,7 +125,8 @@ can be regenerated ("New feed URL" on the Following page; the old URL stops work
 
 - The `XSRF-TOKEN` cookie is issued only on `/api/me/**`, `/api/auth/**` and `/login/**`. The CSRF check applies to every
   non-GET request except `/api/admin/**` (admin token, which remains the only admin access), `/api/unsubscribe`
-  (signed token) and `/api/auth/link` (no session yet, rate limited).
+  (signed token) and `/api/auth/link` (no session yet, rate limited). Admin access and its CSRF rule were changed by the
+  amendment of 2026-11-19 (M6b) below.
 - The public `GET /api/**` and `/feeds/**` responses set no cookie and no cache-busting headers: Spring Security's
   default `Cache-Control: no-cache, no-store, …`, `Pragma` and `Expires` are switched off, so they stay cacheable for the
   portal and proxies. `/api/me/**`, `/api/auth/**`, `/login/**` and `/api/admin/**` send `Cache-Control: no-store`;
@@ -154,3 +155,23 @@ Everything is configured by environment variables so that stays possible.
   stays silent after it resumes. Window, `since_year`, one `ARTICLE` per (follow, work) and `NEW_NAMES` are unchanged.
 - An XR switch writes no hit at all (`XR_REPLACE` never enqueues `EVALUATE_HITS`). Follows on taxa that moved or vanished
   get a note on the Following page and once in the next digest that is sent (`subscription.target_status`, `xr_note`).
+
+## Amendment 2026-11-19 (M6b): admin sessions
+
+- `/api/admin/**` accepts the `X-Admin-Token` header **or** an `ADMIN` session. The check is in the controllers
+  (`AdminAccess`), first thing in every handler, so whatever path variant reached the handler is checked.
+- **Token (scripts):** when the header is sent, it alone decides: compared in constant time with `ADMIN_TOKEN`, 401 on a
+  mismatch or when no token is configured, never a fall-back to the session. Such a request is exempt from XSRF, and
+  only when the header is present (path `/api/admin/**` and header `X-Admin-Token` present).
+- **Session (browser):** without the header the session must hold `ROLE_ADMIN` and its account's ORCID iD must be in
+  `NAMETRACKER_ADMIN_ORCIDS` (comma-separated, read at start; a leading `https://orcid.org/` is dropped, an invalid entry
+  is a WARN and ignored). Signed in otherwise: 403; not signed in: 401. A session write needs XSRF like every other
+  session write, and the `XSRF-TOKEN` cookie is now also issued on `/api/admin/**`.
+- **The role comes only from an ORCID sign-in** of a listed iD. The email link (and the re-sign-in after an address
+  merge) never grants it, whatever the account's iD; an admin who merged accounts signs in through ORCID again.
+- **The list is re-checked on every admin request** (and for `admin` in `GET /api/me`), against the account's current
+  iD. An iD taken off the list loses admin on the first request after the restart, although its session (30 days in
+  Postgres) still carries `ROLE_ADMIN`.
+- The admin endpoints are mapped when a token is set or at least one valid admin iD is listed; with neither they do not
+  exist (404).
+- A write without the header and without XSRF now answers 403 (CSRF) where it answered 401 before.

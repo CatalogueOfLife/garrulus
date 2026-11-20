@@ -70,8 +70,11 @@ nametracker:
     client-secret: ${ORCID_CLIENT_SECRET:}
     base-url: ${ORCID_BASE_URL:https://orcid.org}
   admin:
-    # blank = the admin endpoint does not exist. Temporary until ORCID admin roles (M4).
+    # the X-Admin-Token header for scripts; blank = no token access
     token: ${ADMIN_TOKEN:}
+    # ORCID iDs (comma-separated) whose ORCID sign-in makes an admin; read at start. Without token and iDs the admin
+    # endpoints do not exist (404).
+    orcids: ${NAMETRACKER_ADMIN_ORCIDS:}
   blobs:
     dir: ${NAMETRACKER_BLOBS_DIR:./data/blobs}
   web:

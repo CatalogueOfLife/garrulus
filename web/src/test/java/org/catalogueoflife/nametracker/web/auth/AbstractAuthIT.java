@@ -45,8 +45,18 @@ public abstract class AbstractAuthIT extends AbstractPostgresIT {
 
   /** A browser with a real session of the account (TestSignIn). */
   protected Browser signedInAs(long userId) throws Exception {
-    Browser b = browser();
-    if (b.get("/login/test-as?userId=" + userId).statusCode() != 204) {
+    return signedInAs(port, userId, false);
+  }
+
+  /** A browser with a real session of the account carrying ROLE_ADMIN (TestSignIn), as a listed ORCID sign-in. */
+  protected Browser signedInAsAdmin(long userId) throws Exception {
+    return signedInAs(port, userId, true);
+  }
+
+  /** A browser with a real session of the account on the server at this port (it must import TestSignIn). */
+  protected static Browser signedInAs(int port, long userId, boolean admin) throws Exception {
+    Browser b = new Browser(port);
+    if (b.get("/login/test-as?userId=" + userId + "&admin=" + admin).statusCode() != 204) {
       throw new AssertionError("test sign-in failed");
     }
     return b;

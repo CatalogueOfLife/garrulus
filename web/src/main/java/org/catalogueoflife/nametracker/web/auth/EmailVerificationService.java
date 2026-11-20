@@ -86,7 +86,8 @@ public class EmailVerificationService {
       if (session != null) {
         request.changeSessionId();
       }
-      currentUser.signIn(result.userId(), request, response);
+      // an email path never grants admin: an admin signs in through ORCID again after a merge
+      currentUser.signIn(result.userId(), false, request, response);
     }
     return result.outcome();
   }

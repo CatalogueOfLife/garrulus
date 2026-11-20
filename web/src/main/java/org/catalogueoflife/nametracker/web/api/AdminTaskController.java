@@ -1,12 +1,9 @@
 package org.catalogueoflife.nametracker.web.api;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.Map;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.jspecify.annotations.Nullable;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,31 +14,32 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.JsonNode;
 
-/** Temporary admin endpoint (shared-secret header, constant-time compare, until ORCID admin roles in M4); not mapped at all (404) unless nametracker.admin.token is set. */
+/**
+ * Enqueues a task by hand (admin token or admin session, {@link AdminAccess}); not mapped at all (404) without either
+ * way configured ({@link AdminAccessConfigured}).
+ */
 @RestController
-@Conditional(AdminTokenConfigured.class)
+@Conditional(AdminAccessConfigured.class)
 public class AdminTaskController {
 
   public record EnqueueRequest(
       String type, @Nullable JsonNode payload, @Nullable TaskPriority priority, @Nullable String dedupKey) {}
 
   private final TaskQueue queue;
-  private final byte[] token;
+  private final AdminAccess access;
 
-  public AdminTaskController(TaskQueue queue, @Value("${nametracker.admin.token}") String token) {
+  public AdminTaskController(TaskQueue queue, AdminAccess access) {
     this.queue = queue;
-    this.token = token.getBytes(StandardCharsets.UTF_8);
+    this.access = access;
   }
 
   @PostMapping("/api/admin/tasks")
   @ResponseStatus(HttpStatus.ACCEPTED)
   public Map<String, Long> enqueue(
-      @RequestHeader(name = "X-Admin-Token", required = false) @Nullable String given,
+      @RequestHeader(name = AdminAccess.TOKEN_HEADER, required = false) @Nullable String given,
       @RequestBody EnqueueRequest req) {
     // checked here, not in a path-matching filter: whatever path variant reached this handler is checked
-    if (given == null || !MessageDigest.isEqual(token, given.getBytes(StandardCharsets.UTF_8))) {
-      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
-    }
+    access.check(given);
     if (req.type() == null || req.type().isBlank()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "type is required");
     }

@@ -69,7 +69,10 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   working directory, and `mvn -pl <app> spring-boot:run` runs in the module directory: give both apps the same
   absolute path, or `web` finds no blobs and serves no full text.
 - `web`: `ADMIN_TOKEN` enables the admin endpoints (`/api/admin/tasks`, `/sources`, `/status`; send it in the
-  `X-Admin-Token` header). If blank, none of them is mapped (404). `NAMETRACKER_WEB_ADDRESS` is the bind address
+  `X-Admin-Token` header, no XSRF). `NAMETRACKER_ADMIN_ORCIDS` (comma-separated ORCID iDs, read at start) makes an ORCID
+  sign-in of a listed iD an admin session, which the admin endpoints also accept (XSRF needed for writes; the list is
+  re-checked per request; email sign-in never grants admin; ADR-0006, amendment M6b). With neither set, none of them is
+  mapped (404). `NAMETRACKER_WEB_ADDRESS` is the bind address
   (default `127.0.0.1`, loopback only like the indexer; `0.0.0.0` to serve other hosts).
 - `indexer`: `NAMETRACKER_INDEXER_PORT` (8081), `NAMETRACKER_INDEXER_WORKERS`, `NAMETRACKER_INDEXER_POLL_INTERVAL`,
   `NAMETRACKER_INDEXER_MAX_ATTEMPTS`, `NAMETRACKER_INDEXER_BACKOFF`, `NAMETRACKER_INDEXER_STALE_AFTER` (1h),
@@ -186,7 +189,8 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
 
 ## Harvesting by hand and admin endpoints
 
-All of these need `ADMIN_TOKEN` on `web` and the header `X-Admin-Token: $ADMIN_TOKEN`. Use the local ports of a
+All of these need `ADMIN_TOKEN` on `web` and the header `X-Admin-Token: $ADMIN_TOKEN` (or, in a browser, an admin
+session: an ORCID sign-in of an iD in `NAMETRACKER_ADMIN_ORCIDS`). Use the local ports of a
 manual run (`SERVER_PORT=18080`, `NAMETRACKER_INDEXER_PORT=18081`), never 8080/8081.
 
 ```

@@ -110,7 +110,8 @@ class AdminSourceControllerIT extends AbstractPostgresIT {
     long id = source("S6", "E", "CANDIDATE", true, false);
     assertThat(call("GET", "/api/admin/sources", null, null).statusCode()).isEqualTo(401);
     assertThat(call("GET", "/api/admin/sources", null, "wrong").statusCode()).isEqualTo(401);
-    assertThat(call("PATCH", "/api/admin/sources/" + id, "{\"tier\":\"CORE\"}", null).statusCode()).isEqualTo(401);
+    // without the header a write is a session write, which needs XSRF first (ADR-0006, amendment M6b)
+    assertThat(call("PATCH", "/api/admin/sources/" + id, "{\"tier\":\"CORE\"}", null).statusCode()).isEqualTo(403);
     assertThat(call("POST", "/api/admin/sources", "{\"openalexId\":\"S7\"}", "wrong").statusCode()).isEqualTo(401);
     assertThat(jdbc.queryForObject("SELECT tier FROM source WHERE id = ?", String.class, id)).isEqualTo("CANDIDATE");
     assertThat(jdbc.queryForObject("SELECT count(*) FROM task", Long.class)).isZero();

@@ -10,7 +10,6 @@ import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.jspecify.annotations.Nullable;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,11 +24,12 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Curation of the journal registry (shared-secret header like {@link AdminTaskController}; not mapped at all without
- * nametracker.admin.token). The web app only writes source.tier and source.active here, and inserts task rows.
+ * Curation of the journal registry (admin token or admin session, {@link AdminAccess}; not mapped at all without either
+ * way configured, {@link AdminAccessConfigured}). The web app only writes source.tier and source.active here, and
+ * inserts task rows.
  */
 @RestController
-@Conditional(AdminTokenConfigured.class)
+@Conditional(AdminAccessConfigured.class)
 public class AdminSourceController {
 
   static final int MAX_LIMIT = 500;
@@ -51,23 +51,23 @@ public class AdminSourceController {
 
   private final SourceMapper sources;
   private final TaskQueue queue;
-  private final AdminAuth auth;
+  private final AdminAccess access;
 
-  public AdminSourceController(SourceMapper sources, TaskQueue queue, @Value("${nametracker.admin.token}") String token) {
+  public AdminSourceController(SourceMapper sources, TaskQueue queue, AdminAccess access) {
     this.sources = sources;
     this.queue = queue;
-    this.auth = new AdminAuth(token);
+    this.access = access;
   }
 
   @GetMapping("/api/admin/sources")
   public List<SourceView> list(
-      @RequestHeader(name = "X-Admin-Token", required = false) @Nullable String given,
+      @RequestHeader(name = AdminAccess.TOKEN_HEADER, required = false) @Nullable String given,
       @RequestParam(required = false) @Nullable String tier,
       @RequestParam(required = false) @Nullable Boolean active,
       @RequestParam(required = false) @Nullable String q,
       @RequestParam(defaultValue = "100") int limit,
       @RequestParam(defaultValue = "0") int offset) {
-    auth.check(given);
+    access.check(given);
     if (tier != null && !TIERS.contains(tier)) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "unknown tier " + tier);
     }
@@ -79,9 +79,9 @@ public class AdminSourceController {
 
   @PatchMapping("/api/admin/sources/{id}")
   public SourceView patch(
-      @RequestHeader(name = "X-Admin-Token", required = false) @Nullable String given,
+      @RequestHeader(name = AdminAccess.TOKEN_HEADER, required = false) @Nullable String given,
       @PathVariable long id, @RequestBody PatchRequest req) {
-    auth.check(given);
+    access.check(given);
     if (req.tier() == null && req.active() == null) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "tier or active is required");
     }
@@ -107,9 +107,9 @@ public class AdminSourceController {
   @PostMapping("/api/admin/sources")
   @ResponseStatus(HttpStatus.ACCEPTED)
   public Map<String, Long> add(
-      @RequestHeader(name = "X-Admin-Token", required = false) @Nullable String given,
+      @RequestHeader(name = AdminAccess.TOKEN_HEADER, required = false) @Nullable String given,
       @RequestBody AddRequest req) {
-    auth.check(given);
+    access.check(given);
     String openalexId = req.openalexId() == null ? "" : req.openalexId().strip();
     int slash = openalexId.lastIndexOf('/');
     if (slash >= 0) {

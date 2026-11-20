@@ -26,14 +26,17 @@ public class MeController {
   static final Set<String> FREQUENCIES = Set.of("DAILY", "WEEKLY", "OFF");
   static final int MAX_DISPLAY_NAME = 200;
 
-  /** {@code created} lets the SPA propose the browser's time zone once, to a new account still on UTC. */
+  /**
+   * {@code created} lets the SPA propose the browser's time zone once, to a new account still on UTC. {@code admin} is
+   * true only for a session with ROLE_ADMIN (an ORCID sign-in of a listed iD) whose iD is still listed.
+   */
   public record Me(long id, @Nullable String email, @Nullable Instant emailVerified, @Nullable String orcid,
       @Nullable String displayName, String timeZone, String digestFrequency, int digestWeekday, int digestHour,
-      Instant created) {
+      Instant created, boolean admin) {
 
-    static Me of(AppUser u) {
+    static Me of(AppUser u, boolean admin) {
       return new Me(u.id(), u.email(), u.emailVerified(), u.orcid(), u.displayName(), u.timeZone(),
-          u.digestFrequency(), u.digestWeekday(), u.digestHour(), u.created());
+          u.digestFrequency(), u.digestWeekday(), u.digestHour(), u.created(), admin);
     }
   }
 
@@ -49,18 +52,20 @@ public class MeController {
   private final CurrentUser currentUser;
   private final EmailVerificationService verification;
   private final Clock clock;
+  private final AdminOrcids adminOrcids;
 
   public MeController(AccountMapper accounts, CurrentUser currentUser, EmailVerificationService verification,
-      Clock clock) {
+      Clock clock, AdminOrcids adminOrcids) {
     this.accounts = accounts;
     this.currentUser = currentUser;
     this.verification = verification;
     this.clock = clock;
+    this.adminOrcids = adminOrcids;
   }
 
   @GetMapping("/api/me")
   public Me me() {
-    return Me.of(load());
+    return view(load());
   }
 
   /**
@@ -108,7 +113,7 @@ public class MeController {
     }
     Instant digestSince = "OFF".equals(user.digestFrequency()) && !"OFF".equals(frequency) ? clock.instant() : null;
     accounts.updateSettings(user.id(), displayName, timeZone, frequency, weekday, hour, digestSince);
-    return Me.of(load());
+    return view(load());
   }
 
   /**
@@ -130,6 +135,11 @@ public class MeController {
   public Map<String, String> verifyEmail(@RequestBody VerifyRequest body, HttpServletRequest request,
       HttpServletResponse response) {
     return Map.of("outcome", verification.verify(load().id(), body.token(), request, response).name());
+  }
+
+  /** The account as the SPA sees it; admin by the same rule as the admin endpoints (AdminAccess). */
+  private Me view(AppUser user) {
+    return Me.of(user, currentUser.hasAdminRole() && adminOrcids.contains(user.orcid()));
   }
 
   /** The signed-in account; a 401 if it no longer exists. */

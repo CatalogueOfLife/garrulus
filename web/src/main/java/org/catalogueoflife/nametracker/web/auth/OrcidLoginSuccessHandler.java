@@ -25,7 +25,8 @@ import org.springframework.stereotype.Component;
  * with that iD is found, or created without an address (ORCID never gives one) and with the display name from the ID
  * token. The login filter's ORCID-named authentication is then replaced by {@link GarrulusPrincipal}, so only account
  * ids name sessions, and the browser goes back to the SPA: its start page, or the account page asking for an address
- * ({@code /account?addEmail=1}) while the account has none. A failed login goes to {@code /signin?error=orcid}.
+ * ({@code /account?addEmail=1}) while the account has none. A failed login goes to {@code /signin?error=orcid}. An
+ * account whose iD is in {@link AdminOrcids} gets ROLE_ADMIN; no other sign-in path grants it.
  */
 @Component
 public class OrcidLoginSuccessHandler implements AuthenticationSuccessHandler, AuthenticationFailureHandler {
@@ -34,12 +35,14 @@ public class OrcidLoginSuccessHandler implements AuthenticationSuccessHandler, A
 
   private final AccountMapper accounts;
   private final CurrentUser currentUser;
+  private final AdminOrcids adminOrcids;
   private final String publicUrl;
 
-  public OrcidLoginSuccessHandler(AccountMapper accounts, CurrentUser currentUser,
+  public OrcidLoginSuccessHandler(AccountMapper accounts, CurrentUser currentUser, AdminOrcids adminOrcids,
       @Value("${nametracker.public-url}") String publicUrl) {
     this.accounts = accounts;
     this.currentUser = currentUser;
+    this.adminOrcids = adminOrcids;
     this.publicUrl = publicUrl.strip().replaceAll("/+$", "");
   }
 
@@ -52,11 +55,14 @@ public class OrcidLoginSuccessHandler implements AuthenticationSuccessHandler, A
   public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
       Authentication authentication) throws IOException {
     AppUser user;
+    boolean admin;
     try {
       OidcUser oidc = (OidcUser) authentication.getPrincipal();
       user = findOrCreate(oidc.getSubject(), displayName(oidc));
       accounts.touchLogin(user.id());
-      currentUser.signIn(user.id(), request, response);
+      // the only path to ROLE_ADMIN: an ORCID sign-in of a listed iD (the admin endpoints check the list again)
+      admin = adminOrcids.contains(user.orcid());
+      currentUser.signIn(user.id(), admin, request, response);
     } catch (RuntimeException e) {
       // never leave the login filter's ORCID-named authentication in the session
       SecurityContextHolder.clearContext();
@@ -73,7 +79,7 @@ public class OrcidLoginSuccessHandler implements AuthenticationSuccessHandler, A
     if (csrf != null) {
       csrf.getToken();
     }
-    LOG.info("user {} signed in with ORCID", user.id());
+    LOG.info("user {} signed in with ORCID{}", user.id(), admin ? " as admin" : "");
     response.sendRedirect(publicUrl + (user.email() == null ? "/account?addEmail=1" : "/"));
   }
 

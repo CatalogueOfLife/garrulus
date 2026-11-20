@@ -91,14 +91,15 @@ class AdminTaskControllerIT extends AbstractPostgresIT {
   @Test
   void rejectsWrongToken() throws Exception {
     assertThat(post(port, "nope").statusCode()).isEqualTo(401);
-    assertThat(post(port, null).statusCode()).isEqualTo(401);
+    // without the header a write is a session write, which needs XSRF first (ADR-0006, amendment M6b)
+    assertThat(post(port, null).statusCode()).isEqualTo(403);
   }
 
   @Nested
   @SpringBootTest(
       classes = WebApplication.class,
       webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-      properties = "nametracker.admin.token=")
+      properties = {"nametracker.admin.token=", "nametracker.admin.orcids="})
   class WithoutToken {
     @LocalServerPort int port;
 

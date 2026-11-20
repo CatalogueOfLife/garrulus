@@ -9,6 +9,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.Optional;
 
 /** A tiny cookie-keeping HTTP client, the way the SPA talks to web: session cookie plus the XSRF-TOKEN echo. */
@@ -54,6 +55,16 @@ public final class Browser {
     return http.send(b.build(), HttpResponse.BodyHandlers.ofString());
   }
 
+  /** A JSON request (no body if null) with exactly these extra headers, keeping this browser's cookies. */
+  public HttpResponse<String> json(String method, String path, String body, Map<String, String> headers)
+      throws Exception {
+    HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(base + path))
+        .header("Content-Type", "application/json")
+        .method(method, body == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(body));
+    headers.forEach(b::header);
+    return http.send(b.build(), HttpResponse.BodyHandlers.ofString());
+  }
+
   /** The CSRF cookie value; fetched with a GET first if this browser has none yet. */
   public String xsrf() throws Exception {
     Optional<String> token = cookie("XSRF-TOKEN");
@@ -62,6 +73,11 @@ public final class Browser {
       token = cookie("XSRF-TOKEN");
     }
     return token.orElseThrow(() -> new AssertionError("no XSRF-TOKEN cookie"));
+  }
+
+  /** Takes over the other browser's cookies (session and XSRF), e.g. to call another server with the same session. */
+  public void copyCookiesFrom(Browser other) {
+    other.cookies.getCookieStore().getCookies().forEach(c -> cookies.getCookieStore().add(URI.create(base), c));
   }
 
   public Optional<String> cookie(String name) {

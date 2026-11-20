@@ -42,7 +42,8 @@ final class EmailLinkAuthenticationProvider implements AuthenticationProvider {
     }
     long userId = accounts.findOrCreateByEmail(email);
     accounts.touchLogin(userId);
-    Authentication result = GarrulusPrincipal.authentication(userId);
+    // an email sign-in never makes an admin, whatever the account's ORCID iD
+    Authentication result = GarrulusPrincipal.authentication(userId, false);
     ((AbstractAuthenticationToken) result).setDetails(request.getDetails());
     return result;
   }

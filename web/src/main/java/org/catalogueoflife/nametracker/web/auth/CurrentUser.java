@@ -32,12 +32,23 @@ public class CurrentUser {
   }
 
   /**
-   * Replaces the authentication of this request with {@link GarrulusPrincipal}(userId) and saves it to the session.
-   * Every sign-in path ends here.
+   * True if the request is authenticated with a {@link GarrulusPrincipal} that holds ROLE_ADMIN. That alone does not
+   * make an admin: the account's iD must still be in {@link AdminOrcids}.
    */
-  public void signIn(long userId, HttpServletRequest request, HttpServletResponse response) {
+  public boolean hasAdminRole() {
+    Authentication a = holder.getContext().getAuthentication();
+    return a != null && a.isAuthenticated() && a.getPrincipal() instanceof GarrulusPrincipal
+        && a.getAuthorities().stream().anyMatch(g -> GarrulusPrincipal.ROLE_ADMIN.equals(g.getAuthority()));
+  }
+
+  /**
+   * Replaces the authentication of this request with {@link GarrulusPrincipal}(userId) and saves it to the session.
+   * Every sign-in path except the email link (whose provider returns the authentication itself) ends here.
+   * {@code admin} adds ROLE_ADMIN; only the ORCID sign-in of a listed iD passes true.
+   */
+  public void signIn(long userId, boolean admin, HttpServletRequest request, HttpServletResponse response) {
     SecurityContext context = holder.createEmptyContext();
-    context.setAuthentication(GarrulusPrincipal.authentication(userId));
+    context.setAuthentication(GarrulusPrincipal.authentication(userId, admin));
     holder.setContext(context);
     contexts.saveContext(context, request, response);
   }

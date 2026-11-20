@@ -12,7 +12,6 @@ import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,14 +27,15 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * The harvest routes of a journal (token as {@link AdminSourceController}; not mapped without nametracker.admin.token).
+ * The harvest routes of a journal (admin token or admin session, {@link AdminAccess}; not mapped without either way
+ * configured).
  * The web app makes no outbound call: a new route is stored PENDING with origin ADMIN and the indexer's
  * {@code VERIFY_ROUTE} checks it. The URL in its config must be http(s) on a public host ({@link RouteConfigCheck}),
  * else 400. PATCH pauses a route or makes it ACTIVE; ACTIVE is an admin override that skips {@code VERIFY_ROUTE} (also
  * for a PENDING or BROKEN route): the route is harvested from the next night on as it is.
  */
 @RestController
-@Conditional(AdminTokenConfigured.class)
+@Conditional(AdminAccessConfigured.class)
 public class AdminRouteController {
 
   private static final Set<String> LAYERS = Set.of("OAI", "MAGTECH", "EUROPEPMC");
@@ -58,22 +58,22 @@ public class AdminRouteController {
   private final SourceMapper sources;
   private final SourceRouteMapper routes;
   private final TaskQueue queue;
-  private final AdminAuth auth;
+  private final AdminAccess access;
   private final RouteConfigCheck configCheck;
 
   public AdminRouteController(SourceMapper sources, SourceRouteMapper routes, TaskQueue queue,
-      @Value("${nametracker.admin.token}") String token, ObjectProvider<RouteConfigCheck.HostResolver> resolver) {
+      AdminAccess access, ObjectProvider<RouteConfigCheck.HostResolver> resolver) {
     this.configCheck = new RouteConfigCheck(resolver.getIfAvailable(() -> InetAddress::getAllByName));
     this.sources = sources;
     this.routes = routes;
     this.queue = queue;
-    this.auth = new AdminAuth(token);
+    this.access = access;
   }
 
   @GetMapping("/api/admin/sources/{id}/routes")
   public List<RouteView> list(
-      @RequestHeader(name = "X-Admin-Token", required = false) @Nullable String given, @PathVariable long id) {
-    auth.check(given);
+      @RequestHeader(name = AdminAccess.TOKEN_HEADER, required = false) @Nullable String given, @PathVariable long id) {
+    access.check(given);
     requireSource(id);
     return routes.forSource(id).stream().map(RouteView::of).toList();
   }
@@ -81,9 +81,9 @@ public class AdminRouteController {
   @PostMapping("/api/admin/sources/{id}/routes")
   @ResponseStatus(HttpStatus.ACCEPTED)
   public Map<String, Long> add(
-      @RequestHeader(name = "X-Admin-Token", required = false) @Nullable String given, @PathVariable long id,
+      @RequestHeader(name = AdminAccess.TOKEN_HEADER, required = false) @Nullable String given, @PathVariable long id,
       @RequestBody AddRequest req) {
-    auth.check(given);
+    access.check(given);
     if (req.layer() == null || !LAYERS.contains(req.layer())) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "layer must be one of " + LAYERS);
     }
@@ -105,9 +105,9 @@ public class AdminRouteController {
 
   @PatchMapping("/api/admin/sources/{id}/routes/{routeId}")
   public RouteView patch(
-      @RequestHeader(name = "X-Admin-Token", required = false) @Nullable String given, @PathVariable long id,
+      @RequestHeader(name = AdminAccess.TOKEN_HEADER, required = false) @Nullable String given, @PathVariable long id,
       @PathVariable long routeId, @RequestBody PatchRequest req) {
-    auth.check(given);
+    access.check(given);
     if (req.status() == null || !SETTABLE.contains(req.status())) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "status must be PAUSED or ACTIVE");
     }
