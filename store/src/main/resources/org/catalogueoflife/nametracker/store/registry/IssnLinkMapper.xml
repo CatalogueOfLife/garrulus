@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.nametracker.store.registry.IssnLinkMapper">
+
+  <select id="issnL" resultType="string">
+    SELECT issn_l FROM issn_link WHERE issn = #{issn}
+  </select>
+
+  <select id="siblings" resultType="string">
+    SELECT issn FROM issn_link WHERE issn_l = #{issnL} ORDER BY issn
+  </select>
+
+  <select id="upsertFromTemp" resultType="long" flushCache="true">
+    WITH w AS (
+      INSERT INTO issn_link (issn, issn_l)
+      SELECT issn, issn_l FROM issn_link_load
+      ON CONFLICT (issn) DO UPDATE SET issn_l = EXCLUDED.issn_l WHERE issn_link.issn_l IS DISTINCT FROM EXCLUDED.issn_l
+      RETURNING 1)
+    SELECT count(*) FROM w
+  </select>
+
+</mapper>

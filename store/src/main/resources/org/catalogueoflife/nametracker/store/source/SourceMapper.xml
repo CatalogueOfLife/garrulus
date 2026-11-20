@@ -33,6 +33,21 @@
       <arg column="modified" javaType="java.time.Instant"/>
       <arg column="onboarded_at" javaType="java.time.Instant"/>
       <arg column="tier_set_by" javaType="string"/>
+      <arg column="publication_status" javaType="string"/>
+      <arg column="ceased_reason" javaType="string"/>
+      <arg column="last_issue_year" javaType="int"/>
+      <arg column="continued_by" javaType="long"/>
+      <arg column="status_set_by" javaType="string"/>
+      <arg column="status_changed" javaType="java.time.Instant"/>
+      <arg column="dormant_since" javaType="java.time.LocalDate"/>
+      <arg column="dormant_evidence" javaType="string" typeHandler="org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler"/>
+      <arg column="dormant_dismissed_at" javaType="java.time.Instant"/>
+      <arg column="candidate_score" javaType="float"/>
+      <arg column="candidate_scored_at" javaType="java.time.Instant"/>
+      <arg column="discipline_source" javaType="string"/>
+      <arg column="discipline_set_by" javaType="string"/>
+      <arg column="doaj_discontinued" javaType="java.time.LocalDate"/>
+      <arg column="successor_issns" javaType="java.util.List" typeHandler="org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler"/>
     </constructor>
   </resultMap>
 
@@ -101,6 +116,35 @@
     ORDER BY id
   </select>
 
+  <select id="findByIssnL" resultMap="result">
+    SELECT * FROM source WHERE issn_l = #{issnL} ORDER BY id
+  </select>
+
+  <select id="insertCandidate" resultType="long" flushCache="true">
+    INSERT INTO source (openalex_id, issn_l, issns, title, publisher, host, country, origin, tier, tier_set_by)
+    VALUES (#{o.openalexId}, #{o.issnL}, COALESCE(#{o.issns, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[]),
+            COALESCE(#{o.title}, (COALESCE(#{o.issns, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[]))[1], #{o.issnL}, #{o.openalexId}),
+            #{o.publisher}, #{o.host}, #{o.country}, COALESCE(#{o.origin}, 'DISCOVERED'), 'CANDIDATE', 'SEED')
+    RETURNING id
+  </select>
+
+  <update id="updateIdentity">
+    UPDATE source SET
+      issn_l = COALESCE(#{issnL}, issn_l),
+      issns = ARRAY(SELECT DISTINCT i FROM unnest(issns || COALESCE(#{issns, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}, '{}'::text[])) i ORDER BY i),
+      title = COALESCE(#{title}, title),
+      publisher = COALESCE(#{publisher}, publisher),
+      country = COALESCE(#{country}, country),
+      openalex_id = COALESCE(#{openalexId}, openalex_id),
+      host = COALESCE(#{host}, host),
+      modified = now()
+    WHERE id = #{id}
+  </update>
+
+  <update id="setCandidateScore">
+    UPDATE source SET candidate_score = #{score}, candidate_scored_at = now(), modified = now() WHERE id = #{id}
+  </update>
+
   <update id="setCrossrefHistoryDone">
     UPDATE source SET crossref_history_at = #{at} WHERE id = #{id}
   </update>
@@ -110,7 +154,7 @@
   </select>
 
   <select id="listHarvestable" resultMap="result">
-    SELECT * FROM source WHERE active AND tier IN ('CORE','BROAD') AND onboarded_at IS NOT NULL ORDER BY id
+    SELECT * FROM source WHERE active AND tier IN ('CORE','BROAD') AND publication_status = 'ACTIVE' AND onboarded_at IS NOT NULL ORDER BY id
   </select>
 
   <select id="listBackfillable" resultMap="result">
@@ -118,7 +162,7 @@
   </select>
 
   <select id="listToOnboard" resultMap="result">
-    SELECT * FROM source WHERE active AND tier IN ('CORE','BROAD') AND onboarded_at IS NULL ORDER BY id
+    SELECT * FROM source WHERE active AND tier IN ('CORE','BROAD') AND publication_status = 'ACTIVE' AND onboarded_at IS NULL ORDER BY id
   </select>
 
   <update id="setOnboarded">

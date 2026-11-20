@@ -48,7 +48,7 @@
 
   <select id="listRollout" resultMap="result">
     SELECT r.* FROM source_route r JOIN source s ON s.id = r.source_id
-    WHERE r.status = 'VERIFIED' AND s.active AND s.tier IN ('CORE','BROAD')
+    WHERE r.status = 'VERIFIED' AND s.active AND s.tier IN ('CORE','BROAD') AND s.publication_status = 'ACTIVE'
       AND NOT EXISTS (SELECT 1 FROM task t WHERE t.type = 'HARVEST_' || r.layer AND t.state IN ('QUEUED','RUNNING')
                       AND t.payload->>'routeId' = r.id::text)
       AND NOT EXISTS (SELECT 1 FROM task t WHERE t.type = 'HARVEST_' || r.layer AND t.state = 'DEAD'

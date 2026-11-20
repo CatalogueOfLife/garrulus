@@ -23,13 +23,16 @@ public interface SourceMapper {
   /** Sources with the ISSN as linking or other ISSN (case-insensitive), ordered by id. */
   List<Source> findByIssn(@Param("issn") String issn);
 
-  /** Active CORE/BROAD sources that have been onboarded, ordered by id. */
+  /** ACTIVE (not ceased), active CORE/BROAD sources that have been onboarded, ordered by id. */
   List<Source> listHarvestable();
 
-  /** Active CORE/BROAD sources, onboarded or not, ordered by id: the journals the backfill imports. */
+  /**
+   * Active CORE/BROAD sources, onboarded or not, ordered by id: the journals the backfill imports. Includes ceased
+   * journals: the snapshot backfill reads a file, not the journal.
+   */
   List<Source> listBackfillable();
 
-  /** Active CORE/BROAD sources not yet onboarded, ordered by id. */
+  /** ACTIVE (not ceased), active CORE/BROAD sources not yet onboarded, ordered by id. */
   List<Source> listToOnboard();
 
   int setOnboarded(@Param("id") long id, @Param("at") Instant at);
@@ -83,4 +86,22 @@ public interface SourceMapper {
       @Param("actRate") float actRate, @Param("taxgroups") String[] taxgroups,
       @Param("taxgroupSharesJson") String taxgroupSharesJson, @Param("codes") String[] codes,
       @Param("journalType") String journalType);
+
+  /** Sources with this linking ISSN, ordered by id. */
+  List<Source> findByIssnL(@Param("issnL") String issnL);
+
+  /**
+   * Inserts a CANDIDATE (tier_set_by SEED) from the argument's openalexId, issnL, issns, title, publisher, host,
+   * country and origin (default DISCOVERED); a missing title falls back to the first ISSN. Returns the id.
+   */
+  long insertCandidate(@Param("o") Source s);
+
+  /** Each null argument keeps the column; the ISSNs are unioned with the existing ones. */
+  int updateIdentity(@Param("id") long id, @Param("issnL") @Nullable String issnL,
+      @Param("issns") List<String> issns, @Param("title") @Nullable String title,
+      @Param("publisher") @Nullable String publisher, @Param("country") @Nullable String country,
+      @Param("openalexId") @Nullable String openalexId, @Param("host") @Nullable String host);
+
+  /** Stores the candidate score and stamps candidate_scored_at. */
+  int setCandidateScore(@Param("id") long id, @Param("score") float score);
 }

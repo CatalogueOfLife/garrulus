@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.nametracker.store.registry.SourceSignalMapper">
+
+  <resultMap id="result" type="org.catalogueoflife.nametracker.store.registry.SourceSignal">
+    <constructor>
+      <arg column="source_id" javaType="_long"/>
+      <arg column="origin" javaType="string"/>
+      <arg column="signal_key" javaType="string"/>
+      <arg column="first_seen" javaType="java.time.Instant"/>
+      <arg column="last_seen" javaType="java.time.Instant"/>
+      <arg column="detail" javaType="string" typeHandler="org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler"/>
+    </constructor>
+  </resultMap>
+
+  <update id="upsert" flushCache="true">
+    INSERT INTO source_signal (source_id, origin, signal_key, detail)
+    VALUES (#{sourceId}, #{origin}, #{signalKey}, #{detailJson, typeHandler=org.catalogueoflife.nametracker.store.type.JsonbStringTypeHandler})
+    ON CONFLICT (source_id, origin, signal_key) DO UPDATE SET last_seen = now(), detail = EXCLUDED.detail
+  </update>
+
+  <select id="forSource" resultMap="result">
+    SELECT * FROM source_signal WHERE source_id = #{sourceId} ORDER BY origin, signal_key
+  </select>
+
+  <delete id="delete" flushCache="true">
+    DELETE FROM source_signal WHERE source_id = #{sourceId} AND origin = #{origin} AND signal_key = #{signalKey}
+  </delete>
+
+  <update id="moveAll" flushCache="true">
+    UPDATE source_signal s SET source_id = #{to}
+    WHERE s.source_id = #{from}
+      AND NOT EXISTS (SELECT 1 FROM source_signal t WHERE t.source_id = #{to} AND t.origin = s.origin
+                      AND t.signal_key = s.signal_key)
+  </update>
+
+</mapper>
