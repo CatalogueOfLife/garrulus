@@ -17,6 +17,14 @@
   margin-bottom: var(--gr-space-4);
 }
 
+/* A page title with one action on the right, level with the top of the title (under the account in the header). */
+.titleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--gr-space-4);
+}
+
 .narrowTitle {
   margin: 0;
   font-size: var(--gr-type-head-size);

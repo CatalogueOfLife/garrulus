@@ -63,8 +63,10 @@ export function JournalsPage() {
 
   return (
     <div>
-      <h1 className={styles.pageTitle}>Journals</h1>
-      {me.isPending ? null : <RegisterJournalDialog signedIn={!!me.data} />}
+      <div className={styles.titleRow}>
+        <h1 className={styles.pageTitle}>Journals</h1>
+        {me.isPending ? null : <RegisterJournalDialog signedIn={!!me.data} />}
+      </div>
       <div className={styles.filters}>
         <TextInput label="Title" placeholder="Search journals" value={text} onChange={(e) => setText(e.currentTarget.value)} />
         <div>
