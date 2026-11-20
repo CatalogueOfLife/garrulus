@@ -112,7 +112,8 @@ class PkpBeaconDiscoveryIT extends AbstractPostgresIT {
     assertThat(r.get("origin")).isEqualTo("DISCOVERED");
     assertThat(r.get("config").toString()).contains("https://abm.ojs.inecol.mx/index.php/index/oai")
         .contains("\"prefix\": \"oai_dc\"").contains("0187-7151").contains("2448-7589");
-    assertThat(jdbc.queryForObject("SELECT count(*) FROM task WHERE type = 'VERIFY_ROUTE'", Long.class)).isEqualTo(2);
+    // discovered candidates: their routes wait for the admin's promotion
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM task WHERE type = 'VERIFY_ROUTE'", Long.class)).isZero();
   }
 
   @Test

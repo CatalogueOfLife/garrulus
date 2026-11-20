@@ -42,6 +42,8 @@ class AccountMergerIT extends AbstractAuthIT {
     long requester = orcidUser(orcid);
     sub(holder, "TAXON", "T1", "holder's", "2026-01-01T00:00:00Z");
     long moved = sub(requester, "SOURCE", "S1", "requester's", "2026-02-01T00:00:00Z");
+    long registration = jdbc.queryForObject("insert into source_registration (user_id, kind, input, note) "
+        + "values (?, 'ISSN', '1175-5326', 'mine') returning id", Long.class, requester);
     Browser b = signedInAs(requester);
     Browser otherDevice = signedInAs(requester);
     String sessionBefore = b.cookie("SESSION").orElseThrow();
@@ -59,6 +61,9 @@ class AccountMergerIT extends AbstractAuthIT {
     assertThat(count("select count(*) from app_user where id = ?", requester)).isZero();
     assertThat(jdbc.queryForList("select id from subscription where user_id = ?", Long.class, holder))
         .hasSize(2).contains(moved);
+    // the requester's journal registrations move too (they would go with the deleted account otherwise)
+    assertThat(jdbc.queryForList("select user_id from source_registration where id = ?", Long.class, registration))
+        .containsExactly(holder);
 
     // this session now belongs to the survivor, under a new session id; the requester's other sessions are gone
     HttpResponse<String> me = b.get("/api/me");

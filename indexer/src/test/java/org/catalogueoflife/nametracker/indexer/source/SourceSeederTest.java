@@ -66,7 +66,8 @@ class SourceSeederTest {
     OpenAlexBudget budget = new OpenAlexBudget(new FakeApiUsage(), new BigDecimal("1.00"), new BigDecimal("0.30"), NOON);
     OpenAlexClient client = new OpenAlexClient(http, budget, null, w.getHttpBaseUrl());
     when(sources.upsertSeed(any())).thenAnswer(i -> ids.incrementAndGet());
-    return new SourceSeeder(client, sources, queue, SeedProperties.DEFAULTS, NOON, disciplines, identity, signals, false);
+    return new SourceSeeder(client, sources, mock(org.catalogueoflife.nametracker.store.route.SourceRouteMapper.class),
+        queue, SeedProperties.DEFAULTS, NOON, disciplines, identity, signals, false);
   }
 
   private static void stubGroups(String taxonomy, String broad, String totals) {

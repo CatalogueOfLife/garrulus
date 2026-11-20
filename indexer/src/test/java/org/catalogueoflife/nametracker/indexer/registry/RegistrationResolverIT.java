@@ -61,6 +61,8 @@ class RegistrationResolverIT extends AbstractPostgresIT {
   @Autowired SourceSignalMapper signals;
   @Autowired SourceRouteMapper routes;
   @Autowired CandidateRegistry registry;
+  @Autowired SourceIdentity identity;
+  @Autowired IdentityLocks locks;
   @Autowired JournalCompletion completion;
   @Autowired TransactionTemplate tx;
   @Autowired HarvestOutage outage;
@@ -95,8 +97,8 @@ class RegistrationResolverIT extends AbstractPostgresIT {
     JournalPage page = new JournalPage(http, new PublicHost(FAKE, Set.of("journal.test")));
     RegistrationResolver resolver = new RegistrationResolver(new CrossrefClient(http, null, base + "/crossref"),
         new OpenAlexClient(http, budget, null, base + "/openalex"), page);
-    return new IdentifySourceHandler(completion, new RegistrationIdentifier(registrations, resolver, registry, tx),
-        sources, outage, clock);
+    return new IdentifySourceHandler(completion, new RegistrationIdentifier(registrations, resolver, registry,
+        identity, locks, sources, signals, tx), sources, outage, clock);
   }
 
   private long register(String kind, String input) {
@@ -278,7 +280,8 @@ class RegistrationResolverIT extends AbstractPostgresIT {
       assertThat(cfg.get("site").asString()).isEqualTo(journal(w));
       assertThat(cfg.get("issn").asString()).isEqualTo("1005-0094");
     });
-    assertThat(tasks()).extracting(t -> t.get("type")).containsExactlyInAnyOrder("VERIFY_ROUTE", "IDENTIFY_SOURCE");
+    // a candidate's route is not verified (no request to the site) until an admin promotes the journal
+    assertThat(tasks()).extracting(t -> t.get("type")).containsExactly("IDENTIFY_SOURCE");
 
     // a Magtech site without the footer, by its path: /CN/<ISSN>/
     stubFor(get(urlPathEqualTo("/CN/0254-5853/home.shtml")).willReturn(ok("<html><head><title>Zoological Research"
@@ -306,7 +309,9 @@ class RegistrationResolverIT extends AbstractPostgresIT {
       assertThat(cfg.get("base").asString()).isEqualTo(journal(w) + "/zt/oai");
       assertThat(cfg.get("prefix").asString()).isEqualTo("oai_dc");
       assertThat(cfg.get("issns").toString()).isEqualTo("[\"1175-5326\",\"1175-5334\"]");
+      assertThat(route.status()).isEqualTo("PENDING");
     });
+    assertThat(tasks()).noneMatch(t -> "VERIFY_ROUTE".equals(t.get("type")));
 
     // without the feed links: the path up to /index.php/<journal>
     String bare = page.replaceAll("(?m)^<link rel=\"alternate\".*$", "");
@@ -370,5 +375,47 @@ class RegistrationResolverIT extends AbstractPostgresIT {
     jdbc.update("UPDATE source_registration SET state = 'WITHDRAWN' WHERE id = ?", withdrawn);
     assertThat(identify(w, withdrawn).state()).isEqualTo("WITHDRAWN");
     assertThat(jdbc.queryForObject("SELECT count(*) FROM source WHERE '1175-5326' = ANY(issns)", Long.class)).isZero();
+  }
+
+  @Test
+  void pageListingOtherJournalsChangesNoIdentity(WireMockRuntimeInfo w) {
+    long core = existing("CORE", "ACTIVE", "1175-5326");
+    long candidate = jdbc.queryForObject("INSERT INTO source (title, origin, tier, issns) VALUES ('Other', 'DOAJ', 'CANDIDATE', "
+        + "'{2118-9773}') RETURNING id", Long.class);
+    long before = sourceCount();
+    stubFor(get(urlPathEqualTo("/portal")).willReturn(ok("<html><head>"
+        + "<meta name=\"citation_issn\" content=\"2118-9773\"><meta name=\"citation_issn\" content=\"1175-5326\">"
+        + "<meta name=\"citation_issn\" content=\"1313-2989\"></head></html>").withHeader("Content-Type", "text/html")));
+    long id = register("URL", journal(w) + "/portal");
+    SourceRegistration r = identify(w, id);
+    assertThat(r.state()).isEqualTo("IDENTIFIED");
+    assertThat(r.outcome()).isEqualTo("EXISTING");
+    assertThat(r.sourceId()).isEqualTo(core); // the best match: the journal Garrulus follows
+    assertThat(r.tierAtIdentification()).isEqualTo("CORE");
+    // only the signal: nothing widened, nothing folded, nothing created
+    assertThat(sources.get(core).issns()).containsExactly("1175-5326");
+    assertThat(sources.get(candidate).issns()).containsExactly("2118-9773");
+    assertThat(sourceCount()).isEqualTo(before);
+    assertThat(signals.forSource(core)).extracting(SourceSignal::signalKey).containsExactly(String.valueOf(id));
+    assertThat(signals.forSource(candidate)).isEmpty();
+    assertThat(tasks()).isEmpty();
+
+    // a page naming a followed journal and an unknown ISSN does not widen the followed journal either
+    stubFor(get(urlPathEqualTo("/core-plus")).willReturn(ok("<html><head>"
+        + "<meta name=\"citation_issn\" content=\"1175-5326\"><meta name=\"citation_issn\" content=\"1005-0094\">"
+        + "</head></html>").withHeader("Content-Type", "text/html")));
+    SourceRegistration r2 = identify(w, register("URL", journal(w) + "/core-plus"));
+    assertThat(r2.sourceId()).isEqualTo(core);
+    assertThat(sources.get(core).issns()).containsExactly("1175-5326");
+    assertThat(sourceCount()).isEqualTo(before);
+  }
+
+  @Test
+  void lookupFailureEndsNotIdentified(WireMockRuntimeInfo w) {
+    stubFor(get(urlPathMatching("/crossref/works/.*")).willReturn(aResponse().withStatus(400).withBody("bad")));
+    long id = register("DOI", DOI);
+    SourceRegistration r = identify(w, id);
+    assertThat(r.state()).isEqualTo("NOT_IDENTIFIED");
+    assertThat(r.reason()).isEqualTo("LOOKUP_FAILED");
   }
 }

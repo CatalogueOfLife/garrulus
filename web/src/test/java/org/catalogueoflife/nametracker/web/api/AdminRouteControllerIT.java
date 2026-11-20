@@ -16,6 +16,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+@org.springframework.context.annotation.Import(AdminRouteControllerIT.Resolver.class)
 class AdminRouteControllerIT extends AbstractPostgresIT {
 
   /** No DNS in the tests: the route URLs' names resolve through the fake resolver. */

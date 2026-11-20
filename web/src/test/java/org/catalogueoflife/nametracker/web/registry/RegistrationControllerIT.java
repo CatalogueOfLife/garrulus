@@ -153,9 +153,10 @@ class RegistrationControllerIT extends AbstractAuthIT {
     }
     Browser b = signedInAs(u);
     for (int i = 0; i < 20; i++) {
-      assertThat(register(b, "{\"issn\":\"1175-5326\"}").statusCode()).as("registration " + (i + 1)).isEqualTo(202);
+      assertThat(register(b, "{\"url\":\"https://j" + i + ".example.org/\"}").statusCode())
+          .as("registration " + (i + 1)).isEqualTo(202);
     }
-    HttpResponse<String> r = register(b, "{\"issn\":\"1175-5326\"}");
+    HttpResponse<String> r = register(b, "{\"url\":\"https://j20.example.org/\"}");
     assertThat(r.statusCode()).isEqualTo(429);
     assertThat(body(r).get("status").asInt()).isEqualTo(429);
     assertThat(rows()).isEqualTo(25);
@@ -205,10 +206,10 @@ class RegistrationControllerIT extends AbstractAuthIT {
   void statusReadsTheCurrentSource() throws Exception {
     Browser b = signedInAs(user());
     long covered = body(register(b, "{\"issn\":\"1175-5326\"}")).get("id").asLong();
-    long accepted = body(register(b, "{\"issn\":\"1175-5326\"}")).get("id").asLong();
-    long declined = body(register(b, "{\"issn\":\"1175-5326\"}")).get("id").asLong();
-    long ceased = body(register(b, "{\"issn\":\"1175-5326\"}")).get("id").asLong();
-    long waiting = body(register(b, "{\"issn\":\"1175-5326\"}")).get("id").asLong();
+    long accepted = body(register(b, "{\"issn\":\"1175-5334\"}")).get("id").asLong();
+    long declined = body(register(b, "{\"issn\":\"2118-9773\"}")).get("id").asLong();
+    long ceased = body(register(b, "{\"issn\":\"1313-2989\"}")).get("id").asLong();
+    long waiting = body(register(b, "{\"issn\":\"1313-2970\"}")).get("id").asLong();
     long failed = body(register(b, "{\"url\":\"http://10.0.0.1/\"}")).get("id").asLong();
     long core = source("CORE", "ACTIVE");
     jdbc.update("INSERT INTO source_route (source_id, layer, config, status, origin) VALUES (?, 'OAI', "
@@ -247,5 +248,35 @@ class RegistrationControllerIT extends AbstractAuthIT {
     assertThat(j.get("publicationStatus").asString()).isEqualTo("ACTIVE");
     assertThat(j.get("routes").toString()).isEqualTo("[\"OAI\"]");
     assertThat(byId.get(covered).get("identifiedAt").isNull()).isFalse();
+  }
+
+  @Test
+  void longDoiAndLargeBodiesAreRefused() throws Exception {
+    Browser b = signedInAs(user());
+    String doi = "10.1234/" + "x".repeat(293); // 301 characters
+    assertThat(register(b, "{\"doi\":\"" + doi + "\"}").statusCode()).isEqualTo(400);
+    assertThat(register(b, "{\"doi\":\"" + "10.1234/" + "x".repeat(292) + "\"}").statusCode()).isEqualTo(202);
+    HttpResponse<String> big = register(b, "{\"issn\":\"1175-5326\",\"note\":\"" + "x".repeat(20_000) + "\"}");
+    assertThat(big.statusCode()).isEqualTo(413);
+    assertThat(rows()).isOne();
+  }
+
+  @Test
+  void sameInputTwiceIsOneRegistration() throws Exception {
+    long u = user();
+    Browser b = signedInAs(u);
+    long first = body(register(b, "{\"issn\":\"1175-5326\"}")).get("id").asLong();
+    HttpResponse<String> again = register(b, "{\"issn\":\"1175 5326\",\"note\":\"again\"}");
+    assertThat(again.statusCode()).isEqualTo(202);
+    assertThat(body(again).get("id").asLong()).isEqualTo(first);
+    assertThat(rows()).isOne();
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM task WHERE type = 'IDENTIFY_SOURCE'", Long.class)).isOne();
+    // after a failure or a withdrawal the same input may be registered again
+    jdbc.update("UPDATE source_registration SET state = 'NOT_IDENTIFIED', reason = 'LOOKUP_FAILED' WHERE id = ?", first);
+    long second = body(register(b, "{\"issn\":\"1175-5326\"}")).get("id").asLong();
+    assertThat(second).isNotEqualTo(first);
+    // another user registers the same journal: a registration of their own
+    long other = body(register(signedInAs(user()), "{\"issn\":\"1175-5326\"}")).get("id").asLong();
+    assertThat(other).isNotEqualTo(second);
   }
 }

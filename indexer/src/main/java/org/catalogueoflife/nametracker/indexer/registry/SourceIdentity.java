@@ -23,6 +23,13 @@ public class SourceIdentity {
 
   /** {@code issns} are normalised. The lowest source id wins when several of one step match. */
   public @Nullable Source find(List<String> issns, @Nullable String openalexId) {
+    List<Source> all = findAll(issns);
+    if (!all.isEmpty()) return all.getFirst();
+    return openalexId == null ? null : sources.findByOpenalexId(openalexId);
+  }
+
+  /** Every source of the ISSNs' first step that matches (ISSN-L, else plain ISSN), by id. */
+  public List<Source> findAll(List<String> issns) {
     Map<Long, Source> found = new TreeMap<>();
     for (String issn : issns) {
       String issnL = links.issnL(issn);
@@ -33,7 +40,6 @@ public class SourceIdentity {
     if (found.isEmpty()) {
       for (String issn : issns) sources.findByIssn(issn).forEach(s -> found.put(s.id(), s));
     }
-    if (!found.isEmpty()) return found.values().iterator().next();
-    return openalexId == null ? null : sources.findByOpenalexId(openalexId);
+    return List.copyOf(found.values());
   }
 }

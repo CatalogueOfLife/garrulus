@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import org.catalogueoflife.nametracker.store.route.SourceRoute;
+import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
@@ -51,11 +53,13 @@ public class AdminSourceController {
   public record AddRequest(@Nullable String openalexId, @Nullable String tier) {}
 
   private final SourceMapper sources;
+  private final SourceRouteMapper routes;
   private final TaskQueue queue;
   private final AdminAccess access;
 
-  public AdminSourceController(SourceMapper sources, TaskQueue queue, AdminAccess access) {
+  public AdminSourceController(SourceMapper sources, SourceRouteMapper routes, TaskQueue queue, AdminAccess access) {
     this.sources = sources;
+    this.routes = routes;
     this.queue = queue;
     this.access = access;
   }
@@ -101,6 +105,14 @@ public class AdminSourceController {
         && (tier.equals("CORE") || tier.equals("BROAD"))) {
       // same task and dedup key as the seeder, so that it is queued at most once
       queue.enqueue("ONBOARD_SOURCE", "{\"sourceId\":" + id + "}", TaskPriority.BACKFILL, "onboard:" + id);
+    }
+    if (tier.equals("CORE") || tier.equals("BROAD")) {
+      // the routes registration and discovery suggested are fetched only once an admin promoted the journal
+      for (SourceRoute r : routes.forSource(id)) {
+        if (r.status().equals("PENDING")) {
+          queue.enqueue("VERIFY_ROUTE", "{\"routeId\":" + r.id() + "}", TaskPriority.LIVE, "verify-route:" + r.id());
+        }
+      }
     }
     return SourceView.of(updated);
   }

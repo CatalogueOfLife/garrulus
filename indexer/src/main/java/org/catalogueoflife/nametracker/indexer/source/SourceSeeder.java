@@ -18,6 +18,8 @@ import org.catalogueoflife.nametracker.indexer.stats.DisciplineService;
 import org.catalogueoflife.nametracker.store.ident.Issn;
 import org.catalogueoflife.nametracker.store.registry.SourceSignalMapper;
 import org.catalogueoflife.nametracker.store.source.Source;
+import org.catalogueoflife.nametracker.indexer.route.VerifyRouteHandler;
+import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
@@ -48,6 +50,7 @@ public class SourceSeeder {
 
   private final OpenAlexClient client;
   private final SourceMapper sources;
+  private final SourceRouteMapper routes;
   private final TaskQueue queue;
   private final SeedProperties props;
   private final Clock clock;
@@ -57,8 +60,10 @@ public class SourceSeeder {
   private final boolean paging;
 
   /** @param paging true with an API key, when group-by calls return all pages */
-  public SourceSeeder(OpenAlexClient client, SourceMapper sources, TaskQueue queue, SeedProperties props, Clock clock,
-      DisciplineService disciplines, SourceIdentity identity, SourceSignalMapper signals, boolean paging) {
+  public SourceSeeder(OpenAlexClient client, SourceMapper sources, SourceRouteMapper routes, TaskQueue queue,
+      SeedProperties props, Clock clock, DisciplineService disciplines, SourceIdentity identity,
+      SourceSignalMapper signals, boolean paging) {
+    this.routes = routes;
     this.identity = identity;
     this.signals = signals;
     this.disciplines = disciplines;
@@ -118,6 +123,7 @@ public class SourceSeeder {
           && !"CEASED".equals(existing.publicationStatus())) {
         sources.setTier(sourceId, tier, Boolean.TRUE.equals(existing.active()), "SEED");
       }
+      if (existing != null && VerifyRouteHandler.followed(sources.get(sourceId))) verifyPendingRoutes(sourceId);
       switch (tier) {
         case "CORE" -> core++;
         case "BROAD" -> bro++;
@@ -157,6 +163,11 @@ public class SourceSeeder {
       enqueueOnboarding(s.id());
     }
     return todo.size();
+  }
+
+  /** A source just promoted to CORE or BROAD: the routes registration or discovery suggested are verified now. */
+  void verifyPendingRoutes(long sourceId) {
+    VerifyRouteHandler.enqueuePending(routes, queue, sourceId, TaskPriority.BACKFILL);
   }
 
   void enqueueOnboarding(long sourceId) {

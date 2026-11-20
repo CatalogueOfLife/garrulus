@@ -244,4 +244,64 @@ class PoliteHttpTest {
   void crossrefIsSpacedForThreeListRequestsASecond() {
     assertEquals(Duration.ofMillis(350), PoliteHttp.defaultIntervals().get("api.crossref.org"));
   }
+
+  // --- redirects, followed by hand with every hop checked ----------------------------------------------------------
+
+  /** Trusts only the mock server's name, as production trusts only its configured service hosts. */
+  private PoliteHttp checked(FakeTime t) {
+    return new PoliteHttp(HttpClient.newHttpClient(), Map.of(), PoliteHttp.userAgent(), t, t::sleep,
+        PoliteHttp.DEFAULT_MAX_RESPONSE_BYTES,
+        new org.catalogueoflife.nametracker.store.net.PublicHost(org.catalogueoflife.nametracker.store.net.PublicHost.DNS,
+            java.util.Set.of("localhost")));
+  }
+
+  @Test
+  void redirectsAreFollowedHopByHopAsGets(WireMockRuntimeInfo w) {
+    stubFor(get("/a").willReturn(aResponse().withStatus(301).withHeader("Location", "/b")));
+    stubFor(get("/b").willReturn(aResponse().withStatus(302).withHeader("Location", w.getHttpBaseUrl() + "/c")));
+    stubFor(get("/c").willReturn(aResponse().withStatus(303).withHeader("Location", "d")));
+    stubFor(get("/d").willReturn(aResponse().withStatus(307).withHeader("Location", "/e?x=1")));
+    stubFor(get("/e?x=1").willReturn(aResponse().withStatus(308).withHeader("Location", "/f#frag")));
+    stubFor(get("/f").willReturn(ok("done")));
+    HttpResponse<byte[]> r = checked(new FakeTime()).get(uri(w, "/a"), Map.of("Accept", "text/plain"));
+    assertEquals(200, r.statusCode());
+    assertEquals("done", new String(r.body()));
+    assertEquals(uri(w, "/f"), r.uri());
+    for (String path : List.of("/a", "/b", "/c", "/d", "/e?x=1", "/f")) {
+      verify(1, getRequestedFor(urlEqualTo(path)).withHeader("Accept", equalTo("text/plain")));
+    }
+  }
+
+  @Test
+  void redirectToAPrivateHostIsRefusedUnsent(WireMockRuntimeInfo w) {
+    stubFor(get("/to-loopback").willReturn(aResponse().withStatus(302)
+        .withHeader("Location", "http://127.0.0.1:" + w.getHttpPort() + "/secret")));
+    stubFor(get("/to-metadata").willReturn(aResponse().withStatus(302)
+        .withHeader("Location", "http://169.254.169.254/latest/meta-data/")));
+    stubFor(get("/secret").willReturn(ok("secret")));
+    for (String path : List.of("/to-loopback", "/to-metadata")) {
+      HttpProblem p = assertThrows(HttpProblem.class, () -> checked(new FakeTime()).get(uri(w, path), Map.of()));
+      assertFalse(p.retryable());
+      assertTrue(p.getMessage().contains("not a public host"), p.getMessage());
+    }
+    verify(0, getRequestedFor(urlEqualTo("/secret")));
+    // the start URL is checked too
+    HttpProblem p = assertThrows(HttpProblem.class,
+        () -> checked(new FakeTime()).get(URI.create("http://10.0.0.1/oai"), Map.of()));
+    assertFalse(p.retryable());
+  }
+
+  @Test
+  void atMostFiveRedirects(WireMockRuntimeInfo w) {
+    stubFor(get("/loop").willReturn(aResponse().withStatus(302).withHeader("Location", "/loop")));
+    HttpProblem p = assertThrows(HttpProblem.class, () -> checked(new FakeTime()).get(uri(w, "/loop"), Map.of()));
+    assertFalse(p.retryable());
+    verify(6, getRequestedFor(urlEqualTo("/loop")));
+  }
+
+  @Test
+  void aRedirectWithoutLocationIsTheAnswer(WireMockRuntimeInfo w) {
+    stubFor(get("/nowhere").willReturn(aResponse().withStatus(302)));
+    assertEquals(302, checked(new FakeTime()).get(uri(w, "/nowhere"), Map.of()).statusCode());
+  }
 }

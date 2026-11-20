@@ -24,6 +24,7 @@ class AccountDataControllerIT extends AbstractAuthIT {
         + "VALUES (?, 'TAXON', 'E1', 'Export', ?) RETURNING id", Long.class, u, "exptoken" + SEQ.incrementAndGet());
     long d = jdbc.queryForObject("INSERT INTO digest (user_id, hits, status) VALUES (?, 1, 'SENT') RETURNING id", Long.class, u);
     jdbc.update("INSERT INTO hit (subscription_id, work_id, kind, names, digest_id) VALUES (?, ?, 'ARTICLE', '[]'::jsonb, ?)", s, w, d);
+    jdbc.update("INSERT INTO source_registration (user_id, kind, input, note) VALUES (?, 'ISSN', '1175-5326', 'my note')", u);
     return u;
   }
 
@@ -47,6 +48,9 @@ class AccountDataControllerIT extends AbstractAuthIT {
     assertThat(j.get("hits").get(0).get("digestId").isNull()).isFalse();
     assertThat(j.get("digests")).hasSize(1);
     assertThat(j.get("digests").get(0).get("status").asString()).isEqualTo("SENT");
+    assertThat(j.get("registrations")).hasSize(1);
+    assertThat(j.get("registrations").get(0).get("input").asString()).isEqualTo("1175-5326");
+    assertThat(j.get("registrations").get(0).get("note").asString()).isEqualTo("my note");
     assertThat(browser().get("/api/me/export").statusCode()).isEqualTo(401);
   }
 

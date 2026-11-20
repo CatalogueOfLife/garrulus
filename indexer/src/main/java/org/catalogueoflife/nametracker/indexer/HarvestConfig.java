@@ -12,8 +12,10 @@ import java.util.Locale;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.catalogueoflife.nametracker.store.blob.BlobStore;
+import org.catalogueoflife.nametracker.store.net.PublicHost;
 import org.catalogueoflife.nametracker.store.blob.FileBlobStore;
 import org.catalogueoflife.nametracker.store.ident.WorkIdentifierMapper;
 import org.catalogueoflife.nametracker.store.ident.WorkSightingMapper;
@@ -31,6 +33,7 @@ import org.catalogueoflife.nametracker.indexer.source.SeedProperties;
 import org.catalogueoflife.nametracker.indexer.source.SourceSeeder;
 import org.catalogueoflife.nametracker.indexer.stats.DisciplineService;
 import org.catalogueoflife.nametracker.store.registry.SourceSignalMapper;
+import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.catalogueoflife.nametracker.store.usage.ApiUsageMapper;
@@ -63,16 +66,50 @@ public class HarvestConfig {
   PoliteHttp politeHttp(Environment env,
       @Value("${nametracker.http.max-response-bytes:52428800}") long maxResponseBytes) {
     return new PoliteHttp(httpClient(), intervals(env), PoliteHttp.userAgent(), Clock.systemUTC(),
-        d -> Thread.sleep(d), maxResponseBytes);
+        d -> Thread.sleep(d), maxResponseBytes, new PublicHost(PublicHost.DNS, trustedHosts(env)));
   }
 
   /**
    * HTTP/1.1 only: Europe PMC (www.ebi.ac.uk) ends every HTTP/2 stream of the JDK client with an EOF, while HTTP/1.1
-   * works. Requests are spaced per host anyway, so HTTP/2 multiplexing buys nothing here.
+   * works. Requests are spaced per host anyway, so HTTP/2 multiplexing buys nothing here. No redirects: PoliteHttp
+   * follows them itself and checks every hop.
    */
   static HttpClient httpClient() {
-    return HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).followRedirects(HttpClient.Redirect.NORMAL)
+    return HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).followRedirects(HttpClient.Redirect.NEVER)
         .build();
+  }
+
+  private static final Pattern URL_HOST = Pattern.compile("^https?://(\\[[^\\]]+]|[^/:?#{}\\s]+)",
+      Pattern.CASE_INSENSITIVE);
+
+  /**
+   * The hosts PoliteHttp may fetch whatever their addresses: those of every configured {@code nametracker.*} URL (a
+   * local CLB bundle, a test server; the operator's own configuration) and {@code nametracker.http.trusted-hosts}
+   * (comma-separated). URLs from registrations, discovery or route configs are never trusted.
+   */
+  static Set<String> trustedHosts(Environment env) {
+    Set<String> out = new java.util.TreeSet<>();
+    for (String h : env.getProperty("nametracker.http.trusted-hosts", "").split(",")) {
+      if (!h.isBlank()) out.add(h.strip().toLowerCase(Locale.ROOT));
+    }
+    try {
+      Binder.get(env).bind("nametracker", Bindable.mapOf(String.class, Object.class))
+          .ifBound(m -> collectHosts(m, out));
+    } catch (RuntimeException e) {
+      // a property of an unexpected shape: the explicit list only
+    }
+    return out;
+  }
+
+  private static void collectHosts(@org.jspecify.annotations.Nullable Object v, Set<String> out) {
+    if (v instanceof Map<?, ?> m) {
+      m.values().forEach(x -> collectHosts(x, out));
+    } else if (v instanceof java.util.Collection<?> c) {
+      c.forEach(x -> collectHosts(x, out));
+    } else if (v instanceof String str) {
+      java.util.regex.Matcher m = URL_HOST.matcher(str.strip());
+      if (m.find()) out.add(m.group(1).toLowerCase(Locale.ROOT));
+    }
   }
 
   static Map<String, Duration> intervals(Environment env) {
@@ -155,10 +192,11 @@ public class HarvestConfig {
   }
 
   @Bean
-  SourceSeeder sourceSeeder(OpenAlexClient client, SourceMapper sources, TaskQueue queue, SeedProperties props,
-      Clock clock, DisciplineService disciplines, SourceIdentity identity, SourceSignalMapper signals,
-      @Value("${nametracker.openalex.api-key:}") String apiKey) {
-    return new SourceSeeder(client, sources, queue, props, clock, disciplines, identity, signals, !apiKey.isBlank());
+  SourceSeeder sourceSeeder(OpenAlexClient client, SourceMapper sources, SourceRouteMapper routes, TaskQueue queue,
+      SeedProperties props, Clock clock, DisciplineService disciplines, SourceIdentity identity,
+      SourceSignalMapper signals, @Value("${nametracker.openalex.api-key:}") String apiKey) {
+    return new SourceSeeder(client, sources, routes, queue, props, clock, disciplines, identity, signals,
+        !apiKey.isBlank());
   }
 
   @Bean

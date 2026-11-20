@@ -138,7 +138,9 @@ class RegistrationMailJobIT extends AbstractAuthIT {
     assertThat((String) n.get("dedup_key")).matches("registrations:\\d{4}-\\d{2}-\\d{2}");
     assertThat((String) n.get("subject")).isEqualTo("Garrulus: 2 registered journals wait for a decision");
     String body = (String) n.get("body");
-    assertThat(body).contains("Acta <Waiting>").contains("https://acta.example.org/")
+    // the address a user typed is marked as such and defanged, so no mail client turns it into a link
+    assertThat(body).contains("Acta <Waiting>").contains("typed by a user: hxxps://acta.example.org/")
+        .doesNotContain("https://acta.example.org/")
         .contains("http://localhost:5173/admin/journals/" + a).contains("Journal Two").contains("1175-5326")
         .contains("http://localhost:5173/admin/journals/" + b).doesNotContain("Decided Journal")
         .doesNotContain("Covered");

@@ -71,7 +71,8 @@ class CandidateRegistryIT extends AbstractPostgresIT {
       assertThat(r.origin()).isEqualTo("DISCOVERED");
       assertThat(r.layer()).isEqualTo("OAI");
     });
-    assertThat(tasks("VERIFY_ROUTE")).isEqualTo(1);
+    // a candidate's route waits for the admin's promotion before anything fetches it
+    assertThat(tasks("VERIFY_ROUTE")).isZero();
     assertThat(jdbc.queryForObject("SELECT priority FROM task WHERE type = 'IDENTIFY_SOURCE' AND dedup_key = ?",
         Integer.class, "identify:s" + s.id())).isEqualTo(TaskPriority.BACKFILL.code());
     assertThat(jdbc.queryForObject("SELECT payload FROM task WHERE type = 'IDENTIFY_SOURCE'", String.class))
@@ -209,7 +210,7 @@ class CandidateRegistryIT extends AbstractPostgresIT {
     assertThat(b.sourceId()).isEqualTo(a.sourceId());
     assertThat(routes.forSource(a.sourceId())).hasSize(1);
     assertThat(signals.forSource(a.sourceId())).hasSize(1);
-    assertThat(tasks("VERIFY_ROUTE")).isEqualTo(1);
+    assertThat(tasks("VERIFY_ROUTE")).isZero();
     assertThat(tasks("IDENTIFY_SOURCE")).isEqualTo(1);
   }
 

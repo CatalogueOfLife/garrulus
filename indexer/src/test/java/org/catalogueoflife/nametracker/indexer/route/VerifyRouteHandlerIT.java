@@ -20,6 +20,7 @@ import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.Task;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskState;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -101,6 +102,27 @@ class VerifyRouteHandlerIT extends AbstractPostgresIT {
     assertThat(r.status()).isEqualTo("VERIFIED");
     assertThat(r.verifiedAt()).isNotNull();
     assertThat(r.lastError()).isNull();
+  }
+
+  @Test
+  void aCandidatesFoundRoutesWaitForPromotion(WireMockRuntimeInfo w) throws Exception {
+    stubOai();
+    long candidate = jdbc.queryForObject("INSERT INTO source (issn_l, title, tier, origin, active) "
+        + "VALUES ('1234-5679', 'Registered', 'CANDIDATE', 'REGISTERED', true) RETURNING id", Long.class);
+    for (String origin : List.of("REGISTERED", "DISCOVERED")) {
+      long id = jdbc.queryForObject("INSERT INTO source_route (source_id, layer, config, status, origin) VALUES "
+          + "(?, 'OAI', ?::jsonb, 'PENDING', ?) RETURNING id", Long.class, candidate, oai(w, origin), origin);
+      handler(w).handle(task(id));
+      assertThat(routes.get(id).status()).isEqualTo("PENDING");
+      assertThat(routes.get(id).verifiedAt()).isNull();
+    }
+    verify(0, anyRequestedFor(anyUrl()));
+    // promoted: verified
+    jdbc.update("UPDATE source SET tier = 'BROAD' WHERE id = ?", candidate);
+    long id = routes.forSource(candidate).getFirst().id();
+    handler(w).handle(task(id));
+    verify(moreThanOrExactly(1), anyRequestedFor(anyUrl()));
+    assertThat(routes.get(id).status()).isNotEqualTo("PENDING");
   }
 
   @Test

@@ -35,6 +35,7 @@
   <resultMap id="waiting" type="org.catalogueoflife.nametracker.store.registry.RegistrationMapper$Waiting">
     <constructor>
       <idArg column="id" javaType="_long"/>
+      <arg column="kind" javaType="string"/>
       <arg column="input" javaType="string"/>
       <arg column="source_id" javaType="_long"/>
       <arg column="title" javaType="string"/>
@@ -81,9 +82,20 @@
     WHERE id = #{id} AND state = 'IDENTIFYING'
   </update>
 
-  <update id="withdraw">
+  <select id="withdraw" resultType="java.lang.Long" flushCache="true">
     UPDATE source_registration SET state = 'WITHDRAWN'
     WHERE id = #{id} AND user_id = #{userId} AND state &lt;&gt; 'WITHDRAWN'
+    RETURNING source_id
+  </select>
+
+  <select id="findActive" resultType="java.lang.Long">
+    SELECT id FROM source_registration
+    WHERE user_id = #{userId} AND kind = #{kind} AND input = #{input} AND state IN ('IDENTIFYING','IDENTIFIED')
+    ORDER BY id DESC LIMIT 1
+  </select>
+
+  <update id="reassign">
+    UPDATE source_registration SET user_id = #{to} WHERE user_id = #{from}
   </update>
 
   <select id="claimDecisions" resultMap="decision" flushCache="true">
@@ -107,7 +119,7 @@
   </sql>
 
   <select id="waitingSince" resultMap="waiting">
-    SELECT r.id, r.input, r.source_id, s.title <include refid="waiting"/>
+    SELECT r.id, r.kind, r.input, r.source_id, s.title <include refid="waiting"/>
     ORDER BY r.identified_at, r.id LIMIT #{limit}
   </select>
 

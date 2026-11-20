@@ -31,7 +31,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  *   <li>{@link #adminNote()} ({@code nametracker.registrations.admin-note-cron}, daily): an admin notice
  *   {@code REGISTRATIONS_WAITING} (key {@code registrations:<date>}, mailed by the admin mail job) when registrations
  *   were identified as candidates since the previous such notice and their journals still wait for a decision: the
- *   count and up to {@value #NOTE_LINES} lines with the journal, the input and a link to its admin page.</li>
+ *   count and up to {@value #NOTE_LINES} lines with the journal, the input (a typed address marked and defanged) and a
+ *   link to its admin page.</li>
  * </ul>
  */
 @Component
@@ -98,12 +99,22 @@ public class RegistrationMailJob {
           .append(" waiting for a decision (promote or exclude on its page):\n");
       for (RegistrationMapper.Waiting w : lines) {
         body.append("\n- ").append(w.title() == null || w.title().isBlank() ? "(no title)" : oneLine(w.title()))
-            .append(" — registered as ").append(oneLine(w.input())).append('\n')
+            .append(" — registered as ").append(input(w)).append('\n')
             .append("  ").append(publicUrl).append("/admin/journals/").append(w.sourceId()).append('\n');
       }
       if (count > lines.size()) body.append("\nand ").append(count - lines.size()).append(" more.\n");
       notices.insert(NOTE_KIND, NOTE_KEY + LocalDate.now(clock.withZone(ZoneOffset.UTC)), subject, body.toString());
     });
+  }
+
+  /**
+   * An address a user typed is marked as such and defanged ({@code hxxps://}), so that no mail client offers it as a
+   * link to the admins; ISSNs and DOIs are shown as they are.
+   */
+  static String input(RegistrationMapper.Waiting w) {
+    String in = oneLine(w.input());
+    if (!w.kind().equals("URL")) return in;
+    return "(typed by a user: " + in.replaceFirst("(?i)^http", "hxxp") + ")";
   }
 
   /** Line breaks of an external title or a typed address cannot add lines to the note. */

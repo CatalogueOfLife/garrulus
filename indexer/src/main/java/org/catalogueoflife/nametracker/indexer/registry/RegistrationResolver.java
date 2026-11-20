@@ -2,6 +2,7 @@ package org.catalogueoflife.nametracker.indexer.registry;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -20,6 +21,8 @@ import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
 import org.catalogueoflife.nametracker.store.ident.IdScheme;
 import org.catalogueoflife.nametracker.store.ident.Issn;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
@@ -43,19 +46,17 @@ public class RegistrationResolver {
 
   public static final String DOI_UNKNOWN = "DOI_UNKNOWN";
 
-  private static final Pattern META = Pattern.compile("(?is)<meta\\b[^>]*>");
-  private static final Pattern ATTR = Pattern.compile(
-      "(?is)([a-z_:][-a-z0-9_:.]*)\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s\"'>]+))");
-  private static final Pattern LINK = Pattern.compile("(?is)<link\\b[^>]*>");
-  private static final Pattern DROP = Pattern.compile("(?is)<(script|style|noscript)\\b.*?</\\1\\s*>|<!--.*?-->");
-  private static final Pattern TAG = Pattern.compile("(?s)<[^>]*>");
-  private static final Pattern ENTITY = Pattern.compile("&(#x[0-9a-fA-F]+|#[0-9]+|amp|lt|gt|quot|apos|nbsp);");
-  private static final Pattern MAGTECH_FOOTER = Pattern.compile("(?i)powered\\s+by\\s+beijing\\s+magtech");
+  private static final Pattern MAGTECH_FOOTER = Pattern.compile("(?i)powered\\s{1,4}by\\s{1,4}beijing\\s{1,4}magtech");
   private static final Pattern MAGTECH_PATH = Pattern.compile("^/(?:CN|EN)/(\\d{4}-\\d{3}[\\dXx])/",
       Pattern.CASE_INSENSITIVE);
   private static final Pattern OJS_PATH = Pattern.compile("^(.*?/index\\.php/[^/]+)");
   private static final List<String> ISSN_METAS = List.of("citation_issn", "prism.issn", "prism.eissn", "dc.identifier");
   static final int TEXT_ISSNS = 3;
+  static final int MAX_ISSNS = 4;
+  static final int MAX_TITLE = 500;
+  static final Duration PARSE_BUDGET = Duration.ofSeconds(2);
+  public static final String LOOKUP_FAILED = "LOOKUP_FAILED";
+  private static final Logger LOG = LoggerFactory.getLogger(RegistrationResolver.class);
 
   /** What the registration names: the journal's ISSNs and what else was learnt, or the reason it is not known. */
   public record Resolution(List<String> issns, @Nullable String title, @Nullable String publisher,
@@ -127,41 +128,89 @@ public class RegistrationResolver {
     if (f.reason() != null || f.html() == null) {
       return Resolution.failed(f.reason() == null ? JournalPage.PAGE_UNREACHABLE : f.reason());
     }
-    String html = f.html();
-    Map<String, List<String>> metas = metas(html);
-    String text = pageText(html);
+    return readPage(f.uri(), f.html());
+  }
 
+  /**
+   * The journal a page names, read from its first 512 KB ({@link PageMarkup}) within {@link #PARSE_BUDGET}: at most
+   * {@value #MAX_ISSNS} ISSNs, a title of at most {@value #MAX_TITLE} code points, a route hint. A page that takes
+   * longer is {@code LOOKUP_FAILED}.
+   */
+  static Resolution readPage(URI uri, String html) {
+    long until = System.nanoTime() + PARSE_BUDGET.toNanos();
+    try {
+      return read(uri, PageMarkup.scan(html, until), until);
+    } catch (PageMarkup.TooSlow e) {
+      LOG.warn("Registered page {}: reading it took longer than {}", uri, PARSE_BUDGET);
+      return Resolution.failed(LOOKUP_FAILED);
+    }
+  }
+
+  private static Resolution read(URI uri, PageMarkup page, long until) {
+    Map<String, List<String>> metas = page.metas();
+    CharSequence text = new Budgeted(page.text(), until);
     LinkedHashSet<String> found = new LinkedHashSet<>();
     for (String name : ISSN_METAS) {
       for (String v : metas.getOrDefault(name, List.of())) {
         String n = Issn.normalise(v);
         if (n != null) found.add(n);
-        else found.addAll(Issn.all(v));
+        else found.addAll(Issn.all(new Budgeted(v, until)));
       }
     }
     if (found.isEmpty()) Issn.all(text).stream().limit(TEXT_ISSNS).forEach(found::add);
-    Matcher magtechPath = MAGTECH_PATH.matcher(f.uri().getRawPath() == null ? "" : f.uri().getRawPath());
+    Matcher magtechPath = MAGTECH_PATH.matcher(uri.getRawPath() == null ? "" : uri.getRawPath());
     String pathIssn = magtechPath.find() ? Issn.normalise(magtechPath.group(1)) : null;
     if (found.isEmpty() && pathIssn != null) found.add(pathIssn);
     if (found.isEmpty()) return Resolution.failed(JournalPage.NO_ISSN_FOUND);
-    List<String> issns = List.copyOf(found);
+    List<String> issns = found.stream().limit(MAX_ISSNS).toList();
 
-    String title = firstOf(metas, "citation_journal_title", "og:site_name");
+    String title = cap(firstOf(metas, "citation_journal_title", "og:site_name"));
     RouteHint route = null;
     if (pathIssn != null || MAGTECH_FOOTER.matcher(text).find()) {
       Map<String, Object> cfg = new LinkedHashMap<>();
-      cfg.put("site", origin(f.uri()));
+      cfg.put("site", origin(uri));
       cfg.put("issn", pathIssn != null ? pathIssn : issns.getFirst());
       route = new RouteHint("MAGTECH", FinderJson.mapper().writeValueAsString(cfg));
     } else if (metas.getOrDefault("generator", List.of()).stream()
         .anyMatch(g -> g.strip().toLowerCase(Locale.ROOT).startsWith("open journal systems"))) {
       Map<String, Object> cfg = new LinkedHashMap<>();
-      cfg.put("base", ojsJournal(f.uri(), html) + "/oai");
+      cfg.put("base", ojsJournal(uri, page.links()) + "/oai");
       cfg.put("prefix", "oai_dc");
       cfg.put("issns", issns);
       route = new RouteHint("OAI", FinderJson.mapper().writeValueAsString(cfg));
     }
     return new Resolution(issns, title, null, null, route, null);
+  }
+
+  /** At most {@value #MAX_TITLE} code points, on one line. */
+  private static @Nullable String cap(@Nullable String title) {
+    if (title == null) return null;
+    String t = title.replaceAll("[\\p{Cntrl}\\s]+", " ").strip();
+    return t.codePointCount(0, t.length()) <= MAX_TITLE ? t : t.substring(0, t.offsetByCodePoints(0, MAX_TITLE));
+  }
+
+  /** A text whose reading by a regular expression stops at the deadline. */
+  private record Budgeted(CharSequence text, long until) implements CharSequence {
+    @Override
+    public int length() {
+      return text.length();
+    }
+
+    @Override
+    public char charAt(int index) {
+      if ((index & 0x3FF) == 0 && System.nanoTime() > until) throw new PageMarkup.TooSlow();
+      return text.charAt(index);
+    }
+
+    @Override
+    public CharSequence subSequence(int start, int end) {
+      return new Budgeted(text.subSequence(start, end), until);
+    }
+
+    @Override
+    public String toString() {
+      return text.toString();
+    }
   }
 
   /** {@code scheme://host[:port]} of the page. */
@@ -173,16 +222,14 @@ public class RegistrationResolver {
    * The journal's URL on an OJS site: the part before {@code /gateway/} of its web feed link on the same site, else up
    * to {@code /index.php/<journal>}, else the page's path without a trailing {@code /index} or slash.
    */
-  static String ojsJournal(URI page, String html) {
+  static String ojsJournal(URI page, List<Map<String, String>> links) {
     String origin = origin(page);
-    Matcher links = LINK.matcher(html);
-    while (links.find()) {
-      Map<String, String> a = attributes(links.group());
+    for (Map<String, String> a : links) {
       String href = a.get("href");
       int gateway = href == null ? -1 : href.indexOf("/gateway/plugin/");
-      if (gateway > 0 && "alternate".equalsIgnoreCase(a.getOrDefault("rel", ""))) {
+      if (gateway > 0 && "alternate".equalsIgnoreCase(a.getOrDefault("rel", "").strip())) {
         try {
-          URI feed = page.resolve(new URI(unescape(href.substring(0, gateway))));
+          URI feed = page.resolve(new URI(PageMarkup.unescape(href.substring(0, gateway)).strip()));
           if (feed.getScheme() != null && origin(feed).equalsIgnoreCase(origin)) return feed.toString();
         } catch (URISyntaxException | IllegalArgumentException e) {
           // an unusable link: the path rules below
@@ -194,65 +241,6 @@ public class RegistrationResolver {
     if (m.find()) return origin + m.group(1);
     path = path.replaceAll("/+$", "").replaceAll("/index$", "");
     return origin + path;
-  }
-
-  /** The {@code content} of every {@code <meta>} by its name or property, lower case. */
-  static Map<String, List<String>> metas(String html) {
-    Map<String, List<String>> out = new HashMap<>();
-    Matcher m = META.matcher(html);
-    while (m.find()) {
-      Map<String, String> a = attributes(m.group());
-      String key = a.containsKey("name") ? a.get("name") : a.get("property");
-      String content = a.get("content");
-      if (key == null || content == null) continue;
-      out.computeIfAbsent(key.strip().toLowerCase(Locale.ROOT), k -> new ArrayList<>()).add(unescape(content).strip());
-    }
-    return out;
-  }
-
-  private static Map<String, String> attributes(String tag) {
-    Map<String, String> a = new HashMap<>();
-    Matcher m = ATTR.matcher(tag);
-    while (m.find()) {
-      String v = m.group(2) != null ? m.group(2) : m.group(3) != null ? m.group(3) : m.group(4);
-      a.putIfAbsent(m.group(1).toLowerCase(Locale.ROOT), v);
-    }
-    return a;
-  }
-
-  /** The page's text: no scripts, styles or comments, tags as spaces, entities decoded, whitespace collapsed. */
-  static String pageText(String html) {
-    String t = DROP.matcher(html).replaceAll(" ");
-    t = TAG.matcher(t).replaceAll(" ");
-    return unescape(t).replaceAll("[\\s\\u00A0]+", " ").strip();
-  }
-
-  static String unescape(String s) {
-    Matcher m = ENTITY.matcher(s);
-    StringBuilder b = new StringBuilder();
-    while (m.find()) {
-      String e = m.group(1);
-      String r = switch (e) {
-        case "amp" -> "&";
-        case "lt" -> "<";
-        case "gt" -> ">";
-        case "quot" -> "\"";
-        case "apos" -> "'";
-        case "nbsp" -> "\u00A0";
-        default -> {
-          try {
-            int cp = e.startsWith("#x") || e.startsWith("#X") ? Integer.parseInt(e.substring(2), 16)
-                : Integer.parseInt(e.substring(1));
-            yield Character.isValidCodePoint(cp) ? new String(Character.toChars(cp)) : m.group();
-          } catch (NumberFormatException x) {
-            yield m.group();
-          }
-        }
-      };
-      m.appendReplacement(b, Matcher.quoteReplacement(r));
-    }
-    m.appendTail(b);
-    return b.toString();
   }
 
   private static @Nullable String firstOf(Map<String, List<String>> metas, String... names) {

@@ -2,7 +2,6 @@ package org.catalogueoflife.nametracker.indexer.registry;
 
 import java.util.List;
 import java.time.Clock;
-import org.catalogueoflife.nametracker.indexer.route.VerifyRouteHandler;
 import org.catalogueoflife.nametracker.store.discipline.ClassificationRawMapper;
 import org.catalogueoflife.nametracker.store.discipline.RawClassification;
 import org.catalogueoflife.nametracker.store.ident.Issn;
@@ -20,7 +19,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * The one door every discovery origin and the registration go through. An offer finds its journal through
  * {@link SourceIdentity} and then either records a signal (and, for a live source, its new ISSNs and classifications)
- * or creates a CANDIDATE with the route hint and an {@code IDENTIFY_SOURCE} task. Nothing is harvested here.
+ * or creates a CANDIDATE with the route hint (PENDING; verified only after promotion) and an {@code IDENTIFY_SOURCE}
+ * task. Nothing is harvested here.
  */
 @Component
 public class CandidateRegistry {
@@ -119,9 +119,9 @@ public class CandidateRegistry {
     RouteHint hint = c.route();
     if (hint != null) {
       String routeOrigin = c.origin().equals("REGISTERED") ? "REGISTERED" : "DISCOVERED";
-      Long routeId = routes.insertIfAbsent(new SourceRoute(0, id, hint.layer(), hint.configJson(), "PENDING",
-          routeOrigin, null, null, null, null, null, null));
-      if (routeId != null) VerifyRouteHandler.enqueue(queue, routeId, identifyPriority);
+      // PENDING, unverified: a candidate's site is not fetched before an admin promotes it (then VERIFY_ROUTE runs)
+      routes.insertIfAbsent(new SourceRoute(0, id, hint.layer(), hint.configJson(), "PENDING", routeOrigin, null, null,
+          null, null, null, null));
     }
     queue.enqueue(IDENTIFY_TYPE, "{\"sourceId\":" + id + "}", identifyPriority, "identify:s" + id);
     Source created = sources.get(id);

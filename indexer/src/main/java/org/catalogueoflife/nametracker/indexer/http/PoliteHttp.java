@@ -2,6 +2,7 @@ package org.catalogueoflife.nametracker.indexer.http;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -14,15 +15,24 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.catalogueoflife.nametracker.store.net.PublicHost;
 import org.jspecify.annotations.Nullable;
 
 /**
  * The one HTTP entry point for every external service: per-host spacing, the Garrulus user agent
  * and bounded retries. One instance is shared by all worker threads.
+ *
+ * <p>Redirects (301, 302, 303, 307, 308; at most {@value #MAX_REDIRECTS}, never from https to http, always as a GET)
+ * are followed here, not by the client (build it with {@code Redirect.NEVER}), and the start URL and every hop must pass
+ * {@link PublicHost} before a request goes out: route URLs come from registrations and discovery, and a public site
+ * must not be able to send a request into the GBIF network. Configured service hosts are trusted (allowed names). The
+ * JDK client resolves the name again when it connects, so DNS rebinding between check and connect is a known limit
+ * (ADR-0009); {@code JournalPage}, which reads pages users register, pins the connection instead.
  */
 public class PoliteHttp {
 
@@ -33,6 +43,10 @@ public class PoliteHttp {
   static final Duration[] ERROR_BACKOFF = {Duration.ofSeconds(2), Duration.ofSeconds(8)};
   static final String PENSOFT_KEY = "*.pensoft.net";
   private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(60);
+  static final int MAX_REDIRECTS = 5;
+  private static final Set<Integer> REDIRECTS = Set.of(301, 302, 303, 307, 308);
+  /** Trusted by the convenience constructors (tests and tools against a local mock server). */
+  static final Set<String> LOOPBACK_NAMES = Set.of("localhost", "127.0.0.1", "[::1]");
 
   private final HttpClient client;
   private final Map<String, Duration> intervals;
@@ -41,6 +55,7 @@ public class PoliteHttp {
   private final HostLimiter.Sleeper sleeper;
   private final Map<String, HostLimiter> limiters = new ConcurrentHashMap<>();
   private final long maxResponseBytes;
+  private final PublicHost hosts;
 
   /** The default of {@code nametracker.http.max-response-bytes}: 50 MiB. */
   public static final long DEFAULT_MAX_RESPONSE_BYTES = 52_428_800L;
@@ -50,9 +65,20 @@ public class PoliteHttp {
     this(client, minIntervalPerHost, userAgent, clock, sleeper, DEFAULT_MAX_RESPONSE_BYTES);
   }
 
-  /** A body above {@code maxResponseBytes} is read no further and fails as a non-retryable {@link HttpProblem}. */
+  /**
+   * A body above {@code maxResponseBytes} is read no further and fails as a non-retryable {@link HttpProblem}. Trusts
+   * loopback names only (tests and tools against a local server); production passes its {@link PublicHost}.
+   */
   public PoliteHttp(HttpClient client, Map<String, Duration> minIntervalPerHost, String userAgent,
       Clock clock, HostLimiter.Sleeper sleeper, long maxResponseBytes) {
+    this(client, minIntervalPerHost, userAgent, clock, sleeper, maxResponseBytes,
+        new PublicHost(PublicHost.DNS, LOOPBACK_NAMES));
+  }
+
+  /** {@code hosts} decides which URLs may be fetched (start and every redirect hop). */
+  public PoliteHttp(HttpClient client, Map<String, Duration> minIntervalPerHost, String userAgent,
+      Clock clock, HostLimiter.Sleeper sleeper, long maxResponseBytes, PublicHost hosts) {
+    this.hosts = hosts;
     this.maxResponseBytes = maxResponseBytes;
     this.client = client;
     this.intervals = Map.copyOf(minIntervalPerHost);
@@ -61,9 +87,10 @@ public class PoliteHttp {
     this.sleeper = sleeper;
   }
 
-  /** Production instance with the default intervals, real sleeping and the UTC system clock. */
+  /** An instance with the default intervals, real sleeping, the UTC system clock and public hosts only. */
   public static PoliteHttp withDefaults(HttpClient client) {
-    return new PoliteHttp(client, defaultIntervals(), userAgent(), Clock.systemUTC(), d -> Thread.sleep(d));
+    return new PoliteHttp(client, defaultIntervals(), userAgent(), Clock.systemUTC(), d -> Thread.sleep(d),
+        DEFAULT_MAX_RESPONSE_BYTES, new PublicHost(PublicHost.DNS));
   }
 
   /** Defaults by host name; {@code *.pensoft.net} is one entry for all Pensoft hosts. */
@@ -159,21 +186,14 @@ public class PoliteHttp {
   /** As {@link #get(URI, Map)}, spaced by the channel's own limiter on the host ({@link #limiterFor(String, String)}). */
   public HttpResponse<byte[]> get(URI uri, Map<String, String> headers, @Nullable String channel) {
     URI safe = redact(uri);
-    HostLimiter limiter = limiterFor(channel, uri.getHost());
-    HttpRequest.Builder b = HttpRequest.newBuilder(uri).GET().timeout(REQUEST_TIMEOUT)
-        .header("User-Agent", userAgent);
-    headers.forEach(b::header);
-    HttpRequest req = b.build();
-
     // set by the body subscriber: cancelling the stream can surface as a plain "Stream cancelled" I/O error first
     AtomicBoolean tooLarge = new AtomicBoolean();
     int throttled = 0;
     int failed = 0;
     while (true) {
-      limiter.acquire();
       Duration wait;
       try {
-        HttpResponse<byte[]> resp = client.send(req, info -> new LimitedSubscriber(maxResponseBytes, tooLarge));
+        HttpResponse<byte[]> resp = follow(uri, headers, channel, tooLarge);
         int s = resp.statusCode();
         if (s == 429 || s == 503) {
           if (throttled >= THROTTLE_RETRIES) {
@@ -206,6 +226,61 @@ public class PoliteHttp {
       }
       sleep(safe, wait);
     }
+  }
+
+  /** One exchange: the start URL and each redirect hop checked, spaced and sent; the last answer is returned. */
+  private HttpResponse<byte[]> follow(URI start, Map<String, String> headers, @Nullable String channel,
+      AtomicBoolean tooLarge) throws IOException, InterruptedException {
+    URI uri = start;
+    for (int hop = 0; ; hop++) {
+      refuseUnlessPublic(uri);
+      limiterFor(channel, uri.getHost()).acquire();
+      HttpRequest.Builder b = HttpRequest.newBuilder(uri).GET().timeout(REQUEST_TIMEOUT)
+          .header("User-Agent", userAgent);
+      headers.forEach(b::header);
+      HttpResponse<byte[]> resp = client.send(b.build(), info -> REDIRECTS.contains(info.statusCode())
+          && info.headers().firstValue("Location").isPresent()
+          ? HttpResponse.BodySubscribers.replacing(new byte[0])
+          : new LimitedSubscriber(maxResponseBytes, tooLarge));
+      URI next = next(uri, resp);
+      if (next == null) return resp;
+      if (hop >= MAX_REDIRECTS) {
+        URI safe = redact(start);
+        throw new HttpProblem(safe, resp.statusCode(), false, "more than " + MAX_REDIRECTS + " redirects: " + safe,
+            null);
+      }
+      uri = next;
+    }
+  }
+
+  /** The URL a redirect answer points at, or null to take the answer as it is (no redirect, https to http, junk). */
+  static @Nullable URI next(URI from, HttpResponse<?> resp) {
+    if (!REDIRECTS.contains(resp.statusCode())) return null;
+    String location = resp.headers().firstValue("Location").orElse(null);
+    if (location == null || location.isBlank()) return null;
+    URI next;
+    try {
+      next = from.resolve(new URI(location.strip()));
+    } catch (URISyntaxException | IllegalArgumentException e) {
+      return null;
+    }
+    if (next.getRawFragment() != null) {
+      String t = next.toString();
+      next = URI.create(t.substring(0, t.indexOf('#')));
+    }
+    if ("https".equalsIgnoreCase(from.getScheme()) && "http".equalsIgnoreCase(next.getScheme())) return null;
+    return next;
+  }
+
+  /** A non-retryable problem unless the URL may be fetched; a name that does not resolve is an unknown host. */
+  private void refuseUnlessPublic(URI uri) {
+    PublicHost.Checked c = hosts.check(uri);
+    if (c.ok()) return;
+    URI safe = redact(uri);
+    if (c.unresolved()) {
+      throw new HttpProblem(safe, 0, false, "Unknown host: " + safe, new UnknownHostException(uri.getHost()));
+    }
+    throw new HttpProblem(safe, 0, false, "not a public host (" + c.problem() + "): " + safe, null);
   }
 
   /** The byte array body, cancelled and failed as soon as it exceeds the cap. */

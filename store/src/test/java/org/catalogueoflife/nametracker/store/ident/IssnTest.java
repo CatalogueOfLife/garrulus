@@ -72,4 +72,14 @@ class IssnTest {
     assertThat(Issn.all("1175-53261")).isEmpty();
     assertThat(Issn.all("2026 1119 1175 5326")).isEmpty();
   }
+
+  @Test
+  void allStaysLinearOnHostileText() {
+    // many hyphenated numbers after a long text: the page-range look-back reads only the few characters before each
+    String hostile = "x".repeat(200_000) + " 1175-5326".repeat(50_000) + " ISSN" + ":".repeat(100_000);
+    long start = System.nanoTime();
+    assertThat(Issn.all(hostile)).containsExactly("1175-5326");
+    assertThat(java.time.Duration.ofNanos(System.nanoTime() - start)).isLessThan(java.time.Duration.ofSeconds(2));
+    assertThat(Issn.all(new StringBuilder("see pp.  1175-5326 and 1175-5334"))).containsExactly("1175-5334");
+  }
 }

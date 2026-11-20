@@ -3,6 +3,7 @@ package org.catalogueoflife.nametracker.indexer.route;
 import java.net.URI;
 import java.time.Clock;
 import java.util.List;
+import java.util.Set;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
@@ -82,12 +83,41 @@ public class VerifyRouteHandler implements TaskHandler {
     queue.enqueue(TYPE, "{\"routeId\":" + routeId + "}", priority, "verify-route:" + routeId);
   }
 
+  /** Route origins whose routes are fetched only once their journal is followed (CORE or BROAD). */
+  static final Set<String> FOUND = Set.of("REGISTERED", "DISCOVERED");
+
+  /** True for a CORE or BROAD source: the only ones whose found routes are verified and harvested. */
+  public static boolean followed(@Nullable Source s) {
+    return s != null && ("CORE".equals(s.tier()) || "BROAD".equals(s.tier()));
+  }
+
+  /**
+   * Enqueues {@code VERIFY_ROUTE} for every PENDING route of a source that was just promoted to CORE or BROAD: the
+   * routes registration and discovery suggested wait for that. Returns the count.
+   */
+  public static int enqueuePending(SourceRouteMapper routes, TaskQueue queue, long sourceId, TaskPriority priority) {
+    int n = 0;
+    for (SourceRoute r : routes.forSource(sourceId)) {
+      if (r.status().equals("PENDING")) {
+        enqueue(queue, r.id(), priority);
+        n++;
+      }
+    }
+    return n;
+  }
+
   @Override
   public void handle(Task task) {
     long routeId = FinderJson.mapper().readTree(task.payload()).path("routeId").asLong(0);
     SourceRoute route = routeId == 0 ? null : routes.get(routeId);
     if (route == null) {
       LOG.warn("{}: no route {}; nothing to verify", TYPE, routeId);
+      return;
+    }
+    if (FOUND.contains(route.origin()) && !followed(sources.get(route.sourceId()))) {
+      // nothing a user registered or discovery found is fetched before an admin promotes the journal
+      LOG.info("{}: route {} ({}) of source {} waits until the journal is promoted", TYPE, route.id(), route.origin(),
+          route.sourceId());
       return;
     }
     String reason;

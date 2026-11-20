@@ -58,5 +58,6 @@ public class AddSourceHandler implements TaskHandler {
     if (!"CANDIDATE".equals(tier)) {
       seeder.enqueueOnboarding(sourceId);
     }
+    if (tier.equals("CORE") || tier.equals("BROAD")) seeder.verifyPendingRoutes(sourceId);
   }
 }

@@ -205,10 +205,12 @@ paths:
         For a signed-in user (session cookie and X-XSRF-TOKEN header). Exactly one of issn, doi (of an article in the
         journal) or url (an address of the journal's website), plus an optional note of at most 500 characters. The
         ISSN is accepted as people type it ("1175 5326", "ISSN 1175-5326", "0002-936x") and stored in the form
-        NNNN-NNNC; a wrong check digit is a 400. The url must be http(s) with a host and no user name or password, at
-        most 2000 characters. The answer comes at once: the registration is stored as IDENTIFYING and Garrulus
-        identifies the journal in the background; poll GET /api/me/registrations/{id} for the result. Nothing is
-        harvested before an editor accepts the journal. At most 20 registrations per user in 24 hours (429).
+        NNNN-NNNC; a wrong check digit is a 400. A DOI has at most 300 characters. The url must be http(s) with a host
+        and no user name or password, at most 2000 characters; only pages on the ports 80, 443, 8080 and 8443 are
+        read. The body is at most 8 KB (413). The answer comes at once: the registration is stored as IDENTIFYING and
+        Garrulus identifies the journal in the background; poll GET /api/me/registrations/{id} for the result. The same
+        input again while the first registration is identifying or identified answers that registration's id. Nothing
+        is harvested before an editor accepts the journal. At most 20 registrations per user in 24 hours (429).
       operationId: registerSource
       security: [{cookieAuth: []}]
       requestBody:
@@ -236,6 +238,11 @@ paths:
         "400": {$ref: "#/components/responses/BadRequest"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {description: No or a wrong X-XSRF-TOKEN header.}
+        "413":
+          description: The body is larger than 8 KB.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
         "429":
           description: 20 registrations in the last 24 hours.
           content:
@@ -978,8 +985,9 @@ components:
           type: [string, "null"]
           description: "Why a registration was not identified: DOI_UNKNOWN (neither Crossref nor OpenAlex knows the
             DOI, or it names no journal), ADDRESS_NOT_PUBLIC (the address, or an address it redirects to, is not a
-            public web host), ADDRESS_UNKNOWN (the host name does not resolve), PAGE_UNREACHABLE (no page could be
-            read there) or NO_ISSN_FOUND (the page names no ISSN)."
+            public web host on the ports 80, 443, 8080 or 8443), ADDRESS_UNKNOWN (the host name does not resolve),
+            PAGE_UNREACHABLE (no page could be read there within a minute), NO_ISSN_FOUND (the page names no ISSN) or
+            LOOKUP_FAILED (the lookup failed for another reason; registering again may help)."
         status:
           type: string
           enum: [IDENTIFYING, COVERED, CANDIDATE, DECLINED, CEASED, NOT_IDENTIFIED, WITHDRAWN]

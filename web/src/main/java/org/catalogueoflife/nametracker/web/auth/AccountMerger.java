@@ -7,6 +7,7 @@ import org.catalogueoflife.nametracker.store.account.DigestMapper;
 import org.catalogueoflife.nametracker.store.account.EmailToken;
 import org.catalogueoflife.nametracker.store.account.EmailTokenMapper;
 import org.catalogueoflife.nametracker.store.account.SubscriptionMapper;
+import org.catalogueoflife.nametracker.store.registry.RegistrationMapper;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,7 +29,7 @@ import org.springframework.web.server.ResponseStatusException;
  * </ul>
  * In a merge the survivor (the account holding the address) takes over the requester's follows (of two with the same
  * type and target the older stays, with its options; hits move where they don't clash; the cap of 100 does not
- * apply), digests, ORCID iD (when it has none) and display name (when it has none). The requester's account and its
+ * apply), digests, journal registrations, ORCID iD (when it has none) and display name (when it has none). The requester's account and its
  * sessions, except the current one, are deleted; the caller then signs the current session in as the survivor.
  */
 @Service
@@ -45,10 +46,12 @@ public class AccountMerger {
   private final SubscriptionMapper subscriptions;
   private final DigestMapper digests;
   private final EmailTokenMapper tokens;
+  private final RegistrationMapper registrations;
   private final TransactionTemplate tx;
 
   public AccountMerger(AccountMapper accounts, SubscriptionMapper subscriptions, DigestMapper digests,
-      EmailTokenMapper tokens, PlatformTransactionManager txManager) {
+      EmailTokenMapper tokens, RegistrationMapper registrations, PlatformTransactionManager txManager) {
+    this.registrations = registrations;
     this.accounts = accounts;
     this.subscriptions = subscriptions;
     this.digests = digests;
@@ -112,6 +115,7 @@ public class AccountMerger {
     long to = survivor.id();
     subscriptions.merge(from, to);
     digests.reassign(from, to);
+    registrations.reassign(from, to);
     accounts.deleteSessions(from, currentSessionId);
     accounts.delete(from);
     // after the delete: the ORCID iD is unique

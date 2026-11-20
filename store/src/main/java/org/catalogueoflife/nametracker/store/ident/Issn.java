@@ -17,12 +17,13 @@ public final class Issn {
   private static final Pattern SEPARATORS = Pattern.compile("[-\\u2013\\s\\u00A0]");
   /** An ISSN behind a label: spaces, NBSP, a dash or nothing may separate the halves (ISSN 1175 5326, ISSN1175-5326). */
   private static final Pattern LABELLED = Pattern.compile(
-      "(?<![A-Za-z])(?i:(?:[ep]-?)?ISSN(?:-L)?)[\\s\\u00A0:]*(\\d{4})[-\\u2013 \\u00A0\\t]?(\\d{3}[\\dXx])(?![0-9A-Za-z])");
+      "(?<![A-Za-z])(?i:(?:[ep]-?)?ISSN(?:-L)?)[\\s\\u00A0:]{0,8}(\\d{4})[-\\u2013 \\u00A0\\t]?(\\d{3}[\\dXx])(?![0-9A-Za-z])");
   /** A hyphenated (or en dash) ISSN anywhere, but not inside a longer number, a DOI or a path. */
   private static final Pattern HYPHENATED = Pattern.compile(
       "(?<![0-9A-Za-z/.\\-\\u2013])(\\d{4})[-\\u2013](\\d{3}[\\dXx])(?![0-9A-Za-z]|[-\\u2013]\\d)");
-  /** "pp. " or "p." right before: a page range. */
-  private static final Pattern PAGES = Pattern.compile("(?i)\\bpp?\\.?\\s*$");
+  /** "pp. " or "p." right before: a page range. Looked for in the few characters before a match only. */
+  private static final Pattern PAGES = Pattern.compile("(?i)\\bpp?\\.?\\s{0,8}$");
+  private static final int PAGES_LOOK_BACK = 16;
 
   private Issn() {}
 
@@ -44,16 +45,19 @@ public final class Issn {
   /**
    * Every valid ISSN in a free text, in order of first occurrence, deduplicated. Only the hyphenated form is accepted
    * anywhere (not after "pp." or in a DOI, not followed by more digits); the forms with a space, NBSP or nothing between
-   * the halves only directly after a label (ISSN, ISSN-L, eISSN, pISSN, e-ISSN, p-ISSN).
+   * the halves only directly after a label (ISSN, ISSN-L, eISSN, pISSN, e-ISSN, p-ISSN). Linear in the text: the
+   * page-range look-back reads at most 16 characters before a match.
    */
-  public static List<String> all(@Nullable String text) {
+  public static List<String> all(@Nullable CharSequence text) {
     if (text == null) return List.of();
     TreeMap<Integer, String> found = new TreeMap<>();
     Matcher m = LABELLED.matcher(text);
     while (m.find()) put(found, m.start(1), m.group(1) + m.group(2));
     m = HYPHENATED.matcher(text);
     while (m.find()) {
-      if (PAGES.matcher(text.substring(0, m.start())).find()) continue;
+      Matcher pages = PAGES.matcher(text).region(Math.max(0, m.start() - PAGES_LOOK_BACK), m.start())
+          .useTransparentBounds(true).useAnchoringBounds(true);
+      if (pages.find()) continue;
       put(found, m.start(1), m.group(1) + m.group(2));
     }
     return new ArrayList<>(new LinkedHashSet<>(found.values()));

@@ -80,7 +80,8 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   journal registered as a `CANDIDATE` becomes CORE/BROAD (ACCEPTED) or EXCLUDED (DECLINED), never for withdrawn ones;
   `NAMETRACKER_REGISTRATIONS_ADMIN_NOTE_CRON` (`0 0 7 * * *` UTC) writes the admin notice `REGISTRATIONS_WAITING` (key
   `registrations:<date>`) when registrations identified as candidates since the last such note still wait (count, up to
-  20 lines with `<public URL>/admin/journals/<id>`). `NAMETRACKER_WEB_ADDRESS` is the bind address
+  20 lines with `<public URL>/admin/journals/<id>`; a typed address is marked and defanged, `hxxps://`). Account merges
+  move registrations; `/api/me/export` includes them with their notes. `NAMETRACKER_WEB_ADDRESS` is the bind address
   (default `127.0.0.1`, loopback only like the indexer; `0.0.0.0` to serve other hosts).
 - `indexer`: `NAMETRACKER_INDEXER_PORT` (8081), `NAMETRACKER_INDEXER_WORKERS`, `NAMETRACKER_INDEXER_POLL_INTERVAL`,
   `NAMETRACKER_INDEXER_MAX_ATTEMPTS`, `NAMETRACKER_INDEXER_BACKOFF`, `NAMETRACKER_INDEXER_STALE_AFTER` (1h),
@@ -235,7 +236,7 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   DOAJ (`NAMETRACKER_DOAJ_BASE_URL`, default `https://doaj.org/api/v4`; switch `nametracker.discovery.doaj.enabled`,
   env `NAMETRACKER_DISCOVERY_DOAJ_ENABLED`, true: its ISSNs, `in_doaj` (DOAJ alone sets it while switched on), raw
   `DOAJ_LCC`, `doaj_discontinued`, `successor_issns`, a missing country); a PKP Beacon row of its ISSNs gives a PENDING
-  OAI route (`VERIFY_ROUTE`) unless an OAI route with that base and set exists; then `PROBE_EUROPEPMC` and the derived
+  OAI route (`VERIFY_ROUTE` only for a CORE or BROAD source) unless an OAI route with that base and set exists; then `PROBE_EUROPEPMC` and the derived
   disciplines. A CEASED or deleted source is skipped; an outage defers the whole task. After every identity write
   (locked transaction) any other source sharing an ISSN, the ISSN-L or the OpenAlex id is a duplicate (`SourceFold`):
   the younger folds into the older (ISSNs, OpenAlex id, signals, routes, raw rows, samples, registrations, follows move;
@@ -248,15 +249,26 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
 - `indexer` `IDENTIFY_SOURCE {"registrationId":n}` (M6b Task 9; enqueued by `web` at `LIVE`, key `identify:r<n>`): a
   no-op unless the registration is `IDENTIFYING`. ISSN as given; DOI: Crossref's work (ISSNs, container title,
   publisher), else OpenAlex's source of the work, else `DOI_UNKNOWN`; URL: `JournalPage` reads the page only from public
-  hosts (`PublicHost` in `store`, the rule `RouteConfigCheck` uses too): its own Apache HttpClient with the DNS answer
-  pinned to the checked addresses (no rebinding), redirects by hand (at most 3, every hop checked), `text/html` only, at
-  most 2 MB, 60 s; no retries. ISSNs from `citation_issn`/`prism.issn`/`prism.eissn`/`dc.identifier` metas, else the
-  first 3 in the text, else a Magtech path `/CN|EN/<ISSN>/`; title from `citation_journal_title` or `og:site_name`;
-  "Powered by Beijing Magtech" or the Magtech path gives a `MAGTECH` route hint `{"site","issn"}`, an OJS generator meta
-  an `OAI` hint on `<journal>/oai`. Reasons: `DOI_UNKNOWN`, `ADDRESS_NOT_PUBLIC`, `ADDRESS_UNKNOWN`, `PAGE_UNREACHABLE`,
-  `NO_ISSN_FOUND` (state `NOT_IDENTIFIED`). Else an offer (origin `REGISTERED`, signal key = registration id, detail
+  hosts on the ports 80/443/8080/8443 (`PublicHost` in `store`, the rule `RouteConfigCheck` uses too): its own Apache
+  HttpClient with the DNS answer pinned to the checked addresses (no rebinding), redirects by hand (at most 3, every hop
+  checked), status/header lines ≤ 8 KB and ≤ 100 headers, `text/html` only, at most 2 MB, one 60 s deadline for the
+  whole fetch (a timer cancels it); no retries. The page is read by a linear scanner (`PageMarkup`: first 512 KB, tags
+  ≤ 4 KB, 2 s budget, else `LOOKUP_FAILED`). ISSNs (at most 4) from `citation_issn`/`prism.issn`/`prism.eissn`/
+  `dc.identifier` metas, else the first 3 in the text, else a Magtech path `/CN|EN/<ISSN>/`; title (≤ 500 code points)
+  from `citation_journal_title` or `og:site_name`; "Powered by Beijing Magtech" or the Magtech path gives a `MAGTECH`
+  route hint `{"site","issn"}`, an OJS generator meta an `OAI` hint on `<journal>/oai`. Reasons: `DOI_UNKNOWN`,
+  `ADDRESS_NOT_PUBLIC`, `ADDRESS_UNKNOWN`, `PAGE_UNREACHABLE`, `NO_ISSN_FOUND`, `LOOKUP_FAILED` (any non-outage lookup
+  error; state `NOT_IDENTIFIED`). Else an offer (origin `REGISTERED`, signal key = registration id, detail
   `{"registrationId":n}`, at `LIVE`): outcome `NEW_CANDIDATE`, `EXISTING` or `CEASED`, `tier_at_identification` recorded.
-  Crossref/OpenAlex outages and a spent OpenAlex budget defer.
+  A page's ISSNs that hit more than one source or a non-CANDIDATE only add the signal to the best match (no identity
+  widening, no fold). Crossref/OpenAlex outages and a spent OpenAlex budget defer.
+- `indexer` routes found by registration or discovery (origin `REGISTERED`/`DISCOVERED`) stay `PENDING` and get no
+  `VERIFY_ROUTE` (it skips them) until their journal is CORE or BROAD; a promotion (admin PATCH in `web`, `ADD_SOURCE`,
+  the seeding) enqueues `VERIFY_ROUTE` for the source's PENDING routes.
+- `indexer` `PoliteHttp` follows redirects itself (the client is `Redirect.NEVER`; 301/302/303/307/308, at most 5,
+  never https→http) and checks the start URL and every hop with `PublicHost`; hosts of every configured
+  `nametracker.*` URL and `nametracker.http.trusted-hosts` (comma-separated, e.g. a local service) are trusted. The JDK
+  client resolves again when it connects (DNS rebinding is a known limit, ADR-0009).
 - `indexer` salience (properties only, no env variables; set them in `application.yml`, `.env` or as `-D`/args):
   `nametracker.salience.{title=0.40, abstract=0.20, act=0.35, heading=0.15, share=0.25, repeat=0.15, ubiquity=0.50,
   ubiquity-full-share=0.02, threshold=0.35}`. A name with salience >= threshold is a main subject of the work.
@@ -411,8 +423,9 @@ proxy targets `http://localhost:18080` on another port (never edit `vite.config.
   Public reads carry no cache headers; `/api/me/**`, `/api/auth/**`, `/login/**` and `/api/admin/**` send
   `Cache-Control: no-store` (ADR-0006).
 - Journal registration (M6b Task 9): `POST /api/sources/register` (session and XSRF) with exactly one of `issn`
-  (`Issn.normalise`, a bad check digit is a 400), `doi` or `url` (http(s), a host, no user info, ≤ 2000 characters) and
-  an optional `note` (≤ 500); the 21st within 24 hours is a 429. `web` stores the row (`IDENTIFYING`), enqueues
+  (`Issn.normalise`, a bad check digit is a 400), `doi` (≤ 300 characters) or `url` (http(s), a host, no user info,
+  ≤ 2000 characters) and an optional `note` (≤ 500); body ≤ 8 KB (413); the 21st within 24 hours is a 429; the same
+  input again while one is identifying or identified answers that registration's id. `web` stores the row (`IDENTIFYING`), enqueues
   `IDENTIFY_SOURCE {"registrationId":n}` and answers 202 `{"id":n}`; no outbound call. `GET /api/me/registrations`
   (newest first, 100), `GET`/`DELETE /api/me/registrations/{id}` (another user's is 404; DELETE sets `WITHDRAWN` and
   deletes its `REGISTERED` signal, the source stays). `status` is read from the source's current tier: `COVERED`,

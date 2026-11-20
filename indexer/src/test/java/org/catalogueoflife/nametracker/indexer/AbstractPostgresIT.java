@@ -11,13 +11,15 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
  *
  * <p>Hermetic by default: every external base URL points at the discard port of 127.0.0.1 (nothing listens there),
  * there is no API key and no Crossref mailto, the scheduled harvests are off, the finder rollout check at start is off,
- * and no local {@code .env} is read. An IT that talks to WireMock overrides the base URL it needs.
+ * and no local {@code .env} is read. An IT that talks to WireMock overrides the base URL it needs; the loopback names
+ * are trusted hosts of PoliteHttp (route configs of ITs point at WireMock).
  */
 @SpringBootTest(classes = IndexerApplication.class, properties = {
     "nametracker.indexer.poll-interval=100ms",
     "nametracker.indexer.workers=0",
     "nametracker.dotenv=optional:file:/nonexistent/garrulus-tests.env[.properties]",
     "nametracker.harvest.enabled=false",
+    "nametracker.http.trusted-hosts=localhost,127.0.0.1",
     "nametracker.finder.url=",
     "nametracker.finder.dictionary=",
     "nametracker.finder.rollout-on-start=false",

@@ -77,4 +77,32 @@ class PublicHostTest {
     assertThat(allowing.problem(URI.create("http://127.0.0.1:8080/"))).isNotNull();
     assertThat(allowing.problem(URI.create("http://intranet.example.org/"))).isNotNull();
   }
+
+  @Test
+  void specialPurposeRangesAreRefused() {
+    for (String host : new String[] {"192.0.0.8", "198.18.0.1", "198.19.255.1", "240.0.0.1", "255.255.255.255",
+        "0.1.2.3", "[::127.0.0.1]", "[::a00:1]", "[64:ff9b::a9fe:a9fe]", "[64:ff9b::a00:5]", "[64:ff9b::7f00:1]",
+        "[::ffff:a9fe:a9fe]"}) {
+      assertThat(check("http://" + host + "/")).as(host).isNotNull();
+    }
+    assertThat(check("http://198.17.0.1/")).isNull();
+    assertThat(check("http://[2001:4860:4860::8888]/")).isNull();
+    // a DNS64 network gives every name a NAT64 address: one carrying a public IPv4 address passes
+    assertThat(check("http://[64:ff9b::8c52:153b]/")).isNull();
+  }
+
+  @Test
+  void webPortsOnlyWhenAsked() {
+    PublicHost web = HOSTS.webPortsOnly();
+    for (String url : new String[] {"http://www.mapress.com/", "https://www.mapress.com/", "http://www.mapress.com:80/",
+        "https://www.mapress.com:443/", "http://www.mapress.com:8080/", "https://www.mapress.com:8443/"}) {
+      assertThat(web.problem(URI.create(url))).as(url).isNull();
+    }
+    assertThat(web.problem(URI.create("http://www.mapress.com:22/"))).contains("port 22");
+    assertThat(web.problem(URI.create("http://www.mapress.com:6379/"))).contains("port");
+    assertThat(HOSTS.problem(URI.create("http://www.mapress.com:6379/"))).isNull();
+    // an allowed test name keeps its mock server's port
+    assertThat(new PublicHost(FAKE, Set.of("journal.test")).webPortsOnly()
+        .problem(URI.create("http://journal.test:61234/"))).isNull();
+  }
 }

@@ -8,6 +8,8 @@ import org.catalogueoflife.nametracker.store.account.DigestMapper;
 import org.catalogueoflife.nametracker.store.account.HitMapper;
 import org.catalogueoflife.nametracker.store.account.Subscription;
 import org.catalogueoflife.nametracker.store.account.SubscriptionMapper;
+import org.catalogueoflife.nametracker.store.registry.RegistrationMapper;
+import org.catalogueoflife.nametracker.store.registry.SourceRegistration;
 import org.catalogueoflife.nametracker.web.auth.CurrentUser;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -32,18 +34,21 @@ public class AccountDataController {
       JsonNode names, Long digestId) {}
 
   public record Export(AppUser user, List<ExportedSubscription> subscriptions, List<ExportedHit> hits,
-      List<Digest> digests) {}
+      List<Digest> digests, List<SourceRegistration> registrations) {}
 
   private final AccountMapper accounts;
   private final SubscriptionMapper subscriptions;
   private final HitMapper hits;
   private final DigestMapper digests;
+  private final RegistrationMapper registrations;
   private final CurrentUser currentUser;
   private final TransactionTemplate tx;
 
   public AccountDataController(AccountMapper accounts, SubscriptionMapper subscriptions, HitMapper hits,
-      DigestMapper digests, CurrentUser currentUser, PlatformTransactionManager txManager) {
+      DigestMapper digests, RegistrationMapper registrations, CurrentUser currentUser,
+      PlatformTransactionManager txManager) {
     this.accounts = accounts;
+    this.registrations = registrations;
     this.subscriptions = subscriptions;
     this.hits = hits;
     this.digests = digests;
@@ -65,7 +70,8 @@ public class AccountDataController {
         .toList();
     return ResponseEntity.ok()
         .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"garrulus-export.json\"")
-        .body(new Export(user, subs, hs, digests.listByUser(userId)));
+        .body(new Export(user, subs, hs, digests.listByUser(userId),
+            registrations.listByUser(userId, Integer.MAX_VALUE)));
   }
 
   private static ExportedSubscription exported(Subscription s) {

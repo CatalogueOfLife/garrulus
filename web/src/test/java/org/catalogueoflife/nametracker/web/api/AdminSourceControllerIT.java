@@ -86,6 +86,22 @@ class AdminSourceControllerIT extends AbstractPostgresIT {
   }
 
   @Test
+  void promotionVerifiesPendingRoutesOnly() throws Exception {
+    long id = source("S77", "Registered", "CANDIDATE", true, false);
+    long pending = jdbc.queryForObject("INSERT INTO source_route (source_id, layer, config, status, origin) VALUES "
+        + "(?, 'OAI', '{\"base\":\"https://j.example.org/oai\"}'::jsonb, 'PENDING', 'REGISTERED') RETURNING id",
+        Long.class, id);
+    jdbc.update("INSERT INTO source_route (source_id, layer, config, status, origin) VALUES "
+        + "(?, 'MAGTECH', '{\"site\":\"https://j.example.org\"}'::jsonb, 'BROKEN', 'DISCOVERED')", id);
+    call("PATCH", "/api/admin/sources/" + id, "{\"tier\":\"EXCLUDED\"}", "test-token");
+    assertThat(jdbc.queryForList("SELECT dedup_key FROM task WHERE type = 'VERIFY_ROUTE'", String.class)).isEmpty();
+    call("PATCH", "/api/admin/sources/" + id, "{\"tier\":\"BROAD\"}", "test-token");
+    call("PATCH", "/api/admin/sources/" + id, "{\"tier\":\"CORE\"}", "test-token");
+    assertThat(jdbc.queryForList("SELECT dedup_key FROM task WHERE type = 'VERIFY_ROUTE'", String.class))
+        .containsExactly("verify-route:" + pending);
+  }
+
+  @Test
   void unknownSource404() throws Exception {
     assertThat(call("PATCH", "/api/admin/sources/999999", "{\"tier\":\"CORE\"}", "test-token").statusCode())
         .isEqualTo(404);

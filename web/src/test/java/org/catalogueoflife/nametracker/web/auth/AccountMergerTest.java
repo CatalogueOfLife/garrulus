@@ -43,6 +43,7 @@ class AccountMergerTest {
         + "Detail: Key (lower(email))=(" + ADDRESS + ") already exists."))
         .when(accounts).setEmail(anyLong(), anyString());
     AccountMerger merger = new AccountMerger(accounts, mock(SubscriptionMapper.class), mock(DigestMapper.class), tokens,
+        mock(org.catalogueoflife.nametracker.store.registry.RegistrationMapper.class),
         mock(PlatformTransactionManager.class));
 
     Logger log = (Logger) LoggerFactory.getLogger(AccountMerger.class);

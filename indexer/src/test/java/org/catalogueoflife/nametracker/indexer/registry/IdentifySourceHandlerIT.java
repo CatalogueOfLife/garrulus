@@ -221,9 +221,17 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
       assertThat(c.path("set").asString()).isEqualTo("ejt");
       assertThat(c.path("prefix").asString()).isEqualTo("oai_dc");
       assertThat(c.path("issns").get(0).asString()).isEqualTo(EJT);
-      assertThat(jdbc.queryForObject("SELECT dedup_key FROM task WHERE type = 'VERIFY_ROUTE'", String.class))
-          .isEqualTo("verify-route:" + r.id());
     });
+    // a candidate's route is verified only after an admin promotes the journal
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM task WHERE type = 'VERIFY_ROUTE'", Long.class)).isZero();
+
+    // a followed journal's new Beacon route is verified at once
+    jdbc.update("UPDATE source SET tier = 'CORE' WHERE id = ?", id);
+    jdbc.update("DELETE FROM source_route WHERE source_id = ?", id);
+    handler(w).handle(task(id));
+    long routeId = routes.forSource(id).getFirst().id();
+    assertThat(jdbc.queryForObject("SELECT dedup_key FROM task WHERE type = 'VERIFY_ROUTE'", String.class))
+        .isEqualTo("verify-route:" + routeId);
 
     // a source that already has an OAI route with that base and set gets no second one
     long other = candidate("0000-0019");

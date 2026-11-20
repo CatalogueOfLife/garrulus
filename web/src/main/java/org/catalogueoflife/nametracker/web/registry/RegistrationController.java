@@ -1,14 +1,18 @@
 package org.catalogueoflife.nametracker.web.registry;
 
+import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.store.ident.IdScheme;
 import org.catalogueoflife.nametracker.store.ident.Issn;
 import org.catalogueoflife.nametracker.store.registry.RegistrationMapper;
@@ -29,15 +33,18 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
 
 /**
  * Journal registration by a signed-in user: {@code POST /api/sources/register} with exactly one of {@code issn},
  * {@code doi} (of an article) or {@code url}, plus an optional {@code note}. The web app makes no outbound call: it
  * stores the registration (IDENTIFYING) and enqueues {@code IDENTIFY_SOURCE {"registrationId":n}} at LIVE; the indexer
- * identifies the journal. At most {@value #MAX_PER_DAY} registrations per user in 24 hours. The user's registrations are
+ * identifies the journal. At most {@value #MAX_PER_DAY} registrations per user in 24 hours; the same input again while
+ * the first is identifying or identified answers that registration. The body is read up to {@value #MAX_BODY} bytes, a
+ * DOI may have {@value #MAX_DOI} characters. The user's registrations are
  * read and withdrawn under {@code /api/me/registrations}; withdrawing removes the registration's signal from its source
  * (the source stays).
  */
@@ -48,6 +55,9 @@ public class RegistrationController {
   static final int MAX_LIST = 100;
   static final int MAX_NOTE = 500;
   static final int MAX_URL = 2000;
+  static final int MAX_DOI = 300;
+  /** The request body is read up to this many bytes; a larger one is a 413. */
+  static final int MAX_BODY = 8 * 1024;
   static final String IDENTIFY_TYPE = "IDENTIFY_SOURCE";
   static final String SIGNAL_ORIGIN = "REGISTERED";
   private static final Set<String> KEYS = Set.of("issn", "doi", "url", "note");
@@ -75,8 +85,9 @@ public class RegistrationController {
   }
 
   @PostMapping("/api/sources/register")
-  public ResponseEntity<Map<String, Object>> register(@RequestBody Map<String, Object> body) {
+  public ResponseEntity<Map<String, Object>> register(HttpServletRequest request) throws IOException {
     long userId = currentUser.require();
+    Map<String, Object> body = body(request);
     for (String k : body.keySet()) {
       if (!KEYS.contains(k)) throw bad("unknown field " + k);
     }
@@ -92,8 +103,8 @@ public class RegistrationController {
         yield issn;
       }
       case "doi" -> {
-        String doi = IdScheme.DOI.normalise(raw);
-        if (doi == null) throw bad("not a DOI");
+        String doi = raw.strip().length() > MAX_DOI ? null : IdScheme.DOI.normalise(raw);
+        if (doi == null) throw bad("not a DOI of at most " + MAX_DOI + " characters");
         yield doi;
       }
       default -> url(raw);
@@ -107,6 +118,9 @@ public class RegistrationController {
     Long id = tx.execute(status -> {
       // one user's registrations are counted and inserted one at a time, so the cap holds under parallel requests
       registrations.lockUser(userId);
+      // the same input again while the first is identifying or identified: that registration, not a second signal
+      Long same = registrations.findActive(userId, kind, input);
+      if (same != null) return same;
       if (registrations.countSince(userId, clock.instant().minus(Duration.ofHours(24))) >= MAX_PER_DAY) return null;
       long rid = registrations.insert(userId, kind, input, n);
       queue.enqueue(IDENTIFY_TYPE, "{\"registrationId\":" + rid + "}", TaskPriority.LIVE, "identify:r" + rid);
@@ -134,13 +148,31 @@ public class RegistrationController {
   public ResponseEntity<Void> withdraw(@PathVariable long id) {
     long userId = currentUser.require();
     tx.executeWithoutResult(status -> {
-      SourceRegistration r = registrations.getForUser(id, userId);
-      if (r == null) throw notFound();
-      if (registrations.withdraw(id, userId) > 0 && r.sourceId() != null) {
-        signals.delete(r.sourceId(), SIGNAL_ORIGIN, String.valueOf(id));
-      }
+      if (registrations.getForUser(id, userId) == null) throw notFound();
+      // the source as the withdrawing statement saw it: an identification committing meanwhile is not missed
+      Long sourceId = registrations.withdraw(id, userId);
+      if (sourceId != null) signals.delete(sourceId, SIGNAL_ORIGIN, String.valueOf(id));
     });
     return ResponseEntity.noContent().build();
+  }
+
+  /** The JSON object of the request, at most {@value #MAX_BODY} bytes (413 above, 400 if it is no object). */
+  private static Map<String, Object> body(HttpServletRequest request) throws IOException {
+    if (request.getContentLengthLong() > MAX_BODY) throw tooLarge();
+    byte[] raw = request.getInputStream().readNBytes(MAX_BODY + 1);
+    if (raw.length > MAX_BODY) throw tooLarge();
+    try {
+      Map<String, Object> m = FinderJson.mapper().readValue(raw, new TypeReference<LinkedHashMap<String, Object>>() {});
+      if (m == null) throw bad("the body is a JSON object");
+      return m;
+    } catch (JacksonException e) {
+      throw bad("the body is a JSON object");
+    }
+  }
+
+  private static ResponseStatusException tooLarge() {
+    return new ResponseStatusException(HttpStatus.CONTENT_TOO_LARGE, "the request is larger than " + MAX_BODY
+        + " bytes");
   }
 
   private SourceRegistration owned(long id) {

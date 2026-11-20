@@ -114,6 +114,41 @@ class SeedSourcesHandlerIT extends AbstractPostgresIT {
     assertThat(onboardTasks()).isEqualTo(1);
   }
 
+  /** A candidate a user registered, with the PENDING route its page suggested. */
+  private long registeredCandidate(String openalexId) {
+    long id = jdbc.queryForObject("INSERT INTO source (openalex_id, title, origin, tier) VALUES (?, 'Registered', "
+        + "'REGISTERED', 'CANDIDATE') RETURNING id", Long.class, openalexId);
+    jdbc.update("INSERT INTO source_route (source_id, layer, config, status, origin) VALUES (?, 'OAI', "
+        + "'{\"base\":\"https://journal.example.org/oai\"}'::jsonb, 'PENDING', 'REGISTERED')", id);
+    return id;
+  }
+
+  private List<String> verifyTasks() {
+    return jdbc.queryForList("SELECT dedup_key FROM task WHERE type = 'VERIFY_ROUTE'", String.class);
+  }
+
+  @Test
+  void promotionVerifiesTheCandidatesPendingRoutes(WireMockRuntimeInfo w) throws Exception {
+    // by an admin (ADD_SOURCE of a known journal)
+    long added = registeredCandidate("S903");
+    stubFor(get(urlPathEqualTo("/sources/S903"))
+        .willReturn(okJson(SourceSeederTest.source("S903", "Added Journal", ""))));
+    add.handle(task("ADD_SOURCE", "{\"openalexId\":\"S903\",\"tier\":\"CANDIDATE\"}"));
+    assertThat(verifyTasks()).isEmpty();
+    add.handle(task("ADD_SOURCE", "{\"openalexId\":\"S903\",\"tier\":\"CORE\"}"));
+    long route = jdbc.queryForObject("SELECT id FROM source_route WHERE source_id = ?", Long.class, added);
+    assertThat(verifyTasks()).containsExactly("verify-route:" + route);
+
+    // by the seeding
+    jdbc.update("DELETE FROM task");
+    long seeded = registeredCandidate("S901");
+    stubRegistry();
+    seed.handle(task("SEED_SOURCES", "{}"));
+    assertThat(sources.get(seeded).tier()).isEqualTo("CORE");
+    long route2 = jdbc.queryForObject("SELECT id FROM source_route WHERE source_id = ?", Long.class, seeded);
+    assertThat(verifyTasks()).containsExactly("verify-route:" + route2);
+  }
+
   private static String withTopics() {
     return SourceSeederTest.source("S905", "Topical", ",\"topics\":["
         + "{\"id\":\"https://openalex.org/T1\",\"display_name\":\"One\",\"count\":70,"

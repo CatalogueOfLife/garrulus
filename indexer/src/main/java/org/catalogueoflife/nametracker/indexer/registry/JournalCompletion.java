@@ -49,8 +49,8 @@ import tools.jackson.databind.JsonNode;
  *   only while DOAJ is switched off) and the raw subfields and topics; a spent budget skips the step;</li>
  *   <li>DOAJ (switch {@code nametracker.discovery.doaj.enabled}): its print and electronic ISSN, membership, LCC
  *   subjects, a discontinued date and successor ISSNs, the country when there is none;</li>
- *   <li>the PKP Beacon rows of its ISSNs: an OAI route hint (PENDING, verified by {@code VERIFY_ROUTE}) unless the
- *   source has an OAI route with that base and set;</li>
+ *   <li>the PKP Beacon rows of its ISSNs: an OAI route hint (PENDING; {@code VERIFY_ROUTE} at once for a CORE or BROAD
+ *   source, after the promotion for a candidate) unless the source has an OAI route with that base and set;</li>
  *   <li>a Europe PMC probe ({@code PROBE_EUROPEPMC}) and the derived disciplines.</li>
  * </ol>
  * Every write is an upsert that changes nothing on a repeat, so a step that meets an outage lets the whole completion
@@ -215,7 +215,8 @@ public class JournalCompletion {
       Long routeId = routes.insertIfAbsent(new SourceRoute(0, s.id(), "OAI",
           FinderJson.mapper().writeValueAsString(config), "PENDING", "DISCOVERED", null, null, null, null, null, null));
       if (routeId != null) {
-        VerifyRouteHandler.enqueue(queue, routeId, priority);
+        // a candidate's route waits for the promotion, which verifies it
+        if (VerifyRouteHandler.followed(sources.get(s.id()))) VerifyRouteHandler.enqueue(queue, routeId, priority);
         LOG.info("Source {}: OAI route {} from the PKP Beacon ({})", s.id(), routeId, base);
       }
     }

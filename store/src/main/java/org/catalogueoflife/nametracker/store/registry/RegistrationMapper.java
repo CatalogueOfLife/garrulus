@@ -14,7 +14,7 @@ public interface RegistrationMapper {
   record Decision(long id, long userId, String input, String decision, long sourceId, @Nullable String title) {}
 
   /** A registration identified as a candidate whose source still waits for an admin. */
-  record Waiting(long id, String input, long sourceId, @Nullable String title) {}
+  record Waiting(long id, String kind, String input, long sourceId, @Nullable String title) {}
 
   /** Inserts an IDENTIFYING registration and returns its id. */
   long insert(@Param("userId") long userId, @Param("kind") String kind, @Param("input") String input,
@@ -44,8 +44,17 @@ public interface RegistrationMapper {
   /** IDENTIFYING → NOT_IDENTIFIED with the reason; 0 if it was not IDENTIFYING. */
   int notIdentified(@Param("id") long id, @Param("reason") String reason);
 
-  /** Any state but WITHDRAWN → WITHDRAWN; 0 if it was withdrawn already or is not the user's. */
-  int withdraw(@Param("id") long id, @Param("userId") long userId);
+  /**
+   * Any state but WITHDRAWN → WITHDRAWN, returning the source it pointed at in the same statement (so an identification
+   * that commits meanwhile is seen); null if nothing changed or it had no source.
+   */
+  @Nullable Long withdraw(@Param("id") long id, @Param("userId") long userId);
+
+  /** The user's IDENTIFYING or IDENTIFIED registration of this input, if any (the newest). */
+  @Nullable Long findActive(@Param("userId") long userId, @Param("kind") String kind, @Param("input") String input);
+
+  /** Moves every registration of one account to another (account merge). */
+  int reassign(@Param("from") long from, @Param("to") long to);
 
   /**
    * Sets {@code decision} (ACCEPTED for a CORE or BROAD source, DECLINED for an EXCLUDED one) and {@code decision_at}
