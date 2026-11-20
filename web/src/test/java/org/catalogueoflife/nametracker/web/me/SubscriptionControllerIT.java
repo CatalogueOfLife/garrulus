@@ -107,6 +107,16 @@ class SubscriptionControllerIT extends AbstractAuthIT {
   }
 
   @Test
+  void patchKeepsMentionedIn() throws Exception {
+    Browser b = newUser();
+    long id = body(create(b, "{\"type\":\"TAXON\",\"target\":\"M1\",\"label\":\"a\"}")).get("id").asLong();
+    jdbc.update("UPDATE subscription SET mentioned_in = ARRAY['TITLE'] WHERE id = ?", id);
+    assertThat(b.json("PATCH", "/api/me/subscriptions/" + id, "{\"paused\":true}", true).statusCode()).isEqualTo(200);
+    assertThat(jdbc.queryForObject("SELECT mentioned_in::text FROM subscription WHERE id = ?", String.class, id))
+        .isEqualTo("{TITLE}");
+  }
+
+  @Test
   void otherUsersSubscriptionIs404() throws Exception {
     Browser a = newUser();
     Browser other = newUser();

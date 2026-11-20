@@ -43,13 +43,17 @@ class LanguageMappersIT extends AbstractPostgresIT {
     String url = POSTGRES.getJdbcUrl();
     String user = POSTGRES.getUsername();
     String password = POSTGRES.getPassword();
-    Flyway.configure().dataSource(url, user, password).schemas("migcheck21").target("20").load().migrate();
-    j.execute("INSERT INTO migcheck21.work (doi, origin, language) VALUES ('10.21/uz', 'LIVE', 'uz')");
-    j.execute("INSERT INTO migcheck21.work (doi, origin) VALUES ('10.21/none', 'LIVE')");
-    Flyway.configure().dataSource(url, user, password).schemas("migcheck21").target("21").load().migrate();
-    assertThat(j.queryForList("SELECT w.doi || ' ' || e.kind || ' ' || e.source || ' ' || e.lang || ' ' || e.raw "
-        + "FROM migcheck21.work_language_evidence e JOIN migcheck21.work w ON w.id = e.work_id", String.class))
-        .containsExactly("10.21/uz LEGACY V21 uz uz");
+    try {
+      Flyway.configure().dataSource(url, user, password).schemas("migcheck21").target("20").load().migrate();
+      j.execute("INSERT INTO migcheck21.work (doi, origin, language) VALUES ('10.21/uz', 'LIVE', 'uz')");
+      j.execute("INSERT INTO migcheck21.work (doi, origin) VALUES ('10.21/none', 'LIVE')");
+      Flyway.configure().dataSource(url, user, password).schemas("migcheck21").target("21").load().migrate();
+      assertThat(j.queryForList("SELECT w.doi || ' ' || e.kind || ' ' || e.source || ' ' || e.lang || ' ' || e.raw "
+          + "FROM migcheck21.work_language_evidence e JOIN migcheck21.work w ON w.id = e.work_id", String.class))
+          .containsExactly("10.21/uz LEGACY V21 uz uz");
+    } finally {
+      j.execute("DROP SCHEMA IF EXISTS migcheck21 CASCADE");
+    }
   }
 
   @Test

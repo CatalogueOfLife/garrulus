@@ -21,7 +21,7 @@ public interface WorkTextMapper {
   /**
    * Sets {@code work.title_en} and {@code title_en_kind} from the PARALLEL {@code en} title, else the MACHINE
    * {@code en} title, else null; null too when the title is English itself ({@code coalesce(title_lang, language) =
-   * 'en'}). Returns the rows updated (0 or 1).
+   * 'en'}). Writes only on a change, so an unchanged value does not recompute {@code fts}. Returns the rows updated (0 or 1).
    */
   int refreshTitleEn(@Param("workId") long workId);
 

@@ -121,6 +121,8 @@ Run after the M6b deployment on the always-on installation, in this order. Deplo
 
 - Flyway applied V19 and V20 (`select version, success from flyway_schema_history order by installed_rank desc limit
   2`); the GBIF database starts empty at V18, so both are quick.
+- V21 (M6c) must be applied before the full backfill: its `work.fts` `SET EXPRESSION` rewrites the whole `work` table
+  under ACCESS EXCLUSIVE in one transaction (instant on the empty database, blocks the web on a populated one).
 - Before the first Beacon run: `select issn, count(*) from pkp_beacon, unnest(issns) issn group by 1 having count(*) > 1
   order by 2 desc` (after the load) shows the ISSN cells shared by several OJS rows; since the fix wave they only add
   signals to a known journal.

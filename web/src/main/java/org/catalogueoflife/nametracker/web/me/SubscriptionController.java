@@ -143,7 +143,8 @@ public class SubscriptionController {
         bool(body, "includeReferences", s.includeReferences()),
         body.containsKey("filters") ? filtersJson(body.get("filters")) : s.filters(), s.feedToken(),
         body.containsKey("sinceYear") ? sinceYear(body.get("sinceYear")) : s.sinceYear(),
-        bool(body, "paused", s.paused()), s.created());
+        bool(body, "paused", s.paused()), s.created(), s.targetStatus(), s.xrNote(), s.xrNoteAt(), s.previousTarget(),
+        s.mentionedIn());
     subscriptions.update(u);
     return dto(owned(userId, id));
   }

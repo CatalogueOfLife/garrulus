@@ -43,12 +43,16 @@
   </delete>
 
   <update id="refreshTitleEn" flushCache="true">
-    UPDATE work w SET (title_en, title_en_kind) = (
-      SELECT t.text, t.kind FROM work_text t
-      WHERE t.work_id = w.id AND t.field = 'TITLE' AND t.lang = 'en' AND t.kind IN ('PARALLEL', 'MACHINE')
-        AND coalesce(w.title_lang, w.language) IS DISTINCT FROM 'en'
-      ORDER BY (t.kind = 'PARALLEL') DESC LIMIT 1)
-    WHERE w.id = #{workId}
+    UPDATE work w SET title_en = n.text, title_en_kind = n.kind
+    FROM (
+      SELECT o.id, x.text, x.kind FROM work o
+      LEFT JOIN LATERAL (
+        SELECT t.text, t.kind FROM work_text t
+        WHERE t.work_id = o.id AND t.field = 'TITLE' AND t.lang = 'en' AND t.kind IN ('PARALLEL', 'MACHINE')
+          AND coalesce(o.title_lang, o.language) IS DISTINCT FROM 'en'
+        ORDER BY (t.kind = 'PARALLEL') DESC LIMIT 1) x ON true
+      WHERE o.id = #{workId}) n
+    WHERE w.id = n.id AND (w.title_en, w.title_en_kind) IS DISTINCT FROM (n.text, n.kind)
   </update>
 
   <update id="moveAll" flushCache="true">
