@@ -105,6 +105,7 @@ export function SourcePage() {
                     </li>
                   ))}
                 </ul>
+                {disciplines.isError ? <Text size="sm" c="dimmed">Discipline names are not available now; codes are shown.</Text> : null}
               </>
             ) : null}
           </Section>

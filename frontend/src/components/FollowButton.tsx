@@ -130,6 +130,7 @@ function Form({ onClose, type, target, label, existing, onExists }: Omit<DialogP
           <NativeSelect label="Discipline" value={narrow.subfield ? resolveDiscipline(narrow.subfield, disciplines.data) : ''} onChange={(e) => set('subfield', e.currentTarget.value)}>
             {disciplineOptions(disciplines.data, narrow.subfield).map((o) => <option key={o.value} value={o.value} title={o.value || undefined}>{o.label}</option>)}
           </NativeSelect>
+          {disciplines.isError ? <Text size="sm" c="dimmed">Discipline names are not available now; codes are shown.</Text> : null}
         </Stack>
       </Collapse>
       {error ? <Alert color="red">{error}</Alert> : null}

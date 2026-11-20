@@ -37,7 +37,15 @@ export const STATUS_TEXT: Record<Registration['status'], string> = {
   WITHDRAWN: 'Withdrawn',
 };
 
-function Result({ r, onDone, onWithdraw, busy }: { r: Registration; onDone: () => void; onWithdraw: () => void; busy: boolean }) {
+function SignInAgain() {
+  return (
+    <Alert color="gray">
+      Your session has ended. <Anchor component={Link} to={`/signin?next=${encodeURIComponent('/journals')}`}>Sign in again</Anchor>
+    </Alert>
+  );
+}
+
+function Result({ r, onDone, onWithdraw, busy, error }: { r: Registration; onDone: () => void; onWithdraw: () => void; busy: boolean; error: string | null }) {
   const j = r.journal;
   if (r.state === 'NOT_IDENTIFIED') {
     return (
@@ -58,6 +66,7 @@ function Result({ r, onDone, onWithdraw, busy }: { r: Registration; onDone: () =
           <Anchor component={Link} to={`/source/${j.id}`} size="sm">Open the journal</Anchor>
         ) : null}
       </div>
+      {error ? <Alert color="red">{error}</Alert> : null}
       <Group justify="flex-end">
         <Button variant="default" onClick={onWithdraw} loading={busy}>Not this journal</Button>
         <Button variant="filled" onClick={onDone}>Done</Button>
@@ -76,8 +85,14 @@ function Form({ onClose }: { onClose: () => void }) {
   const [id, setId] = useState<number | null>(null);
   const [result, setResult] = useState<Registration | null>(null);
   const [slow, setSlow] = useState(false);
+  const [signIn, setSignIn] = useState(false);
+  const [gone, setGone] = useState(false);
   const alive = useRef(true);
-  useEffect(() => () => { alive.current = false; }, []);
+  // StrictMode runs effect, cleanup, effect: the flag must be set again
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; };
+  }, []);
 
   // poll the registration every 2 s for at most 30 s
   useEffect(() => {
@@ -93,7 +108,12 @@ function Form({ onClose }: { onClose: () => void }) {
           client.invalidateQueries({ queryKey: ['registrations'] });
           return;
         }
-      } catch { /* try again until the time is up */ }
+      } catch (e) {
+        if (!alive.current) return;
+        if (e instanceof ApiError && e.status === 401) { setSignIn(true); return; }
+        if (e instanceof ApiError && e.status === 404) { setGone(true); return; }
+        // other errors are transient: try again until the time is up
+      }
       if (!alive.current) return;
       if (Date.now() - started >= POLL_LIMIT_MS) {
         setSlow(true);
@@ -118,7 +138,8 @@ function Form({ onClose }: { onClose: () => void }) {
       setId(newId);
     } catch (e) {
       const msg = e instanceof ApiError && e.body && typeof e.body === 'object' && 'error' in e.body ? String((e.body as { error: unknown }).error) : null;
-      if (e instanceof ApiError && e.status === 429) setError('You have registered many journals today. Try again tomorrow.');
+      if (e instanceof ApiError && e.status === 401) setSignIn(true);
+      else if (e instanceof ApiError && e.status === 429) setError('You have registered many journals today. Try again tomorrow.');
       else if (e instanceof ApiError && e.status === 413) setError('That is too much text.');
       else setError(msg ?? 'Registering failed. Try again.');
     } finally {
@@ -139,7 +160,9 @@ function Form({ onClose }: { onClose: () => void }) {
     }
   };
 
-  if (result) return <Result r={result} onDone={onClose} onWithdraw={withdraw} busy={busy} />;
+  if (signIn) return <Stack gap="sm"><SignInAgain /><Group justify="flex-end"><Button variant="default" onClick={onClose}>Close</Button></Group></Stack>;
+  if (gone) return <Stack gap="sm"><Alert color="gray">This registration no longer exists.</Alert><Group justify="flex-end"><Button variant="filled" onClick={onClose}>Done</Button></Group></Stack>;
+  if (result) return <Result r={result} onDone={onClose} onWithdraw={withdraw} busy={busy} error={error} />;
   if (id !== null) {
     return (
       <Stack gap="sm">

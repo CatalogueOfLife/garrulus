@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Group, NativeSelect, Stack, TextInput } from '@mantine/core';
+import { Group, NativeSelect, Stack, Text, TextInput } from '@mantine/core';
 import type { FacetCount, FacetName, TaxGroup, WorkFilter } from '../api';
 import { TaxGroupIcon } from './TaxGroupIcon';
 import { TaxonPicker } from './TaxonPicker';
@@ -131,6 +131,7 @@ export function FilterSidebar({ filter, taxonLabel, facets, taxGroups, onChange 
         <NativeSelect aria-label="Discipline" value={filter.subfield ? resolveDiscipline(filter.subfield, disciplines.data) : ''} onChange={(e) => onChange({ subfield: e.currentTarget.value || undefined, offset: undefined })}>
           {disciplineOptions(disciplines.data, filter.subfield).map((o) => <option key={o.value} value={o.value} title={o.value || undefined}>{o.label}</option>)}
         </NativeSelect>
+        {disciplines.isError ? <Text size="sm" c="dimmed">Discipline names are not available now; codes are shown.</Text> : null}
       </Field>
 
       <Field title="Journal tier">

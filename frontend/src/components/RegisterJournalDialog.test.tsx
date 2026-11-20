@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -11,8 +12,8 @@ const reg = (over: object = {}) => ({
   ...over,
 });
 
-async function open() {
-  renderApp(<RegisterJournalDialog signedIn />, '/journals');
+async function open(strict = false) {
+  renderApp(strict ? <StrictMode><RegisterJournalDialog signedIn /></StrictMode> : <RegisterJournalDialog signedIn />, '/journals');
   fireEvent.click(screen.getByRole('button', { name: 'Register a journal' }));
   return await screen.findByRole('dialog');
 }
@@ -114,5 +115,99 @@ describe('RegisterJournalDialog', () => {
     await userEvent.type(screen.getByRole('textbox', { name: /Note/ }), 'missing');
     await userEvent.click(screen.getByRole('button', { name: 'Register' }));
     await waitFor(() => expect(body).toEqual({ url: 'https://example.org/j', note: 'missing' }));
+  });
+
+  it('worksUnderStrictMode', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    server.use(
+      http.post('/api/sources/register', () => HttpResponse.json({ id: 9 }, { status: 202 })),
+      http.get('/api/me/registrations/9', () => HttpResponse.json(reg())),
+    );
+    await open(true);
+    submit('1175-5326');
+    await act(async () => { await vi.advanceTimersByTimeAsync(2100); });
+    expect(await screen.findByText('Zootaxa')).toBeInTheDocument();
+  });
+
+  it('pollStopsOn401AndOffersSignIn', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let polls = 0;
+    server.use(
+      http.post('/api/sources/register', () => HttpResponse.json({ id: 9 }, { status: 202 })),
+      http.get('/api/me/registrations/9', () => { polls++; return new HttpResponse(null, { status: 401 }); }),
+    );
+    await open();
+    submit('1175-5326');
+    await act(async () => { await vi.advanceTimersByTimeAsync(2100); });
+    expect(await screen.findByRole('link', { name: 'Sign in again' })).toHaveAttribute('href', '/signin?next=%2Fjournals');
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+    expect(polls).toBe(1);
+  });
+
+  it('pollStopsOn404AndSaysGone', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    server.use(
+      http.post('/api/sources/register', () => HttpResponse.json({ id: 9 }, { status: 202 })),
+      http.get('/api/me/registrations/9', () => new HttpResponse(null, { status: 404 })),
+    );
+    await open();
+    submit('1175-5326');
+    await act(async () => { await vi.advanceTimersByTimeAsync(2100); });
+    expect(await screen.findByText(/no longer exists/)).toBeInTheDocument();
+  });
+
+  it('transientPollErrorIsRetried', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let n = 0;
+    server.use(
+      http.post('/api/sources/register', () => HttpResponse.json({ id: 9 }, { status: 202 })),
+      http.get('/api/me/registrations/9', () => (++n === 1 ? new HttpResponse(null, { status: 503 }) : HttpResponse.json(reg()))),
+    );
+    await open();
+    submit('1175-5326');
+    await act(async () => { await vi.advanceTimersByTimeAsync(4300); });
+    expect(await screen.findByText('Zootaxa')).toBeInTheDocument();
+  });
+
+  it('postUnauthorizedOffersSignIn', async () => {
+    server.use(http.post('/api/sources/register', () => HttpResponse.json({ status: 401, error: 'x' }, { status: 401 })));
+    await open();
+    submit('1175-5326');
+    expect(await screen.findByRole('link', { name: 'Sign in again' })).toBeInTheDocument();
+  });
+
+  it('tooManyAndTooLargeMessages', async () => {
+    let status = 429;
+    server.use(http.post('/api/sources/register', () => HttpResponse.json({ status, error: 'x' }, { status })));
+    await open();
+    submit('1175-5326');
+    expect(await screen.findByText('You have registered many journals today. Try again tomorrow.')).toBeInTheDocument();
+    status = 413;
+    fireEvent.click(screen.getByRole('button', { name: 'Register' }));
+    expect(await screen.findByText('That is too much text.')).toBeInTheDocument();
+  });
+
+  it('sendsTheXsrfHeader', async () => {
+    document.cookie = 'XSRF-TOKEN=tok7; path=/';
+    let header: string | null = null;
+    server.use(http.post('/api/sources/register', ({ request }) => { header = request.headers.get('X-XSRF-TOKEN'); return HttpResponse.json({ id: 9 }, { status: 202 }); }));
+    await open();
+    submit('1175-5326');
+    await waitFor(() => expect(header).toBe('tok7'));
+  });
+
+  it('withdrawFailureShowsError', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    server.use(
+      http.post('/api/sources/register', () => HttpResponse.json({ id: 9 }, { status: 202 })),
+      http.get('/api/me/registrations/9', () => HttpResponse.json(reg())),
+      http.delete('/api/me/registrations/9', () => new HttpResponse(null, { status: 500 })),
+    );
+    await open();
+    submit('1175-5326');
+    await act(async () => { await vi.advanceTimersByTimeAsync(2100); });
+    fireEvent.click(await screen.findByRole('button', { name: 'Not this journal' }));
+    expect(await screen.findByText('Withdrawing failed. Try again.')).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 });

@@ -93,4 +93,13 @@ describe('SourcePage', () => {
     expect(await screen.findByText(/Ceased publication · last issue 2015/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'New Journal' })).toHaveAttribute('href', '/source/9');
   });
+
+  it('saysWhenTheDisciplineVocabularyIsMissing', async () => {
+    server.use(taxGroupHandler,
+      http.get('/api/vocab/discipline', () => new HttpResponse(null, { status: 500 })),
+      http.get('/api/sources/7', () => HttpResponse.json({ id: 7, title: 'Zootaxa', tier: 'CORE', subfields: ['1109'], taxgroups: [], codes: [], years: [], recentWorks: [] })));
+    renderSource();
+    expect(await screen.findByText('1109')).toBeInTheDocument();
+    expect(await screen.findByText('Discipline names are not available now; codes are shown.')).toBeInTheDocument();
+  });
 });

@@ -11,8 +11,3 @@
 .badge a {
   color: inherit;
 }
-
-.inline {
-  display: inline-block;
-  margin: 0 0 0 var(--gr-space-2);
-}
