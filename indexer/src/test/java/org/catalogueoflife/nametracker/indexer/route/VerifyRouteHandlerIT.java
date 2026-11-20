@@ -43,6 +43,7 @@ class VerifyRouteHandlerIT extends AbstractPostgresIT {
       """;
 
   @Autowired SourceRouteMapper routes;
+  @Autowired org.catalogueoflife.nametracker.store.task.TaskQueue queue;
   @Autowired SourceMapper sources;
   @Autowired HarvestOutage outage;
   @Autowired Clock clock;
@@ -72,7 +73,7 @@ class VerifyRouteHandlerIT extends AbstractPostgresIT {
   private VerifyRouteHandler handler(WireMockRuntimeInfo w) {
     MockEnvironment env = new MockEnvironment().withProperty("nametracker.http.min-interval.localhost", "0s");
     var http = EuropePmcSearchClientTest.http();
-    return new VerifyRouteHandler(http, routes, sources, new OaiLayer(http, routes, env, clock), outage, clock,
+    return new VerifyRouteHandler(http, routes, sources, new OaiLayer(http, routes, env, clock), outage, queue, clock,
         w.getHttpBaseUrl());
   }
 
@@ -142,6 +143,31 @@ class VerifyRouteHandlerIT extends AbstractPostgresIT {
     long id = route(noOpenalex, "OAI", oai(w, null));
     handler(w).handle(task(id));
     assertThat(routes.get(id).status()).isEqualTo("VERIFIED");
+  }
+
+  private List<String> onboardKeys() {
+    return jdbc.queryForList("SELECT dedup_key FROM task WHERE type = 'ONBOARD_SOURCE' ORDER BY id", String.class);
+  }
+
+  @Test
+  void aJournalWithoutOpenalexIdThatLosesItsLastRouteIsOnboardedAgain(WireMockRuntimeInfo w) throws Exception {
+    stubOai();
+    long lone = jdbc.queryForObject("INSERT INTO source (issn_l, issns, title, tier, origin, active) "
+        + "VALUES ('1234-5679', '{1234-5679}', 'Long tail', 'CORE', 'MANUAL', true) RETURNING id", Long.class);
+    long loneRoute = route(lone, "OAI", oai(w, "phytokeys")); // the set is missing: BROKEN
+    long two = jdbc.queryForObject("INSERT INTO source (issn_l, issns, title, tier, origin, active) "
+        + "VALUES ('1313-2989', '{1313-2989}', 'Two routes', 'BROAD', 'MANUAL', true) RETURNING id", Long.class);
+    long twoBroken = route(two, "OAI", oai(w, "phytokeys"));
+    route(two, "MAGTECH", "{\"site\":\"" + w.getHttpBaseUrl() + "\",\"issn\":\"1005-0094\"}"); // still PENDING
+
+    VerifyRouteHandler h = handler(w);
+    h.handle(task(loneRoute));
+    h.handle(task(twoBroken));
+    h.handle(task(route(onboarded, "OAI", oai(w, "phytokeys")))); // onboarded already: nothing to do
+
+    assertThat(routes.get(loneRoute).status()).isEqualTo("BROKEN");
+    // onboarding waited for the route; it now goes the Crossref way instead of waiting for the monthly seeding
+    assertThat(onboardKeys()).containsExactly("onboard:" + lone);
   }
 
   @Test

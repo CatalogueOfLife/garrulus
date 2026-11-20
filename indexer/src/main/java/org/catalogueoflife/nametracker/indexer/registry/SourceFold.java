@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component;
  * Folds duplicate sources: two sources that share an ISSN, the ISSN-L or the OpenAlex id are one journal. The loser
  * is chosen by foldability, not by age: only a {@code CANDIDATE} without works, without an {@code ACTIVE} route, without
  * admin curation (tier or disciplines set by an admin) and without an OpenAlex id that differs from the other one's can
- * fold. So a candidate folds into a followed (or admin-curated, or EXCLUDED) partner whatever the ids, and of two
+ * fold (an ACTIVE route counts once it harvested). So a candidate folds into a followed (or admin-curated, or EXCLUDED) partner whatever the ids, and of two
  * foldable candidates the younger (higher id) folds into the older. When neither may fold, both stay apart with a WARN,
  * like {@code MERGE_WORKS} refuses works with different DOIs. A fold moves the loser's ISSNs, OpenAlex id (deleted
  * first, then set: the column is unique), signals, routes, raw classifications, samples, registrations and follows to
@@ -62,7 +62,10 @@ public class SourceFold {
     }
     if (sources.hasWorks(loser.id())) return "it has works";
     for (SourceRoute r : routes.forSource(loser.id())) {
-      if ("ACTIVE".equals(r.status())) return "its " + r.layer() + " route " + r.id() + " is ACTIVE";
+      // a route that never harvested (a probe's, an unverified admin activation) holds nothing back; it moves along
+      if ("ACTIVE".equals(r.status()) && (r.lastOk() != null || r.onboardedAt() != null)) {
+        return "its " + r.layer() + " route " + r.id() + " is ACTIVE and has harvested";
+      }
     }
     return null;
   }

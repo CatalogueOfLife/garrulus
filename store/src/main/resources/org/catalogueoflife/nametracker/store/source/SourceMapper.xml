@@ -61,6 +61,10 @@
     SELECT * FROM source WHERE id = #{id}
   </select>
 
+  <select id="getForUpdate" resultMap="result" flushCache="true" useCache="false">
+    SELECT * FROM source WHERE id = #{id} FOR UPDATE
+  </select>
+
   <sql id="publicWhere">
     WHERE active AND tier IN ('CORE', 'BROAD')
     <if test="tier != null"> AND tier = #{tier}</if>
@@ -175,7 +179,10 @@
         AND NOT EXISTS (SELECT 1 FROM source_classification_raw t WHERE t.source_id = #{to} AND t.scheme = m.scheme)
       RETURNING 1),
     sm AS (UPDATE source_sample SET source_id = #{to} WHERE source_id = #{from} RETURNING 1),
-    rg AS (UPDATE source_registration SET source_id = #{to} WHERE source_id = #{from} RETURNING 1),
+    rg AS (UPDATE source_registration SET source_id = #{to},
+        tier_at_identification = CASE WHEN tier_at_identification = 'CANDIDATE' AND decision IS NULL
+          AND (SELECT tier FROM source WHERE id = #{to}) = 'EXCLUDED' THEN 'EXCLUDED' ELSE tier_at_identification END
+      WHERE source_id = #{from} RETURNING 1),
     cv AS (
       UPDATE source_layer_coverage m SET source_id = #{to} WHERE m.source_id = #{from}
         AND NOT EXISTS (SELECT 1 FROM source_layer_coverage t WHERE t.source_id = #{to} AND t.layer = m.layer)
@@ -197,8 +204,9 @@
       + (SELECT count(*) FROM cv) + (SELECT count(*) FROM ws) + (SELECT count(*) FROM sb) + (SELECT count(*) FROM cb)
   </select>
 
-  <delete id="delete" flushCache="true">
-    DELETE FROM source WHERE id = #{id}
+  <delete id="deleteFoldable" flushCache="true">
+    DELETE FROM source WHERE id = #{id} AND tier = 'CANDIDATE' AND tier_set_by IS DISTINCT FROM 'ADMIN'
+      AND discipline_set_by IS DISTINCT FROM 'ADMIN'
   </delete>
 
   <update id="setCandidateScore">

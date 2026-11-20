@@ -20,6 +20,7 @@ import org.catalogueoflife.nametracker.web.auth.AdminOrcids;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.http.HttpStatus;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -142,7 +143,12 @@ public class AdminSourceController {
         TaskPriority.LIVE, "sample:" + id + ":manual:" + today));
   }
 
+  /**
+   * One transaction that locks the row first: a fold that read the source as a candidate waits and then finds it
+   * promoted (its conditional delete refuses), and a fold that came first leaves a 404, never a half-applied PATCH.
+   */
   @PatchMapping("/api/admin/sources/{id}")
+  @Transactional
   public SourceView patch(
       @RequestHeader(name = AdminOrcids.TOKEN_HEADER, required = false) @Nullable String given,
       @PathVariable long id, @RequestBody PatchRequest req) {
@@ -160,7 +166,7 @@ public class AdminSourceController {
     if (req.tier() != null && !TIERS.contains(req.tier())) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "unknown tier " + req.tier());
     }
-    Source current = sources.get(id);
+    Source current = sources.getForUpdate(id);
     if (current == null) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "no source " + id);
     }

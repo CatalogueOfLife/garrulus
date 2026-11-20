@@ -121,6 +121,18 @@ class EuropePmcLayerIT extends AbstractPostgresIT {
   }
 
   @Test
+  void probeGivesACandidateAVerifiedRoute(WireMockRuntimeInfo w) throws Exception {
+    stubFor(get(urlPathEqualTo("/rest/search")).willReturn(aResponse()
+        .withBody(EuropePmcSearchClientTest.fixture("search-core-issn.json"))));
+    jdbc.update("UPDATE source SET openalex_id = 'S99', tier = 'CANDIDATE', onboarded_at = NULL WHERE id = ?", sourceId);
+    var p = probe(w, new MockEnvironment());
+    p.handle(new Task(0, ProbeEuropePmcHandler.TYPE, "{\"sourceId\":" + sourceId + "}", TaskPriority.LIVE,
+        TaskState.RUNNING, 1, null, null, null, null, null, null));
+    // not harvested before an admin promotes it (the rollout then gives it its onboarding pass)
+    assertThat(routes.forSource(sourceId)).extracting("status").containsExactly("VERIFIED");
+  }
+
+  @Test
   void probeAddsRouteOnlyOnHits(WireMockRuntimeInfo w) throws Exception {
     stubFor(get(urlPathEqualTo("/rest/search")).withQueryParam("query", containing("1313-2989"))
         .willReturn(aResponse().withBody(EuropePmcSearchClientTest.fixture("search-core-issn.json"))));

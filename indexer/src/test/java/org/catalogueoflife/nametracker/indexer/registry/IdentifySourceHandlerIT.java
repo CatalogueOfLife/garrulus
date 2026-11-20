@@ -332,8 +332,8 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
         + "VALUES (?, ?::text[], 'Zootaxa', 'CORE', 'SEED_TOPIC', true) RETURNING id", Long.class, ZOOTAXA_OA,
         "{" + ZOOTAXA_P + "}");
     long withRoute = candidate(ZOOTAXA_E);
-    jdbc.update("INSERT INTO source_route (source_id, layer, config, status, origin) VALUES "
-        + "(?, 'EUROPEPMC', '{\"issns\":[\"1175-5334\"]}'::jsonb, 'ACTIVE', 'DISCOVERED')", withRoute);
+    jdbc.update("INSERT INTO source_route (source_id, layer, config, status, origin, last_ok) VALUES "
+        + "(?, 'EUROPEPMC', '{\"issns\":[\"1175-5334\"]}'::jsonb, 'ACTIVE', 'DISCOVERED', now())", withRoute);
     long withWork = candidate(ZOOTAXA_E);
     jdbc.update("INSERT INTO work (doi, title, origin, source_id) VALUES ('10.9999/identify.1', 'A paper', "
         + "'LIVE', ?)", withWork);
@@ -350,6 +350,40 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
     }
     assertThat(sources.get(holder).issns()).containsExactly(ZOOTAXA_P);
     assertThat(sources.get(holder).openalexId()).isEqualTo(ZOOTAXA_OA);
+  }
+
+  @Test
+  void anActiveRouteThatNeverHarvestedDoesNotKeepACandidateApart(WireMockRuntimeInfo w) throws Exception {
+    stubNothingKnown();
+    stubFor(get(urlPathEqualTo("/openalex/sources/issn:" + ZOOTAXA_E))
+        .willReturn(okJson(DoajClientTest.fixture("openalex-source-issn.json"))));
+    long holder = jdbc.queryForObject("INSERT INTO source (openalex_id, issns, title, tier, origin, active) "
+        + "VALUES (?, ?::text[], 'Zootaxa', 'CORE', 'SEED_TOPIC', true) RETURNING id", Long.class, ZOOTAXA_OA,
+        "{" + ZOOTAXA_P + "}");
+    long cand = candidate(ZOOTAXA_E);
+    jdbc.update("INSERT INTO source_route (source_id, layer, config, status, origin) VALUES "
+        + "(?, 'EUROPEPMC', '{\"issns\":[\"1175-5334\"]}'::jsonb, 'ACTIVE', 'DISCOVERED')", cand);
+
+    handler(w).handle(task(cand));
+
+    assertThat(sources.get(cand)).isNull();
+    assertThat(routes.forSource(holder)).extracting(SourceRoute::layer).containsExactly("EUROPEPMC");
+  }
+
+  @Test
+  void aFoldOfACandidatePromotedMeanwhileRollsBack() {
+    long older = jdbc.queryForObject("INSERT INTO source (issns, title, tier, origin) VALUES (?::text[], 'Older', "
+        + "'CANDIDATE', 'DOAJ') RETURNING id", Long.class, "{" + ZOOTAXA_P + "}");
+    long younger = candidate(ZOOTAXA_P);
+    signals.upsert(younger, "PKP_BEACON", "", "{}");
+    Source stale = sources.get(younger); // read as a candidate by the fold ...
+    jdbc.update("UPDATE source SET tier = 'CORE', tier_set_by = 'ADMIN' WHERE id = ?", younger); // ... then promoted
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> tx.executeWithoutResult(
+        st -> fold.foldPair(sources.get(older), stale, "test"))).isInstanceOf(IllegalStateException.class);
+
+    assertThat(sources.get(younger).tier()).isEqualTo("CORE");
+    assertThat(signals.forSource(younger)).extracting(SourceSignal::origin).containsExactly("PKP_BEACON");
   }
 
   @Test

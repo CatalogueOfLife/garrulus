@@ -10,6 +10,7 @@ import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
+import org.catalogueoflife.nametracker.indexer.route.VerifyRouteHandler;
 import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.route.SourceRoute;
@@ -115,8 +116,11 @@ public class ProbeEuropePmcHandler implements TaskHandler {
     if (issns.isEmpty() || !client.hasJournal(List.copyOf(issns))) return false;
     String config = FinderJson.mapper().writeValueAsString(Map.of("issns", List.copyOf(issns)));
     // a journal without an OpenAlex id is not onboarded by OpenAlex: VERIFIED lets the nightly rollout give it its
-    // onboarding pass (which onboards it) and its backfill; one with an id is already covered and goes live at once
-    String status = s.openalexId() == null || s.openalexId().isBlank() ? "VERIFIED" : "ACTIVE";
+    // onboarding pass (which onboards it) and its backfill; a followed one with an id is already covered and goes live
+    // at once. A candidate's route waits VERIFIED too: nothing is harvested before an admin promotes the journal, and
+    // the rollout gives it its onboarding pass then
+    boolean live = VerifyRouteHandler.followed(s) && s.openalexId() != null && !s.openalexId().isBlank();
+    String status = live ? "ACTIVE" : "VERIFIED";
     long id = routes.insert(new SourceRoute(0, s.id(), "EUROPEPMC", config, status, "DISCOVERED", null, null, null,
         null, null, null));
     routes.setVerified(id, clock.instant());

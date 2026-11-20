@@ -16,6 +16,9 @@ public interface SourceMapper {
 
   Source get(@Param("id") long id);
 
+  /** {@link #get} with a row lock ({@code FOR UPDATE}) to the end of the transaction: a concurrent fold waits. */
+  Source getForUpdate(@Param("id") long id);
+
   /** Updates all columns of the row with the argument's id and bumps modified. */
   int update(@Param("o") Source o);
 
@@ -161,19 +164,29 @@ public interface SourceMapper {
    * registrations, layer coverage, sightings, follows and {@code continued_by} references move to {@code to} (a route,
    * a classification scheme, a coverage layer or a follow the holder already has is dropped), then {@code from} is
    * deleted. Its signals move separately ({@code SourceSignalMapper.moveAll}) and its ISSNs through
-   * {@link #updateIdentity}. Call in a transaction, for a source without works. Returns the number of moved rows.
+   * {@link #updateIdentity}. A registration that waited as a candidate and lands on an EXCLUDED journal counts as a
+   * direct hit on it ({@code tier_at_identification} EXCLUDED): no admin decided anything, so no "declined" mail. Call in
+   * a transaction, for a source without works. Returns the number of moved rows; throws IllegalStateException (roll
+   * back) when {@code from} is no longer a candidate without admin curation, e.g. promoted since the fold read it.
    */
   default int foldInto(long from, long to) {
     int moved = moveToHolder(from, to);
-    delete(from);
+    if (deleteFoldable(from) != 1) {
+      // promoted or curated by an admin after the fold read it (or gone): the caller's transaction must roll back
+      throw new IllegalStateException("Source " + from + " is no longer a foldable candidate; fold into " + to
+          + " abandoned");
+    }
     return moved;
   }
 
   /** The moves of {@link #foldInto} in one statement; returns the number of moved rows. */
   int moveToHolder(@Param("from") long from, @Param("to") long to);
 
-  /** Deletes the source; its signals, routes, raw rows, samples and coverage go with it (cascade). */
-  int delete(@Param("id") long id);
+  /**
+   * Deletes the source while it is still a CANDIDATE whose tier no admin set (a concurrent promotion wins); its signals,
+   * routes, raw rows, samples and coverage go with it (cascade). Returns 0 when it was not deleted.
+   */
+  int deleteFoldable(@Param("id") long id);
 
   /** Stores the candidate score and stamps candidate_scored_at. */
   int setCandidateScore(@Param("id") long id, @Param("score") float score);

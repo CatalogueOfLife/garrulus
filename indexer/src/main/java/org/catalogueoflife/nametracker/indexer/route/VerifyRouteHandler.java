@@ -58,10 +58,11 @@ public class VerifyRouteHandler implements TaskHandler {
   private final SourceMapper sources;
   private final OaiLayer oaiLayer;
   private final HarvestOutage outage;
+  private final TaskQueue queue;
   private final Clock clock;
 
   public VerifyRouteHandler(PoliteHttp http, SourceRouteMapper routes, SourceMapper sources, OaiLayer oaiLayer,
-      HarvestOutage outage, Clock clock,
+      HarvestOutage outage, TaskQueue queue, Clock clock,
       @Value("${nametracker.europepmc.base-url:https://www.ebi.ac.uk/europepmc/webservices}") String europePmcUrl) {
     this.oai = new OaiPmhClient(http);
     this.magtech = new MagtechClient(http);
@@ -70,6 +71,7 @@ public class VerifyRouteHandler implements TaskHandler {
     this.sources = sources;
     this.oaiLayer = oaiLayer;
     this.outage = outage;
+    this.queue = queue;
     this.clock = clock;
   }
 
@@ -106,6 +108,24 @@ public class VerifyRouteHandler implements TaskHandler {
     return n;
   }
 
+  /**
+   * A followed journal without an OpenAlex id that is not onboarded yet waits for its route's onboarding pass
+   * ({@code ONBOARD_SOURCE}); once its last usable route (PENDING, VERIFIED or ACTIVE) is BROKEN, onboarding runs again
+   * at once (the Crossref way) instead of at the monthly seeding. Same task and dedup key as the seeder.
+   */
+  private void onboardWithoutRoute(@Nullable Source owner) {
+    if (!followed(owner) || owner.onboardedAt() != null || !Boolean.TRUE.equals(owner.active())
+        || (owner.openalexId() != null && !owner.openalexId().isBlank())) {
+      return;
+    }
+    for (SourceRoute r : routes.forSource(owner.id())) {
+      if (Set.of("PENDING", "VERIFIED", "ACTIVE").contains(r.status())) return;
+    }
+    LOG.info("Source {} ({}) lost its last usable route before onboarding: ONBOARD_SOURCE again", owner.id(),
+        owner.title());
+    queue.enqueue("ONBOARD_SOURCE", "{\"sourceId\":" + owner.id() + "}", TaskPriority.BACKFILL, "onboard:" + owner.id());
+  }
+
   @Override
   public void handle(Task task) {
     long routeId = FinderJson.mapper().readTree(task.payload()).path("routeId").asLong(0);
@@ -140,6 +160,7 @@ public class VerifyRouteHandler implements TaskHandler {
     if (reason != null) {
       routes.setStatus(route.id(), "BROKEN", reason);
       LOG.warn("Route {} ({} of source {}) is BROKEN: {}", route.id(), route.layer(), route.sourceId(), reason);
+      onboardWithoutRoute(owner);
       return;
     }
     routes.setVerified(route.id(), clock.instant());

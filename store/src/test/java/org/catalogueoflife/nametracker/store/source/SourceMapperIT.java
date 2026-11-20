@@ -13,6 +13,7 @@ class SourceMapperIT extends AbstractPostgresIT {
   @Autowired SourceMapper sources;
   @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
   @Autowired org.apache.ibatis.session.SqlSessionFactory sqlSessions;
+  @Autowired org.catalogueoflife.nametracker.store.registry.RegistrationMapper registrations;
 
   private static Source source(String openalexId, String title, String tier) {
     return new Source(null, openalexId, "1111-2222", List.of("1111-2222"), title, "Pub", "host", true, true, tier,
@@ -112,6 +113,51 @@ class SourceMapperIT extends AbstractPostgresIT {
     });
     assertThat(String.join("\n", plan)).contains("source_issns_idx").contains("source_issn_l_idx")
         .doesNotContain("Seq Scan");
+  }
+
+  @Test
+  void foldDeletesOnlyAFoldableCandidate() {
+    long keep = jdbc.queryForObject("INSERT INTO source (title, origin) VALUES ('Keep', 'MANUAL') RETURNING id", Long.class);
+    long promoted = jdbc.queryForObject("INSERT INTO source (title, origin, tier, tier_set_by) VALUES ('Promoted', "
+        + "'DOAJ', 'CORE', 'ADMIN') RETURNING id", Long.class);
+    long curated = jdbc.queryForObject("INSERT INTO source (title, origin, tier, tier_set_by) VALUES ('Curated', "
+        + "'DOAJ', 'CANDIDATE', 'ADMIN') RETURNING id", Long.class);
+    // an admin promoted it after the fold read it as a candidate: the delete finds nothing and the fold fails
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> sources.foldInto(promoted, keep))
+        .isInstanceOf(IllegalStateException.class).hasMessageContaining(String.valueOf(promoted));
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> sources.foldInto(curated, keep))
+        .isInstanceOf(IllegalStateException.class);
+    assertThat(sources.get(promoted)).isNotNull();
+    assertThat(sources.get(curated)).isNotNull();
+  }
+
+  @Test
+  void aRegistrationFoldedIntoAnExcludedJournalIsNoAdminDecision() {
+    long user = jdbc.queryForObject("INSERT INTO app_user (email) VALUES ('fold-excluded@store.test') RETURNING id",
+        Long.class);
+    long excluded = jdbc.queryForObject("INSERT INTO source (title, origin, tier, active) VALUES ('Nope', 'MANUAL', "
+        + "'EXCLUDED', false) RETURNING id", Long.class);
+    long core = jdbc.queryForObject("INSERT INTO source (title, origin, tier) VALUES ('Yes', 'MANUAL', 'CORE') "
+        + "RETURNING id", Long.class);
+    long a = jdbc.queryForObject("INSERT INTO source (title, origin) VALUES ('A', 'DOAJ') RETURNING id", Long.class);
+    long b = jdbc.queryForObject("INSERT INTO source (title, origin) VALUES ('B', 'DOAJ') RETURNING id", Long.class);
+    long toExcluded = jdbc.queryForObject("INSERT INTO source_registration (user_id, kind, input, state, outcome, "
+        + "source_id, tier_at_identification) VALUES (?, 'ISSN', 'x', 'IDENTIFIED', 'NEW_CANDIDATE', ?, 'CANDIDATE') "
+        + "RETURNING id", Long.class, user, a);
+    long toCore = jdbc.queryForObject("INSERT INTO source_registration (user_id, kind, input, state, outcome, "
+        + "source_id, tier_at_identification) VALUES (?, 'ISSN', 'y', 'IDENTIFIED', 'NEW_CANDIDATE', ?, 'CANDIDATE') "
+        + "RETURNING id", Long.class, user, b);
+    try {
+      sources.foldInto(a, excluded);
+      sources.foldInto(b, core);
+      // like a direct hit on the excluded journal: nobody declined anything, no mail; the followed one is accepted
+      assertThat(jdbc.queryForObject("SELECT tier_at_identification FROM source_registration WHERE id = ?",
+          String.class, toExcluded)).isEqualTo("EXCLUDED");
+      assertThat(registrations.claimDecisions(10)).extracting(
+          org.catalogueoflife.nametracker.store.registry.RegistrationMapper.Decision::id).containsExactly(toCore);
+    } finally {
+      jdbc.update("DELETE FROM app_user WHERE id = ?", user);
+    }
   }
 
   @Test
