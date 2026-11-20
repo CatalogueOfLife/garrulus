@@ -351,6 +351,16 @@ class CoverageCheckHandlerIT extends AbstractPostgresIT {
   }
 
   @Test
+  void aCheckOfAnOlderDayWritesNoStaleNotice() throws Exception {
+    blocked();
+    check(DAY);
+    LocalDate earlier = DAY.minusDays(10); // a day the layer was fine, checked again by hand
+    check(earlier);
+    assertThat(row(Layer.OPENALEX, earlier).state()).isEqualTo("OK");
+    assertThat(noticeKeys()).containsExactly("layer-failing:OPENALEX:" + DAY);
+  }
+
+  @Test
   void stillFailingRemindsWeekly() throws Exception {
     blocked();
     for (int i = 1; i <= 8; i++) run("OPENALEX_LIVE", "FAILED", DAY.plusDays(i));

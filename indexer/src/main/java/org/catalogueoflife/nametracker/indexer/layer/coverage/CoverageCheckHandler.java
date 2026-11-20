@@ -178,6 +178,9 @@ public class CoverageCheckHandler implements TaskHandler {
       double median, double missShare) {
     String name = layer.name();
     AdminNotice latest = notices.latestForLayer(name);
+    if (latest != null && day.isBefore(noticeDay(latest))) {
+      return; // a check of an older day (by hand) says nothing about the layer now: no stale notice
+    }
     boolean failingBefore = latest != null && !"LAYER_RECOVERED".equals(latest.kind());
     String kind;
     String key;

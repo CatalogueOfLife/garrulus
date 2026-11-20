@@ -198,6 +198,7 @@ public class PoliteHttp {
     AtomicBoolean tooLarge = new AtomicBoolean();
     int throttled = 0;
     int failed = 0;
+    boolean dnsRetried = false;
     while (true) {
       Duration wait;
       try {
@@ -221,13 +222,18 @@ public class PoliteHttp {
         if (tooLarge.get()) {
           throw new HttpProblem(safe, 0, false, "response larger than " + maxResponseBytes + " bytes: " + safe, e);
         }
-        if (unknownHost(e)) { // a name that does not resolve now will not resolve in a few seconds either
-          throw new HttpProblem(safe, 0, false, "Unknown host: " + safe, e);
+        if (unknownHost(e)) {
+          // one more lookup after a short pause (a resolver hiccup); a name that still does not resolve is an unknown
+          // host, and a route that names it is BROKEN
+          if (dnsRetried) throw new HttpProblem(safe, 0, false, "Unknown host: " + safe, e);
+          dnsRetried = true;
+          wait = ERROR_BACKOFF[0];
+        } else {
+          if (failed >= ERROR_BACKOFF.length) {
+            throw new HttpProblem(safe, 0, true, "I/O failure after " + failed + " retries: " + safe, e);
+          }
+          wait = ERROR_BACKOFF[failed++];
         }
-        if (failed >= ERROR_BACKOFF.length) {
-          throw new HttpProblem(safe, 0, true, "I/O failure after " + failed + " retries: " + safe, e);
-        }
-        wait = ERROR_BACKOFF[failed++];
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new HttpProblem(safe, 0, false, "Interrupted: " + safe, e);
@@ -283,13 +289,16 @@ public class PoliteHttp {
     return next;
   }
 
-  /** A non-retryable problem unless the URL may be fetched; a name that does not resolve is an unknown host. */
-  private void refuseUnlessPublic(URI uri) {
+  /**
+   * A non-retryable problem unless the URL may be fetched; a name that does not resolve is an {@link UnknownHostException}
+   * (an I/O failure that {@link #get} retries once).
+   */
+  private void refuseUnlessPublic(URI uri) throws UnknownHostException {
     PublicHost.Checked c = hosts.check(uri);
     if (c.ok()) return;
     URI safe = redact(uri);
-    if (c.unresolved()) {
-      throw new HttpProblem(safe, 0, false, "Unknown host: " + safe, new UnknownHostException(uri.getHost()));
+    if (c.unresolved()) { // an I/O failure: get() asks once more before it gives up
+      throw new UnknownHostException("Unknown host: " + safe);
     }
     throw new HttpProblem(safe, 0, false, "not a public host (" + c.problem() + "): " + safe, null);
   }

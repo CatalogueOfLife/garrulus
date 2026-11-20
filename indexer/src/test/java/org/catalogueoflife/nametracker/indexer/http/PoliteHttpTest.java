@@ -53,7 +53,7 @@ class PoliteHttpTest {
   }
 
   @Test
-  void unknownHostIsNotRetried() {
+  void unknownHostIsAskedOnceMoreThenGivenUp() {
     FakeTime t = new FakeTime();
     // .invalid never resolves (RFC 6761), so the lookup fails at once
     HttpProblem p = assertThrows(HttpProblem.class,
@@ -62,7 +62,7 @@ class PoliteHttpTest {
     assertEquals(0, p.status());
     assertTrue(p.getMessage().contains("Unknown host"), p.getMessage());
     assertFalse(p.getMessage().contains("secret"), p.getMessage());
-    assertEquals(List.of(), t.sleeps);
+    assertEquals(List.of(java.time.Duration.ofSeconds(2)), t.sleeps); // one pause for a resolver hiccup, no more
   }
 
   @Test
@@ -310,6 +310,35 @@ class PoliteHttpTest {
   void aRedirectWithoutLocationIsTheAnswer(WireMockRuntimeInfo w) {
     stubFor(get("/nowhere").willReturn(aResponse().withStatus(302)));
     assertEquals(302, checked(new FakeTime(), w).get(uri(w, "/nowhere"), Map.of()).statusCode());
+  }
+
+  @Test
+  void aNameThatDoesNotResolveOnceIsAskedAgain(WireMockRuntimeInfo w) {
+    stubFor(get("/oai").willReturn(ok("ok")));
+    java.util.concurrent.atomic.AtomicInteger lookups = new java.util.concurrent.atomic.AtomicInteger();
+    PublicHost flaky = new PublicHost(host -> {
+      if (lookups.incrementAndGet() == 1) throw new java.net.UnknownHostException(host);
+      return new java.net.InetAddress[] {java.net.InetAddress.getLoopbackAddress()};
+    }, java.util.Set.of("localhost"));
+    FakeTime t = new FakeTime();
+    HttpResponse<byte[]> r = checked(t, flaky).get(URI.create("http://localhost:" + w.getHttpPort() + "/oai"), Map.of());
+    assertEquals(200, r.statusCode());
+    assertEquals(2, lookups.get());
+    assertFalse(t.sleeps.isEmpty()); // a short pause before the second lookup
+  }
+
+  @Test
+  void aNameThatStillDoesNotResolveIsAnUnknownHost(WireMockRuntimeInfo w) {
+    java.util.concurrent.atomic.AtomicInteger lookups = new java.util.concurrent.atomic.AtomicInteger();
+    PublicHost dead = new PublicHost(host -> {
+      lookups.incrementAndGet();
+      throw new java.net.UnknownHostException(host);
+    }, java.util.Set.of("localhost"));
+    HttpProblem p = assertThrows(HttpProblem.class, () -> checked(new FakeTime(), dead)
+        .get(URI.create("http://localhost:" + w.getHttpPort() + "/oai"), Map.of()));
+    assertFalse(p.retryable());
+    assertTrue(PoliteHttp.unknownHost(p), p.toString());
+    assertEquals(2, lookups.get());
   }
 
   @Test

@@ -35,6 +35,15 @@ class HarvestConfigTest {
   }
 
   @Test
+  void theMatchBaseUrlHostIsNotThrottled() {
+    MockEnvironment env = new MockEnvironment().withProperty("nametracker.clb.match-base-url", "http://clb-box.lan:18100");
+    ConfigurationPropertySources.attach(env);
+    assertThat(HarvestConfig.intervals(env)).containsEntry("clb-box.lan", Duration.ZERO);
+    env.withProperty("nametracker.http.min-interval.clb-box.lan", "50ms");
+    assertThat(HarvestConfig.intervals(env)).containsEntry("clb-box.lan", Duration.ofMillis(50));
+  }
+
+  @Test
   void configuredServiceAuthoritiesAreTrusted() {
     MockEnvironment env = new MockEnvironment()
         .withProperty("nametracker.clb.match-base-url", "http://clb-box.lan:18100")
