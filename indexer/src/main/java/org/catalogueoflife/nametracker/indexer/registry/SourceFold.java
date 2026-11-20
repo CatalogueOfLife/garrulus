@@ -1,11 +1,13 @@
 package org.catalogueoflife.nametracker.indexer.registry;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
+import org.catalogueoflife.nametracker.store.ident.SourceIdentifierMapper;
 import org.catalogueoflife.nametracker.store.registry.SourceSignalMapper;
 import org.catalogueoflife.nametracker.store.route.SourceRoute;
 import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
@@ -26,8 +28,8 @@ import org.springframework.stereotype.Component;
  * fold (an ACTIVE route counts once it harvested). So a candidate folds into a followed (or admin-curated, or EXCLUDED) partner whatever the ids, and of two
  * foldable candidates the younger (higher id) folds into the older. When neither may fold, both stay apart with a WARN,
  * like {@code MERGE_WORKS} refuses works with different DOIs. A fold moves the loser's ISSNs, OpenAlex id (deleted
- * first, then set: the column is unique), signals, routes, raw classifications, samples, registrations and follows to
- * the survivor and deletes it; when the survivor is CORE or BROAD, its PENDING routes (the moved ones among them) get
+ * first, then set: the column is unique), signals, routes, raw classifications, samples, registrations, follows, lookup identifiers (ON CONFLICT DO NOTHING) and
+ * languages (a union) to the survivor and deletes it; when the survivor is CORE or BROAD, its PENDING routes (the moved ones among them) get
  * {@code VERIFY_ROUTE}.
  */
 @Component
@@ -38,11 +40,13 @@ public class SourceFold {
   private final SourceMapper sources;
   private final SourceSignalMapper signals;
   private final SourceRouteMapper routes;
+  private final SourceIdentifierMapper identifiers;
   private final IdentityLocks locks;
   private final TaskQueue queue;
 
-  public SourceFold(SourceMapper sources, SourceSignalMapper signals, SourceRouteMapper routes, IdentityLocks locks,
-      TaskQueue queue) {
+  public SourceFold(SourceMapper sources, SourceSignalMapper signals, SourceRouteMapper routes,
+      SourceIdentifierMapper identifiers, IdentityLocks locks, TaskQueue queue) {
+    this.identifiers = identifiers;
     this.queue = queue;
     this.sources = sources;
     this.signals = signals;
@@ -93,6 +97,8 @@ public class SourceFold {
       survivor = younger;
     }
     int movedSignals = signals.moveAll(loser.id(), survivor.id());
+    int movedIds = identifiers.moveAll(loser.id(), survivor.id()); // lookup identifiers; the delete would cascade them
+    unionLanguages(loser.id(), survivor.id());
     int moved = sources.foldInto(loser.id(), survivor.id());
     boolean placeholder = JournalCompletion.placeholderTitle(survivor) && !JournalCompletion.placeholderTitle(loser);
     sources.updateIdentity(survivor.id(), survivor.issnL() == null ? loser.issnL() : null, loser.issns(),
@@ -103,9 +109,16 @@ public class SourceFold {
       // the candidate's routes now belong to a followed journal: verify them as a promotion would
       VerifyRouteHandler.enqueuePending(routes, queue, survivor.id(), TaskPriority.BACKFILL);
     }
-    LOG.info("Folded source {} ({}) into source {} ({}) by {}: {} signals and {} other rows moved", loser.id(),
-        loser.title(), survivor.id(), survivor.title(), why, movedSignals, moved);
+    LOG.info("Folded source {} ({}) into source {} ({}) by {}: {} signals, {} identifiers and {} other rows moved",
+        loser.id(), loser.title(), survivor.id(), survivor.title(), why, movedSignals, movedIds, moved);
     return survivor.id();
+  }
+
+  /** The survivor's journal languages gain those of the loser it absorbs. */
+  private void unionLanguages(long loser, long survivor) {
+    List<String> union = new ArrayList<>(sources.languages(survivor));
+    for (String l : sources.languages(loser)) if (!union.contains(l)) union.add(l);
+    sources.setLanguages(survivor, union);
   }
 
   /**

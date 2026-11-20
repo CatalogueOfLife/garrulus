@@ -185,6 +185,8 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
     assertThat(jdbc.queryForObject("SELECT payload FROM task WHERE type = 'PROBE_EUROPEPMC'", String.class))
         .containsPattern("\"sourceId\": ?" + id + "\\b");
     verify(0, getRequestedFor(urlPathEqualTo("/crossref/journals/" + ZOOTAXA_E))); // the ISSN-L answered first
+    assertThat(jdbc.queryForList("SELECT dedup_key FROM task WHERE type = 'LINK_SOURCE'", String.class))
+        .containsExactly("link:s" + id + ":" + java.time.YearMonth.now(java.time.ZoneOffset.UTC));
   }
 
   @Test
@@ -295,6 +297,10 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
         String.valueOf(cand));
     long successor = candidate("0000-0027");
     jdbc.update("UPDATE source SET continued_by = ? WHERE id = ?", cand, successor);
+    jdbc.update("INSERT INTO source_identifier (source_id, scheme, value, origin) VALUES (?, 'BPH', '7', 'LINK:t'), "
+        + "(?, 'BHL_TITLE', '99', 'LINK:t'), (?, 'WIKIDATA', 'Q5', 'LINK:t')", holder, cand, cand);
+    jdbc.update("UPDATE source SET languages = '{en}' WHERE id = ?", holder);
+    jdbc.update("UPDATE source SET languages = '{de,en}' WHERE id = ?", cand);
 
     handler(w).handle(task(cand));
 
@@ -321,6 +327,13 @@ class IdentifySourceHandlerIT extends AbstractPostgresIT {
     assertThat(sources.get(successor).continuedBy()).isEqualTo(holder);
     assertThat(jdbc.queryForObject("SELECT payload FROM task WHERE type = 'PROBE_EUROPEPMC'", String.class))
         .containsPattern("\"sourceId\": ?" + holder + "\\b");
+    // the lookup identifiers and the languages of the folded candidate moved, nothing cascaded away
+    assertThat(jdbc.queryForList("SELECT scheme || ':' || value FROM source_identifier WHERE source_id = ? ORDER BY 1",
+        String.class, holder)).containsExactly("BHL_TITLE:99", "BPH:7", "WIKIDATA:Q5");
+    assertThat(sources.languages(holder)).containsExactly("en", "de");
+    // the identifier lookups follow for the survivor, not for the id that was folded away
+    assertThat(jdbc.queryForList("SELECT payload FROM task WHERE type = 'LINK_SOURCE'", String.class))
+        .singleElement().asString().containsPattern("\"sourceId\": ?" + holder + "\\b");
   }
 
   @Test

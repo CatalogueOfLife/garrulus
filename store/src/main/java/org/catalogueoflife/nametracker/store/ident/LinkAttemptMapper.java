@@ -17,6 +17,9 @@ public interface LinkAttemptMapper {
   int record(@Param("entity") char entity, @Param("subjectId") long subjectId, @Param("lookup") String lookup,
       @Param("found") boolean found, @Param("nextTry") @Nullable Instant nextTry);
 
+  /** The rows of the given subjects (one lookup or all). */
+  List<LinkAttempt> forSubjects(@Param("entity") char entity, @Param("ids") List<Long> ids);
+
   /** Rows of the entity whose next_try has come, oldest first. */
   List<LinkAttempt> due(@Param("entity") char entity, @Param("now") Instant now, @Param("limit") int limit);
 

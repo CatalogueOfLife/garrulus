@@ -1,5 +1,7 @@
 package org.catalogueoflife.nametracker.indexer.registry;
 
+import java.time.YearMonth;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -11,6 +13,7 @@ import java.util.function.ToLongFunction;
 import org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException;
 import org.catalogueoflife.nametracker.indexer.crossref.CrossrefClient;
 import org.catalogueoflife.nametracker.indexer.layer.europepmc.ProbeEuropePmcHandler;
+import org.catalogueoflife.nametracker.indexer.link.LinkSourceHandler;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClassifications;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient;
 import org.catalogueoflife.nametracker.indexer.route.VerifyRouteHandler;
@@ -47,7 +50,8 @@ import tools.jackson.databind.JsonNode;
  *   subjects, a discontinued date and successor ISSNs, the country when there is none;</li>
  *   <li>the PKP Beacon rows of its ISSNs: an OAI route hint (PENDING; {@code VERIFY_ROUTE} at once for a CORE or BROAD
  *   source, after the promotion for a candidate) unless the source has an OAI route with that base and set;</li>
- *   <li>a Europe PMC probe ({@code PROBE_EUROPEPMC}) and the derived disciplines.</li>
+ *   <li>a Europe PMC probe ({@code PROBE_EUROPEPMC}), the derived disciplines and {@code LINK_SOURCE} (the identifier
+ *   lookups) of the source that holds the journal at the end.</li>
  * </ol>
  * Every write is an upsert that changes nothing on a repeat, so a step that meets an outage lets the whole completion
  * run again later. Identity writes take the registry's locks ({@link IdentityLocks}) and, in the same
@@ -112,6 +116,8 @@ public class JournalCompletion {
     beaconRoutes(s, priority);
     ProbeEuropePmcHandler.enqueue(queue, id);
     disciplines.apply(id);
+    // the identifier lookups run for the source that holds the journal now (a fold may have changed the id), once a month
+    LinkSourceHandler.enqueue(queue, id, TaskPriority.BACKFILL, "link:s" + id + ":" + YearMonth.now(ZoneOffset.UTC));
   }
 
   /** Gone, or folded into a ceased journal (which gets no calls): the completion ends there. */

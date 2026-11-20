@@ -2,6 +2,9 @@ package org.catalogueoflife.nametracker.indexer.match;
 
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
+import org.catalogueoflife.nametracker.indexer.link.LinkWorkHandler;
+import org.catalogueoflife.nametracker.store.task.TaskPriority;
+import org.jspecify.annotations.Nullable;
 import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
@@ -22,7 +25,8 @@ import org.springframework.stereotype.Component;
  * run_after), so it is placed in the new release; so it is when the live index of a re-indexed work changed while it was
  * placed in this release for the previous matches (see {@link WorkPlacer#place(long, int)}). A CLB
  * outage, or a local bundle serving another release than the pinned one, defers the task without using an attempt;
- * nothing is written then. See {@link WorkPlacer} for names CLB cannot match.
+ * nothing is written then. The first indexing of a work (no {@code first_indexed_at} before) also enqueues
+ * {@code LINK_WORK} at BACKFILL, key {@code link:w<id>}. See {@link WorkPlacer} for names CLB cannot match.
  */
 @Component
 public class MatchNamesHandler implements TaskHandler {
@@ -35,10 +39,12 @@ public class MatchNamesHandler implements TaskHandler {
   private final WorkIndexing indexing;
   private final HarvestOutage outage;
   private final TaskQueue queue;
+  private final @Nullable IndexMapper index;
 
   @Autowired
   public MatchNamesHandler(XrReleaseService xr, WorkPlacer placer, WorkIndexing indexing, HarvestOutage outage,
-      TaskQueue queue) {
+      TaskQueue queue, IndexMapper index) {
+    this.index = index;
     this.xr = xr;
     this.placer = placer;
     this.indexing = indexing;
@@ -48,7 +54,18 @@ public class MatchNamesHandler implements TaskHandler {
 
   public MatchNamesHandler(IndexMapper index, MatchCache cache, XrReleaseService xr, WorkIndexing indexing,
       HarvestOutage outage, TaskQueue queue) {
-    this(xr, new WorkPlacer(index, cache, outage), indexing, outage, queue);
+    this(xr, new WorkPlacer(index, cache, outage), indexing, outage, queue, index);
+  }
+
+  /** Without an index mapper the handler never enqueues {@code LINK_WORK} (for tests that race the indexing). */
+  public MatchNamesHandler(XrReleaseService xr, WorkPlacer placer, WorkIndexing indexing, HarvestOutage outage,
+      TaskQueue queue) {
+    this.index = null;
+    this.xr = xr;
+    this.placer = placer;
+    this.indexing = indexing;
+    this.outage = outage;
+    this.queue = queue;
   }
 
   @Override
@@ -68,6 +85,8 @@ public class MatchNamesHandler implements TaskHandler {
       LOG.warn("Deferring MATCH_NAMES of work {}: {}", workId, e.getMessage());
       throw new ServiceOutageException(ClbClient.SERVICE, outage.retryAt(), e);
     }
+    // read before the indexing sets it: a re-index never asks the lookups again
+    boolean firstIndexing = index != null && index.firstIndexedAt(workId) == null;
     switch (indexing.index(workId, placed, key)) {
       case STALE -> {
         LOG.debug("MATCH_NAMES of work {} is stale: its index changed while the names were placed", workId);
@@ -88,6 +107,9 @@ public class MatchNamesHandler implements TaskHandler {
         return;
       }
       case INDEXED -> { }
+    }
+    if (firstIndexing) {
+      LinkWorkHandler.enqueue(queue, workId, TaskPriority.BACKFILL, "link:w" + workId);
     }
     // hit evaluation follows the indexing and takes this task's place in the queue
     queue.enqueue("EVALUATE_HITS", "{\"workId\":" + workId + "}", task.priority(), null, task.runAfter());

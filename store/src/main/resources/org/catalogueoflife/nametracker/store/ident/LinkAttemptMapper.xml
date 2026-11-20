@@ -28,6 +28,17 @@
       SET attempts = link_attempt.attempts + 1, last_tried = now(), next_try = EXCLUDED.next_try, found = EXCLUDED.found
   </insert>
 
+  <select id="forSubjects" resultMap="attempt">
+    <choose>
+      <when test="ids != null and !ids.isEmpty()">
+        SELECT <include refid="cols"/> FROM link_attempt
+        WHERE entity = #{entity}::char(1) AND subject_id IN
+        <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+      </when>
+      <otherwise>SELECT <include refid="cols"/> FROM link_attempt WHERE false</otherwise>
+    </choose>
+  </select>
+
   <select id="due" resultMap="attempt">
     SELECT <include refid="cols"/> FROM link_attempt
     WHERE entity = #{entity}::char(1) AND next_try IS NOT NULL AND next_try &lt;= #{now}
@@ -38,6 +49,7 @@
     SELECT subject_id FROM (
       SELECT DISTINCT subject_id FROM link_attempt
       WHERE entity = #{entity}::char(1) AND next_try IS NOT NULL AND next_try &lt;= #{now}
+        AND (entity = 'W' OR NOT EXISTS (SELECT 1 FROM source c WHERE c.id = subject_id AND c.publication_status = 'CEASED'))
     ) d ORDER BY subject_id LIMIT #{limit}
   </select>
 

@@ -260,7 +260,7 @@ class CrossrefHarvestHandlerIT extends AbstractPostgresIT {
     assertThat(w.abstractJatsSource()).isEqualTo("CROSSREF");
     assertThat(works.findByDoi(DOI2)).isNotNull();
     assertThat(jdbc.queryForList("SELECT scheme || ':' || value FROM work_identifier WHERE work_id = ?",
-        String.class, w.id())).containsExactly("DOI:" + DOI1);
+        String.class, w.id())).containsExactlyInAnyOrder("DOI:" + DOI1, "CROSSREF:" + DOI1);
     assertThat(jdbc.queryForList("SELECT layer FROM work_sighting WHERE work_id = ?", String.class, w.id()))
         .containsExactly("CROSSREF");
   }

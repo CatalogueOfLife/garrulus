@@ -9,6 +9,8 @@ import java.util.Locale;
 import java.util.Map;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.openalex.WorkRecord;
+import org.catalogueoflife.nametracker.store.ident.IdScheme;
+import org.catalogueoflife.nametracker.store.ident.Identifier;
 import org.catalogueoflife.nametracker.store.work.TitleText;
 import org.catalogueoflife.nametracker.store.work.WorkUpsert;
 import org.jspecify.annotations.Nullable;
@@ -21,6 +23,14 @@ import tools.jackson.databind.JsonNode;
 public final class CrossrefWorks {
 
   private CrossrefWorks() {
+  }
+
+  /** The record's identifiers and its Crossref DOI: a work the Crossref layer stores is a Crossref work. */
+  public static List<Identifier> identifiers(WorkRecord rec) {
+    List<Identifier> ids = new ArrayList<>(rec.identifiers());
+    Identifier c = IdScheme.id(IdScheme.CROSSREF, rec.doi());
+    if (c != null) ids.add(c);
+    return ids;
   }
 
   public static WorkRecord parse(JsonNode w) {

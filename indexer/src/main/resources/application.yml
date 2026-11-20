@@ -203,3 +203,10 @@ nametracker:
     ubiquity: 0.50
     ubiquity-full-share: 0.02
     threshold: 0.35
+
+  links:
+    # identifier lookups of works and journals (LINK_WORK, LINK_SOURCE); every lookup has nametracker.links.<name>.enabled
+    # (default true), all are off with enabled=false. Schedules are UTC, six fields, behind the harvest switch.
+    enabled: ${NAMETRACKER_LINKS_ENABLED:true}
+    source-cron: ${NAMETRACKER_LINKS_SOURCE_CRON:0 45 1 2 * *}
+    retry-cron: ${NAMETRACKER_LINKS_RETRY_CRON:0 15 6 * * *}
