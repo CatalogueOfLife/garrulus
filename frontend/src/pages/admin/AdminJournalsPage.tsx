@@ -11,16 +11,20 @@ import { QueryState } from './adminUi';
 const PAGE = 50;
 const ORIGINS = ['SEED_TOPIC', 'SEED_LIST', 'DISCOVERED', 'MANUAL', 'DOAJ', 'PKP_BEACON', 'PLAZI', 'COL_REFERENCES', 'BLR', 'REGISTERED'];
 const TIERS = ['CANDIDATE', 'CORE', 'BROAD', 'EXCLUDED'];
+/** The URL value of the "any tier" choice: no tier filter (dormancy and revival proposals are not candidates). */
+const ANY_TIER = 'ANY';
 
 const fmt = (n?: number | null, d = 1) => (n === null || n === undefined ? '–' : n.toFixed(d));
 
 function filterOf(p: URLSearchParams): AdminSourceFilter {
   const status = p.get('status');
+  const tier = p.get('tier') ?? 'CANDIDATE';
   return {
-    tier: p.get('tier') ?? 'CANDIDATE', origin: p.get('origin') || undefined, country: p.get('country') || undefined,
+    tier: tier === ANY_TIER ? undefined : tier, origin: p.get('origin') || undefined, country: p.get('country') || undefined,
     publicationStatus: status === 'ACTIVE' || status === 'CEASED' ? status : undefined,
     dormant: status === 'dormant' ? true : undefined,
     registered: p.get('registered') === '1' ? true : undefined, proposal: p.get('proposal') === '1' ? true : undefined,
+    revival: p.get('revival') === '1' ? true : undefined,
     q: p.get('q') || undefined, limit: PAGE, offset: Number(p.get('offset')) || 0,
   };
 }
@@ -66,7 +70,8 @@ export function AdminJournalsPage() {
     <div>
       <h1 className={styles.pageTitle}>Journals</h1>
       <div className={classes.filters}>
-        <NativeSelect label="Tier" value={f.tier} onChange={(e) => set('tier', e.target.value)} data={TIERS} />
+        <NativeSelect label="Tier" value={params.get('tier') ?? 'CANDIDATE'} onChange={(e) => set('tier', e.target.value)}
+          data={[...TIERS, { value: ANY_TIER, label: 'Any' }]} />
         <NativeSelect label="Origin" value={f.origin ?? ''} onChange={(e) => set('origin', e.target.value)}
           data={[{ value: '', label: 'Any' }, ...ORIGINS]} />
         <TextInput label="Country" value={country} maxLength={2} w={90}
@@ -74,7 +79,8 @@ export function AdminJournalsPage() {
         <NativeSelect label="Status" value={params.get('status') ?? ''} onChange={(e) => set('status', e.target.value)}
           data={[{ value: '', label: 'Any' }, 'ACTIVE', 'CEASED', 'dormant']} />
         <Checkbox label="Registered only" checked={params.get('registered') === '1'} onChange={(e) => set('registered', e.target.checked ? '1' : null)} />
-        <Checkbox label="Proposals only" checked={params.get('proposal') === '1'} onChange={(e) => set('proposal', e.target.checked ? '1' : null)} />
+        <Checkbox label="Tier proposals only" checked={params.get('proposal') === '1'} onChange={(e) => set('proposal', e.target.checked ? '1' : null)} />
+        <Checkbox label="Revival proposals only" checked={params.get('revival') === '1'} onChange={(e) => set('revival', e.target.checked ? '1' : null)} />
       </div>
       <QueryState query={q}>
         {q.data && (

@@ -39,6 +39,22 @@ describe('AdminJournalsPage', () => {
     await userEvent.setup().selectOptions(screen.getByLabelText('Origin'), 'PLAZI');
     await waitFor(() => expect(seen.at(-1)).toContain('origin=PLAZI'));
   });
+  it('anyTierAndRevivalFilters', async () => {
+    const seen: URLSearchParams[] = [];
+    server.use(http.get('/api/admin/sources', ({ request }) => {
+      seen.push(new URL(request.url).searchParams);
+      return HttpResponse.json({ total: 0, items: [] });
+    }));
+    renderApp(<AdminJournalsPage />, '/admin/journals');
+    await waitFor(() => expect(seen).toHaveLength(1));
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByLabelText('Tier'), 'Any');
+    await waitFor(() => expect(seen.at(-1)?.has('tier')).toBe(false));
+    expect(seen.at(-1)?.get('sort')).toBeNull();
+    await user.click(screen.getByLabelText('Revival proposals only'));
+    await waitFor(() => expect(seen.at(-1)?.get('revival')).toBe('true'));
+    expect(seen.at(-1)?.has('tier')).toBe(false);
+  });
   it('showsNotAdminOn403', async () => {
     server.use(http.get('/api/admin/sources', () => new HttpResponse(null, { status: 403 })));
     renderApp(<AdminJournalsPage />, '/admin/journals');

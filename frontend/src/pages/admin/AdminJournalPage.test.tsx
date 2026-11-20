@@ -79,6 +79,17 @@ describe('AdminJournalPage', () => {
     await user.type(year, '1800');
     expect(screen.getByRole('button', { name: 'Cease' })).toBeEnabled();
   });
+  it('activatingAnUnverifiedRouteAsksFirst', async () => {
+    useDetail(detail({ routes: [{ id: 7, layer: 'OAI', status: 'PENDING', origin: 'REGISTERED', config: { base: 'https://x.example/oai' } }] }));
+    let calls = 0; let body: unknown;
+    server.use(http.patch('/api/admin/sources/5/routes/7', async ({ request }) => { calls++; body = await request.json(); return HttpResponse.json({ id: 7 }); }));
+    page();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Activate' }));
+    expect(calls).toBe(0);
+    await user.click(screen.getByRole('button', { name: 'Yes, activate' }));
+    await waitFor(() => expect(body).toEqual({ status: 'ACTIVE' }));
+  });
   it('disciplineOverrideSaves', async () => {
     useDetail();
     let body: unknown;

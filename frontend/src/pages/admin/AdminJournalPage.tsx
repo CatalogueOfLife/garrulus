@@ -67,7 +67,10 @@ function RoutesSection({ d }: { d: AdminSourceDetail }) {
               <td><KeyValues o={r.config} /></td><td>{when(r.lastOk)}</td><td>{r.lastError ?? ''}</td>
               <td>
                 {r.status !== 'PAUSED' && <Button size="xs" onClick={() => setStatus.mutate({ r: r.id, s: 'PAUSED' })}>Pause</Button>}
-                {r.status !== 'ACTIVE' && <Button size="xs" onClick={() => setStatus.mutate({ r: r.id, s: 'ACTIVE' })}>Activate</Button>}
+                {(r.status === 'PENDING' || r.status === 'BROKEN') ? (
+                  <ConfirmButton size="xs" question="Activate without verifying it?" confirmLabel="Yes, activate"
+                    onConfirm={() => setStatus.mutate({ r: r.id, s: 'ACTIVE' })}>Activate</ConfirmButton>
+                ) : r.status !== 'ACTIVE' && <Button size="xs" onClick={() => setStatus.mutate({ r: r.id, s: 'ACTIVE' })}>Activate</Button>}
               </td>
             </tr>))}</tbody>
         </table></div>
