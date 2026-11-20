@@ -65,6 +65,17 @@
     WHERE w.id = n.id AND (w.title_en, w.title_en_kind) IS DISTINCT FROM (n.text, n.kind)
   </update>
 
+  <select id="namedWithTitleLanguageAfter" resultType="long">
+    <choose>
+      <when test="langs != null and !langs.isEmpty()">
+        SELECT id FROM work WHERE id &gt; #{afterId} AND names_doc_sha IS NOT NULL
+          AND coalesce(title_lang, language) IN <foreach collection="langs" item="l" open="(" separator="," close=")">#{l}</foreach>
+        ORDER BY id LIMIT #{limit}
+      </when>
+      <otherwise>SELECT id FROM work WHERE false</otherwise>
+    </choose>
+  </select>
+
   <update id="moveAll" flushCache="true">
     UPDATE work_text f SET work_id = #{to} WHERE f.work_id = #{from}
       AND NOT EXISTS (SELECT 1 FROM work_text o WHERE o.work_id = #{to} AND o.field = f.field AND o.lang = f.lang

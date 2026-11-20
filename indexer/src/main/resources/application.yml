@@ -52,6 +52,15 @@ nametracker:
     # a harvest or onboarding page that meets an outage (a retryable HTTP failure) is enqueued again after this delay
     outage-delay: ${NAMETRACKER_HARVEST_OUTAGE_DELAY:30m}
 
+  translation:
+    # machine translation of titles into English through a local LibreTranslate (like gnfinder, not an external service);
+    # off unless enabled and the url is set; TRANSLATE_TITLE is enqueued by events or by hand, never by cron
+    enabled: ${NAMETRACKER_TRANSLATION_ENABLED:false}
+    url: ${NAMETRACKER_TRANSLATION_URL:}
+    # label stored with each translation; a changed label means a translation of another model (forced runs redo it)
+    model: ${NAMETRACKER_TRANSLATION_MODEL:libretranslate-1.9.6/argos}
+    timeout: ${NAMETRACKER_TRANSLATION_TIMEOUT:30s}
+
   layers:
     # nightly route rollout: onboarding passes of VERIFIED routes, a few a night (behind the harvest switch)
     rollout-cron: ${NAMETRACKER_LAYERS_ROLLOUT_CRON:0 30 0 * * *}

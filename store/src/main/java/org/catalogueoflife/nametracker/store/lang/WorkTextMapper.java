@@ -41,6 +41,13 @@ public interface WorkTextMapper {
    */
   int refreshTitleEn(@Param("workId") long workId);
 
+  /**
+   * Ids after {@code afterId}, ascending, of works that have been named (a document hash) and whose title language
+   * ({@code coalesce(title_lang, language)}) is one of {@code langs}: the candidates of a bulk title translation.
+   */
+  List<Long> namedWithTitleLanguageAfter(@Param("afterId") long afterId, @Param("limit") int limit,
+      @Param("langs") Collection<String> langs);
+
   /** Moves the rows of one work to another (a merge); rows the survivor has are dropped. Returns the rows moved. */
   int moveAll(@Param("from") long from, @Param("to") long to);
 }
