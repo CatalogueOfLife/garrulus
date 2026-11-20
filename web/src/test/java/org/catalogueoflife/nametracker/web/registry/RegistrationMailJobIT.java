@@ -122,7 +122,7 @@ class RegistrationMailJobIT extends AbstractAuthIT {
     assertThat(notices()).isEmpty(); // nothing waits
 
     long a = source("Acta <Waiting>", "CANDIDATE");
-    long b = source("Journal Two", "CANDIDATE");
+    long b = source("Journal Two, see https://evil.example/x and HTTP://evil.example/y", "CANDIDATE");
     long decided = source("Decided Journal", "CANDIDATE");
     registration(u, "https://acta.example.org/", a, "CANDIDATE", "IDENTIFIED");
     registration(u, "1175-5326", b, "CANDIDATE", "IDENTIFIED");
@@ -141,6 +141,9 @@ class RegistrationMailJobIT extends AbstractAuthIT {
     // the address a user typed is marked as such and defanged, so no mail client turns it into a link
     assertThat(body).contains("Acta <Waiting>").contains("typed by a user: hxxps://acta.example.org/")
         .doesNotContain("https://acta.example.org/")
+        // links inside a page title are defanged too
+        .contains("hxxps://evil.example/x").contains("hxxp://evil.example/y")
+        .doesNotContainPattern("(?i)\\bhttps?://evil")
         .contains("http://localhost:5173/admin/journals/" + a).contains("Journal Two").contains("1175-5326")
         .contains("http://localhost:5173/admin/journals/" + b).doesNotContain("Decided Journal")
         .doesNotContain("Covered");

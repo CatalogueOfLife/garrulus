@@ -30,9 +30,12 @@ import org.jspecify.annotations.Nullable;
  * <p>Redirects (301, 302, 303, 307, 308; at most {@value #MAX_REDIRECTS}, never from https to http, always as a GET)
  * are followed here, not by the client (build it with {@code Redirect.NEVER}), and the start URL and every hop must pass
  * {@link PublicHost} before a request goes out: route URLs come from registrations and discovery, and a public site
- * must not be able to send a request into the GBIF network. Configured service hosts are trusted (allowed names). The
- * JDK client resolves the name again when it connects, so DNS rebinding between check and connect is a known limit
- * (ADR-0009); {@code JournalPage}, which reads pages users register, pins the connection instead.
+ * must not be able to send a request into the GBIF network. Only the configured services are exempt
+ * ({@link TrustedAuthorities}: exact scheme, host and port), and only while every hop so far was one of them: once a
+ * chain has passed an untrusted authority, every later hop is checked, so a public site cannot redirect into a trusted
+ * local service either. The JDK client resolves the name again when it connects, so DNS rebinding between check and
+ * connect is a known limit (ADR-0009); {@code JournalPage}, which reads pages users register, pins the connection
+ * instead.
  */
 public class PoliteHttp {
 
@@ -45,8 +48,8 @@ public class PoliteHttp {
   private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(60);
   static final int MAX_REDIRECTS = 5;
   private static final Set<Integer> REDIRECTS = Set.of(301, 302, 303, 307, 308);
-  /** Trusted by the convenience constructors (tests and tools against a local mock server). */
-  static final Set<String> LOOPBACK_NAMES = Set.of("localhost", "127.0.0.1", "[::1]");
+  /** Trusted by the convenience constructors (tests and tools against a local mock server): any port. */
+  static final TrustedAuthorities LOOPBACK = TrustedAuthorities.of(Set.of("localhost", "127.0.0.1", "[::1]"));
 
   private final HttpClient client;
   private final Map<String, Duration> intervals;
@@ -56,6 +59,7 @@ public class PoliteHttp {
   private final Map<String, HostLimiter> limiters = new ConcurrentHashMap<>();
   private final long maxResponseBytes;
   private final PublicHost hosts;
+  private final TrustedAuthorities trusted;
 
   /** The default of {@code nametracker.http.max-response-bytes}: 50 MiB. */
   public static final long DEFAULT_MAX_RESPONSE_BYTES = 52_428_800L;
@@ -67,18 +71,22 @@ public class PoliteHttp {
 
   /**
    * A body above {@code maxResponseBytes} is read no further and fails as a non-retryable {@link HttpProblem}. Trusts
-   * loopback names only (tests and tools against a local server); production passes its {@link PublicHost}.
+   * the loopback names on any port (tests and tools against a local server); production passes its own trust.
    */
   public PoliteHttp(HttpClient client, Map<String, Duration> minIntervalPerHost, String userAgent,
       Clock clock, HostLimiter.Sleeper sleeper, long maxResponseBytes) {
-    this(client, minIntervalPerHost, userAgent, clock, sleeper, maxResponseBytes,
-        new PublicHost(PublicHost.DNS, LOOPBACK_NAMES));
+    this(client, minIntervalPerHost, userAgent, clock, sleeper, maxResponseBytes, new PublicHost(PublicHost.DNS),
+        LOOPBACK);
   }
 
-  /** {@code hosts} decides which URLs may be fetched (start and every redirect hop). */
+  /**
+   * {@code hosts} decides which URLs may be fetched (start and every redirect hop), {@code trusted} the service
+   * authorities exempt from it while a chain has stayed on them.
+   */
   public PoliteHttp(HttpClient client, Map<String, Duration> minIntervalPerHost, String userAgent,
-      Clock clock, HostLimiter.Sleeper sleeper, long maxResponseBytes, PublicHost hosts) {
+      Clock clock, HostLimiter.Sleeper sleeper, long maxResponseBytes, PublicHost hosts, TrustedAuthorities trusted) {
     this.hosts = hosts;
+    this.trusted = trusted;
     this.maxResponseBytes = maxResponseBytes;
     this.client = client;
     this.intervals = Map.copyOf(minIntervalPerHost);
@@ -90,7 +98,7 @@ public class PoliteHttp {
   /** An instance with the default intervals, real sleeping, the UTC system clock and public hosts only. */
   public static PoliteHttp withDefaults(HttpClient client) {
     return new PoliteHttp(client, defaultIntervals(), userAgent(), Clock.systemUTC(), d -> Thread.sleep(d),
-        DEFAULT_MAX_RESPONSE_BYTES, new PublicHost(PublicHost.DNS));
+        DEFAULT_MAX_RESPONSE_BYTES, new PublicHost(PublicHost.DNS), TrustedAuthorities.NONE);
   }
 
   /** Defaults by host name; {@code *.pensoft.net} is one entry for all Pensoft hosts. */
@@ -232,8 +240,11 @@ public class PoliteHttp {
   private HttpResponse<byte[]> follow(URI start, Map<String, String> headers, @Nullable String channel,
       AtomicBoolean tooLarge) throws IOException, InterruptedException {
     URI uri = start;
+    boolean trustedChain = true;
     for (int hop = 0; ; hop++) {
-      refuseUnlessPublic(uri);
+      // a trusted service is exempt only while the chain never left the trusted services
+      trustedChain &= trusted.trusts(uri);
+      if (!trustedChain) refuseUnlessPublic(uri);
       limiterFor(channel, uri.getHost()).acquire();
       HttpRequest.Builder b = HttpRequest.newBuilder(uri).GET().timeout(REQUEST_TIMEOUT)
           .header("User-Agent", userAgent);

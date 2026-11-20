@@ -127,6 +127,23 @@ class CandidateRegistryIT extends AbstractPostgresIT {
   }
 
   @Test
+  void foldOntoAFollowedJournalVerifiesTheMovedRoutes() {
+    long core = jdbc.queryForObject("INSERT INTO source (title, origin, tier, issns) VALUES ('Zootaxa', 'MANUAL', "
+        + "'CORE', ?::text[]) RETURNING id", Long.class, "{" + PRINT + "}");
+    CandidateRegistry.Offer e = registry.offer(cand("PKP_BEACON", "pkp", List.of(ONLINE), "Zootaxa"),
+        TaskPriority.BACKFILL);
+    long route = routes.forSource(e.sourceId()).getFirst().id();
+    assertThat(tasks("VERIFY_ROUTE")).isZero(); // a candidate's route waits
+
+    registry.offer(cand("PLAZI", "plazi", List.of(PRINT, ONLINE), "Zootaxa"), TaskPriority.BACKFILL);
+
+    assertThat(sources.get(e.sourceId())).isNull();
+    assertThat(routes.get(route).sourceId()).isEqualTo(core);
+    assertThat(jdbc.queryForList("SELECT dedup_key FROM task WHERE type = 'VERIFY_ROUTE'", String.class))
+        .containsExactly("verify-route:" + route);
+  }
+
+  @Test
   void printAndElectronicIssnMeetThroughIssnL() {
     jdbc.update("INSERT INTO issn_link VALUES (?, ?), (?, ?)", PRINT, PRINT, ONLINE, PRINT);
     CandidateRegistry.Offer a = registry.offer(cand("DOAJ", "doaj", List.of(PRINT), "J"), TaskPriority.BACKFILL);

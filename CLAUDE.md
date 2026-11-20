@@ -80,7 +80,8 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   journal registered as a `CANDIDATE` becomes CORE/BROAD (ACCEPTED) or EXCLUDED (DECLINED), never for withdrawn ones;
   `NAMETRACKER_REGISTRATIONS_ADMIN_NOTE_CRON` (`0 0 7 * * *` UTC) writes the admin notice `REGISTRATIONS_WAITING` (key
   `registrations:<date>`) when registrations identified as candidates since the last such note still wait (count, up to
-  20 lines with `<public URL>/admin/journals/<id>`; a typed address is marked and defanged, `hxxps://`). Account merges
+  20 lines with `<public URL>/admin/journals/<id>`; a typed address is marked and defanged, `hxxps://`, as are links in
+  page titles). Account merges
   move registrations; `/api/me/export` includes them with their notes. `NAMETRACKER_WEB_ADDRESS` is the bind address
   (default `127.0.0.1`, loopback only like the indexer; `0.0.0.0` to serve other hosts).
 - `indexer`: `NAMETRACKER_INDEXER_PORT` (8081), `NAMETRACKER_INDEXER_WORKERS`, `NAMETRACKER_INDEXER_POLL_INTERVAL`,
@@ -266,9 +267,13 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   `VERIFY_ROUTE` (it skips them) until their journal is CORE or BROAD; a promotion (admin PATCH in `web`, `ADD_SOURCE`,
   the seeding) enqueues `VERIFY_ROUTE` for the source's PENDING routes.
 - `indexer` `PoliteHttp` follows redirects itself (the client is `Redirect.NEVER`; 301/302/303/307/308, at most 5,
-  never https→http) and checks the start URL and every hop with `PublicHost`; hosts of every configured
-  `nametracker.*` URL and `nametracker.http.trusted-hosts` (comma-separated, e.g. a local service) are trusted. The JDK
-  client resolves again when it connects (DNS rebinding is a known limit, ADR-0009).
+  never https→http) and checks the start URL and every hop with `PublicHost`. Exempt are only the exact authorities
+  (scheme, host, port) of the configured service base URLs it fetches (`HarvestConfig.SERVICE_URLS`: OpenAlex, CLB and
+  CLB match, Crossref, Europe PMC, DOAJ, PMC, Pensoft, Zenodo, Plazi, snapshot, XR zip, ISSN-L, Beacon; never
+  `public-url`, gnfinder or a finder service) and the entries of `nametracker.http.trusted-hosts` (comma-separated
+  `host:port` or URL; a bare host trusts every port of it), and only while the chain never left them: a public site
+  cannot redirect into a trusted local service. A source folded into a CORE/BROAD one gets `VERIFY_ROUTE` for its
+  PENDING routes. The JDK client resolves again when it connects (DNS rebinding is a known limit, ADR-0009).
 - `indexer` salience (properties only, no env variables; set them in `application.yml`, `.env` or as `-D`/args):
   `nametracker.salience.{title=0.40, abstract=0.20, act=0.35, heading=0.15, share=0.25, repeat=0.15, ubiquity=0.50,
   ubiquity-full-share=0.02, threshold=0.35}`. A name with salience >= threshold is a main subject of the work.

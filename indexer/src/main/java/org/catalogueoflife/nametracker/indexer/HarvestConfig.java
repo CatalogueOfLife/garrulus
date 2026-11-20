@@ -12,7 +12,6 @@ import java.util.Locale;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.catalogueoflife.nametracker.store.blob.BlobStore;
 import org.catalogueoflife.nametracker.store.net.PublicHost;
@@ -25,6 +24,7 @@ import org.catalogueoflife.nametracker.indexer.cost.OpenAlexBudget;
 import org.catalogueoflife.nametracker.indexer.crossref.CrossrefClient;
 import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
+import org.catalogueoflife.nametracker.indexer.http.TrustedAuthorities;
 import org.catalogueoflife.nametracker.indexer.match.ClbClient;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient;
 import org.catalogueoflife.nametracker.indexer.registry.DoajClient;
@@ -66,7 +66,7 @@ public class HarvestConfig {
   PoliteHttp politeHttp(Environment env,
       @Value("${nametracker.http.max-response-bytes:52428800}") long maxResponseBytes) {
     return new PoliteHttp(httpClient(), intervals(env), PoliteHttp.userAgent(), Clock.systemUTC(),
-        d -> Thread.sleep(d), maxResponseBytes, new PublicHost(PublicHost.DNS, trustedHosts(env)));
+        d -> Thread.sleep(d), maxResponseBytes, new PublicHost(PublicHost.DNS), trustedAuthorities(env));
   }
 
   /**
@@ -79,37 +79,28 @@ public class HarvestConfig {
         .build();
   }
 
-  private static final Pattern URL_HOST = Pattern.compile("^https?://(\\[[^\\]]+]|[^/:?#{}\\s]+)",
-      Pattern.CASE_INSENSITIVE);
+  /** The base URLs of the services PoliteHttp fetches (never public-url, gnfinder or a finder service). */
+  static final List<String> SERVICE_URLS = List.of("nametracker.openalex.base-url",
+      "nametracker.openalex.content.base-url", "nametracker.snapshot.base-url", "nametracker.clb.base-url",
+      "nametracker.clb.match-base-url", "nametracker.crossref.base-url", "nametracker.europepmc.base-url",
+      "nametracker.doaj.base-url", "nametracker.pmc.base-url", "nametracker.pensoft.base-url",
+      "nametracker.zenodo.base-url", "nametracker.discovery.plazi.base-url", "nametracker.discovery.issnl.url",
+      "nametracker.discovery.pkp-beacon.url", "nametracker.finder.xr-zip-url");
 
   /**
-   * The hosts PoliteHttp may fetch whatever their addresses: those of every configured {@code nametracker.*} URL (a
-   * local CLB bundle, a test server; the operator's own configuration) and {@code nametracker.http.trusted-hosts}
-   * (comma-separated). URLs from registrations, discovery or route configs are never trusted.
+   * The authorities PoliteHttp may fetch whatever their addresses, while a chain stays on them: the exact scheme, host
+   * and port of each configured service base URL ({@link #SERVICE_URLS}: a local CLB bundle, a test server) and the
+   * entries of {@code nametracker.http.trusted-hosts} (comma-separated; {@code host:port}, a URL, or a bare host for
+   * any port of it). URLs from registrations, discovery or route configs are never trusted.
    */
-  static Set<String> trustedHosts(Environment env) {
-    Set<String> out = new java.util.TreeSet<>();
-    for (String h : env.getProperty("nametracker.http.trusted-hosts", "").split(",")) {
-      if (!h.isBlank()) out.add(h.strip().toLowerCase(Locale.ROOT));
+  static TrustedAuthorities trustedAuthorities(Environment env) {
+    List<String> entries = new java.util.ArrayList<>();
+    for (String key : SERVICE_URLS) {
+      String v = env.getProperty(key);
+      if (v != null && !v.isBlank()) entries.add(v.strip());
     }
-    try {
-      Binder.get(env).bind("nametracker", Bindable.mapOf(String.class, Object.class))
-          .ifBound(m -> collectHosts(m, out));
-    } catch (RuntimeException e) {
-      // a property of an unexpected shape: the explicit list only
-    }
-    return out;
-  }
-
-  private static void collectHosts(@org.jspecify.annotations.Nullable Object v, Set<String> out) {
-    if (v instanceof Map<?, ?> m) {
-      m.values().forEach(x -> collectHosts(x, out));
-    } else if (v instanceof java.util.Collection<?> c) {
-      c.forEach(x -> collectHosts(x, out));
-    } else if (v instanceof String str) {
-      java.util.regex.Matcher m = URL_HOST.matcher(str.strip());
-      if (m.find()) out.add(m.group(1).toLowerCase(Locale.ROOT));
-    }
+    entries.addAll(Arrays.asList(env.getProperty("nametracker.http.trusted-hosts", "").split(",")));
+    return TrustedAuthorities.of(entries);
   }
 
   static Map<String, Duration> intervals(Environment env) {

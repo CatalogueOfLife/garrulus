@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.net.URI;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
+import org.catalogueoflife.nametracker.indexer.http.TrustedAuthorities;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.source.ConfigurationPropertySources;
 import org.springframework.mock.env.MockEnvironment;
@@ -33,24 +35,28 @@ class HarvestConfigTest {
   }
 
   @Test
-  void configuredServiceHostsAreTrusted() {
+  void configuredServiceAuthoritiesAreTrusted() {
     MockEnvironment env = new MockEnvironment()
         .withProperty("nametracker.clb.match-base-url", "http://clb-box.lan:18100")
         .withProperty("nametracker.pensoft.base-url", "http://127.0.0.1:9/{slug}")
         .withProperty("nametracker.openalex.base-url", "https://api.openalex.org")
-        .withProperty("nametracker.http.trusted-hosts", "LocalHost, grobid.lan");
+        .withProperty("nametracker.public-url", "http://localhost:5173")
+        .withProperty("nametracker.finder.gnfinder-url", "http://localhost:8778")
+        .withProperty("nametracker.finder.url", "http://localhost:8095")
+        .withProperty("nametracker.http.trusted-hosts", "grobid.lan:8070");
     ConfigurationPropertySources.attach(env);
-    assertThat(HarvestConfig.trustedHosts(env))
-        .contains("clb-box.lan", "127.0.0.1", "api.openalex.org", "localhost", "grobid.lan");
-    assertThat(HarvestConfig.trustedHosts(new MockEnvironment())).isEmpty();
-  }
-
-  @Test
-  void theMatchBaseUrlHostIsNotThrottled() {
-    MockEnvironment env = new MockEnvironment().withProperty("nametracker.clb.match-base-url", "http://clb-box.lan:18100");
-    ConfigurationPropertySources.attach(env);
-    assertThat(HarvestConfig.intervals(env)).containsEntry("clb-box.lan", Duration.ZERO);
-    env.withProperty("nametracker.http.min-interval.clb-box.lan", "50ms");
-    assertThat(HarvestConfig.intervals(env)).containsEntry("clb-box.lan", Duration.ofMillis(50));
+    TrustedAuthorities t = HarvestConfig.trustedAuthorities(env);
+    assertThat(t.trusts(URI.create("http://clb-box.lan:18100/dataset"))).isTrue();
+    assertThat(t.trusts(URI.create("http://clb-box.lan:8081/"))).isFalse();
+    assertThat(t.trusts(URI.create("http://127.0.0.1:9/zookeys"))).isTrue();
+    assertThat(t.trusts(URI.create("https://api.openalex.org/works"))).isTrue();
+    assertThat(t.trusts(URI.create("http://grobid.lan:8070/"))).isTrue();
+    // never the SPA, gnfinder or a finder service: PoliteHttp does not fetch them
+    for (String u : new String[] {"http://localhost:5173/", "http://localhost:8778/", "http://localhost:8095/",
+        "http://localhost:8081/"}) {
+      assertThat(t.trusts(URI.create(u))).as(u).isFalse();
+    }
+    assertThat(HarvestConfig.trustedAuthorities(new MockEnvironment()).trusts(URI.create("http://localhost:8080/")))
+        .isFalse();
   }
 }

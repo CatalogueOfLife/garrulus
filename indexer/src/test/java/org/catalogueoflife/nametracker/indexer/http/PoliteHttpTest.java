@@ -15,6 +15,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.catalogueoflife.nametracker.store.net.PublicHost;
 import org.junit.jupiter.api.Test;
 
 @WireMockTest
@@ -247,12 +248,18 @@ class PoliteHttpTest {
 
   // --- redirects, followed by hand with every hop checked ----------------------------------------------------------
 
-  /** Trusts only the mock server's name, as production trusts only its configured service hosts. */
-  private PoliteHttp checked(FakeTime t) {
+  /**
+   * A strict host check (no allowed names: loopback is never public) and these trusted service authorities, as
+   * production trusts only its configured service base URLs.
+   */
+  private static PoliteHttp checked(FakeTime t, PublicHost hosts, String... trusted) {
     return new PoliteHttp(HttpClient.newHttpClient(), Map.of(), PoliteHttp.userAgent(), t, t::sleep,
-        PoliteHttp.DEFAULT_MAX_RESPONSE_BYTES,
-        new org.catalogueoflife.nametracker.store.net.PublicHost(org.catalogueoflife.nametracker.store.net.PublicHost.DNS,
-            java.util.Set.of("localhost")));
+        PoliteHttp.DEFAULT_MAX_RESPONSE_BYTES, hosts, TrustedAuthorities.of(List.of(trusted)));
+  }
+
+  /** The mock server as a configured service: its exact authority is trusted. */
+  private static PoliteHttp checked(FakeTime t, WireMockRuntimeInfo w) {
+    return checked(t, new PublicHost(PublicHost.DNS), w.getHttpBaseUrl());
   }
 
   @Test
@@ -263,7 +270,7 @@ class PoliteHttpTest {
     stubFor(get("/d").willReturn(aResponse().withStatus(307).withHeader("Location", "/e?x=1")));
     stubFor(get("/e?x=1").willReturn(aResponse().withStatus(308).withHeader("Location", "/f#frag")));
     stubFor(get("/f").willReturn(ok("done")));
-    HttpResponse<byte[]> r = checked(new FakeTime()).get(uri(w, "/a"), Map.of("Accept", "text/plain"));
+    HttpResponse<byte[]> r = checked(new FakeTime(), w).get(uri(w, "/a"), Map.of("Accept", "text/plain"));
     assertEquals(200, r.statusCode());
     assertEquals("done", new String(r.body()));
     assertEquals(uri(w, "/f"), r.uri());
@@ -280,21 +287,21 @@ class PoliteHttpTest {
         .withHeader("Location", "http://169.254.169.254/latest/meta-data/")));
     stubFor(get("/secret").willReturn(ok("secret")));
     for (String path : List.of("/to-loopback", "/to-metadata")) {
-      HttpProblem p = assertThrows(HttpProblem.class, () -> checked(new FakeTime()).get(uri(w, path), Map.of()));
+      HttpProblem p = assertThrows(HttpProblem.class, () -> checked(new FakeTime(), w).get(uri(w, path), Map.of()));
       assertFalse(p.retryable());
       assertTrue(p.getMessage().contains("not a public host"), p.getMessage());
     }
     verify(0, getRequestedFor(urlEqualTo("/secret")));
     // the start URL is checked too
     HttpProblem p = assertThrows(HttpProblem.class,
-        () -> checked(new FakeTime()).get(URI.create("http://10.0.0.1/oai"), Map.of()));
+        () -> checked(new FakeTime(), w).get(URI.create("http://10.0.0.1/oai"), Map.of()));
     assertFalse(p.retryable());
   }
 
   @Test
   void atMostFiveRedirects(WireMockRuntimeInfo w) {
     stubFor(get("/loop").willReturn(aResponse().withStatus(302).withHeader("Location", "/loop")));
-    HttpProblem p = assertThrows(HttpProblem.class, () -> checked(new FakeTime()).get(uri(w, "/loop"), Map.of()));
+    HttpProblem p = assertThrows(HttpProblem.class, () -> checked(new FakeTime(), w).get(uri(w, "/loop"), Map.of()));
     assertFalse(p.retryable());
     verify(6, getRequestedFor(urlEqualTo("/loop")));
   }
@@ -302,6 +309,53 @@ class PoliteHttpTest {
   @Test
   void aRedirectWithoutLocationIsTheAnswer(WireMockRuntimeInfo w) {
     stubFor(get("/nowhere").willReturn(aResponse().withStatus(302)));
-    assertEquals(302, checked(new FakeTime()).get(uri(w, "/nowhere"), Map.of()).statusCode());
+    assertEquals(302, checked(new FakeTime(), w).get(uri(w, "/nowhere"), Map.of()).statusCode());
+  }
+
+  @Test
+  void aPublicSiteCannotRedirectIntoATrustedService(WireMockRuntimeInfo w) {
+    // 127.0.0.1 plays a public journal site (it passes the host check), localhost the configured local services
+    PublicHost publicLoopback = new PublicHost(PublicHost.DNS, java.util.Set.of("127.0.0.1"));
+    String site = "http://127.0.0.1:" + w.getHttpPort();
+    stubFor(get("/oai").willReturn(aResponse().withStatus(302)
+        .withHeader("Location", "http://localhost:" + w.getHttpPort() + "/secret")));
+    stubFor(get("/secret").willReturn(ok("secret")));
+    PoliteHttp http = checked(new FakeTime(), publicLoopback, "http://localhost:8081", "http://localhost:" + w.getHttpPort());
+    HttpProblem p = assertThrows(HttpProblem.class, () -> http.get(URI.create(site + "/oai"), Map.of()));
+    assertFalse(p.retryable());
+    assertTrue(p.getMessage().contains("not a public host"), p.getMessage());
+    verify(1, getRequestedFor(urlEqualTo("/oai")));
+    verify(0, getRequestedFor(urlEqualTo("/secret")));
+  }
+
+  @Test
+  void aTrustedServiceMayRedirectWithinItselfOnly(WireMockRuntimeInfo w) {
+    stubFor(get("/v1").willReturn(aResponse().withStatus(302).withHeader("Location", "/v2")));
+    stubFor(get("/v2").willReturn(ok("moved")));
+    assertEquals("moved", new String(checked(new FakeTime(), w).get(uri(w, "/v1"), Map.of()).body()));
+    // another port of the same host is another service: not trusted
+    stubFor(get("/elsewhere").willReturn(aResponse().withStatus(302).withHeader("Location", "http://localhost:1/x")));
+    HttpProblem p = assertThrows(HttpProblem.class,
+        () -> checked(new FakeTime(), w).get(uri(w, "/elsewhere"), Map.of()));
+    assertTrue(p.getMessage().contains("not a public host"), p.getMessage());
+  }
+
+  @Test
+  void trustedAuthoritiesAreExact() {
+    TrustedAuthorities t = TrustedAuthorities.of(List.of("https://api.openalex.org", "http://localhost:18100/match",
+        "grobid.lan:8070", "lab.lan", " "));
+    assertTrue(t.trusts(URI.create("https://api.openalex.org/works?x=1")));
+    assertTrue(t.trusts(URI.create("https://API.openalex.org:443/works")));
+    assertFalse(t.trusts(URI.create("http://api.openalex.org/works")));
+    assertFalse(t.trusts(URI.create("https://api.openalex.org:8443/works")));
+    assertTrue(t.trusts(URI.create("http://localhost:18100/anything")));
+    assertFalse(t.trusts(URI.create("http://localhost:8081/")));
+    assertFalse(t.trusts(URI.create("http://localhost/")));
+    assertTrue(t.trusts(URI.create("http://grobid.lan:8070/api")));
+    assertTrue(t.trusts(URI.create("https://grobid.lan:8070/api")));
+    assertFalse(t.trusts(URI.create("http://grobid.lan/api")));
+    // a bare host entry: any port of that host (documented, explicit entries only)
+    assertTrue(t.trusts(URI.create("http://lab.lan:9999/")));
+    assertFalse(TrustedAuthorities.NONE.trusts(URI.create("http://localhost:18100/")));
   }
 }

@@ -31,8 +31,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  *   <li>{@link #adminNote()} ({@code nametracker.registrations.admin-note-cron}, daily): an admin notice
  *   {@code REGISTRATIONS_WAITING} (key {@code registrations:<date>}, mailed by the admin mail job) when registrations
  *   were identified as candidates since the previous such notice and their journals still wait for a decision: the
- *   count and up to {@value #NOTE_LINES} lines with the journal, the input (a typed address marked and defanged) and a
- *   link to its admin page.</li>
+ *   count and up to {@value #NOTE_LINES} lines with the journal (links in its title defanged), the input (a typed
+ *   address marked and defanged) and a link to its admin page.</li>
  * </ul>
  */
 @Component
@@ -98,7 +98,7 @@ public class RegistrationMailJob {
           .append(" registered by users since the last note ").append(count == 1 ? "is a candidate" : "are candidates")
           .append(" waiting for a decision (promote or exclude on its page):\n");
       for (RegistrationMapper.Waiting w : lines) {
-        body.append("\n- ").append(w.title() == null || w.title().isBlank() ? "(no title)" : oneLine(w.title()))
+        body.append("\n- ").append(w.title() == null || w.title().isBlank() ? "(no title)" : defang(oneLine(w.title())))
             .append(" — registered as ").append(input(w)).append('\n')
             .append("  ").append(publicUrl).append("/admin/journals/").append(w.sourceId()).append('\n');
       }
@@ -114,7 +114,12 @@ public class RegistrationMailJob {
   static String input(RegistrationMapper.Waiting w) {
     String in = oneLine(w.input());
     if (!w.kind().equals("URL")) return in;
-    return "(typed by a user: " + in.replaceFirst("(?i)^http", "hxxp") + ")";
+    return "(typed by a user: " + defang(in) + ")";
+  }
+
+  /** Every http(s) scheme in the text as {@code hxxp(s)}: titles come from pages anyone can write. */
+  static String defang(String s) {
+    return s.replaceAll("(?i)\\bhttp(s?)://", "hxxp$1://");
   }
 
   /** Line breaks of an external title or a typed address cannot add lines to the note. */

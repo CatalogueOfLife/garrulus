@@ -10,7 +10,10 @@ import org.catalogueoflife.nametracker.store.registry.SourceSignalMapper;
 import org.catalogueoflife.nametracker.store.route.SourceRoute;
 import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
 import org.catalogueoflife.nametracker.store.source.Source;
+import org.catalogueoflife.nametracker.indexer.route.VerifyRouteHandler;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
+import org.catalogueoflife.nametracker.store.task.TaskPriority;
+import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,7 +25,8 @@ import org.springframework.stereotype.Component;
  * without an {@code ACTIVE} route, without admin curation (tier or disciplines set by an admin) and without an OpenAlex
  * id that differs from the older one's. Otherwise both stay apart with a WARN, like {@code MERGE_WORKS} refuses works
  * with different DOIs. A fold moves the younger one's ISSNs, OpenAlex id (deleted first, then set: the column is
- * unique), signals, routes, raw classifications, samples, registrations and follows to the older one and deletes it.
+ * unique), signals, routes, raw classifications, samples, registrations and follows to the older one and deletes it;
+ * when the older one is CORE or BROAD, its PENDING routes (the moved ones among them) get {@code VERIFY_ROUTE}.
  */
 @Component
 public class SourceFold {
@@ -33,8 +37,11 @@ public class SourceFold {
   private final SourceSignalMapper signals;
   private final SourceRouteMapper routes;
   private final IdentityLocks locks;
+  private final TaskQueue queue;
 
-  public SourceFold(SourceMapper sources, SourceSignalMapper signals, SourceRouteMapper routes, IdentityLocks locks) {
+  public SourceFold(SourceMapper sources, SourceSignalMapper signals, SourceRouteMapper routes, IdentityLocks locks,
+      TaskQueue queue) {
+    this.queue = queue;
     this.sources = sources;
     this.signals = signals;
     this.routes = routes;
@@ -79,6 +86,10 @@ public class SourceFold {
         placeholder ? younger.title() : null, older.publisher() == null ? younger.publisher() : null,
         older.country() == null ? younger.country() : null,
         older.openalexId() == null ? younger.openalexId() : null, older.host() == null ? younger.host() : null);
+    if (VerifyRouteHandler.followed(older)) {
+      // the candidate's routes now belong to a followed journal: verify them as a promotion would
+      VerifyRouteHandler.enqueuePending(routes, queue, older.id(), TaskPriority.BACKFILL);
+    }
     LOG.info("Folded source {} ({}) into source {} ({}) by {}: {} signals and {} other rows moved", younger.id(),
         younger.title(), older.id(), older.title(), why, movedSignals, moved);
     return older.id();
