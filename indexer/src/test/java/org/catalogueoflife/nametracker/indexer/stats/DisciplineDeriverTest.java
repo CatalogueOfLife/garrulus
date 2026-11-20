@@ -99,4 +99,19 @@ class DisciplineDeriverTest {
     assertThat(d.primary()).isNull();
     assertThat(d.source()).isNull();
   }
+
+  @Test
+  void cycleAndSelfReferenceStopCleanly() {
+    List<Map<String, Object>> l = new ArrayList<>(mappings());
+    l.add(m("OPENALEX_SUBFIELD", "1198", "1198", 1));
+    l.add(m("OPENALEX_SUBFIELD", "1199", "1199", 1));
+    // a cycle is a data error: the code stays as it is instead of walking in circles
+    DisciplineDeriver cycle = new DisciplineDeriver(l, Map.of("1198", "1199", "1199", "1198"));
+    assertThat(cycle.derive(List.of(sub("1198", 0.5f, 0)), Map.of()).codes()).containsExactly("1198");
+    l.add(m("OPENALEX_SUBFIELD", "1197", "1197", 1));
+    DisciplineDeriver three = new DisciplineDeriver(l, Map.of("1197", "1198", "1198", "1199", "1199", "1197"));
+    assertThat(three.derive(List.of(sub("1197", 0.5f, 0)), Map.of()).codes()).containsExactly("1197");
+    DisciplineDeriver self = new DisciplineDeriver(l, Map.of("1199", "1199"));
+    assertThat(self.derive(List.of(sub("1199", 0.5f, 0)), Map.of()).codes()).containsExactly("1199");
+  }
 }

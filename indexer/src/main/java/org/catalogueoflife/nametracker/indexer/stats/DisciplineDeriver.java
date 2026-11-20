@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import life.catalogue.api.vocab.TaxGroup;
 import org.catalogueoflife.nametracker.indexer.match.TaxGroups;
+import org.catalogueoflife.nametracker.store.discipline.Discipline;
 import org.catalogueoflife.nametracker.store.discipline.RawClassification;
 import org.jspecify.annotations.Nullable;
 
@@ -120,13 +121,11 @@ public final class DisciplineDeriver {
         .map(Map.Entry::getKey).toList();
   }
 
-  /** Follows replaced_by to its end (guarded against loops) and removes duplicates, keeping the first. */
+  /** Follows replaced_by to its end ({@link Discipline#resolve}) and removes duplicates, keeping the first. */
   private List<String> resolve(List<String> codes) {
     LinkedHashSet<String> out = new LinkedHashSet<>();
     for (String c : codes) {
-      String cur = c;
-      for (int i = 0; i < 10 && replacements.containsKey(cur); i++) cur = replacements.get(cur);
-      out.add(cur);
+      out.add(Discipline.resolve(replacements, c));
     }
     return List.copyOf(out);
   }

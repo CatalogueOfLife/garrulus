@@ -8,6 +8,7 @@ import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClassifications;
 import org.catalogueoflife.nametracker.indexer.stats.DisciplineDeriver.Derived;
 import org.catalogueoflife.nametracker.store.account.SubscriptionMapper;
 import org.catalogueoflife.nametracker.store.discipline.ClassificationRawMapper;
+import org.catalogueoflife.nametracker.store.discipline.Discipline;
 import org.catalogueoflife.nametracker.store.discipline.DisciplineMapper;
 import org.catalogueoflife.nametracker.store.discipline.RawClassification;
 import org.catalogueoflife.nametracker.store.source.Source;
@@ -15,6 +16,7 @@ import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 
 /** Derives and writes the disciplines of sources from their raw classifications; admin-set ones are never touched. */
@@ -36,7 +38,8 @@ public class DisciplineService {
     this.subscriptions = subscriptions;
   }
 
-  /** Stores the subfields and top topics of an OpenAlex source entity as raw rows, then derives. */
+  /** Stores the subfields and top topics of an OpenAlex source entity as raw rows, then derives; one transaction. */
+  @Transactional
   public void applyOpenAlex(long sourceId, JsonNode openAlexSource) {
     for (Map.Entry<String, List<RawClassification>> e : OpenAlexClassifications.raw(openAlexSource).entrySet()) {
       raw.replace(sourceId, e.getKey(), e.getValue());
@@ -59,8 +62,8 @@ public class DisciplineService {
     }
     int followed = 0;
     for (Map.Entry<String, String> e : replacements.entrySet()) {
-      String to = e.getValue();
-      for (int i = 0; i < 10 && replacements.containsKey(to); i++) to = replacements.get(to);
+      String to = Discipline.resolve(replacements, e.getKey());
+      if (to.equals(e.getKey())) continue; // a cycle or self-reference: nothing to rewrite to
       followed += subscriptions.rewriteDiscipline(e.getKey(), to,
           "The discipline " + e.getKey() + " is now " + to + ".");
     }

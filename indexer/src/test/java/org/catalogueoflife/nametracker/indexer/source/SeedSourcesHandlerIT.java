@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import tools.jackson.databind.JsonNode;
 
 @WireMockTest(httpPort = 18999)
 class SeedSourcesHandlerIT extends AbstractPostgresIT {
@@ -30,6 +31,7 @@ class SeedSourcesHandlerIT extends AbstractPostgresIT {
   @Autowired SeedSourcesHandler seed;
   @Autowired AddSourceHandler add;
   @Autowired SourceMapper sources;
+  @Autowired org.catalogueoflife.nametracker.indexer.stats.DisciplineService disciplines;
   @Autowired JdbcTemplate jdbc;
 
   @BeforeEach
@@ -110,5 +112,47 @@ class SeedSourcesHandlerIT extends AbstractPostgresIT {
     add.handle(task("ADD_SOURCE", "{\"openalexId\":\"S904\",\"tier\":\"CANDIDATE\"}"));
     assertThat(sources.findByOpenalexId("S904").tier()).isEqualTo("CANDIDATE");
     assertThat(onboardTasks()).isEqualTo(1);
+  }
+
+  private static String withTopics() {
+    return SourceSeederTest.source("S905", "Topical", ",\"topics\":["
+        + "{\"id\":\"https://openalex.org/T1\",\"display_name\":\"One\",\"count\":70,"
+        + "\"subfield\":{\"id\":\"https://openalex.org/subfields/1109\"}},"
+        + "{\"id\":\"https://openalex.org/T2\",\"display_name\":\"Two\",\"count\":30,"
+        + "\"subfield\":{\"id\":\"https://openalex.org/subfields/1103\"}}]");
+  }
+
+  private String subfields(long id) {
+    return jdbc.queryForObject("SELECT coalesce(array_to_string(subfields, ','), '') FROM source WHERE id = ?",
+        String.class, id);
+  }
+
+  @Test
+  void disciplinesAreDerivedOnAddAndSurviveReseedAndAdminSetting(WireMockRuntimeInfo w) throws Exception {
+    stubFor(get(urlPathEqualTo("/sources/S905")).willReturn(okJson(withTopics())));
+    add.handle(task("ADD_SOURCE", "{\"openalexId\":\"S905\",\"tier\":\"CORE\"}"));
+    long id = sources.findByOpenalexId("S905").id();
+    // a fresh source ends with the disciplines derived from its raw classification
+    assertThat(subfields(id)).isEqualTo("1109,1103");
+    assertThat(jdbc.queryForObject("SELECT discipline_source FROM source WHERE id = ?", String.class, id))
+        .isEqualTo("OPENALEX");
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM source_classification_raw WHERE source_id = ?", Long.class, id))
+        .isEqualTo(4L);
+
+    // upsertSeed on conflict leaves subfields alone
+    jdbc.update("UPDATE source SET subfields = '{2404}' WHERE id = ?", id);
+    JsonNode node = tools.jackson.databind.json.JsonMapper.builder().build().readTree(withTopics());
+    sources.upsertSeed(SourceSeeder.build(node, "S905", "CORE", "MANUAL", "ADMIN", null));
+    assertThat(subfields(id)).isEqualTo("2404");
+
+    // an admin sets the disciplines: neither the re-seed nor applyOpenAlex changes them
+    jdbc.update("UPDATE source SET subfields = '{1105}', primary_subfield = '1105', discipline_source = 'ADMIN', "
+        + "discipline_set_by = 'ADMIN' WHERE id = ?", id);
+    sources.upsertSeed(SourceSeeder.build(node, "S905", "CORE", "MANUAL", "ADMIN", null));
+    disciplines.applyOpenAlex(id, node);
+    add.handle(task("ADD_SOURCE", "{\"openalexId\":\"S905\",\"tier\":\"CORE\"}"));
+    assertThat(subfields(id)).isEqualTo("1105");
+    assertThat(jdbc.queryForObject("SELECT discipline_source FROM source WHERE id = ?", String.class, id))
+        .isEqualTo("ADMIN");
   }
 }

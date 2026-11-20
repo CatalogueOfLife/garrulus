@@ -107,7 +107,8 @@ public interface SourceMapper {
 
   /**
    * Writes the derived disciplines unless an admin set them; empty {@code subfields} and null {@code primary}/{@code
-   * source} clear them. Returns 0 for an admin-set source.
+   * source} clear them. Writes (and sets {@code modified}) only when a value changes; returns 0 for an admin-set
+   * source and for an unchanged one.
    */
   int updateDisciplines(@Param("id") long id, @Param("subfields") List<String> subfields,
       @Param("primary") @Nullable String primary, @Param("source") @Nullable String source);

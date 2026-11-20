@@ -207,4 +207,17 @@ class SourceCategoriserIT extends AbstractPostgresIT {
       jdbc.update("DELETE FROM discipline WHERE code = '1199'");
     }
   }
+
+  @Test
+  void unchangedDisciplinesLeaveModifiedAlone() throws Exception {
+    long s = source("BROAD");
+    jdbc.update("INSERT INTO source_classification_raw (source_id, scheme, code, share, rank) VALUES (?, 'DOAJ_LCC', "
+        + "'QL1-991', NULL, 0)", s);
+    run();
+    java.sql.Timestamp first = jdbc.queryForObject("SELECT modified FROM source WHERE id = ?", java.sql.Timestamp.class, s);
+    run();
+    assertThat(jdbc.queryForObject("SELECT modified FROM source WHERE id = ?", java.sql.Timestamp.class, s)).isEqualTo(first);
+    assertThat(jdbc.queryForObject("SELECT array_to_string(subfields, ',') FROM source WHERE id = ?", String.class, s))
+        .isEqualTo("1103");
+  }
 }

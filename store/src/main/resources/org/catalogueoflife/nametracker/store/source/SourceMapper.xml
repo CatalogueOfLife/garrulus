@@ -236,6 +236,8 @@
     UPDATE source SET subfields = #{subfields, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler},
       primary_subfield = #{primary}, discipline_source = #{source}, modified = now()
     WHERE id = #{id} AND discipline_set_by = 'DERIVED'
+      AND (subfields IS DISTINCT FROM #{subfields, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}
+        OR primary_subfield IS DISTINCT FROM #{primary} OR discipline_source IS DISTINCT FROM #{source})
   </update>
 
   <select id="listDerivedDisciplineIds" resultType="long">

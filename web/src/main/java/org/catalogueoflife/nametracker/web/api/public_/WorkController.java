@@ -14,6 +14,7 @@ import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.store.blob.BlobStore;
 import org.catalogueoflife.nametracker.store.content.Content;
 import org.catalogueoflife.nametracker.store.content.ContentMapper;
+import org.catalogueoflife.nametracker.store.discipline.Discipline;
 import org.catalogueoflife.nametracker.store.discipline.DisciplineMapper;
 import org.catalogueoflife.nametracker.store.index.ContextRow;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
@@ -140,9 +141,7 @@ public class WorkController {
     }
     String code = a != null ? a : b;
     if (code == null) return null;
-    Map<String, String> replacements = disciplines.replacements();
-    for (int i = 0; i < 10 && replacements.containsKey(code); i++) code = replacements.get(code);
-    return code;
+    return Discipline.resolve(disciplines.replacements(), code);
   }
 
   public static void checkPaging(int limit, int offset) {
