@@ -11,7 +11,7 @@ this ADR records what M6a built and the rulings made while building, which overr
 Configuration and task types are in CLAUDE.md ("Harvesting by hand and admin endpoints", "Configuration"); they are not
 repeated here.
 
-M6a is built and tested locally; its dev check is `docs/m6a-dev-check.md`. Later: M6b (admins and admin pages, journal
+M6a is built and tested locally; its dev check is `docs/m6a-dev-check.md`. Later: M6b (built, ADR-0009: admins and admin pages, journal
 registry, discovery, registration, classification, candidate sampling, ceased journals) and M6c (crosslinks, languages
 and English titles, the mentioned-in filter, abstract fallbacks, the University of Copenhagen route).
 
@@ -65,7 +65,7 @@ routes of harvestable sources, one `LIVE` job per route, and sit behind the mast
   otherwise, and is off with the Europe PMC switch.
 - **Plazi BLR** from the Zenodo community `biosyslit`, by `created` since the last run. It is a signal for taxonomic
   DOIs: a work is created only for an onboarded journal; Zenodo's own 10.5281 DOIs are ignored; a DOI of an unknown
-  journal is kept in `layer_unmatched` for M6b's discovery. A known DOI whose BLR id another work holds enqueues
+  journal is kept in `layer_unmatched` for M6b's discovery (ADR-0009, origin `BLR`). A known DOI whose BLR id another work holds enqueues
   `MERGE_WORKS`. A window past 9,000 records is cut at the day of the oldest record read and paged again from page 1,
   so a catch-up never reaches Zenodo's 10,000-record paging ceiling.
 - **Crossref** keeps `from-index-date` by ISSN and adds a history read (below).
@@ -184,7 +184,8 @@ journal `source_layer_coverage`, in one transaction. `GET /api/admin/status` sho
   layer, counted over `LIVE`-origin works created in the last 28 days (this removes the skew of the V16 seed and of
   backfills). The check computes and stores it per day; the status reads the latest stored day, so numbers can be a day
   old. This is how a layer that adds nothing, or a service turning paid, is judged.
-- Mail to admins on FAILING, and the Layers admin page, belong to M6b; M6a shows state in the status only.
+- Mail to admins on FAILING, and the Layers admin page, belong to M6b and are built there (ADR-0009: `admin_notice`);
+  M6a showed state in the status only.
 
 ## Consequences / known limits
 

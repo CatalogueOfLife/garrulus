@@ -19,7 +19,9 @@ full backfill runs later on the GBIF VM. M2's week-long dev run continues (`docs
 `docs/m3-dev-check.md`). The curated gold is imported and its baselines are committed (`docs/tuning-stage.md`).
 Roadmap (2026-11-18): M6 reach (layered harvesting, design `docs/superpowers/specs/2026-11-19-m6-layered-harvesting-design.md`,
 research `docs/research/`), M7 judging (the next tuning step), M8 the portal widget. M6a (identity and layered harvest:
-ADR-0008) is built locally and its dev check runs (`docs/m6a-dev-check.md`); M6b and M6c follow.
+ADR-0008) is built locally and its dev check runs (`docs/m6a-dev-check.md`). M6b (journal registry, discovery,
+registration, admins and admin pages, candidate sampling, ceased journals, disciplines: ADR-0009) is built locally; its
+dev check is `docs/m6b-dev-check.md` (local run pending, GBIF checklist). Next: M6c.
 
 ## Commands
 
@@ -292,7 +294,19 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   `public-url`, gnfinder or a finder service) and the entries of `nametracker.http.trusted-hosts` (comma-separated
   `host:port` or URL; a bare host trusts every port of it), and only while the chain never left them: a public site
   cannot redirect into a trusted local service. A source folded into a CORE/BROAD one gets `VERIFY_ROUTE` for its
-  PENDING routes. The JDK client resolves again when it connects (DNS rebinding is a known limit, ADR-0009).
+  PENDING routes. The JDK client resolves again when it connects (DNS rebinding is a known limit, ADR-0009). In
+  production list `host:port` in `nametracker.http.trusted-hosts` (env `NAMETRACKER_HTTP_TRUSTED_HOSTS`) only for a local
+  service; a route URL equal to a trusted (dev, local) authority is fetched with trust.
+- `indexer` ceased journals and disciplines (M6b Tasks 2 and 11, ADR-0009). `source.publication_status` ACTIVE or CEASED
+  (`ceased_reason` STOPPED, TITLE_CHANGE, MERGED, UNKNOWN; `last_issue_year`, `continued_by`; set through the admin PATCH).
+  A CEASED journal is skipped by every layer job, the harvests, sampling and identification; a batch trimmed of it while a
+  cursor is in flight restarts with cursor `*`. Dormancy proposals (coverage check, `dormant_since`/`dormant_evidence`,
+  active CORE/BROAD only) and revival proposals are shown in the admin list, never applied. Disciplines: vocabulary
+  `discipline` (9 codes, `replaced_by` for retired ones) with crosswalks `discipline_mapping` (`OPENALEX_SUBFIELD`,
+  `DOAJ_LCC`, `TAXGROUP`); `DisciplineService` derives them from `source_classification_raw` (first rule wins: OpenAlex
+  subfields, DOAJ LCC, taxonomic focus) unless an admin set them (`discipline_set_by`). Seeding thresholds:
+  `nametracker.seed.{core-min-works=20, core-min-share=0.30, broad-min-works=30, broad-min-share=0.50,
+  candidate-min-works=10}` (env `NAMETRACKER_SEED_*`).
 - `indexer` salience (properties only, no env variables; set them in `application.yml`, `.env` or as `-D`/args):
   `nametracker.salience.{title=0.40, abstract=0.20, act=0.35, heading=0.15, share=0.25, repeat=0.15, ubiquity=0.50,
   ubiquity-full-share=0.02, threshold=0.35}`. A name with salience >= threshold is a main subject of the work.
@@ -448,7 +462,9 @@ curl ... -d '{"type":"BACKFILL","payload":{"fromYear":2020,"toYear":2024,"files"
 `/api/works` (filters `taxon`, `name`, `code`, `taxgroup`, `subfield`, `journalType`, `tier`, `oa`, `country`, `source`,
 `yearFrom`, `yearTo`, `hasActs`, `actType`, `mainSubjectOnly`, `q`; `limit` ≤ 100, `offset` ≤ 10000; repeatable
 `facet`), `/api/works/{id}`, `/api/names?q=`, `/api/names/{id}`, `/api/taxa/{colId}/works` (`mainSubjectOnly` defaults
-to true), `/api/taxa/{colId}/stats`, `/api/sources`, `/api/sources/{id}`, `/api/xr`, `/api/vocab/taxgroup`. Only
+to true), `/api/taxa/{colId}/stats`, `/api/sources` (filter `publicationStatus`; ceased journals are listed), `/api/sources/{id}`, `/api/xr`,
+`/api/vocab/taxgroup`, `/api/vocab/discipline` (`discipline` is an alias of the `subfield` filter; a retired code resolves to
+its replacement). Only
 `INDEXED` works are listed; taxon filters ignore names that occur only in references. The full text of a work is served
 only when its content is retained (open licence). `/api/works/{id}` sends the abstract (the Crossref JATS one as plain
 paragraphs, else OpenAlex's) with `abstractMentions` (stored mentions located by verbatim, like `titleMentions`) and,
@@ -567,7 +583,8 @@ on any command lists its options.
 
 - `docs/design.md`: the approved design. Goals, constraints, components, data model, workflows, roadmap.
 - `docs/adr/`: later decisions, one file each (0004: onboarding gate, harvest windows, budget, keyless limits; 0005:
-  index pipeline, spool, XR pin, placement, salience, categorisation, OpenAPI; 0008: work identity, layered harvest, routes, coverage).
+  index pipeline, spool, XR pin, placement, salience, categorisation, OpenAPI; 0008: work identity, layered harvest, routes, coverage;
+  0009: journal registry and its fold, discovery, registration, the SSRF design, admins and notices, disciplines, sampling, ceased journals).
 
 ## Ground rules (from the design)
 
