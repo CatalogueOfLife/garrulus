@@ -1,0 +1,13 @@
+{
+ "sibils_version": "v5.1.5.10",
+ "success": true,
+ "error": "",
+ "warning": "",
+ "collection": "medline",
+ "collection_version": "med_r1_v5.10",
+ "sibils_article_set": [
+  {
+   "_id": "38187161"
+  }
+ ]
+}

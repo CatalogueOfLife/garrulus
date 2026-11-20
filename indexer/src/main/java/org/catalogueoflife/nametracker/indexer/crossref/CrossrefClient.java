@@ -7,12 +7,15 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
+import org.catalogueoflife.nametracker.indexer.link.DoiBatching;
 import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.JsonNode;
 
@@ -133,6 +136,41 @@ public class CrossrefClient {
         .replace("%2F", "/");
     return message(URI.create(mailto == null ? path : path + "?mailto=" + enc(mailto)))
         .filter(JsonNode::isObject);
+  }
+
+  /**
+   * The DOIs of the list Crossref knows (lower case): one {@code /works?filter=doi:a,doi:b,…&select=DOI} request. A list
+   * of several DOIs must hold only {@link DoiBatching#batchable batchable} ones (see {@link DoiBatching#each}); a single
+   * other DOI is asked by {@link #work}.
+   */
+  public Set<String> existingDois(List<String> dois) {
+    Set<String> found = new LinkedHashSet<>();
+    if (dois.isEmpty()) return found;
+    if (dois.size() == 1 && !DoiBatching.batchable(dois.getFirst())) {
+      if (work(dois.getFirst()).isPresent()) found.add(DoiBatching.key(dois.getFirst()));
+      return found;
+    }
+    StringBuilder f = new StringBuilder();
+    for (String d : dois) f.append(f.isEmpty() ? "" : ",").append("doi:").append(d);
+    String q = "?filter=" + enc(f.toString()) + "&rows=" + dois.size() + "&select=DOI"
+        + (mailto == null ? "" : "&mailto=" + enc(mailto));
+    URI uri = URI.create(base + "/works" + q);
+    HttpResponse<byte[]> resp = http.get(uri, Map.of("Accept", "application/json"));
+    int status = resp.statusCode();
+    URI safe = PoliteHttp.redact(uri);
+    if (status < 200 || status >= 300) {
+      throw new HttpProblem(safe, status, status >= 500 || status == 429, "HTTP " + status + " from Crossref: " + safe,
+          null);
+    }
+    try {
+      for (JsonNode i : FinderJson.mapper().readTree(resp.body()).path("message").path("items")) {
+        String d = i.path("DOI").asString("");
+        if (!d.isBlank()) found.add(DoiBatching.key(d));
+      }
+    } catch (RuntimeException e) {
+      throw new HttpProblem(safe, status, false, "Unreadable Crossref response: " + safe, e);
+    }
+    return found;
   }
 
   /** One journal by ISSN ({@code /journals/{issn}}: title, publisher, ISSN); empty when Crossref does not know it. */

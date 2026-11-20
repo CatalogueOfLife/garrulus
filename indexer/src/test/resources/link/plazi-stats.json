@@ -1,0 +1,19 @@
+{"fields": ["DocCount", "DocArticleUuid", "PubLnkArticleDoi"],
+"types": {
+"DocCount": "integer",
+"DocArticleUuid": "string",
+"PubLnkArticleDoi": "string"
+},
+"labels": {
+"DocCount": "Number of Treatments",
+"DocArticleUuid": "Article UUID",
+"PubLnkArticleDoi": "Article DOI"
+},
+"data": [
+{
+"DocCount": 6,
+"DocArticleUuid": "331A59CAD9185E36B059921AFDF9F77C",
+"PubLnkArticleDoi": "10.3897/zookeys.1187.113403"
+}
+]
+}

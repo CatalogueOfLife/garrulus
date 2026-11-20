@@ -18,6 +18,7 @@ import org.catalogueoflife.nametracker.indexer.cost.OpenAlexBudget;
 import org.catalogueoflife.nametracker.indexer.cost.OpenAlexBudget.Call;
 import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
+import org.catalogueoflife.nametracker.indexer.link.DoiBatching;
 import org.catalogueoflife.nametracker.store.work.WorkUpsert;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -143,6 +144,25 @@ public class OpenAlexClient {
     q.put("select", OpenAlexWorks.SELECT);
     q.put("per_page", String.valueOf(n));
     q.put("sort", "publication_date:desc");
+    List<JsonNode> results = new ArrayList<>();
+    fetch(Call.LIST, uri("/works", q), false).body().path("results").forEach(results::add);
+    return results;
+  }
+
+  /**
+   * The works of the DOIs ({@code /works?filter=doi:a|b|…&select=id,doi}, through the budget as a list call): their
+   * {@code id} and {@code doi}. A list of several DOIs must hold only {@link DoiBatching#batchable batchable} ones (see
+   * {@link DoiBatching#each}); a single other DOI is asked as a single work.
+   */
+  public List<JsonNode> worksByDois(List<String> dois) {
+    if (dois.isEmpty()) return List.of();
+    if (dois.size() == 1 && !DoiBatching.batchable(dois.getFirst())) {
+      return work("doi:" + dois.getFirst()).map(List::of).orElse(List.of());
+    }
+    Map<String, String> q = new LinkedHashMap<>();
+    q.put("filter", "doi:" + String.join("|", dois.stream().map(d -> "https://doi.org/" + d).toList()));
+    q.put("select", "id,doi");
+    q.put("per_page", String.valueOf(Math.min(PER_PAGE, Math.max(dois.size(), 1))));
     List<JsonNode> results = new ArrayList<>();
     fetch(Call.LIST, uri("/works", q), false).body().path("results").forEach(results::add);
     return results;

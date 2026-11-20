@@ -33,6 +33,11 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
     "nametracker.europepmc.base-url=" + AbstractPostgresIT.UNROUTABLE,
     "nametracker.doaj.base-url=" + AbstractPostgresIT.UNROUTABLE,
     "nametracker.pmc.base-url=" + AbstractPostgresIT.UNROUTABLE,
+    "nametracker.zenodo.base-url=" + AbstractPostgresIT.UNROUTABLE,
+    "nametracker.links.plazi.base-url=" + AbstractPostgresIT.UNROUTABLE,
+    "nametracker.links.wikidata.base-url=" + AbstractPostgresIT.UNROUTABLE,
+    "nametracker.links.ipni.base-url=" + AbstractPostgresIT.UNROUTABLE,
+    "nametracker.links.biodiversitypmc.base-url=" + AbstractPostgresIT.UNROUTABLE,
     "nametracker.pensoft.base-url=" + AbstractPostgresIT.UNROUTABLE + "/{slug}"})
 public abstract class AbstractPostgresIT {
 

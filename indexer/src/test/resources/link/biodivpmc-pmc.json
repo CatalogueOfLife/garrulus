@@ -1,0 +1,13 @@
+{
+ "sibils_version": "v5.1.5.10",
+ "success": true,
+ "error": "",
+ "warning": "",
+ "collection": "pmc",
+ "collection_version": "pmc_r1_v5.10",
+ "sibils_article_set": [
+  {
+   "_id": "PMC10768028"
+  }
+ ]
+}

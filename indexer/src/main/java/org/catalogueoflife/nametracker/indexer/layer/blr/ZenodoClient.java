@@ -61,6 +61,31 @@ public class ZenodoClient {
     return new ZenodoPage(records, next);
   }
 
+  /**
+   * The publication records of the community whose DOI is one of {@code dois}
+   * ({@code q=doi:("a" OR "b")}, one page of at most {@link #PAGE_SIZE}); a record of another DOI (a figure of the
+   * article) may come with them, the caller compares the DOIs. The DOIs must be quotable.
+   */
+  public List<JsonNode> byDois(List<String> dois) {
+    if (dois.isEmpty()) return List.of();
+    List<String> terms = new ArrayList<>();
+    for (String d : dois) terms.add("\"" + d + "\"");
+    URI uri = URI.create(base + "/api/records?communities=biosyslit&type=publication&q="
+        + enc("doi:(" + String.join(" OR ", terms) + ")") + "&size=" + PAGE_SIZE);
+    HttpResponse<byte[]> resp = http.get(uri, Map.of("Accept", "application/json"));
+    int status = resp.statusCode();
+    if (status != 200) {
+      throw new HttpProblem(uri, status, status >= 500 || status == 429, "Zenodo answered " + status, null);
+    }
+    try {
+      List<JsonNode> records = new ArrayList<>();
+      FinderJson.mapper().readTree(resp.body()).path("hits").path("hits").forEach(records::add);
+      return records;
+    } catch (RuntimeException e) {
+      throw new HttpProblem(uri, status, false, "Zenodo answered unreadable JSON", e);
+    }
+  }
+
   private static String enc(String s) {
     return URLEncoder.encode(s, StandardCharsets.UTF_8).replace("+", "%20");
   }

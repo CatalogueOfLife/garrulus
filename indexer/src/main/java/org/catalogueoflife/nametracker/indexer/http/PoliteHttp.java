@@ -112,6 +112,9 @@ public class PoliteHttp {
     m.put("doaj.org", Duration.ofMillis(600)); // DOAJ allows 2 requests a second
     m.put("dataverse.harvard.edu", Duration.ofSeconds(1));
     m.put("tb.plazi.org", Duration.ofSeconds(1));
+    m.put("query.wikidata.org", Duration.ofSeconds(1));
+    m.put("www.ipni.org", Duration.ofSeconds(1));
+    m.put("biodiversitypmc.sibils.org", Duration.ofSeconds(1));
     m.put("pmc-oa-opendata.s3.amazonaws.com", Duration.ofMillis(100));
     m.put(PENSOFT_KEY, Duration.ofSeconds(1));
     return m;

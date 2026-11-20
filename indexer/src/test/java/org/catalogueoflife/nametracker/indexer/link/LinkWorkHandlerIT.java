@@ -33,6 +33,17 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(LinkTestConfig.class)
+// the built-in lookups (Task 4) are off: these tests drive the runner with scripted lookups only
+@org.springframework.test.context.TestPropertySource(properties = {
+    "nametracker.links.crossref.enabled=false",
+    "nametracker.links.openalex.enabled=false",
+    "nametracker.links.europepmc.enabled=false",
+    "nametracker.links.biodiversitypmc.enabled=false",
+    "nametracker.links.zenodo-blr.enabled=false",
+    "nametracker.links.plazi.enabled=false",
+    "nametracker.links.wikidata.enabled=false",
+    "nametracker.links.ipni.enabled=false",
+    "nametracker.links.crossref-journal.enabled=false"})
 class LinkWorkHandlerIT extends AbstractPostgresIT {
 
   @Autowired LinkWorkHandler handler;

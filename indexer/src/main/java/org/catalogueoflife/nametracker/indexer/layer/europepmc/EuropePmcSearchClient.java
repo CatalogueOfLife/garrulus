@@ -46,6 +46,13 @@ public class EuropePmcSearchClient {
     return read(uri, "*");
   }
 
+  /** One page of {@code query} as {@code resultType=lite} (ids, DOI, PMID, PMCID), at most {@code pageSize} records. */
+  public EpmcPage lite(String query, int pageSize) {
+    URI uri = URI.create(base + "/rest/search?query=" + enc(query) + "&resultType=lite&pageSize=" + pageSize
+        + "&format=json");
+    return read(uri, "*");
+  }
+
   /** True when Europe PMC has at least one record of a journal with one of the ISSNs. */
   public boolean hasJournal(List<String> issns) {
     if (issns.isEmpty()) return false;
