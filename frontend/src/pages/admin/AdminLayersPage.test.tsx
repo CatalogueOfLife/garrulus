@@ -22,4 +22,25 @@ describe('AdminLayersPage', () => {
     expect(screen.getByText('CROSSREF 2026-11-20 DEGRADED')).toBeInTheDocument();
     expect(screen.getByText('Revista X')).toBeInTheDocument();
   });
+
+  it('beforeTheFirstCoverageCheckSaysSo', async () => {
+    server.use(http.get('/api/admin/layers', () => HttpResponse.json({
+      health: [], contribution: {}, contributionByCountry: {}, coverage: [],
+    })));
+    renderApp(<AdminLayersPage />, '/admin/layers');
+    expect(await screen.findByText('No coverage check yet.')).toBeInTheDocument();
+    expect(screen.queryByText(/Layer health, last/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('anEmptySectionSaysNoneYet', async () => {
+    server.use(http.get('/api/admin/layers', () => HttpResponse.json({
+      health: [{ layer: 'OAI', day: '2026-11-20', state: 'OK', failedRuns: 0, yield: 9 }],
+      contribution: {}, contributionByCountry: {}, coverage: [],
+    })));
+    renderApp(<AdminLayersPage />, '/admin/layers');
+    expect(await screen.findByText('OAI 2026-11-20 OK')).toBeInTheDocument();
+    expect(screen.getByText('Layer health, last 1 day (empty outline: OK, grey: degraded, red: failing)')).toBeInTheDocument();
+    expect(screen.getAllByText('None yet.')).toHaveLength(3);
+  });
 });
