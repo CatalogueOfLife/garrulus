@@ -24,4 +24,6 @@
     ORDER BY id
   </select>
 
+  <delete id="deleteAll">DELETE FROM pkp_beacon</delete>
+
 </mapper>

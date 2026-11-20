@@ -123,6 +123,18 @@ nametracker:
     doaj:
       # DOAJ lookups (IDENTIFY_SOURCE completes a candidate's DOAJ membership, LCC subjects, discontinued date)
       enabled: ${NAMETRACKER_DISCOVERY_DOAJ_ENABLED:true}
+      # DISCOVER_SOURCES: LCC subject classes listed as candidates (comma-separated; blank = QL1-991, QK1-989,
+      # QH1-278.5, QR1-502, QH540-549.5, QE701-760)
+      lcc-codes: ${NAMETRACKER_DISCOVERY_DOAJ_LCC_CODES:}
+    pkp-beacon:
+      # DISCOVER_SOURCES: the PKP Beacon table (CC0, 32 MB, streamed) loaded into pkp_beacon; journals whose name passes
+      # include/exclude (comma-separated word-start terms, accent-folded; blank = built-in lists) and that are active
+      # are offered as candidates with an OAI route hint
+      enabled: ${NAMETRACKER_DISCOVERY_PKP_BEACON_ENABLED:true}
+      url: ${NAMETRACKER_DISCOVERY_PKP_BEACON_URL:https://dataverse.harvard.edu/api/access/datafile/14084919}
+      read-timeout: ${NAMETRACKER_DISCOVERY_PKP_BEACON_READ_TIMEOUT:5m}
+      include: ${NAMETRACKER_DISCOVERY_PKP_BEACON_INCLUDE:}
+      exclude: ${NAMETRACKER_DISCOVERY_PKP_BEACON_EXCLUDE:}
   doaj:
     # the DOAJ search API v4, free, 2 requests a second (doaj.org is spaced 600 ms)
     base-url: ${NAMETRACKER_DOAJ_BASE_URL:https://doaj.org/api/v4}

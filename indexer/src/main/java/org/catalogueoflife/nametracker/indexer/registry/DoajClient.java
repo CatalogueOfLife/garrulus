@@ -24,7 +24,7 @@ import tools.jackson.databind.JsonNode;
 public class DoajClient {
 
   public static final String LCC = "DOAJ_LCC";
-  static final int PAGE_SIZE = 100;
+  public static final int PAGE_SIZE = 100;
 
   /** One DOAJ journal: {@code issns} print then electronic, {@code lcc} its LCC subjects as raw rows. */
   public record DoajJournal(String id, String title, List<String> issns, @Nullable String publisher,

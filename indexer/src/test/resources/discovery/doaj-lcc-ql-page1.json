@@ -1,0 +1,103 @@
+{
+ "total": 155,
+ "page": 1,
+ "pageSize": 3,
+ "results": [
+  {
+   "id": "00cf9e64dc334a1a986347daeb3da541",
+   "bibjson": {
+    "title": "Fragmenta entomologica",
+    "pissn": "0429-288X",
+    "eissn": "2284-4880",
+    "subject": [
+     {
+      "code": "QL1-991",
+      "scheme": "LCC",
+      "term": "Zoology"
+     }
+    ],
+    "publisher": {
+     "country": "IT",
+     "name": "University La Sapienza of Rome"
+    },
+    "license": [
+     {
+      "NC": true,
+      "ND": false,
+      "BY": true,
+      "type": "CC BY-NC",
+      "SA": false,
+      "url": "https://creativecommons.org/licenses/by-nc/4.0/"
+     }
+    ]
+   }
+  },
+  {
+   "id": "02eca2d300224ab2b2436c012249c990",
+   "bibjson": {
+    "title": "ACTA Apicola Brasilica",
+    "eissn": "2358-2375",
+    "subject": [
+     {
+      "code": "SF1-1100",
+      "scheme": "LCC",
+      "term": "Animal culture"
+     },
+     {
+      "code": "QL1-991",
+      "scheme": "LCC",
+      "term": "Zoology"
+     }
+    ],
+    "publisher": {
+     "country": "BR",
+     "name": "Grupo Verde de Agroecologia e Abelhas (GVAA)"
+    },
+    "license": [
+     {
+      "NC": false,
+      "ND": false,
+      "BY": true,
+      "type": "CC BY",
+      "SA": false,
+      "url": "https://creativecommons.org/licenses/by/4.0/"
+     }
+    ]
+   }
+  },
+  {
+   "id": "0504e577cf4042249e8105ce2c14c81e",
+   "bibjson": {
+    "title": "Aceh Journal of Animal Science",
+    "pissn": "2502-9568",
+    "eissn": "2622-8734",
+    "subject": [
+     {
+      "code": "SF1-1100",
+      "scheme": "LCC",
+      "term": "Animal culture"
+     },
+     {
+      "code": "QL1-991",
+      "scheme": "LCC",
+      "term": "Zoology"
+     }
+    ],
+    "publisher": {
+     "country": "ID",
+     "name": "Faculty of Marine and Fisheries Universitas Syiah Kuala"
+    },
+    "license": [
+     {
+      "NC": false,
+      "ND": false,
+      "BY": true,
+      "type": "CC BY",
+      "SA": false,
+      "url": "https://creativecommons.org/licenses/by/4.0/"
+     }
+    ]
+   }
+  }
+ ]
+}

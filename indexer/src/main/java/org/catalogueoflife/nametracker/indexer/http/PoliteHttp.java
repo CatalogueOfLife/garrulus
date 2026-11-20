@@ -75,6 +75,7 @@ public class PoliteHttp {
     m.put("api.crossref.org", Duration.ofMillis(350)); // 3 list requests a second per mailto (2026)
     m.put("www.ebi.ac.uk", Duration.ofMillis(200));
     m.put("doaj.org", Duration.ofMillis(600)); // DOAJ allows 2 requests a second
+    m.put("dataverse.harvard.edu", Duration.ofSeconds(1));
     m.put("pmc-oa-opendata.s3.amazonaws.com", Duration.ofMillis(100));
     m.put(PENSOFT_KEY, Duration.ofSeconds(1));
     return m;

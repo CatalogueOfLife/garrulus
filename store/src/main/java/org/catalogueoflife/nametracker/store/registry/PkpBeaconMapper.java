@@ -9,4 +9,7 @@ public interface PkpBeaconMapper {
 
   /** The rows listing any of the ISSNs (upper case, hyphenated), ordered by id. */
   List<PkpBeaconRow> byIssns(@Param("issns") List<String> issns);
+
+  /** Empties the table before a reload. */
+  int deleteAll();
 }

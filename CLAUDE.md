@@ -184,6 +184,23 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   the scheduler enqueues nothing and a task that runs anyway ends DONE without a call. Open question for Markus: the zip
   URL is the file the ISSN IC's "on demand" form serves and is undocumented; switch on only after he confirms it may be
   used. Without the table the `CandidateRegistry` still works and matches by plain ISSN, then OpenAlex id.
+- `indexer` `DISCOVER_SOURCES` (`{"origin":"DOAJ"|"PKP_BEACON",…position}`, M6b Task 7; continuation key
+  `discover:<origin>:<sha12 of the payload>` at the task's priority; offers to the `CandidateRegistry` go in at
+  `BACKFILL`): nothing is harvested, a discovered journal is a `CANDIDATE` until an admin promotes it. Each origin's switch
+  `nametracker.discovery.<origin, lower case, hyphens>.enabled` (default true) is read on every run: a disabled origin
+  ends DONE with an INFO and no call. An outage defers the task without an attempt. **DOAJ**: one page of 100 per task
+  over `nametracker.discovery.doaj.lcc-codes` (env `NAMETRACKER_DISCOVERY_DOAJ_LCC_CODES`, comma-separated, blank =
+  `QL1-991,QK1-989,QH1-278.5,QR1-502,QH540-549.5,QE701-760`, about 600 journals; Biology (General) QH301-705.5 has 482
+  and is left out), position `{"code","page"}`; signal detail `{"doajId","lcc":[…]}`, raw `DOAJ_LCC` rows. **PKP Beacon**
+  (one task): streams `nametracker.discovery.pkp-beacon.url` (env `NAMETRACKER_DISCOVERY_PKP_BEACON_URL`, default
+  `https://dataverse.harvard.edu/api/access/datafile/14084919`, `beacon.tab` of doi:10.7910/DVN/OCZNVY v7, CC0, 32 MB,
+  `…_READ_TIMEOUT` 5m), replaces `pkp_beacon` with every row that has an ISSN (COPY, one transaction: a broken download
+  changes nothing), then offers the rows that pass the filter with a PENDING `OAI` route hint `{"base","set","prefix":
+  "oai_dc","issns"}` and signal detail `{"context","records2025","oaiUrl"}`. Filter: a topic term at a word start of the
+  accent-folded lower-cased context name (`nametracker.discovery.pkp-beacon.include`, comma-separated, blank = built-in
+  zoolog, taxonom, entomolog, botan, mycolog, fauna, flora, natural history, museum, ... museu, museo), none of
+  `….exclude` (blank = museolog, museum studies, veterinar, medic, pharmac), endpoint not unresponsive, and
+  `records2025 >= 5` or a last OAI response within 365 days (a zero count alone never excludes: Zootaxa reports 0).
 - `indexer` `IDENTIFY_SOURCE` (`{"sourceId":n}`, M6b Task 6; queued by the registry for every new candidate, key
   `identify:s<n>`): completes the source step by step, each written at once: ISSN-L and siblings from `issn_link`;
   Crossref `/journals/{issn}` (ISSNs, the title while it is still an ISSN, a missing publisher); OpenAlex by id or
