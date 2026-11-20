@@ -57,16 +57,22 @@ class SourceMapperIT extends AbstractPostgresIT {
     assertThat(sources.listHarvestable()).extracting(Source::id).doesNotContain(a);
   }
 
+  private static final ProposalThresholds P = new ProposalThresholds(0.1f, 5f, 0.02f, 1f, 0.5f);
+
+  private static AdminSourceQuery q(String tier, Boolean active, String q) {
+    return new AdminSourceQuery(tier, active, q, null, null, null, null, null, null, null, "id");
+  }
+
   @Test
   void listFiltersAndPages() {
     long a = sources.upsertSeed(source("S-l-a", "Zootaxa listing", "CORE"));
     long b = sources.upsertSeed(source("S-l-b", "ZooKeys listing", "BROAD"));
     sources.setTier(b, "BROAD", false, "ADMIN");
-    assertThat(sources.list("CORE", null, "zootaxa LISTING", 10, 0)).extracting(Source::id).containsExactly(a);
-    assertThat(sources.list(null, false, "listing", 10, 0)).extracting(Source::id).containsExactly(b);
-    assertThat(sources.list(null, null, "listing", 1, 0)).hasSize(1);
-    assertThat(sources.list(null, null, "listing", 1, 1)).hasSize(1);
-    assertThat(sources.list(null, null, "%", 10, 0)).isEmpty();
+    assertThat(sources.adminList(q("CORE", null, "zootaxa LISTING"), P, 10, 0)).extracting(Source::id).containsExactly(a);
+    assertThat(sources.adminList(q(null, false, "listing"), P, 10, 0)).extracting(Source::id).containsExactly(b);
+    assertThat(sources.adminList(q(null, null, "listing"), P, 1, 0)).hasSize(1);
+    assertThat(sources.adminList(q(null, null, "listing"), P, 1, 1)).hasSize(1);
+    assertThat(sources.adminList(q(null, null, "%"), P, 10, 0)).isEmpty();
     assertThat(sources.countByTier()).anySatisfy(r -> {
       assertThat(r).containsEntry("tier", "CORE");
       assertThat(((Number) r.get("n")).longValue()).isGreaterThanOrEqualTo(1);

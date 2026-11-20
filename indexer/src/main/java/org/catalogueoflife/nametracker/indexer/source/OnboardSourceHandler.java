@@ -4,13 +4,20 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Map;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException;
 import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.harvest.WorksPager;
+import org.catalogueoflife.nametracker.indexer.layer.LayerHarvestHandler;
+import org.catalogueoflife.nametracker.indexer.layer.LayerMode;
+import org.catalogueoflife.nametracker.indexer.layer.crossref.CrossrefHistoryLayer;
+import org.catalogueoflife.nametracker.indexer.layer.crossref.HarvestCrossrefHistoryHandler;
 import org.catalogueoflife.nametracker.indexer.layer.europepmc.ProbeEuropePmcHandler;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
+import org.catalogueoflife.nametracker.store.route.SourceRoute;
+import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.Task;
@@ -29,6 +36,11 @@ import tools.jackson.databind.JsonNode;
  * last page the source is marked onboarded, from when LIVE and SWEEP harvest it, and {@code PROBE_EUROPEPMC} asks
  * Europe PMC about it. An outage ({@link HarvestOutage})
  * enqueues the same page again in 30 minutes. The page continuations run at REPROCESS priority, or at the priority of the task if that ranks higher (LIVE).
+ *
+ * <p>A journal without an OpenAlex id has no OpenAlex pages to read. With ISSNs and no route that is PENDING, VERIFIED
+ * or ACTIVE (a route onboards the journal itself, {@code RouteLifecycle}) it is onboarded through Crossref: a
+ * {@code HARVEST_CROSSREF_HISTORY} job in {@code ONBOARDING} mode over the last 120 days, at REPROCESS, key
+ * {@code onboard-crossref:<id>}. Its last page marks the journal onboarded ({@code RouteLifecycle}).
  */
 @Component
 public class OnboardSourceHandler implements TaskHandler {
@@ -42,9 +54,11 @@ public class OnboardSourceHandler implements TaskHandler {
   private final TaskQueue queue;
   private final Clock clock;
   private final HarvestOutage outage;
+  private final SourceRouteMapper routes;
 
-  public OnboardSourceHandler(WorksPager pager, SourceMapper sources, TaskQueue queue, Clock clock,
-      HarvestOutage outage) {
+  public OnboardSourceHandler(WorksPager pager, SourceMapper sources, SourceRouteMapper routes, TaskQueue queue,
+      Clock clock, HarvestOutage outage) {
+    this.routes = routes;
     this.pager = pager;
     this.sources = sources;
     this.queue = queue;
@@ -69,11 +83,15 @@ public class OnboardSourceHandler implements TaskHandler {
       LOG.info("ONBOARD_SOURCE: source {} ({}) has ceased publication, not onboarded", sourceId, source.title());
       return;
     }
-    if (source.onboardedAt() != null || !Boolean.TRUE.equals(source.active()) || source.openalexId() == null
+    if (source.onboardedAt() != null || !Boolean.TRUE.equals(source.active())
         || !("CORE".equals(source.tier()) || "BROAD".equals(source.tier()))) {
       return; // already done, or no longer wanted
     }
     LocalDate today = LocalDate.now(clock.withZone(ZoneOffset.UTC));
+    if (source.openalexId() == null) {
+      onboardThroughCrossref(source, today);
+      return;
+    }
     String fromText = WorksPager.text(p, "from");
     LocalDate from = fromText == null ? today.minusDays(DAYS) : LocalDate.parse(fromText);
     String cursor = WorksPager.text(p, "cursor");
@@ -113,6 +131,25 @@ public class OnboardSourceHandler implements TaskHandler {
     sources.setLastHarvested(sourceId, now);
     sources.setOnboarded(sourceId, now);
     ProbeEuropePmcHandler.enqueue(queue, sourceId); // a Europe PMC route for the journal, if Europe PMC has it
+  }
+
+  /** The first page of the 120-day Crossref pass of a journal OpenAlex does not have, unless a route will onboard it. */
+  private void onboardThroughCrossref(Source source, LocalDate today) {
+    if (CrossrefHistoryLayer.issns(source).isEmpty()) {
+      LOG.info("ONBOARD_SOURCE: source {} ({}) has no OpenAlex id and no ISSN, not onboarded", source.id(),
+          source.title());
+      return;
+    }
+    for (SourceRoute r : routes.forSource(source.id())) {
+      if (List.of("PENDING", "VERIFIED", "ACTIVE").contains(r.status())) {
+        LOG.info("ONBOARD_SOURCE: source {} ({}) waits for its {} route {}", source.id(), source.title(), r.layer(),
+            r.id());
+        return; // the route's onboarding pass onboards the journal
+      }
+    }
+    queue.enqueue(HarvestCrossrefHistoryHandler.TYPE, LayerHarvestHandler.firstPayload("s" + source.id(), null,
+        List.of(source.id()), today.minusDays(DAYS), today, LayerMode.ONBOARDING), TaskPriority.REPROCESS,
+        "onboard-crossref:" + source.id());
   }
 
   static TaskPriority continuationPriority(Task task) {

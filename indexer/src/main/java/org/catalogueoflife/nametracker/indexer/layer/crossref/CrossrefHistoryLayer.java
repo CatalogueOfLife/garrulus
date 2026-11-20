@@ -29,7 +29,8 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
 /**
- * The history of one journal in Crossref, for a route backfill ({@code BACKFILL} mode only): the journal articles of
+ * The history of one journal in Crossref, for a route backfill ({@code BACKFILL} mode) or the onboarding pass of a
+ * journal that only Crossref has ({@code ONBOARDING}, the last 120 days): the journal articles of
  * every ISSN of the job's source with {@code from-pub-date}/{@code until-pub-date}, read one span at a time.
  *
  * <p>A span is a publication year (position {@code <yyyy>:<offset>}) or, for a year Crossref cannot list in full, a
@@ -108,8 +109,8 @@ public class CrossrefHistoryLayer implements HarvestLayer {
 
   @Override
   public LayerPage page(LayerJob job, @Nullable String position) {
-    if (job.mode() != LayerMode.BACKFILL) {
-      throw new IllegalArgumentException("The Crossref history runs in BACKFILL mode only, not " + job.mode());
+    if (job.mode() == LayerMode.LIVE) {
+      throw new IllegalArgumentException("The Crossref history runs in BACKFILL or ONBOARDING mode, not " + job.mode());
     }
     if (job.sourceIds().isEmpty()) throw new IllegalArgumentException("A Crossref history needs a source");
     long sourceId = job.sourceIds().getFirst();

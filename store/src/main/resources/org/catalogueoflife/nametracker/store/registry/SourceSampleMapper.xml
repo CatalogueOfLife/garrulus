@@ -40,6 +40,10 @@
     RETURNING id
   </select>
 
+  <select id="recent" resultMap="result">
+    SELECT * FROM source_sample WHERE source_id = #{sourceId} ORDER BY sampled_at DESC, id DESC LIMIT #{limit}
+  </select>
+
   <select id="latest" resultMap="result">
     SELECT * FROM source_sample WHERE source_id = #{sourceId} ORDER BY sampled_at DESC, id DESC LIMIT 1
   </select>

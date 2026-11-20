@@ -392,10 +392,29 @@ curl ... -d '{"type":"REPROCESS_NAMES","payload":{"all":true},"priority":"REPROC
 # backfill a slice: 3 snapshot files from file 10, years 2020 to 2024 (omit for 2000 to now, all files)
 curl ... -d '{"type":"BACKFILL","payload":{"fromYear":2020,"toYear":2024,"files":3,"fromFile":10},"priority":"BACKFILL","dedupKey":"backfill:manual"}'
 ```
-- `GET /api/admin/sources?tier=&active=&q=&limit=&offset=` lists sources (limit at most 500, default 100).
-- `PATCH /api/admin/sources/{id}` with `{"tier":"CORE","active":true}` (either field) sets tier and active as ADMIN. A
-  promotion to CORE/BROAD of an active, not yet onboarded source enqueues its onboarding. 404 for an unknown id, 400
-  for a bad tier.
+- `GET /api/admin/sources?tier=&active=&q=&origin=&country=&publicationStatus=&dormant=&registered=&proposal=&revival=&sort=&limit=&offset=`
+  lists sources as `{"total":n,"items":[…]}` (**breaking for scripts that read the old array**; limit at most 500,
+  default 100; `sort` is `score` (default for `tier=CANDIDATE`; candidate score, unscored last), `title` or `id`). An item
+  carries origin, country, candidate score, the origins of its signals, its newest sample, its routes by status, the
+  number of registrations, and the proposals, which are shown and never applied: `proposal` (`PROMOTE` for a BROAD journal
+  with act rate >= 0.10 and >= 5 names per work, `DEMOTE` for a CORE one with act rate < 0.02 and < 1 name per work and for
+  a BROAD one with < 0.5; properties `nametracker.admin.proposals.{promote-act-rate,promote-names,demote-core-act-rate,
+  demote-core-names,demote-broad-names}`), `dormant` (the coverage check's proposal) and `revival` (a CEASED or EXCLUDED
+  journal with dated signs of life: a BLR `lastSeen`, a REGISTERED signal or PKP current-year records newer than the
+  status change, for an EXCLUDED one in the last 90 days; a signal's `last_seen` is no evidence).
+- `GET /api/admin/sources/{id}` is the detail: signals (a `REGISTERED` one with the user's note and display name),
+  samples, routes, registrations, disciplines with who set them, raw classifications, status and dormancy evidence.
+- `PATCH /api/admin/sources/{id}` with any of `tier`, `active`, `publicationStatus` (+ `ceasedReason`, `lastIssueYear`,
+  `continuedBy`), `dismissDormant`, `disciplines` (codes of the vocabulary, not retired; sets them as ADMIN) or
+  `releaseDisciplines` (back to the derivation). A promotion to CORE/BROAD of an active, not yet onboarded source
+  enqueues its onboarding (`ONBOARD_SOURCE`; for a journal without an OpenAlex id and without a PENDING, VERIFIED or ACTIVE
+  route that is a 120-day Crossref `ONBOARDING` pass, key `onboard-crossref:<id>`, whose last page onboards it) and
+  verifies its PENDING routes. 404 for an unknown id, 400 for a bad value or no recognised field.
+- `POST /api/admin/sources/{id}/sample` (202) queues `SAMPLE_SOURCE` with `"force":true`, key
+  `sample:<id>:manual:<yyyy-mm-dd>`.
+- `GET /api/admin/registrations?state=&limit=&offset=`: what users registered, newest first, with the source's current
+  tier and publication status. `GET /api/admin/layers?days=28` (1 to 90): daily layer health, 28-day contribution (in
+  total and by country) and the 200 coverage rows with most misses.
 - `POST /api/admin/sources` with `{"openalexId":"S123","tier":"CORE"}` enqueues `ADD_SOURCE` (202).
 - Routes (M6, `source_route`): `GET /api/admin/sources/{id}/routes`; `POST /api/admin/sources/{id}/routes` with
   `{"layer":"OAI"|"MAGTECH"|"EUROPEPMC","config":{…}}` stores the route PENDING (origin ADMIN) and enqueues

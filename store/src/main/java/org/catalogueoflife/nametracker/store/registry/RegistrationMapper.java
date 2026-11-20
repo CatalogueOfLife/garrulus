@@ -71,4 +71,11 @@ public interface RegistrationMapper {
 
   /** The count of {@link #waitingSince}, unlimited. */
   int countWaitingSince(@Param("since") @Nullable Instant since);
+
+  /** Admin view: the registrations in this state (all if null), newest first. */
+  List<AdminRegistrationRow> adminList(@Param("state") @Nullable String state, @Param("limit") int limit,
+      @Param("offset") int offset);
+
+  /** Admin view: the registrations that point at the source (a folded one too), newest first. */
+  List<AdminRegistrationRow> adminForSource(@Param("sourceId") long sourceId);
 }

@@ -105,6 +105,12 @@
     GROUP BY c.source_id
   </select>
 
+  <select id="coverageRows" resultType="org.catalogueoflife.nametracker.store.layer.CoverageRow">
+    SELECT c.source_id AS sourceId, s.title, s.country, c.layer, c.sightings_28d AS sightings28d, c.misses
+    FROM source_layer_coverage c JOIN source s ON s.id = c.source_id
+    ORDER BY c.misses DESC, c.source_id, c.layer LIMIT #{limit}
+  </select>
+
   <delete id="deleteCoverage">
     DELETE FROM source_layer_coverage WHERE layer = #{layer}
   </delete>

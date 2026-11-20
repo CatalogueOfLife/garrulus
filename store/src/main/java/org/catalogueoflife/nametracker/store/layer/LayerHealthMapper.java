@@ -57,6 +57,9 @@ public interface LayerHealthMapper {
   List<Map<String, Object>> missesBySource(@Param("layer") String layer, @Param("others") List<String> others,
       @Param("routeLayer") @Nullable String routeLayer, @Param("from") LocalDate from, @Param("to") LocalDate to);
 
+  /** The {@code limit} coverage rows with the most misses (then by source and layer). */
+  List<CoverageRow> coverageRows(@Param("limit") int limit);
+
   /** Removes all coverage rows of a layer (before they are written again). */
   int deleteCoverage(@Param("layer") String layer);
 

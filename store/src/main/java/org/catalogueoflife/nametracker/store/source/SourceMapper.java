@@ -55,9 +55,41 @@ public interface SourceMapper {
    */
   long upsertSeed(@Param("o") Source o);
 
-  /** Filtered by tier, active and a case-insensitive title substring (each optional), ordered by id. */
-  List<Source> list(@Param("tier") @Nullable String tier, @Param("active") @Nullable Boolean active,
-      @Param("q") @Nullable String q, @Param("limit") int limit, @Param("offset") int offset);
+  /** The admin list: filtered and sorted as the query says, one page. */
+  List<Source> adminList(@Param("f") AdminSourceQuery f, @Param("p") ProposalThresholds p, @Param("limit") int limit, @Param("offset") int offset);
+
+  /** The number of rows {@link #adminList} would list without paging. */
+  long adminCount(@Param("f") AdminSourceQuery f, @Param("p") ProposalThresholds p);
+
+  /** The {@link AdminSourceFlags} of these sources, by id (an unknown id has no entry). */
+  default List<AdminSourceFlags> adminFlags(List<Long> ids, ProposalThresholds p) {
+    if (ids.isEmpty()) return List.of();
+    return flagRows(ids, p).stream().map(r -> {
+      List<String> origins = r.get("signal_origins") == null ? List.of()
+          : List.of(((String) r.get("signal_origins")).split(","));
+      Map<String, Long> routes = new java.util.LinkedHashMap<>();
+      if (r.get("routes") != null) {
+        for (String e : ((String) r.get("routes")).split(",")) {
+          int c = e.indexOf(':');
+          routes.put(e.substring(0, c), Long.parseLong(e.substring(c + 1)));
+        }
+      }
+      return new AdminSourceFlags(((Number) r.get("id")).longValue(), (String) r.get("proposal"),
+          Boolean.TRUE.equals(r.get("dormant")), Boolean.TRUE.equals(r.get("revival")),
+          ((Number) r.get("registrations")).intValue(), origins, routes);
+    }).toList();
+  }
+
+  List<Map<String, Object>> flagRows(@Param("ids") List<Long> ids, @Param("p") ProposalThresholds p);
+
+  /**
+   * An admin's override of the disciplines: {@code codes} (the first is the primary one; may be empty) with
+   * discipline_set_by and discipline_source ADMIN.
+   */
+  int setDisciplinesByAdmin(@Param("id") long id, @Param("codes") List<String> codes);
+
+  /** Gives the disciplines back to the derivation (the next {@code CATEGORISE_SOURCES} writes them). */
+  int releaseDisciplines(@Param("id") long id);
 
   /**
    * Public listing: active CORE and BROAD sources only (ceased ones too), optional tier, journal type, publication

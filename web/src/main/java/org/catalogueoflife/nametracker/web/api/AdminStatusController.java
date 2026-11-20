@@ -108,7 +108,7 @@ public class AdminStatusController {
     for (Map<String, Object> r : sources.countByTier()) {
       bySource.put((String) r.get("tier"), ((Number) r.get("n")).longValue());
     }
-    Contribution c = contribution();
+    LayerContribution c = LayerContribution.of(health.latestContribution());
     return new Status(nested(tasks.countByTypeAndState(), "type", "state"),
         nested(works.countByStateAndTextLevel(), "state", "text_level"), bySource, usageRows, runs.recent(RUNS),
         index.releases(LISTED).stream().map(r -> new XrReleaseStatus(r.key(), r.alias(), r.state(), r.current(),
@@ -116,29 +116,6 @@ public class AdminStatusController {
         backfill.recentSummaries(LISTED), rollouts.list(LISTED), health.latest(HEALTH_DAYS),
         nested(routes.countByLayerAndStatus(), "layer", "status"), c.total(), c.byCountry());
   }
-
-  private Contribution contribution() {
-    Map<String, Map<String, Long>> total = new LinkedHashMap<>();
-    Map<String, Map<String, Map<String, Long>>> byCountry = new LinkedHashMap<>();
-    for (Map<String, Object> r : health.latestContribution()) {
-      String layer = (String) r.get("layer");
-      String country = "".equals(r.get("country")) ? "UNKNOWN" : (String) r.get("country");
-      long first = ((Number) r.get("first_found")).longValue();
-      long only = ((Number) r.get("only_found")).longValue();
-      Map<String, Long> t = total.computeIfAbsent(layer, k -> new LinkedHashMap<>());
-      t.merge("first", first, Long::sum);
-      t.merge("only", only, Long::sum);
-      Map<String, Long> c = byCountry.computeIfAbsent(country, k -> new LinkedHashMap<>())
-          .computeIfAbsent(layer, k -> new LinkedHashMap<>());
-      c.merge("first", first, Long::sum);
-      c.merge("only", only, Long::sum);
-    }
-    return new Contribution(total, byCountry);
-  }
-
-  /** The 28-day contribution of the layers as of the last coverage check, in total and by the journal's country. */
-  private record Contribution(Map<String, Map<String, Long>> total,
-      Map<String, Map<String, Map<String, Long>>> byCountry) {}
 
   /** Rows of (outer, inner, n) to outer -> inner -> n; a null inner key is written NONE. */
   private static Map<String, Map<String, Long>> nested(List<Map<String, Object>> rows, String outer, String inner) {

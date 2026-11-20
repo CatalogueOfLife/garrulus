@@ -15,6 +15,9 @@ public interface SourceSampleMapper {
   /** The newest sample of the source, or null. */
   @Nullable SourceSample latest(@Param("sourceId") long sourceId);
 
+  /** The newest samples of the source, newest first. */
+  List<SourceSample> recent(@Param("sourceId") long sourceId, @Param("limit") int limit);
+
   /** True when a user registered the source (origin REGISTERED or a registration that is not withdrawn). */
   boolean registered(@Param("sourceId") long sourceId);
 

@@ -29,7 +29,8 @@ import org.springframework.stereotype.Component;
  *   history from the snapshot backfill.</li>
  *   <li>{@code BACKFILL}: the route's {@code backfilled_at}.</li>
  * </ul>
- * A job without a route changes no route; the end of a Crossref history sets the source's
+ * A job without a route changes no route; the end of a Crossref {@code ONBOARDING} pass onboards a wanted journal
+ * without an OpenAlex id like a route's pass does; the end of a Crossref history sets the source's
  * {@code crossref_history_at}, which keeps later automatic route backfills from reading it again.
  */
 @Component
@@ -63,8 +64,13 @@ public class RouteLifecycle {
   public void lastPage(LayerJob job) {
     Instant now = clock.instant();
     if (job.routeId() == null) {
-      if (job.layer() == Layer.CROSSREF && job.mode() == LayerMode.BACKFILL && !job.sourceIds().isEmpty()) {
-        sources.setCrossrefHistoryDone(job.sourceIds().getFirst(), now); // later automatic backfills skip it
+      if (job.layer() == Layer.CROSSREF && !job.sourceIds().isEmpty()) {
+        long sourceId = job.sourceIds().getFirst();
+        if (job.mode() == LayerMode.BACKFILL) {
+          sources.setCrossrefHistoryDone(sourceId, now); // later automatic backfills skip it
+        } else if (job.mode() == LayerMode.ONBOARDING) {
+          crossrefOnboarded(sourceId, now);
+        }
       }
       return;
     }
@@ -112,6 +118,18 @@ public class RouteLifecycle {
       sources.setOnboarded(s.id(), now);
       ProbeEuropePmcHandler.enqueue(queue, s.id());
       LOG.info("Source {} onboarded by its route {}", s.id(), route.id());
+    }
+    backfill.enqueue(s.id());
+  }
+
+  /** The end of the Crossref onboarding pass of a journal without an OpenAlex id: as a route's pass onboards it. */
+  private void crossrefOnboarded(long sourceId, Instant now) {
+    Source s = sources.get(sourceId);
+    if (s == null || s.openalexId() != null || "CEASED".equals(s.publicationStatus())) return;
+    if (s.onboardedAt() == null && wanted(s)) {
+      sources.setOnboarded(s.id(), now);
+      ProbeEuropePmcHandler.enqueue(queue, s.id());
+      LOG.info("Source {} onboarded through Crossref", s.id());
     }
     backfill.enqueue(s.id());
   }

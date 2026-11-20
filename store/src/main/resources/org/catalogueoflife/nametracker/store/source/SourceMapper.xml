@@ -248,15 +248,85 @@
     RETURNING id
   </select>
 
-  <select id="list" resultMap="result">
-    SELECT * FROM source
+  <sql id="proposalExpr">
+    CASE
+      WHEN s.tier = 'BROAD' AND s.act_rate &gt;= #{p.promoteActRate} AND s.name_density &gt;= #{p.promoteNames} THEN 'PROMOTE'
+      WHEN s.tier = 'CORE' AND s.act_rate &lt; #{p.demoteCoreActRate} AND s.name_density &lt; #{p.demoteCoreNames} THEN 'DEMOTE'
+      WHEN s.tier = 'BROAD' AND s.name_density &lt; #{p.demoteBroadNames} THEN 'DEMOTE'
+    END
+  </sql>
+
+  <!-- dated signs of life after the journal ceased (status_changed) or, for an excluded one, in the last 90 days: a
+       BLR signal's newest first sighting, a registration, PKP records of the current year. last_seen is no evidence:
+       every re-offer of a list bumps it. A proposal only, never applied. -->
+  <sql id="revivalExpr">
+    ((s.publication_status = 'CEASED' OR s.tier = 'EXCLUDED') AND EXISTS (
+      SELECT 1 FROM source_signal g WHERE g.source_id = s.id AND (
+        (g.origin = 'BLR' AND g.detail ->> 'lastSeen' IS NOT NULL
+          AND (g.detail ->> 'lastSeen')::timestamptz::date &gt; (CASE WHEN s.publication_status = 'CEASED'
+            THEN coalesce(s.status_changed, s.created) ELSE now() - interval '90 days' END)::date)
+        OR (g.origin = 'REGISTERED' AND g.first_seen &gt; (CASE WHEN s.publication_status = 'CEASED'
+            THEN coalesce(s.status_changed, s.created) ELSE now() - interval '90 days' END))
+        OR (g.origin = 'PKP_BEACON' AND s.publication_status = 'CEASED'
+            AND coalesce((g.detail ->> 'records2025')::int, 0) &gt; 0))))
+  </sql>
+
+  <sql id="registeredExpr">
+    (s.origin = 'REGISTERED'
+     OR EXISTS (SELECT 1 FROM source_registration r WHERE r.source_id = s.id AND r.state &lt;&gt; 'WITHDRAWN'))
+  </sql>
+
+  <sql id="adminWhere">
     <where>
-      <if test="tier != null">AND tier = #{tier}</if>
-      <if test="active != null">AND active = #{active}</if>
-      <if test="q != null and q != ''">AND position(lower(#{q}) in lower(title)) > 0</if>
+      <if test="f.tier != null">AND s.tier = #{f.tier}</if>
+      <if test="f.active != null">AND s.active = #{f.active}</if>
+      <if test="f.q != null and f.q != ''">AND position(lower(#{f.q}) in lower(s.title)) &gt; 0</if>
+      <if test="f.origin != null">AND s.origin = #{f.origin}</if>
+      <if test="f.country != null">AND upper(s.country) = upper(#{f.country})</if>
+      <if test="f.publicationStatus != null">AND s.publication_status = #{f.publicationStatus}</if>
+      <if test="f.dormant != null">AND (s.dormant_since IS NOT NULL) = #{f.dormant}</if>
+      <if test="f.registered != null">AND <include refid="registeredExpr"/> = #{f.registered}</if>
+      <if test="f.proposal != null">AND (<include refid="proposalExpr"/> IS NOT NULL) = #{f.proposal}</if>
+      <if test="f.revival != null">AND <include refid="revivalExpr"/> = #{f.revival}</if>
     </where>
-    ORDER BY id LIMIT #{limit} OFFSET #{offset}
+  </sql>
+
+  <select id="adminList" resultMap="result">
+    SELECT s.* FROM source s <include refid="adminWhere"/>
+    ORDER BY
+    <choose>
+      <when test="f.sort == 'score'">s.candidate_score DESC NULLS LAST, s.id</when>
+      <when test="f.sort == 'title'">lower(s.title), s.id</when>
+      <otherwise>s.id</otherwise>
+    </choose>
+    LIMIT #{limit} OFFSET #{offset}
   </select>
+
+  <select id="adminCount" resultType="long">
+    SELECT count(*) FROM source s <include refid="adminWhere"/>
+  </select>
+
+  <select id="flagRows" resultType="map">
+    SELECT s.id, <include refid="proposalExpr"/> AS proposal, (s.dormant_since IS NOT NULL) AS dormant,
+      <include refid="revivalExpr"/> AS revival,
+      (SELECT count(*)::int FROM source_registration r WHERE r.source_id = s.id AND r.state &lt;&gt; 'WITHDRAWN') AS registrations,
+      (SELECT string_agg(o, ',' ORDER BY o) FROM (SELECT DISTINCT origin AS o FROM source_signal WHERE source_id = s.id) x) AS signal_origins,
+      (SELECT string_agg(st || ':' || n, ',' ORDER BY st) FROM
+        (SELECT status AS st, count(*) AS n FROM source_route WHERE source_id = s.id GROUP BY status) y) AS routes
+    FROM source s
+    WHERE s.id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+  </select>
+
+  <update id="setDisciplinesByAdmin" flushCache="true">
+    UPDATE source SET subfields = #{codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler},
+      primary_subfield = (#{codes, typeHandler=org.catalogueoflife.nametracker.store.type.StringArrayTypeHandler}::text[])[1],
+      discipline_source = 'ADMIN', discipline_set_by = 'ADMIN', modified = now()
+    WHERE id = #{id}
+  </update>
+
+  <update id="releaseDisciplines" flushCache="true">
+    UPDATE source SET discipline_set_by = 'DERIVED', modified = now() WHERE id = #{id} AND discipline_set_by = 'ADMIN'
+  </update>
 
   <select id="countByTier" resultType="map">
     SELECT tier, count(*) AS n FROM source GROUP BY tier ORDER BY tier

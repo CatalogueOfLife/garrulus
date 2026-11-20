@@ -1,16 +1,21 @@
 package org.catalogueoflife.nametracker.web.api;
 
-import java.time.Instant;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 import org.catalogueoflife.nametracker.store.route.SourceRoute;
 import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
+import org.catalogueoflife.nametracker.store.source.AdminSourceQuery;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.catalogueoflife.nametracker.store.task.TaskQueue;
+import org.catalogueoflife.nametracker.web.api.AdminSourceViews.SourceAdminDetail;
+import org.catalogueoflife.nametracker.web.api.AdminSourceViews.SourceView;
 import org.catalogueoflife.nametracker.web.auth.AdminOrcids;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.annotation.Conditional;
@@ -40,21 +45,17 @@ public class AdminSourceController {
   private static final Set<String> ADD_TIERS = Set.of("CORE", "BROAD", "CANDIDATE");
   private static final Pattern OPENALEX_ID = Pattern.compile("S\\d+");
 
-  public record SourceView(long id, String openalexId, String title, String tier, boolean active,
-      @Nullable Instant onboardedAt, @Nullable Instant lastHarvested, @Nullable Integer worksPerYear,
-      String publicationStatus, @Nullable String ceasedReason, @Nullable Integer lastIssueYear,
-      @Nullable Long continuedBy) {
-    static SourceView of(Source s) {
-      return new SourceView(s.id(), s.openalexId(), s.title(), s.tier(), Boolean.TRUE.equals(s.active()),
-          s.onboardedAt(), s.lastHarvested(), s.worksPerYear(), s.publicationStatus(), s.ceasedReason(),
-          s.lastIssueYear(), s.continuedBy());
-    }
-  }
-
-  /** Every field is optional, at least one must be given. {@code ceasedReason} is needed with CEASED. */
+  /**
+   * Every field is optional, at least one recognised one must be given. {@code ceasedReason} is needed with CEASED.
+   * {@code disciplines} (codes of the vocabulary, not retired; possibly none) is an admin override;
+   * {@code releaseDisciplines} gives them back to the derivation.
+   */
   public record PatchRequest(@Nullable String tier, @Nullable Boolean active, @Nullable String publicationStatus,
       @Nullable String ceasedReason, @Nullable Integer lastIssueYear, @Nullable Long continuedBy,
-      @Nullable Boolean dismissDormant) {}
+      @Nullable Boolean dismissDormant, @Nullable List<String> disciplines, @Nullable Boolean releaseDisciplines) {}
+
+  /** The listing: the total of the filter and one page. */
+  public record SourcePage(long total, List<SourceView> items) {}
 
   public record AddRequest(@Nullable String openalexId, @Nullable String tier) {}
 
@@ -62,11 +63,20 @@ public class AdminSourceController {
   private final SourceRouteMapper routes;
   private final TaskQueue queue;
   private final AdminAccess access;
+  private static final Set<String> SORTS = Set.of("score", "title", "id");
+  private static final Set<String> STATUSES = Set.of("ACTIVE", "CEASED");
+
   private final SourceStatusService status;
+  private final SourceDisciplineService disciplines;
+  private final AdminSourceViews views;
+  private final Clock clock;
 
   public AdminSourceController(SourceMapper sources, SourceRouteMapper routes, TaskQueue queue, AdminAccess access,
-      SourceStatusService status) {
+      SourceStatusService status, SourceDisciplineService disciplines, AdminSourceViews views, Clock clock) {
     this.status = status;
+    this.disciplines = disciplines;
+    this.views = views;
+    this.clock = clock;
     this.sources = sources;
     this.routes = routes;
     this.queue = queue;
@@ -74,21 +84,62 @@ public class AdminSourceController {
   }
 
   @GetMapping("/api/admin/sources")
-  public List<SourceView> list(
+  public SourcePage list(
       @RequestHeader(name = AdminOrcids.TOKEN_HEADER, required = false) @Nullable String given,
       @RequestParam(required = false) @Nullable String tier,
       @RequestParam(required = false) @Nullable Boolean active,
       @RequestParam(required = false) @Nullable String q,
+      @RequestParam(required = false) @Nullable String origin,
+      @RequestParam(required = false) @Nullable String country,
+      @RequestParam(required = false) @Nullable String publicationStatus,
+      @RequestParam(required = false) @Nullable Boolean dormant,
+      @RequestParam(required = false) @Nullable Boolean registered,
+      @RequestParam(required = false) @Nullable Boolean proposal,
+      @RequestParam(required = false) @Nullable Boolean revival,
+      @RequestParam(required = false) @Nullable String sort,
       @RequestParam(defaultValue = "100") int limit,
       @RequestParam(defaultValue = "0") int offset) {
     access.check(given);
     if (tier != null && !TIERS.contains(tier)) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "unknown tier " + tier);
     }
+    if (publicationStatus != null && !STATUSES.contains(publicationStatus)) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "publicationStatus is ACTIVE or CEASED");
+    }
+    if (sort != null && !SORTS.contains(sort)) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "sort is score, title or id");
+    }
     if (limit < 1 || limit > MAX_LIMIT || offset < 0) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "limit must be 1.." + MAX_LIMIT + ", offset >= 0");
     }
-    return sources.list(tier, active, q, limit, offset).stream().map(SourceView::of).toList();
+    String order = sort != null ? sort : "CANDIDATE".equals(tier) ? "score" : "id";
+    AdminSourceQuery f = new AdminSourceQuery(tier, active, q, origin, country == null || country.isBlank() ? null
+        : country.strip(), publicationStatus, dormant, registered, proposal, revival, order);
+    return new SourcePage(sources.adminCount(f, views.thresholds()),
+        views.views(sources.adminList(f, views.thresholds(), limit, offset)));
+  }
+
+  @GetMapping("/api/admin/sources/{id}")
+  public SourceAdminDetail detail(
+      @RequestHeader(name = AdminOrcids.TOKEN_HEADER, required = false) @Nullable String given,
+      @PathVariable long id) {
+    access.check(given);
+    Source s = sources.get(id);
+    if (s == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "no source " + id);
+    return views.detail(s);
+  }
+
+  /** An admin asks for a fresh sample of a candidate now, whatever the age of the last one. */
+  @PostMapping("/api/admin/sources/{id}/sample")
+  @ResponseStatus(HttpStatus.ACCEPTED)
+  public Map<String, Long> sample(
+      @RequestHeader(name = AdminOrcids.TOKEN_HEADER, required = false) @Nullable String given,
+      @PathVariable long id) {
+    access.check(given);
+    if (sources.get(id) == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "no source " + id);
+    LocalDate today = LocalDate.now(clock.withZone(ZoneOffset.UTC));
+    return Map.of("id", queue.enqueue("SAMPLE_SOURCE", "{\"sourceId\":" + id + ",\"force\":true}",
+        TaskPriority.LIVE, "sample:" + id + ":manual:" + today));
   }
 
   @PatchMapping("/api/admin/sources/{id}")
@@ -97,9 +148,14 @@ public class AdminSourceController {
       @PathVariable long id, @RequestBody PatchRequest req) {
     access.check(given);
     boolean dismiss = Boolean.TRUE.equals(req.dismissDormant());
-    if (req.tier() == null && req.active() == null && req.publicationStatus() == null && !dismiss) {
+    boolean release = Boolean.TRUE.equals(req.releaseDisciplines());
+    if (req.tier() == null && req.active() == null && req.publicationStatus() == null && !dismiss
+        && req.disciplines() == null && !release) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-          "tier, active, publicationStatus or dismissDormant is required");
+          "tier, active, publicationStatus, dismissDormant, disciplines or releaseDisciplines is required");
+    }
+    if (req.disciplines() != null && release) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "disciplines and releaseDisciplines exclude each other");
     }
     if (req.tier() != null && !TIERS.contains(req.tier())) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "unknown tier " + req.tier());
@@ -108,10 +164,12 @@ public class AdminSourceController {
     if (current == null) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "no source " + id);
     }
+    if (req.disciplines() != null) disciplines.validate(req.disciplines()); // before anything is written
     if (req.publicationStatus() != null) {
-      // validated before anything is written
       status.apply(current, req.publicationStatus(), req.ceasedReason(), req.lastIssueYear(), req.continuedBy());
     }
+    if (req.disciplines() != null) disciplines.override(id, req.disciplines());
+    if (release) disciplines.release(id);
     if (dismiss) {
       sources.dismissDormant(id);
     }
@@ -135,7 +193,7 @@ public class AdminSourceController {
         }
       }
     }
-    return SourceView.of(updated);
+    return views.view(updated);
   }
 
   @PostMapping("/api/admin/sources")

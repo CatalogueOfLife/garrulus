@@ -21,6 +21,24 @@
     </constructor>
   </resultMap>
 
+  <resultMap id="adminRow" type="org.catalogueoflife.nametracker.store.registry.AdminRegistrationRow">
+    <constructor>
+      <idArg column="id" javaType="_long"/>
+      <arg column="kind" javaType="string"/>
+      <arg column="input" javaType="string"/>
+      <arg column="note" javaType="string"/>
+      <arg column="state" javaType="string"/>
+      <arg column="outcome" javaType="string"/>
+      <arg column="reason" javaType="string"/>
+      <arg column="source_id" javaType="java.lang.Long"/>
+      <arg column="source_title" javaType="string"/>
+      <arg column="source_tier" javaType="string"/>
+      <arg column="source_publication_status" javaType="string"/>
+      <arg column="display_name" javaType="string"/>
+      <arg column="created" javaType="java.time.Instant"/>
+    </constructor>
+  </resultMap>
+
   <resultMap id="decision" type="org.catalogueoflife.nametracker.store.registry.RegistrationMapper$Decision">
     <constructor>
       <idArg column="id" javaType="_long"/>
@@ -125,6 +143,26 @@
 
   <select id="countWaitingSince" resultType="int">
     SELECT count(*) <include refid="waiting"/>
+  </select>
+
+  <sql id="adminSelect">
+    SELECT r.id, r.kind, r.input, r.note, r.state, r.outcome, r.reason, r.source_id, s.title AS source_title,
+      s.tier AS source_tier, s.publication_status AS source_publication_status, u.display_name, r.created
+    FROM source_registration r
+    LEFT JOIN source s ON s.id = r.source_id
+    LEFT JOIN app_user u ON u.id = r.user_id
+  </sql>
+
+  <select id="adminList" resultMap="adminRow">
+    <include refid="adminSelect"/>
+    <where><if test="state != null">r.state = #{state}</if></where>
+    ORDER BY r.created DESC, r.id DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="adminForSource" resultMap="adminRow">
+    <include refid="adminSelect"/>
+    WHERE r.source_id = #{sourceId}
+    ORDER BY r.created DESC, r.id DESC
   </select>
 
 </mapper>
