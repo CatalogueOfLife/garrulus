@@ -84,7 +84,7 @@ public class EuropePmcLayer implements HarvestLayer {
   }
 
   /** Null when the record has no title or no usable identifier. */
-  static @Nullable HarvestedWork toHarvested(JsonNode r, long sourceId) {
+  public static @Nullable HarvestedWork toHarvested(JsonNode r, long sourceId) {
     String title = TitleText.clean(r.path("title").asString(""));
     if (title == null || title.isBlank()) return null;
     List<Identifier> ids = new ArrayList<>();

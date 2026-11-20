@@ -135,6 +135,18 @@ nametracker:
       read-timeout: ${NAMETRACKER_DISCOVERY_PKP_BEACON_READ_TIMEOUT:5m}
       include: ${NAMETRACKER_DISCOVERY_PKP_BEACON_INCLUDE:}
       exclude: ${NAMETRACKER_DISCOVERY_PKP_BEACON_EXCLUDE:}
+  candidates:
+    # SAMPLE_SOURCE: the newest articles of a candidate journal (Crossref, OAI, Europe PMC, OpenAlex; free routes only)
+    # are read through the name finder; only the aggregate is kept (source_sample), nothing goes to work. The nightly
+    # run (behind nametracker.harvest.enabled) rescores all candidates, then samples up to sample-per-night of them
+    # (registered first, then never sampled, then by score), none sampled within 365 days.
+    sample-cron: ${NAMETRACKER_CANDIDATES_SAMPLE_CRON:0 30 1 * * *}
+    sample-per-night: ${NAMETRACKER_CANDIDATES_SAMPLE_PER_NIGHT:200}
+    sampling:
+      enabled: ${NAMETRACKER_CANDIDATES_SAMPLING_ENABLED:true}
+    # the candidate score weights are properties only (nametracker.candidates.score.{names=0.6, acts=0.4, names-cap=8,
+    # acts-cap=0.25, sample=0.7, origins=0.4, origins-cap=3, plazi=0.3, plazi-log-cap=2, col=0.2, col-log-cap=3,
+    # registered=0.1, no-sample=0.5, min-articles=5}); see CandidateScore
   doaj:
     # the DOAJ search API v4, free, 2 requests a second (doaj.org is spaced 600 ms)
     base-url: ${NAMETRACKER_DOAJ_BASE_URL:https://doaj.org/api/v4}

@@ -53,6 +53,21 @@ public class CrossrefClient {
     return sb.toString();
   }
 
+  /**
+   * The newest {@code rows} journal articles of the ISSNs published on or after {@code from}
+   * ({@code filter=issn:…,from-pub-date:…,type:journal-article}, {@code sort=published&order=desc}); repeated
+   * {@code issn:} are ORed. Used to sample a candidate journal, so one request.
+   */
+  public List<JsonNode> recentArticles(List<String> issns, LocalDate from, int rows) {
+    StringBuilder f = new StringBuilder("from-pub-date:").append(from).append(",type:journal-article");
+    for (String i : issns) f.append(",issn:").append(i);
+    Map<String, String> paging = new LinkedHashMap<>();
+    paging.put("rows", String.valueOf(rows));
+    paging.put("sort", "published");
+    paging.put("order", "desc");
+    return list(f.toString(), paging).items();
+  }
+
   /** One page of the cursor listing; start with cursor {@code *}. */
   public Page works(String filter, String cursor) {
     return list(filter, "cursor", cursor);

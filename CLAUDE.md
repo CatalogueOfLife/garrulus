@@ -230,6 +230,25 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   disabled origin enqueues nothing. The OpenAlex seeding (`SEED_SOURCES`, origin `SEED_TOPIC`) stays on its own cron; it now
   writes a `SEED_TOPIC` signal `{"taxonomyWorks","broadWorks","totalWorks"}`, adopts an ISSN-only candidate (sets its OpenAlex
   id) instead of adding a second row, and never re-tiers a CEASED source.
+- `indexer` candidate sampling and score (M6b Task 10). `SAMPLE_SOURCE` (`{"sourceId":n}`, BACKFILL, key `sample:<id>:<yyyy-mm-dd>`;
+  skipped for a CEASED or non-`CANDIDATE` source; handler off without a finder) reads the newest articles of a candidate
+  and stores **one aggregate row** in `source_sample` (`route`, `articles`, `with_abstract`, `names_per_article` = distinct
+  non-OTU names per article, `act_share`, `taxgroups` = shares of the 5 biggest groups of up to 60 names matched in the
+  current release through `ClbClient` + `TaxGroups`); the articles are transient and nothing goes to `work`, `mention`,
+  `name_string` or `name_match`. Routes in order, the first with at least 5 articles of the last 2 years wins (at most 20, newest
+  first; with none the route with most articles is kept): Crossref by ISSN (`filter=issn:…,from-pub-date:…,type:journal-article`,
+  `sort=published&order=desc`), an OAI route of the source (status neither PENDING nor BROKEN: **an unverified route's host is
+  never fetched**; at most 3 pages from 2 years ago), Europe PMC by ISSN (`FIRST_PDATE`, `P_PDATE_D desc`), OpenAlex by source id
+  (through the budget; a spent budget defers). A finder that is not ready or down, CLB, or any route that is down defers 30
+  minutes without an attempt. The score (`CandidateScore`, 0 to 1; weights `nametracker.candidates.score.*`, properties
+  only: see `application.yml`) is `0.7 * sample + 0.3 * signals` with a sample of at least 5 articles, else `0.5 * signals`;
+  signals count distinct origins, Plazi `articles` and COL `references` (**summed over all signal keys** of a source), and a
+  registration. `CandidateScorer.rescoreAll` recomputes every active CANDIDATE. `SampleScheduler`
+  (`nametracker.candidates.sample-cron`, default `0 30 1 * * *` UTC, env `NAMETRACKER_CANDIDATES_SAMPLE_CRON`; behind
+  `nametracker.harvest.enabled` and `nametracker.candidates.sampling.enabled`, env `NAMETRACKER_CANDIDATES_SAMPLING_ENABLED`,
+  default true): rescoring, then `SAMPLE_SOURCE` for up to `nametracker.candidates.sample-per-night` (200, env
+  `NAMETRACKER_CANDIDATES_SAMPLE_PER_NIGHT`) active, not ceased candidates without a sample or with one older than 365 days:
+  registered first, then never sampled, then by score descending.
 - `indexer` `IDENTIFY_SOURCE` (`{"sourceId":n}`, M6b Task 6; queued by the registry for every new candidate, key
   `identify:s<n>`): completes the source step by step, each written at once: ISSN-L and siblings from `issn_link`;
   Crossref `/journals/{issn}` (ISSNs, the title while it is still an ISSN, a missing publisher); OpenAlex by id or

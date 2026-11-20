@@ -133,6 +133,21 @@ public class OpenAlexClient {
     return new Page(results, null, page + 1, last, capped && results.size() >= PER_PAGE);
   }
 
+  /**
+   * The newest {@code n} journal articles of the OpenAlex source published on or after {@code from} (one request,
+   * {@code sort=publication_date:desc}, abstracts as inverted indexes), in {@link OpenAlexWorks#SELECT} shape.
+   */
+  public List<JsonNode> recentWorks(String sourceId, java.time.LocalDate from, int n) {
+    Map<String, String> q = new LinkedHashMap<>();
+    q.put("filter", "primary_location.source.id:" + sourceId + ",from_publication_date:" + from + ",type:article");
+    q.put("select", OpenAlexWorks.SELECT);
+    q.put("per_page", String.valueOf(n));
+    q.put("sort", "publication_date:desc");
+    List<JsonNode> results = new ArrayList<>();
+    fetch(Call.LIST, uri("/works", q), false).body().path("results").forEach(results::add);
+    return results;
+  }
+
   /** Counts per group; all pages with a key, only the first (and a WARN when truncated) without one. */
   public List<GroupCount> groupBy(String filter, String groupBy) {
     List<GroupCount> out = new ArrayList<>();

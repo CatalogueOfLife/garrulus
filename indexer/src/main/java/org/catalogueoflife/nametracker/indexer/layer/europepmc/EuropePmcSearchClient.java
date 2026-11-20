@@ -36,13 +36,23 @@ public class EuropePmcSearchClient {
     return read(uri(query, cursor, PAGE_SIZE), cursor);
   }
 
+  /**
+   * The first page of {@code query}, sorted ({@code sort} such as {@code P_PDATE_D desc}), at most {@code pageSize}
+   * records. No cursor: this is one look at the newest records, not a listing.
+   */
+  public EpmcPage first(String query, String sort, int pageSize) {
+    URI uri = URI.create(base + "/rest/search?query=" + enc(query) + "&resultType=core&pageSize=" + pageSize
+        + "&format=json&sort=" + enc(sort));
+    return read(uri, "*");
+  }
+
   /** True when Europe PMC has at least one record of a journal with one of the ISSNs. */
   public boolean hasJournal(List<String> issns) {
     if (issns.isEmpty()) return false;
     return read(uri(issnQuery(issns), "*", 1), "*").hitCount() > 0;
   }
 
-  static String issnQuery(List<String> issns) {
+  public static String issnQuery(List<String> issns) {
     List<String> parts = new ArrayList<>();
     for (String i : issns) parts.add("ISSN:\"" + i + "\"");
     return parts.size() == 1 ? parts.getFirst() : "(" + String.join(" OR ", parts) + ")";
