@@ -25,18 +25,24 @@ import org.jspecify.annotations.Nullable;
  * Reads {@code beacon.tab} of the PKP Beacon dataset (CC0): tab separated, a header line, text fields in double quotes
  * (with {@code ""} for a quote, and possibly real line breaks inside), {@code NA} for a missing value. Columns are read
  * by header name. The ISSN cell lists several ISSNs separated by the two characters {@code \n} or by real line breaks.
- * The stream is lazy and closes the input when closed; an I/O failure surfaces as an {@link UncheckedIOException}.
+ * The stream is lazy and closes the input when closed. An I/O failure surfaces as an {@link IOException} (while reading
+ * the header) or an {@link UncheckedIOException}; a file that is no Beacon table is an {@link IllegalArgumentException}.
  */
 final class BeaconFile {
+
+  /** A field longer than this (an unterminated quote) fails its record instead of swallowing the rest of the file. */
+  static final int MAX_FIELD = 64 * 1024;
+
+  private static final List<String> END = List.of();
 
   private BeaconFile() {}
 
   static Stream<BeaconRow> read(InputStream in) throws IOException {
     BufferedReader r = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8), 1 << 16);
     List<String> header = record(r);
-    if (header == null || !header.contains("context_name") || !header.contains("issn")) {
+    if (header == null || header == END || !header.contains("context_name") || !header.contains("issn")) {
       r.close();
-      throw new IOException("Not a PKP Beacon table: columns context_name and issn expected");
+      throw new IllegalArgumentException("Not a PKP Beacon table: columns context_name and issn expected");
     }
     Iterator<BeaconRow> it = new Iterator<>() {
       BeaconRow next;
@@ -46,8 +52,8 @@ final class BeaconFile {
         try {
           while (next == null) {
             List<String> f = record(r);
-            if (f == null) return false;
-            if (f.size() == header.size()) next = row(header, f); // a broken line is skipped
+            if (f == END) return false;
+            if (f != null && f.size() == header.size()) next = row(header, f); // a broken record is skipped
           }
           return true;
         } catch (IOException e) {
@@ -119,10 +125,13 @@ final class BeaconFile {
     return "1".equals(s) || "true".equalsIgnoreCase(s);
   }
 
-  /** The next record as its fields, null at the end of the input. */
+  /**
+   * The next record as its fields; {@link #END} at the end of the input; null for a record with a field over
+   * {@link #MAX_FIELD} chars, whose rest is skipped up to the next line break.
+   */
   private static @Nullable List<String> record(BufferedReader r) throws IOException {
     int c = r.read();
-    if (c < 0) return null;
+    if (c < 0) return END;
     List<String> fields = new ArrayList<>();
     StringBuilder b = new StringBuilder();
     boolean quoted = false;
@@ -130,6 +139,10 @@ final class BeaconFile {
       if (c < 0) {
         fields.add(b.toString());
         return fields;
+      }
+      if (b.length() > MAX_FIELD) {
+        while (c >= 0 && c != '\n') c = r.read();
+        return null;
       }
       if (quoted) {
         if (c == '"') {

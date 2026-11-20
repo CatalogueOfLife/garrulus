@@ -23,7 +23,6 @@ import org.catalogueoflife.nametracker.indexer.registry.CandidateRegistry;
 import org.catalogueoflife.nametracker.indexer.registry.RouteHint;
 import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
 import org.catalogueoflife.nametracker.store.registry.PkpBeaconMapper;
-import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.jspecify.annotations.Nullable;
 import org.postgresql.PGConnection;
 import org.postgresql.copy.CopyIn;
@@ -109,18 +108,16 @@ public class PkpBeaconDiscovery implements DiscoverySource {
       long loaded;
       try (var in = conn.getInputStream(); Stream<BeaconRow> rows = BeaconFile.read(in)) {
         loaded = tx.execute(s -> replaceTable(rows, chosen));
-      } catch (UncheckedIOException e) {
+      } catch (IOException | UncheckedIOException e) {
         throw new ServiceOutageException("dataverse.harvard.edu", outage.retryAt(), e); // broke off or stalled
       }
       LOG.info("PKP Beacon: {} rows with an ISSN loaded, {} pass the filter", loaded, chosen.size());
     } finally {
       conn.disconnect();
     }
-    int offered = 0;
-    for (BeaconRow r : chosen) {
-      if (registry.offer(candidate(r), TaskPriority.BACKFILL) != null) offered++;
-    }
-    LOG.info("PKP Beacon: {} journals offered", offered);
+    Offers offers = new Offers(registry);
+    for (BeaconRow r : chosen) offers.offer(candidate(r));
+    LOG.info("PKP Beacon: {}", offers.summary());
     return null;
   }
 

@@ -38,7 +38,7 @@ class PkpBeaconDiscoveryIT extends AbstractPostgresIT {
   @Autowired DataSource dataSource;
   @Autowired TransactionTemplate tx;
   @Autowired HarvestOutage outage;
-  @Autowired Clock clock;
+  static final Clock CLOCK = Clock.fixed(Instant.parse("2026-11-20T00:00:00Z"), java.time.ZoneOffset.UTC);
   @Autowired TaskQueue queue;
   @Autowired JdbcTemplate jdbc;
 
@@ -60,7 +60,11 @@ class PkpBeaconDiscoveryIT extends AbstractPostgresIT {
   }
 
   DiscoverSourcesHandler handler(WireMockRuntimeInfo w) {
-    var d = new PkpBeaconDiscovery(registry, beacon, dataSource, tx, outage, clock, w.getHttpBaseUrl() + "/beacon.tab",
+    return handler(w, registry);
+  }
+
+  DiscoverSourcesHandler handler(WireMockRuntimeInfo w, CandidateRegistry registry) {
+    var d = new PkpBeaconDiscovery(registry, beacon, dataSource, tx, outage, CLOCK, w.getHttpBaseUrl() + "/beacon.tab",
         Duration.ofSeconds(10), "", "");
     return new DiscoverSourcesHandler(List.of(d), queue, outage, new MockEnvironment());
   }
@@ -130,5 +134,48 @@ class PkpBeaconDiscoveryIT extends AbstractPostgresIT {
     stubFor(get("/beacon.tab").willReturn(aResponse().withStatus(503)));
     assertThatThrownBy(() -> handler(w).handle(task())).isInstanceOf(ServiceOutageException.class);
     assertThat(jdbc.queryForObject("SELECT count(*) FROM pkp_beacon", Long.class)).isEqualTo(7);
+  }
+
+  @Test
+  void truncatedBodyKeepsOldRowsAndDefers(WireMockRuntimeInfo w) throws Exception {
+    stubFor(get("/beacon.tab").willReturn(aResponse().withStatus(200).withBody(sample())));
+    handler(w).handle(task());
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM pkp_beacon", Long.class)).isEqualTo(7);
+    jdbc.update("DELETE FROM task");
+    stubFor(get("/beacon.tab").willReturn(aResponse().withStatus(200).withBody(sample())
+        .withFault(com.github.tomakehurst.wiremock.http.Fault.MALFORMED_RESPONSE_CHUNK)));
+    assertThatThrownBy(() -> handler(w).handle(task())).isInstanceOf(ServiceOutageException.class);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM pkp_beacon", Long.class)).isEqualTo(7);
+    assertThat(beacon.byIssns(List.of("0187-7151"))).hasSize(1);
+  }
+
+  @Test
+  void aFailingOfferIsSkippedAndTheRestOffered(WireMockRuntimeInfo w) throws Exception {
+    stubFor(get("/beacon.tab").willReturn(aResponse().withStatus(200).withBody(sample())));
+    CandidateRegistry spy = org.mockito.Mockito.spy(registry);
+    org.mockito.Mockito.doThrow(new IllegalStateException("bad row")).when(spy).offer(
+        org.mockito.ArgumentMatchers.argThat(c -> "Acta Botanica Mexicana".equals(c.title())),
+        org.mockito.ArgumentMatchers.any());
+    handler(w, spy).handle(task());
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM pkp_beacon", Long.class)).isEqualTo(7);
+    assertThat(jdbc.queryForList("SELECT title FROM source WHERE origin = 'PKP_BEACON'"))
+        .extracting(m -> m.get("title")).containsExactly("JURNAL ENFIT : Entomologi dan Fitopatologi");
+  }
+
+  @Test
+  void aDeferralFromTheRegistryStillDefers(WireMockRuntimeInfo w) {
+    stubFor(get("/beacon.tab").willReturn(aResponse().withStatus(200).withBody(sampleUnchecked())));
+    CandidateRegistry spy = org.mockito.Mockito.spy(registry);
+    org.mockito.Mockito.doThrow(new ServiceOutageException("database (deadlock)", Instant.now().plusSeconds(60)))
+        .when(spy).offer(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    assertThatThrownBy(() -> handler(w, spy).handle(task())).isInstanceOf(ServiceOutageException.class);
+  }
+
+  static byte[] sampleUnchecked() {
+    try {
+      return sample();
+    } catch (IOException e) {
+      throw new java.io.UncheckedIOException(e);
+    }
   }
 }

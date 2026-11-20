@@ -6,7 +6,6 @@ import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.registry.Candidate;
 import org.catalogueoflife.nametracker.indexer.registry.CandidateRegistry;
 import org.catalogueoflife.nametracker.indexer.registry.DoajClient;
-import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,11 +57,9 @@ public class DoajDiscovery implements DiscoverySource {
     if (codes.isEmpty()) return null;
     code = codes.get(at);
     DoajClient.DoajPage p = doaj.journalsByLcc(code, page);
-    int offered = 0;
-    for (DoajClient.DoajJournal j : p.journals()) {
-      if (registry.offer(candidate(j), TaskPriority.BACKFILL) != null) offered++;
-    }
-    LOG.info("DOAJ discovery {} page {}: {} of {} journals offered", code, page, offered, p.total());
+    Offers offers = new Offers(registry);
+    for (DoajClient.DoajJournal j : p.journals()) offers.offer(candidate(j));
+    LOG.info("DOAJ discovery {} page {} of {} journals: {}", code, page, p.total(), offers.summary());
     if ((long) page * DoajClient.PAGE_SIZE < p.total() && !p.journals().isEmpty()) return position(code, page + 1);
     return at + 1 < codes.size() ? position(codes.get(at + 1), 1) : null;
   }

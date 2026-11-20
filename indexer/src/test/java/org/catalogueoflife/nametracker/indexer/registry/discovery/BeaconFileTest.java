@@ -67,4 +67,15 @@ class BeaconFileTest {
       assertThat(r.unresponsive()).isTrue(); // the context flag counts too
     }
   }
+
+  @Test
+  void unterminatedQuoteFailsItsRecordNotTheFile() throws IOException {
+    String head = "context_name\tissn\tcountry\n";
+    String big = "\"" + "x".repeat(BeaconFile.MAX_FIELD + 10) + "\n";
+    String t = head + "\"Good one\"\t\"1175-5326\"\tFrance\n" + big + "\"After\"\t\"0002-936X\"\tSpain\n";
+    try (var s = BeaconFile.read(new ByteArrayInputStream(t.getBytes(StandardCharsets.UTF_8)))) {
+      List<BeaconRow> rows = s.toList();
+      assertThat(rows).extracting(BeaconRow::contextName).containsExactly("Good one", "After");
+    }
+  }
 }
