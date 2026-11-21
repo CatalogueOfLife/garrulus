@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { getSource, getTaxGroups } from '../api';
 import { CeasedBadge } from '../components/CeasedBadge';
+import { IdentifierLinks } from '../components/IdentifierLinks';
+import { LanguageBreakdown } from '../components/LanguageBreakdown';
 import { FollowActions } from '../components/FollowActions';
 import { Section } from '../components/Section';
 import { TaxGroupIcon } from '../components/TaxGroupIcon';
@@ -63,6 +65,8 @@ export function SourcePage() {
           : undefined}
       />
 
+      <IdentifierLinks identifiers={s.identifiers} />
+
       <CeasedBadge status={s.publicationStatus} lastIssueYear={s.lastIssueYear} continuedBy={s.continuedBy} />
 
       <div className={`${list.page} ${classes.body}`}>
@@ -113,6 +117,12 @@ export function SourcePage() {
           <Section title="Papers per year">
             <YearBars years={s.years} />
           </Section>
+
+          {s.languages?.length ? (
+            <Section title="Languages">
+              <LanguageBreakdown languages={s.languages} />
+            </Section>
+          ) : null}
         </SideColumn>
       </div>
     </article>

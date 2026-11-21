@@ -51,6 +51,10 @@ export interface WorkSummary {
   pages?: string | null;
   /** Offsets in Unicode code points into `title`. */
   titleMentions?: MentionSpan[];
+  language?: string | null;
+  titleLang?: string | null;
+  titleEn?: string | null;
+  titleEnKind?: 'PARALLEL' | 'MACHINE' | null;
 }
 export interface FacetCount { value: string; count: number }
 export interface WorkPage {
@@ -80,6 +84,11 @@ export interface NameDetail {
   actTypes: string[];
   bestSnippet: string;
   classification: TaxonRef[];
+  inTitle?: boolean;
+  inAbstract?: boolean;
+  inHeading?: boolean;
+  /** Mentions in body text, headings aside. */
+  bodyCount?: number;
 }
 export interface MentionSpan {
   id: number;
@@ -124,8 +133,19 @@ export interface Context {
   blockId: string;
   untilBlockId?: string | null;
 }
+/** A stored version of a title or abstract; MACHINE is a machine translation, never the original. */
+export interface TextVersion { lang: string; kind: 'ORIGINAL' | 'PARALLEL' | 'MACHINE'; text: string; model?: string | null }
+/** An external identifier; url is null for a scheme without a page. */
+export interface IdentifierLink { scheme: string; label: string; value: string; url?: string | null }
+export interface LanguageYear { language: string; year: number; works: number }
 export interface WorkDetail {
   id: number;
+  identifiers?: IdentifierLink[];
+  languageSource?: string | null;
+  titleLang?: string | null;
+  abstractLang?: string | null;
+  titles?: TextVersion[];
+  abstracts?: TextVersion[];
   doi?: string | null;
   title?: string | null;
   year?: number | null;
@@ -211,6 +231,8 @@ export interface SourceDetail extends SourceItem {
   taxgroupShares?: Record<string, number> | null;
   years: { year: number; works: number }[];
   recentWorks: WorkSummary[];
+  identifiers?: IdentifierLink[];
+  languages?: LanguageYear[];
 }
 export interface TaxGroup { name: string; parents: string[]; codes: string[]; icon: string }
 export interface Discipline {

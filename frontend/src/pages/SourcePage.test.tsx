@@ -102,4 +102,17 @@ describe('SourcePage', () => {
     expect(await screen.findByText('1109')).toBeInTheDocument();
     expect(await screen.findByText('Discipline names are not available now; codes are shown.')).toBeInTheDocument();
   });
+
+  it('journalIdentifiersAndLanguages', async () => {
+    server.use(taxGroupHandler, http.get('/api/sources/7', () => HttpResponse.json({
+      id: 7, title: 'Zootaxa', tier: 'CORE', subfields: [], taxgroups: [], codes: [], years: [], recentWorks: [],
+      identifiers: [{ scheme: 'ISSN', label: 'ISSN', value: '1175-5326', url: 'https://portal.issn.org/resource/ISSN/1175-5326' }],
+      languages: [{ language: 'en', year: 2025, works: 9 }, { language: 'zh', year: 2025, works: 2 }],
+    })));
+    renderSource();
+    expect(await screen.findByRole('link', { name: 'ISSN 1175-5326' })).toHaveAttribute('href', 'https://portal.issn.org/resource/ISSN/1175-5326');
+    const langs = screen.getByRole('region', { name: 'Languages' });
+    expect(within(langs).getByRole('rowheader', { name: 'Chinese' })).toBeInTheDocument();
+    expect(within(langs).getByRole('rowheader', { name: 'English' })).toBeInTheDocument();
+  });
 });

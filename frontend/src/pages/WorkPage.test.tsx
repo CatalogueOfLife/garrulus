@@ -172,4 +172,42 @@ describe('WorkPage', () => {
     expect(await screen.findByText('database down')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Paper not found' })).toBeNull();
   });
+
+  it('machineTitleLabelled', async () => {
+    mount({ ...base, title: '中国甲虫', language: 'zh', titleLang: 'zh', titles: [
+      { lang: 'zh', kind: 'ORIGINAL', text: '中国甲虫' },
+      { lang: 'en', kind: 'MACHINE', text: 'Chinese beetles', model: 'libretranslate' },
+    ] });
+    expect(await screen.findByText('Machine translation (libretranslate):')).toBeInTheDocument();
+    expect(screen.getByText('Chinese beetles')).toHaveAttribute('lang', 'en');
+    // the original stays the heading
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('中国甲虫');
+    expect(screen.queryByText('English title:')).toBeNull();
+  });
+
+  it('parallelTitleIsAnEnglishTitle', async () => {
+    mount({ ...base, titles: [{ lang: 'en', kind: 'PARALLEL', text: 'English parallel' }], titleLang: 'de', language: 'de' });
+    expect(await screen.findByText('English title:')).toBeInTheDocument();
+  });
+
+  it('langAttributes', async () => {
+    mount({ ...base, title: 'Käfer', abstract: 'Ein Text.', language: 'de', titleLang: 'de', abstractLang: 'de',
+      abstracts: [{ lang: 'de', kind: 'ORIGINAL', text: 'Ein Text.' }, { lang: 'fr', kind: 'PARALLEL', text: 'Un texte.' }] });
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveAttribute('lang', 'de');
+    expect(screen.getByText('Ein Text.').closest('p')).toHaveAttribute('lang', 'de');
+    expect(screen.getByText('Abstract in French')).toBeInTheDocument();
+    expect(screen.getByText('Un texte.')).toHaveAttribute('lang', 'fr');
+  });
+
+  it('identifiersRow', async () => {
+    mount({ ...base, identifiers: [{ scheme: 'PMID', label: 'PubMed', value: '9', url: 'https://europepmc.org/article/MED/9' }] });
+    expect(await screen.findByRole('link', { name: 'PubMed 9' })).toHaveAttribute('href', 'https://europepmc.org/article/MED/9');
+  });
+
+  it('mentionedWhere', async () => {
+    mount({ ...base, names: [nm(1, 'Carabus auratus', { inTitle: true, inAbstract: true, bodyCount: 2 }), nm(2, 'Carabus novus', { inAbstract: true })] });
+    const col = await screen.findByRole('region', { name: 'Placed in COL' });
+    expect(within(col).getByText('(title, abstract, full text)')).toBeInTheDocument();
+    expect(within(col).getByText('(abstract)')).toBeInTheDocument();
+  });
 });

@@ -2,9 +2,12 @@ import { Fragment } from 'react';
 import { Alert, Loader } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
-import { getWork, type NameDetail, type Snippet, type TextBlock, type WorkSummary } from '../api';
+import { getWork, type NameDetail, type Snippet, type TextBlock, type TextVersion, type WorkSummary } from '../api';
 import { ClassificationPath } from '../components/ClassificationPath';
 import { HighlightedText } from '../components/HighlightedText';
+import { IdentifierLinks } from '../components/IdentifierLinks';
+import { TranslateButton } from '../components/TranslateButton';
+import { isEnglish, languageName } from '../languages';
 import { Section } from '../components/Section';
 import { MetaLine } from '../ui/MetaLine';
 import { NotFound, isNotFound } from '../ui/NotFound';
@@ -38,6 +41,21 @@ function gatherCells(blocks: TextBlock[]): (TextBlock | TextBlock[])[] {
 const snippetBlock = (s: Snippet): TextBlock =>
   ({ id: `s${s.nameId}`, type: s.blockType, level: 0, sectionPath: [], text: s.text, mentions: s.mentions, acts: s.acts });
 
+/** Where a name occurs, in words. */
+function where(n: NameDetail): string {
+  const parts: string[] = [];
+  if (n.inTitle) parts.push('title');
+  if (n.inAbstract) parts.push('abstract');
+  if (n.inHeading || (n.bodyCount ?? 0) > 0) parts.push('full text');
+  return parts.join(', ');
+}
+
+/** The label of a stored version of a title, never presenting a machine translation as the article's own. */
+function versionLabel(v: TextVersion): string {
+  if (v.kind === 'MACHINE') return 'Machine translation';
+  return isEnglish(v.lang) ? 'English title' : 'Original title';
+}
+
 function NameRow({ n, withTaxon }: { n: NameDetail; withTaxon: boolean }) {
   return (
     <li>
@@ -50,6 +68,7 @@ function NameRow({ n, withTaxon }: { n: NameDetail; withTaxon: boolean }) {
         </>
       ) : null}
       {n.mainSubject ? <span className={classes.note}> main subject</span> : null}
+      {where(n) ? <span className={classes.note}> ({where(n)})</span> : null}
       {n.classification.length ? <ClassificationPath items={n.classification} /> : null}
     </li>
   );
@@ -81,12 +100,29 @@ export function WorkPage() {
   const snippets = w.snippets ?? [];
   const [first, ...rest] = paragraphs(w.abstract ?? '', w.abstractMentions ?? [], 'ABSTRACT', w.abstractActs ?? []);
   const authors = w.authors.map((a) => a.name);
+  const titleLang = w.titleLang ?? w.language ?? undefined;
+  const abstractLang = w.abstractLang ?? w.language ?? undefined;
+  // the other versions of the title: not the original itself
+  const otherTitles = (w.titles ?? []).filter((t) => t.kind !== 'ORIGINAL' && t.text !== w.title);
+  const hasEnglishTitle = isEnglish(titleLang) || otherTitles.some((t) => isEnglish(t.lang));
+  const otherAbstracts = (w.abstracts ?? []).filter((a) => a.kind !== 'ORIGINAL' && a.text !== w.abstract);
 
   return (
     <article>
-      <h1 className={classes.title}>
+      <h1 className={classes.title} lang={titleLang}>
         {w.title ? <SciTitle title={w.title} mentions={w.titleMentions ?? []} names={info} /> : '(untitled)'}
       </h1>
+      {otherTitles.map((t) => (
+        <p key={`${t.kind}:${t.lang}`} className={classes.otherTitle}>
+          <span className={classes.versionLabel}>
+            {versionLabel(t)}
+            {t.kind === 'MACHINE' && t.model ? ` (${t.model})` : ''}
+            {': '}
+          </span>
+          <span lang={t.lang}>{t.text}</span>
+        </p>
+      ))}
+      {w.title && !isEnglish(titleLang) && !hasEnglishTitle ? <TranslateButton text={w.title} lang={titleLang!} /> : null}
       <MetaLine
         authors={authors} authorCount={authors.length} source={w.source} volume={w.volume} issue={w.issue}
         pages={w.pages} date={w.publicationDate} year={w.year} textLevel={w.textLevel as WorkSummary['textLevel']}
@@ -98,11 +134,21 @@ export function WorkPage() {
           {w.licence ?? null}
         </p>
       ) : null}
+      <IdentifierLinks identifiers={w.identifiers} />
 
       <div className={`${list.page} ${classes.body}`}>
         <div className={`${list.mainCol} ${classes.text}`}>
-          {first ? <p className={classes.lede}><HighlightedText block={first} as="span" names={info} /></p> : null}
-          {rest.map((b) => <p key={b.id} className={classes.para}><HighlightedText block={b} as="span" names={info} /></p>)}
+          {first ? <p className={classes.lede} lang={abstractLang}><HighlightedText block={first} as="span" names={info} /></p> : null}
+          {rest.map((b) => <p key={b.id} className={classes.para} lang={abstractLang}><HighlightedText block={b} as="span" names={info} /></p>)}
+          {first && w.abstract && abstractLang && !isEnglish(abstractLang) ? <TranslateButton text={w.abstract} lang={abstractLang} /> : null}
+          {otherAbstracts.map((a) => (
+            <details key={`${a.kind}:${a.lang}`} className={classes.version}>
+              <summary>
+                {a.kind === 'MACHINE' ? `Machine translation (${languageName(a.lang)})` : `Abstract in ${languageName(a.lang)}`}
+              </summary>
+              {paragraphs(a.text, [], 'ABSTRACT', []).map((b) => <p key={b.id} lang={a.lang}>{b.text}</p>)}
+            </details>
+          ))}
           {showText ? (
             <Section title="Full text">
               {gatherCells(w.text!).map((b) => (
