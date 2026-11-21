@@ -178,7 +178,7 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
     Europe PMC (keyless; `NAMETRACKER_TOPUP_EUROPEPMC_ENABLED`, `nametracker.content.topup.europepmc.enabled`, default
     true), Springer Nature Meta (`SPRINGER_API_KEY`, free, blank = off; `NAMETRACKER_TOPUP_SPRINGER_DAILY_CAP`
     100, `api_usage` `SPRINGER_META`), SciELO (`NAMETRACKER_TOPUP_SCIELO_COLLECTIONS`, `<doi prefix>=<collection>`,
-    default `10.1590/=scl`; also asked for parallels and the declared language), CiNii Research (`CINII_APPID`, free,
+    default `10.1590/=scl`; the PID is the Crossref `alternative-id` of the DOI, the article must carry the same DOI; also asked for parallels and the declared language), CiNii Research (`CINII_APPID`, free,
     blank = off; only abstracts flagged `allow`). Each service at most once in 180 days per work (`text_lookup`; outages
     and spent caps are not remembered; a NO_TEXT work that met either gets the delayed recheck). Base URLs
     `nametracker.content.topup.{springer,scielo,cinii}.base-url`. OAI JATS (`OAI_JATS`) is the first full-text route

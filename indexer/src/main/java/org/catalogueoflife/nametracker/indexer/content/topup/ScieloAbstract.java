@@ -1,16 +1,14 @@
 package org.catalogueoflife.nametracker.indexer.content.topup;
 
 import java.net.URI;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.regex.Pattern;
+import org.catalogueoflife.nametracker.indexer.crossref.CrossrefClient;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
 import org.catalogueoflife.nametracker.indexer.layer.TextIn;
 import org.catalogueoflife.nametracker.indexer.link.LinkHttp;
@@ -25,31 +23,35 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * SciELO ArticleMeta for the DOIs of its collections ({@code nametracker.content.topup.scielo.collections}, a list of
- * {@code <doi prefix>=<collection>}, start {@code 10.1590/=scl}): the journal's article identifiers of the window from
- * 30 days before to a year after the publication date (up to 3 pages of 100) give the article's PID by DOI, then
+ * {@code <doi prefix>=<collection>}, start {@code 10.1590/=scl}). SciELO registers an article's PID (for example
+ * {@code S1984-46702025000100400}) as an {@code alternative-id} of its Crossref record, so the PID is read from Crossref's
+ * {@code /works/{doi}} (ArticleMeta's identifiers listing has no DOI and filters by processing date). Then
  * {@code /api/v1/article/?code=<pid>&collection=<c>} gives the abstracts ({@code v83}) and titles ({@code v12}) by
  * language, stored as PARALLEL texts, and the article's language ({@code v40}), which is DECLARED evidence of SCIELO.
- * The abstract in the article's language is the work's abstract when it has none. Asked once per work even when the
- * work has an abstract.
+ * The article is taken only when its own DOI (top-level {@code doi}, else {@code v237}) equals the work's. The abstract
+ * in the article's language is the work's abstract when it has none. Asked once per work even when the work has an
+ * abstract. A Crossref 404, no PID-shaped alternative-id, another DOI or an article without abstracts is a miss; 5xx, 429
+ * and IO errors of either service are outages.
  */
 @Component
 @Order(30)
 public class ScieloAbstract implements AbstractTopUp {
 
   public static final String SERVICE = "SCIELO";
-  static final int PAGES = 3;
-  static final int PAGE_SIZE = 100;
+  private static final Pattern PID = Pattern.compile("^S\\d{4}-\\d{3}[\\dX]\\d{13}$", Pattern.CASE_INSENSITIVE);
   private static final Pattern LABEL = Pattern.compile("^(?:ABSTRACT|RESUMO|RESUMEN|RÉSUMÉ|RESUME)\\b[:.\\s]*");
 
   private final PoliteHttp http;
+  private final CrossrefClient crossref;
   private final String base;
   private final Map<String, String> collections = new LinkedHashMap<>();
 
   @Autowired
-  public ScieloAbstract(PoliteHttp http,
+  public ScieloAbstract(PoliteHttp http, CrossrefClient crossref,
       @Value("${nametracker.content.topup.scielo.base-url:https://articlemeta.scielo.org}") String baseUrl,
       @Value("${nametracker.content.topup.scielo.collections:10.1590/=scl}") String collections) {
     this.http = http;
+    this.crossref = crossref;
     this.base = LinkHttp.trimSlash(baseUrl);
     for (String e : collections.split(",")) {
       int i = e.indexOf('=');
@@ -84,54 +86,32 @@ public class ScieloAbstract implements AbstractTopUp {
     return null;
   }
 
-  private static Set<String> issns(@Nullable Source s) {
-    Set<String> out = new LinkedHashSet<>();
-    if (s != null) {
-      if (s.issns() != null) out.addAll(s.issns());
-      if (s.issnL() != null) out.add(s.issnL());
-    }
-    return out;
-  }
-
-  private static @Nullable LocalDate published(Work w) {
-    if (w.publicationDate() != null) return w.publicationDate();
-    return w.year() == null ? null : LocalDate.of(w.year(), 1, 1);
-  }
-
   @Override
   public boolean applies(Work w, @Nullable Source s) {
-    return collection(w) != null && !issns(s).isEmpty() && published(w) != null;
+    return collection(w) != null;
   }
 
   @Override
   public Optional<TopUpResult> fetch(Work w, @Nullable Source s) {
     String collection = collection(w);
-    LocalDate pub = published(w);
-    if (collection == null || pub == null) return Optional.empty();
-    String pid = pid(w.doi(), collection, issns(s), pub.minusDays(30), pub.plusDays(365));
+    if (collection == null) return Optional.empty();
+    String pid = pid(w.doi());
     if (pid == null) return Optional.empty();
     URI uri = URI.create(base + "/api/v1/article/?code=" + LinkHttp.enc(pid) + "&collection=" + LinkHttp.enc(collection));
-    JsonNode art = LinkHttp.json(http, uri, "application/json", "SciELO ArticleMeta").path("article");
-    return Optional.ofNullable(result(art));
+    JsonNode root = LinkHttp.json(http, uri, "application/json", "SciELO ArticleMeta");
+    String doi = root.path("doi").asString("").strip();
+    if (doi.isEmpty()) doi = root.path("article").path("v237").path(0).path("_").asString("").strip();
+    if (!w.doi().strip().equalsIgnoreCase(doi)) return Optional.empty();
+    return Optional.ofNullable(result(root.path("article")));
   }
 
-  /** The PID of the article with the DOI among the window's identifiers of the journal's ISSNs, or null. */
-  private @Nullable String pid(String doi, String collection, Set<String> issns, LocalDate from, LocalDate until) {
-    for (String issn : issns) {
-      for (int page = 0; page < PAGES; page++) {
-        URI uri = URI.create(base + "/api/v1/article/identifiers/?collection=" + LinkHttp.enc(collection) + "&issn="
-            + LinkHttp.enc(issn) + "&from=" + from + "&until=" + until + "&limit=" + PAGE_SIZE + "&offset="
-            + page * PAGE_SIZE);
-        JsonNode root = LinkHttp.json(http, uri, "application/json", "SciELO ArticleMeta");
-        for (JsonNode o : root.path("objects")) {
-          if (doi.equalsIgnoreCase(o.path("doi").asString("").strip())) {
-            String code = o.path("code").asString("").strip();
-            if (!code.isEmpty()) return code;
-          }
-        }
-        int total = root.path("meta").path("total").asInt(0);
-        if ((page + 1) * PAGE_SIZE >= total) break;
-      }
+  /** The SciELO PID among the {@code alternative-id}s of the DOI's Crossref record, or null. */
+  private @Nullable String pid(String doi) {
+    JsonNode rec = crossref.work(doi.strip()).orElse(null);
+    if (rec == null) return null;
+    for (JsonNode id : rec.path("alternative-id")) {
+      String v = id.asString("").strip();
+      if (PID.matcher(v).matches()) return v;
     }
     return null;
   }

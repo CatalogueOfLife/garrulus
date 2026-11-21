@@ -223,7 +223,9 @@ expand-only migrations: **V21 to V24**.
 - **Abstract top-up** when a work has no abstract after its routes, in order: Europe PMC (keyless, on by default,
   `nametracker.content.topup.europepmc.enabled`), Springer Nature Meta
   (DOIs `10.1007/`, `10.1186/`, `10.1038/`; free key, off without it; 100 requests a day reserved before each send; a
-  401 or 403 switches it off), SciELO ArticleMeta (a DOI-prefix map to collections, `10.1590/=scl`; also asked when an
+  401 or 403 switches it off), SciELO ArticleMeta (a DOI-prefix map to collections, `10.1590/=scl`; the PID comes from the
+  `alternative-id` of the DOI's Crossref record, because ArticleMeta's identifiers listing has no DOI; the article
+  is taken only when its own DOI equals the work's; also asked when an
   abstract exists, for its parallel texts and declared language), CiNii Research (Japanese journals; free appid; **only
   abstracts flagged `allow`**, matched by the item's own DOI field exactly). `fillAbstract` never replaces an abstract;
   the handler re-reads the work so the ABSTRACT row and `FIND_NAMES` follow.

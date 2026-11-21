@@ -2,11 +2,14 @@ package org.catalogueoflife.nametracker.indexer.content.topup;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.catalogueoflife.nametracker.indexer.content.route.RouteTestSupport.*;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import java.time.LocalDate;
+import org.catalogueoflife.nametracker.indexer.crossref.CrossrefClient;
+import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
 import org.catalogueoflife.nametracker.indexer.layer.TextIn;
 import org.catalogueoflife.nametracker.store.work.Work;
 import org.junit.jupiter.api.Test;
@@ -17,7 +20,11 @@ class ScieloAbstractIT {
   private static final String DOI = "10.1590/s1984-4689.v42.e24044";
 
   private static ScieloAbstract topUp(WireMockRuntimeInfo w) {
-    return new ScieloAbstract(http(), w.getHttpBaseUrl(), "10.1590/=scl");
+    return new ScieloAbstract(http(), crossref(w), w.getHttpBaseUrl(), "10.1590/=scl");
+  }
+
+  private static CrossrefClient crossref(WireMockRuntimeInfo w) {
+    return new CrossrefClient(http(), null, w.getHttpBaseUrl());
   }
 
   private static Work work(String doi, LocalDate published) {
@@ -26,10 +33,8 @@ class ScieloAbstractIT {
   }
 
   private static void stubs() {
-    stubFor(get(urlPathEqualTo("/api/v1/article/identifiers/")).withQueryParam("collection", equalTo("scl"))
-        .withQueryParam("issn", equalTo("1984-4670")).withQueryParam("from", equalTo("2024-12-17"))
-        .withQueryParam("until", equalTo("2026-01-16"))
-        .willReturn(aResponse().withBody(fixture("scielo/identifiers.json"))));
+    stubFor(get(urlPathEqualTo("/works/" + DOI))
+        .willReturn(aResponse().withBody(fixture("scielo/crossref-work-S1984-46702025000100400.json"))));
     stubFor(get(urlPathEqualTo("/api/v1/article/")).withQueryParam("code", equalTo("S1984-46702025000100400"))
         .withQueryParam("collection", equalTo("scl"))
         .willReturn(aResponse().withBody(fixture("scielo/article-S1984-46702025000100400.json"))));
@@ -54,22 +59,52 @@ class ScieloAbstractIT {
   }
 
   @Test
-  void aDoiNotInTheWindowIsEmpty(WireMockRuntimeInfo w) {
-    stubs();
-    assertThat(topUp(w).fetch(work("10.1590/other", LocalDate.of(2025, 1, 16)), source(9, "BR", "1984-4670"))).isEmpty();
-    verify(0, getRequestedFor(urlPathEqualTo("/api/v1/article/")));
+  void aCrossrefRecordWithoutAPidIsAMissWithoutAnArticleMetaCall(WireMockRuntimeInfo w) {
+    stubFor(get(urlPathEqualTo("/works/10.1590/other"))
+        .willReturn(aResponse().withBody(fixture("scielo/crossref-work-no-pid.json"))));
+    assertThat(topUp(w).fetch(work("10.1590/other", LocalDate.of(2025, 1, 16)), null)).isEmpty();
+    verify(0, getRequestedFor(urlPathMatching("/api/.*")));
   }
 
   @Test
-  void appliesByDoiPrefixIssnAndDate(WireMockRuntimeInfo w) {
+  void anUnknownDoiAtCrossrefIsAMiss(WireMockRuntimeInfo w) {
+    stubFor(get(urlPathEqualTo("/works/10.1590/gone")).willReturn(aResponse().withStatus(404)));
+    assertThat(topUp(w).fetch(work("10.1590/gone", LocalDate.of(2025, 1, 16)), null)).isEmpty();
+    verify(0, getRequestedFor(urlPathMatching("/api/.*")));
+  }
+
+  @Test
+  void anArticleWithAnotherDoiIsAMiss(WireMockRuntimeInfo w) {
+    stubs();
+    stubFor(get(urlPathEqualTo("/works/10.1590/impostor"))
+        .willReturn(aResponse().withBody(fixture("scielo/crossref-work-S1984-46702025000100400.json"))));
+    assertThat(topUp(w).fetch(work("10.1590/impostor", LocalDate.of(2025, 1, 16)), null)).isEmpty();
+    verify(1, getRequestedFor(urlPathEqualTo("/api/v1/article/")));
+  }
+
+  @Test
+  void crossrefDownIsAnOutage(WireMockRuntimeInfo w) {
+    stubFor(get(urlPathEqualTo("/works/" + DOI)).willReturn(aResponse().withStatus(503).withHeader("Retry-After", "0")));
+    assertThatThrownBy(() -> topUp(w).fetch(work(DOI, LocalDate.of(2025, 1, 16)), null))
+        .isInstanceOfSatisfying(HttpProblem.class, e -> assertThat(e.retryable()).isTrue());
+  }
+
+  @Test
+  void articleMetaDownIsAnOutage(WireMockRuntimeInfo w) {
+    stubs();
+    stubFor(get(urlPathEqualTo("/api/v1/article/")).willReturn(aResponse().withStatus(503).withHeader("Retry-After", "0")));
+    assertThatThrownBy(() -> topUp(w).fetch(work(DOI, LocalDate.of(2025, 1, 16)), null))
+        .isInstanceOfSatisfying(HttpProblem.class, e -> assertThat(e.retryable()).isTrue());
+  }
+
+  @Test
+  void appliesByDoiPrefix(WireMockRuntimeInfo w) {
     var t = topUp(w);
-    var src = source(9, "BR", "1984-4670");
-    assertThat(t.applies(work(DOI, LocalDate.of(2025, 1, 16)), src)).isTrue();
-    assertThat(t.applies(work("10.1000/x", LocalDate.of(2025, 1, 16)), src)).isFalse();
-    assertThat(t.applies(work(DOI, LocalDate.of(2025, 1, 16)), null)).isFalse();
-    assertThat(t.applies(work(DOI, LocalDate.of(2025, 1, 16)), source(9, "BR"))).isFalse();
+    assertThat(t.applies(work(DOI, LocalDate.of(2025, 1, 16)), source(9, "BR", "1984-4670"))).isTrue();
+    assertThat(t.applies(work(DOI, null), null)).isTrue();
+    assertThat(t.applies(work("10.1000/x", LocalDate.of(2025, 1, 16)), null)).isFalse();
     assertThat(t.always()).isTrue();
     assertThat(t.enabled()).isTrue();
-    assertThat(new ScieloAbstract(http(), w.getHttpBaseUrl(), "").enabled()).isFalse();
+    assertThat(new ScieloAbstract(http(), crossref(w), w.getHttpBaseUrl(), "").enabled()).isFalse();
   }
 }

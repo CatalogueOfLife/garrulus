@@ -98,6 +98,9 @@ Runs once, after the final review's fix wave, so the dev run gets the final code
    data/run/psql.sh -c "select field, lang, kind, source from work_text where work_id = <id>"
    ```
 
+   The SciELO PID comes from Crossref's `alternative-id` for the DOI (ArticleMeta's identifiers listing has no DOI field and
+   filters by processing date, so the first dev run found nothing). SciELO answers no abstract for some new articles: a miss.
+
    Expected: the abstract filled (`SCIELO`, `EUROPEPMC`), a `FIND_NAMES` after it, SciELO's parallels in `work_text`.
 7. **Browser** (Markus): the work page's identifier row, the "Translate" button on a non-English abstract (the network
    panel shows **no request** while it translates), the search page's language facet and mentioned-in boxes, a follow

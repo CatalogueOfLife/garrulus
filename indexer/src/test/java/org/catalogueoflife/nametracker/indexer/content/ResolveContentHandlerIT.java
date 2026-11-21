@@ -564,8 +564,8 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
 
   @Test
   void scieloAddsParallelsAndDeclaredLanguage(WireMockRuntimeInfo w) throws Exception {
-    stubFor(get(urlPathEqualTo("/api/v1/article/identifiers/"))
-        .willReturn(aResponse().withBody(fixture("scielo/identifiers.json"))));
+    stubFor(get(urlPathEqualTo("/works/10.1590/s1984-4689.v42.e24044"))
+        .willReturn(aResponse().withBody(fixture("scielo/crossref-work-S1984-46702025000100400.json"))));
     stubFor(get(urlPathEqualTo("/api/v1/article/"))
         .willReturn(aResponse().withBody(fixture("scielo/article-S1984-46702025000100400.json"))));
     long src = jdbc.queryForObject("INSERT INTO source (title, tier, origin, issns) VALUES ('Linguas', 'CORE', 'MANUAL', "
@@ -573,8 +573,9 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
     long id = jdbc.queryForObject("INSERT INTO work (doi, source_id, title, abstract, abstract_source, year, "
         + "publication_date, origin) VALUES ('10.1590/s1984-4689.v42.e24044', ?, 'Filogenia e taxonomia', "
         + "'Um resumo que ja existe.', 'CROSSREF_JATS', 2025, '2025-01-16', 'LIVE') RETURNING id", Long.class, src);
-    var scielo = new org.catalogueoflife.nametracker.indexer.content.topup.ScieloAbstract(http(), w.getHttpBaseUrl(),
-        "10.1590/=scl");
+    var scielo = new org.catalogueoflife.nametracker.indexer.content.topup.ScieloAbstract(http(),
+        new org.catalogueoflife.nametracker.indexer.crossref.CrossrefClient(http(), null, w.getHttpBaseUrl()),
+        w.getHttpBaseUrl(), "10.1590/=scl");
 
     withTopUps(List.of(), scielo).handle(task(id));
 
