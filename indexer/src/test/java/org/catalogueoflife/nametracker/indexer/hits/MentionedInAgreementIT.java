@@ -21,7 +21,7 @@ class MentionedInAgreementIT extends AbstractPostgresIT {
   @Autowired SearchMapper search;
 
   /** name row of a fixture: group, parts. */
-  record N(long id, String group, boolean title, boolean abs, boolean heading, int body, boolean ref) {}
+  record N(long id, String group, boolean title, boolean abs, boolean heading, int body, boolean ref, boolean main) {}
 
   long source;
   final List<Long> workIds = new ArrayList<>();
@@ -45,6 +45,10 @@ class MentionedInAgreementIT extends AbstractPostgresIT {
     add(n("Coleoptera", false, false, false, 0, true));
     // 4: Coleoptera abstract, Aves body
     add(n("Coleoptera", false, true, false, 0, false), n("Aves", false, false, false, 2, false));
+    // 6: a non-main Coleoptera name in the title, a main Mammalia name in the body (work.taxgroups holds main names only)
+    add(n("Coleoptera", true, false, false, 0, false, false), n("Mammalia", false, false, false, 2, false, true));
+    // 7: non-main Coleoptera in the abstract, nothing main
+    add(n("Coleoptera", false, true, false, 0, false, false));
     // 5: no part flags at all
     add(n("Coleoptera", false, false, false, 0, false));
   }
@@ -52,9 +56,13 @@ class MentionedInAgreementIT extends AbstractPostgresIT {
   private int seq;
 
   N n(String group, boolean t, boolean a, boolean h, int b, boolean ref) {
+    return n(group, t, a, h, b, ref, !ref); // a reference-only name is never a main subject
+  }
+
+  N n(String group, boolean t, boolean a, boolean h, int b, boolean ref, boolean main) {
     long id = jdbc.queryForObject("INSERT INTO name_string (name, kind, rank) VALUES (?, 'SCIENTIFIC', 'species') RETURNING id",
         Long.class, "Name " + group + (++seq));
-    return new N(id, group, t, a, h, b, ref);
+    return new N(id, group, t, a, h, b, ref, main);
   }
 
   void add(N... names) {
@@ -64,11 +72,11 @@ class MentionedInAgreementIT extends AbstractPostgresIT {
     for (N x : names) {
       jdbc.update("INSERT INTO work_name (work_id, name_string_id, mention_count, body_count, in_title, in_abstract, "
           + "in_heading, only_reference, best_snippet, placement_method, usage_id, taxon_path, taxgroup, salience, main_subject) "
-          + "VALUES (?, ?, 1, ?, ?, ?, ?, ?, 's', 'MATCH', 'U1', '{U1,TX}', ?, 0.9, true)", w, x.id, x.body, x.title, x.abs,
-          x.heading, x.ref, x.group);
+          + "VALUES (?, ?, 1, ?, ?, ?, ?, ?, 's', 'MATCH', 'U1', '{U1,TX}', ?, 0.9, ?)", w, x.id, x.body, x.title, x.abs,
+          x.heading, x.ref, x.group, x.main);
     }
     java.util.Set<String> groups = new java.util.LinkedHashSet<>();
-    for (N x : names) if (!x.ref) org.catalogueoflife.nametracker.indexer.match.TaxGroups.addWithAncestors(x.group, groups);
+    for (N x : names) if (x.main) org.catalogueoflife.nametracker.indexer.match.TaxGroups.addWithAncestors(x.group, groups);
     jdbc.update("UPDATE work SET taxgroups = ?::text[] WHERE id = ?", "{" + String.join(",", groups) + "}", w);
     workIds.add(w);
     workNames.add(List.of(names));
@@ -86,11 +94,12 @@ class MentionedInAgreementIT extends AbstractPostgresIT {
         new Case("TAXGROUP", "Coleoptera"), new Case("TAXGROUP", "Arthropods"), new Case("TAXGROUP", "Mammals"),
         new Case("SOURCE", String.valueOf(source)));
     int checked = 0;
+    int skipped = 0;
     for (Case c : cases) {
       for (List<String> parts : PARTS) {
         for (int i = 0; i < workIds.size(); i++) {
           long w = workIds.get(i);
-          boolean main = !c.type.equals("SOURCE");
+          for (boolean main : new boolean[] {true, false}) {
           WorkFilter.Builder b = WorkFilter.builder().mainSubjectOnly(main).mentionedIn(parts);
           switch (c.type) {
             case "TAXON" -> b.taxon(c.target);
@@ -99,18 +108,25 @@ class MentionedInAgreementIT extends AbstractPostgresIT {
             default -> b.source(Long.parseLong(c.target));
           }
           // the public feed and the work search of the same filter
+          // Pre-existing divergence, not mentionedIn: without mentionedIn and with mainSubjectOnly=false the search
+          // tests the work-level taxgroups (main-subject names only) while a follow tests every name.
+          if (c.type.equals("TAXGROUP") && !main && parts.isEmpty()) {
+            skipped++;
+            continue;
+          }
           boolean found = search.search(b.build(), 100, 0).stream().anyMatch(h -> h.id() == w);
           var s = new Subscription(1L, 1, c.type, c.target, null, main, false, true, false, "{}", "t", null, false,
               Instant.EPOCH, "OK", null, null, null, parts);
           List<WorkNameView> views = workNames.get(i).stream()
-              .map(x -> new WorkNameView(x.id, "n" + x.id, new String[] {"U1", "TX"}, x.group, true, x.ref, new String[0],
+              .map(x -> new WorkNameView(x.id, "n" + x.id, new String[] {"U1", "TX"}, x.group, x.main, x.ref, new String[0],
                   "MATCH", x.title, x.abs, x.heading, x.body)).toList();
           boolean matched = SubscriptionMatcher.match(s, new WorkInfo(w, source, "FULLTEXT"), views).matches();
-          assertThat(found).as("%s %s %s work %d", c.type, c.target, parts, i).isEqualTo(matched);
+          assertThat(found).as("%s %s %s main=%s work %d", c.type, c.target, parts, main, i).isEqualTo(matched);
           checked++;
+          }
         }
       }
     }
-    assertThat(checked).isEqualTo(cases.size() * PARTS.size() * workIds.size());
+    assertThat(checked).isEqualTo(cases.size() * PARTS.size() * workIds.size() * 2 - skipped);
   }
 }

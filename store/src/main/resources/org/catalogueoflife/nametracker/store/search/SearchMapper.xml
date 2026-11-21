@@ -103,7 +103,8 @@
   <sql id="where">
     WHERE w.state IN ('INDEXED', 'NOTIFIED')
     <if test="f.code != null"> AND w.codes @&gt; ARRAY[#{f.code}]::text[]</if>
-    <if test="f.taxgroup != null"> AND w.taxgroups @&gt; ARRAY[#{f.taxgroup}]::text[]</if>
+    <!-- with mentionedIn and no taxon/name the group is tested per name in the EXISTS below: work.taxgroups holds main subjects only -->
+    <if test="f.taxgroup != null and (f.mentionedIn.isEmpty() or f.taxon != null or f.name != null)"> AND w.taxgroups @&gt; ARRAY[#{f.taxgroup}]::text[]</if>
     <if test="f.subfield != null"> AND s.subfields @&gt; ARRAY[#{f.subfield}]::text[]</if>
     <if test="f.journalType != null"> AND s.journal_type = #{f.journalType}</if>
     <if test="f.tier != null"> AND s.tier = #{f.tier}</if>
