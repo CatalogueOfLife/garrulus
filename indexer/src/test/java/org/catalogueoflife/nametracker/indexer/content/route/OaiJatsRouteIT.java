@@ -38,10 +38,12 @@ class OaiJatsRouteIT {
   private final Source source = source(7, "IN", "0974-7907");
   private final Work work = work(5L, "10.11609/jott.6161.18.4.28657-28661", null);
 
+  private MockEnvironment env = new MockEnvironment();
+
   private OaiJatsRoute route() {
     var http = http();
     return new OaiJatsRoute(http, new OaiLayer(http, routes, new MockEnvironment(), Clock.systemUTC()), routes,
-        identifiers);
+        identifiers, env);
   }
 
   private void route(String status, String prefix, WireMockRuntimeInfo w) {
@@ -77,6 +79,44 @@ class OaiJatsRouteIT {
     assertThat(c.document().blocks()).anyMatch(b -> b.type() == BlockType.PARAGRAPH && b.text().contains("Elephas maximus"));
     assertThat(new String(c.raw(), java.nio.charset.StandardCharsets.UTF_8)).contains("<body>");
     assertThat(c.sourceUrl()).contains("verb=GetRecord").contains("metadataPrefix=jats");
+  }
+
+  @Test
+  void aNonOpenLicenceIsReportedSoTheTextIsNotRetained(WireMockRuntimeInfo w) {
+    route("ACTIVE", "jats", w);
+    ids(OAI_ID);
+    String body = fixture("oai/jott-getrecord-jats-body.xml");
+    String open = "<license xlink:href=\"https://creativecommons.org/licenses/by/4.0\">";
+    assertThat(body).contains(open);
+    // a non-commercial licence, and a record without any licence
+    for (String variant : List.of(body.replace(open, "<license xlink:href=\"https://creativecommons.org/licenses/by-nc/4.0\">"),
+        body.replaceAll("(?s)<license .*?</license>", ""))) {
+      stubFor(get(urlPathEqualTo("/oai")).withQueryParam("verb", equalTo("GetRecord"))
+          .willReturn(aResponse().withBody(variant)));
+
+      FetchedContent c = route().fetch(work, source).orElseThrow();
+
+      assertThat(c.fulltext()).isTrue(); // still read by the finder, through the spool
+      assertThat(POLICY.isOpen(c.license())).as("licence %s", c.license()).isFalse();
+    }
+  }
+
+  @Test
+  void theOaiLayerSwitchAndACeasedJournalTurnTheRouteOff(WireMockRuntimeInfo w) {
+    route("ACTIVE", "jats", w);
+    ids(OAI_ID);
+    env.setProperty("nametracker.layers.oai.enabled", "false");
+    assertThat(route().applies(work, source)).isFalse();
+    assertThat(route().fetch(work, source)).isEmpty();
+
+    env = new MockEnvironment();
+    Source ceased = mock(Source.class);
+    when(ceased.id()).thenReturn(7L);
+    when(ceased.publicationStatus()).thenReturn("CEASED");
+    assertThat(route().applies(work, ceased)).isFalse();
+    assertThat(route().fetch(work, ceased)).isEmpty();
+    assertThat(route().applies(work, source)).isTrue();
+    verify(0, anyRequestedFor(anyUrl()));
   }
 
   @Test

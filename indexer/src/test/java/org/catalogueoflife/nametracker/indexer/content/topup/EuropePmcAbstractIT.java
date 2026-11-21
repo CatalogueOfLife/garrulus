@@ -21,7 +21,13 @@ class EuropePmcAbstractIT {
   private final WorkIdentifierMapper identifiers = mock(WorkIdentifierMapper.class);
 
   private EuropePmcAbstract topUp(WireMockRuntimeInfo w) {
-    return new EuropePmcAbstract(http(), identifiers, w.getHttpBaseUrl());
+    return new EuropePmcAbstract(http(), identifiers, w.getHttpBaseUrl(), true);
+  }
+
+  @Test
+  void itHasASwitch(WireMockRuntimeInfo w) {
+    assertThat(topUp(w).enabled()).isTrue();
+    assertThat(new EuropePmcAbstract(http(), identifiers, w.getHttpBaseUrl(), false).enabled()).isFalse();
   }
 
   @Test

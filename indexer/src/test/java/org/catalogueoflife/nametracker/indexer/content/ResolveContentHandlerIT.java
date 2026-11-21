@@ -448,7 +448,7 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
 
   private org.catalogueoflife.nametracker.indexer.content.topup.EuropePmcAbstract europePmc(WireMockRuntimeInfo w) {
     return new org.catalogueoflife.nametracker.indexer.content.topup.EuropePmcAbstract(http(), identifiers,
-        w.getHttpBaseUrl());
+        w.getHttpBaseUrl(), true);
   }
 
   private long noAbstractWork(String doi) {
@@ -624,6 +624,29 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
     stubFor(get(urlPathEqualTo("/rest/search")).willReturn(aResponse().withBody(fixture("europepmc/search-empty.json"))));
     withTopUps(List.of(), europePmc(w)).handle(task(id));
     assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT'")).isZero();
+  }
+
+  @Test
+  void noTextWorkIsRecheckedWhenATopUpsCapWasSpent() throws Exception {
+    var capped = new org.catalogueoflife.nametracker.indexer.content.topup.AbstractTopUp() {
+      @Override public String service() { return "SPRINGER"; }
+      @Override public boolean enabled() { return true; }
+      @Override public boolean applies(Work x, org.catalogueoflife.nametracker.store.source.Source s) { return true; }
+      @Override public java.util.Optional<org.catalogueoflife.nametracker.indexer.content.topup.TopUpResult> fetch(
+          Work x, org.catalogueoflife.nametracker.store.source.Source s) {
+        throw new BudgetExhaustedException("SPRINGER_META", Instant.now().plus(java.time.Duration.ofHours(3)));
+      }
+    };
+    long src = source("CORE");
+    long id = jdbc.queryForObject("INSERT INTO work (doi, source_id, origin, first_seen_at) VALUES ('10.1234/nt.2', ?, "
+        + "'LIVE', now()) RETURNING id", Long.class, src);
+
+    withTopUps(List.of(), capped).handle(task(id));
+
+    assertThat(works.get(id).textLevel()).isEqualTo("NO_TEXT");
+    assertThat(jdbc.queryForObject("SELECT dedup_key FROM task WHERE type = 'RESOLVE_CONTENT'", String.class))
+        .isEqualTo("content:" + id + ":recheck:1");
+    assertThat(count("SELECT count(*) FROM text_lookup WHERE work_id = " + id)).isZero(); // a spent cap is no answer
   }
 
   @Test

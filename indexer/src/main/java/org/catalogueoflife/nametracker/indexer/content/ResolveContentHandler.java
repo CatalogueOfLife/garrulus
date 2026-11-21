@@ -170,10 +170,10 @@ public class ResolveContentHandler implements TaskHandler {
       throw new ServiceOutageException("OpenAlex budget", found.budgetRetry());
     }
     if (full != null) results.add(full);
-    boolean topUpOutage = false;
+    boolean topUpUnasked = false;
     if (topUps != null) {
       AbstractTopUps.Result top = topUps.run(work, source, reprocess);
-      topUpOutage = top.outage();
+      topUpUnasked = top.unasked();
       if (top.changed()) {
         work = works.get(workId); // the abstract the top-up stored is what the ABSTRACT row and the finder read
       }
@@ -228,8 +228,9 @@ public class ResolveContentHandler implements TaskHandler {
       }
     }
 
-    // a work with no text at all is looked at again too when a top-up service was down (it may have the abstract)
-    if ("ABSTRACT_ONLY".equals(finalLevel) || "NO_TEXT".equals(finalLevel) && topUpOutage) {
+    // a work with no text at all is looked at again too when a top-up service was down or at its daily cap (it may
+    // have the abstract)
+    if ("ABSTRACT_ONLY".equals(finalLevel) || "NO_TEXT".equals(finalLevel) && topUpUnasked) {
       scheduleRecheck(task, work, source);
     }
   }

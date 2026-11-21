@@ -26,10 +26,12 @@ import org.catalogueoflife.nametracker.store.ident.WorkIdentifierMapper;
 import org.catalogueoflife.nametracker.store.route.SourceRoute;
 import org.catalogueoflife.nametracker.store.route.SourceRouteMapper;
 import org.catalogueoflife.nametracker.store.source.Source;
+import org.catalogueoflife.nametracker.store.work.Layer;
 import org.catalogueoflife.nametracker.store.work.Work;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
@@ -38,7 +40,9 @@ import tools.jackson.databind.JsonNode;
  * ACTIVE or VERIFIED {@code OAI} route whose config {@code prefix} is {@code jats} (OJS journals with the JATS plugin).
  * One {@code GetRecord} per work, on the OAI channel of the host (2 s). It is full text only when the record has a
  * {@code <body>} with paragraphs; the licence is the record's own {@code <license xlink:href>}, so the text is kept only
- * under an open licence ({@code LicencePolicy}). It runs first: the journal's own copy beats the aggregators.
+ * under an open licence ({@code LicencePolicy}). It runs first: the journal's own copy beats the aggregators. Off with
+ * the OAI layer ({@code nametracker.layers.oai.enabled=false}, the way to silence a misbehaving repository) and for a
+ * journal that has ceased.
  */
 @Component
 @Order(0)
@@ -52,13 +56,16 @@ public class OaiJatsRoute implements ContentRoute {
   private final OaiLayer layer;
   private final SourceRouteMapper routes;
   private final WorkIdentifierMapper identifiers;
+  private final Environment env;
 
   @Autowired
-  public OaiJatsRoute(PoliteHttp http, OaiLayer layer, SourceRouteMapper routes, WorkIdentifierMapper identifiers) {
+  public OaiJatsRoute(PoliteHttp http, OaiLayer layer, SourceRouteMapper routes, WorkIdentifierMapper identifiers,
+      Environment env) {
     this.client = new OaiPmhClient(http);
     this.layer = layer;
     this.routes = routes;
     this.identifiers = identifiers;
+    this.env = env;
   }
 
   @Override
@@ -71,7 +78,8 @@ public class OaiJatsRoute implements ContentRoute {
   }
 
   private @Nullable Target target(Work w, @Nullable Source s) {
-    if (w.id() == null || s == null || s.id() == null) return null;
+    if (w.id() == null || s == null || s.id() == null || "CEASED".equals(s.publicationStatus())) return null;
+    if (!env.getProperty(Layer.OAI.enabledProperty(), Boolean.class, true)) return null;
     String oai = identifiers.list(w.id()).stream().filter(i -> IdScheme.OAI.code().equals(i.scheme()))
         .map(Identifier::value).findFirst().orElse(null);
     if (oai == null) return null;

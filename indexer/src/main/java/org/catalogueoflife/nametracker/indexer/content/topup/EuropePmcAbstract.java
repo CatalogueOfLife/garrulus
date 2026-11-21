@@ -20,7 +20,8 @@ import tools.jackson.databind.JsonNode;
 /**
  * The abstract from Europe PMC: {@code EXT_ID:<pmid> AND SRC:MED} when the work has a PMID, else {@code DOI:"<doi>"},
  * {@code resultType=core}, the record's {@code abstractText} (inline HTML, stored as JATS like the Europe PMC layer
- * does). Always on: it is free and keyless.
+ * does). Free and keyless, on by default; {@code nametracker.content.topup.europepmc.enabled=false} switches it off
+ * (it shares www.ebi.ac.uk with the Europe PMC layer, route and lookups).
  */
 @Component
 @Order(10)
@@ -30,12 +31,15 @@ public class EuropePmcAbstract implements AbstractTopUp {
 
   private final EuropePmcSearchClient client;
   private final WorkIdentifierMapper identifiers;
+  private final boolean enabled;
 
   @Autowired
   public EuropePmcAbstract(PoliteHttp http, WorkIdentifierMapper identifiers,
-      @Value("${nametracker.europepmc.base-url:https://www.ebi.ac.uk/europepmc/webservices}") String baseUrl) {
+      @Value("${nametracker.europepmc.base-url:https://www.ebi.ac.uk/europepmc/webservices}") String baseUrl,
+      @Value("${nametracker.content.topup.europepmc.enabled:true}") boolean enabled) {
     this.client = new EuropePmcSearchClient(http, baseUrl);
     this.identifiers = identifiers;
+    this.enabled = enabled;
   }
 
   @Override
@@ -45,7 +49,7 @@ public class EuropePmcAbstract implements AbstractTopUp {
 
   @Override
   public boolean enabled() {
-    return true;
+    return enabled;
   }
 
   @Override
