@@ -3,6 +3,8 @@ import { Group, NativeSelect, Stack, Text, TextInput } from '@mantine/core';
 import type { FacetCount, FacetName, TaxGroup, WorkFilter } from '../api';
 import { TaxGroupIcon } from './TaxGroupIcon';
 import { TaxonPicker } from './TaxonPicker';
+import { MentionedInFilter } from './MentionedInFilter';
+import { languageName } from '../languages';
 import { disciplineOptions, resolveDiscipline, useDisciplines } from '../disciplines';
 import { FacetGroup } from '../ui/FacetGroup';
 import { Rule } from '../ui/Rule';
@@ -21,12 +23,19 @@ const CODES = ['ZOOLOGICAL', 'BOTANICAL', 'BACTERIAL', 'VIRUS'];
 
 /** The filters the sidebar sets that are on; a year range counts once, the text search is no filter. */
 export function activeFilterCount(f: WorkFilter): number {
-  const on = [f.taxon, f.taxgroup, f.code, f.journalType, f.hasActs, f.subfield, f.tier, f.oa, f.yearFrom || f.yearTo];
+  const on = [f.taxon, f.taxgroup, f.code, f.journalType, f.hasActs, f.subfield, f.tier, f.oa, f.yearFrom || f.yearTo, f.mentionedIn?.length, f.language?.length];
   return on.filter(Boolean).length;
 }
 
 function counts(list?: FacetCount[]): Map<string, number> {
   return new Map((list ?? []).map((f) => [f.value, f.count]));
+}
+
+/** The facet's languages with their names; the works without a decided language (facet value empty) are `none`. */
+export function languageItems(list?: FacetCount[]): { value: string; label: string; count: number }[] {
+  return (list ?? []).map((f) => (f.value === ''
+    ? { value: 'none', label: 'Undecided', count: f.count }
+    : { value: f.value, label: languageName(f.value), count: f.count }));
 }
 
 /** A text input that keeps its own state while typing and commits on blur or Enter only. */
@@ -123,6 +132,17 @@ export function FilterSidebar({ filter, taxonLabel, facets, taxGroups, onChange 
 
       <FacetGroup title="Journal type" current={filter.journalType} onSelect={set('journalType')}
         items={['TAXONOMIC', 'GENERAL'].map((t) => ({ value: t, label: sentence(t), count: typeCounts.get(t) }))} />
+
+      {facets.language?.length || filter.language?.length ? (
+        <FacetGroup title="Language" current={filter.language?.[0]}
+          onSelect={(v) => onChange({ language: v ? [v] : undefined, offset: undefined })}
+          items={languageItems(facets.language)} />
+      ) : null}
+
+      <Field title="Mentioned in">
+        <MentionedInFilter legend="Name occurs in" value={filter.mentionedIn ?? []}
+          onChange={(v) => onChange({ mentionedIn: v.length ? v : undefined, offset: undefined })} />
+      </Field>
 
       <FacetGroup title="Acts" current={filter.hasActs === 'true' ? 'true' : undefined} onSelect={set('hasActs')}
         items={[{ value: 'true', label: 'Has nomenclatural acts', count: actCounts.get('true') }]} />

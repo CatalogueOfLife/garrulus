@@ -13,7 +13,7 @@ import frame from '../ui/frame.module.css';
 import classes from '../ui/list.module.css';
 import { usePageTitle } from '../usePageTitle';
 
-const FACETS: FacetName[] = ['code', 'taxgroup', 'journalType', 'hasActs'];
+const FACETS: FacetName[] = ['code', 'taxgroup', 'journalType', 'hasActs', 'language'];
 const PAGE_SIZE = 20;
 
 export function SearchPage() {

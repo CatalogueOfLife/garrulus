@@ -3,7 +3,7 @@
 export type JournalType = 'TAXONOMIC' | 'GENERAL';
 export type Tier = 'CORE' | 'BROAD' | 'CANDIDATE' | 'EXCLUDED';
 export type OaModel = 'DIAMOND' | 'GOLD' | 'HYBRID' | 'CLOSED';
-export type FacetName = 'code' | 'taxgroup' | 'journalType' | 'year' | 'source' | 'hasActs';
+export type FacetName = 'code' | 'taxgroup' | 'journalType' | 'year' | 'source' | 'hasActs' | 'language';
 
 export interface Error400 {
   status: number;
@@ -201,6 +201,7 @@ export interface TaxonStats {
   total: number;
   mainSubjectTotal: number;
   years: { year: number; works: number; mainSubjectWorks: number }[];
+  languages?: LanguageYear[];
 }
 export interface SourceRef { id: number; title: string }
 export type PublicationStatus = 'ACTIVE' | 'CEASED';
@@ -265,9 +266,16 @@ export interface WorkFilter {
   q?: string;
   limit?: string;
   offset?: string;
+  /** Repeatable: TITLE, ABSTRACT, BODY (empty: anywhere). */
+  mentionedIn?: string[];
+  /** Repeatable: ISO 639-1 codes of the decided language; `none` selects works without a decision. */
+  language?: string[];
 }
 
-export const FILTER_KEYS: (keyof WorkFilter)[] = [
+export type MentionedIn = 'TITLE' | 'ABSTRACT' | 'BODY';
+export const LIST_KEYS = ['mentionedIn', 'language'] as const;
+
+export const FILTER_KEYS: (Exclude<keyof WorkFilter, 'mentionedIn' | 'language'>)[] = [
   'taxon', 'name', 'code', 'taxgroup', 'subfield', 'journalType', 'tier', 'oa', 'country', 'source',
   'yearFrom', 'yearTo', 'hasActs', 'actType', 'mainSubjectOnly', 'q', 'limit', 'offset',
 ];
@@ -278,6 +286,10 @@ export function filterFromParams(params: URLSearchParams): WorkFilter {
     const v = params.get(k);
     if (v) f[k] = v;
   }
+  for (const k of LIST_KEYS) {
+    const v = params.getAll(k).filter(Boolean);
+    if (v.length) f[k] = v;
+  }
   return f;
 }
 
@@ -287,6 +299,7 @@ export function filterToParams(filter: WorkFilter): URLSearchParams {
     const v = filter[k];
     if (v !== undefined && v !== '') p.set(k, v);
   }
+  for (const k of LIST_KEYS) for (const v of filter[k] ?? []) p.append(k, v);
   return p;
 }
 
@@ -398,6 +411,8 @@ export interface Subscription {
   includeReferences: boolean;
   filters: SubscriptionFilters;
   sinceYear?: number | null;
+  /** Empty or missing: the names count anywhere in the work. */
+  mentionedIn?: MentionedIn[];
   paused: boolean;
   feedUrl: string;
   created: string;
@@ -485,6 +500,8 @@ export interface SubscriptionInput {
   includeReferences: boolean;
   filters: SubscriptionFilters;
   sinceYear?: number | null;
+  /** On PATCH, `[]` clears it. */
+  mentionedIn?: MentionedIn[];
 }
 export async function getSubscriptions(): Promise<Subscription[]> {
   const res = await fetch('/api/me/subscriptions', { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
@@ -598,6 +615,8 @@ export interface LayersView {
   health: LayerHealthDay[];
   contribution: Record<string, Record<string, number>>;
   contributionByCountry: Record<string, Record<string, Record<string, number>>>;
+  /** Language code (ISO 639-1) or `UNDECIDED`, then layer. */
+  contributionByLanguage?: Record<string, Record<string, Record<string, number>>>;
   coverage: CoverageRow[];
 }
 export interface AdminStatus {

@@ -119,4 +119,17 @@ describe('FollowingPage', () => {
     expect(within(row).getByRole('link', { name: 'New Journal' })).toHaveAttribute('href', '/source/9');
     expect(within(screen.getByText('Zootaxa').closest('li') as HTMLElement).queryByText(/Ceased/)).toBeNull();
   });
+
+  it('showsWhereTheNameMustOccur', async () => {
+    server.use(
+      http.get('/api/me', () => HttpResponse.json(meBody)),
+      http.get('/api/me/subscriptions', () => HttpResponse.json([
+        sub(1, 'Carabus', { mentionedIn: ['TITLE', 'BODY'] }), sub(2, 'Plain'),
+      ])),
+    );
+    renderApp(<FollowingPage />, '/following');
+    const item = (await screen.findByText('Carabus')).closest('li') as HTMLElement;
+    expect(within(item).getByText('Mentioned in: title, full text')).toBeInTheDocument();
+    expect(within(screen.getByText('Plain').closest('li') as HTMLElement).queryByText(/Mentioned in/)).toBeNull();
+  });
 });

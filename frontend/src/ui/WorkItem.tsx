@@ -20,10 +20,16 @@ export function WorkItem({ work, headingLevel = 3 }: { work: WorkSummary; headin
       <Rule />
       <div className={classes.item}>
         <Title className={classes.title}>
-          <Link to={`/work/${work.id}`}>
+          <Link to={`/work/${work.id}`} lang={work.titleLang || work.language || undefined}>
             {work.title ? <SciTitle title={work.title} mentions={work.titleMentions ?? []} names={info} /> : '(untitled)'}
           </Link>
         </Title>
+        {work.titleEn && work.titleEnKind && work.titleEn !== work.title ? (
+          <p className={classes.titleEn}>
+            <span>{work.titleEnKind === 'MACHINE' ? 'Machine translation' : 'English title'}: </span>
+            <span lang="en">{work.titleEn}</span>
+          </p>
+        ) : null}
         <MetaLine
           authors={work.authors}
           authorCount={work.authorCount}

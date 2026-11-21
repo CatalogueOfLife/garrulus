@@ -1,14 +1,17 @@
 import { Alert, Loader, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
-import { getSource, getTaxGroups } from '../api';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { getSource, getTaxGroups, searchWorks } from '../api';
 import { CeasedBadge } from '../components/CeasedBadge';
 import { IdentifierLinks } from '../components/IdentifierLinks';
 import { LanguageBreakdown } from '../components/LanguageBreakdown';
 import { FollowActions } from '../components/FollowActions';
 import { Section } from '../components/Section';
+import { FacetGroup } from '../ui/FacetGroup';
 import { TaxGroupIcon } from '../components/TaxGroupIcon';
 import { YearBars } from '../components/YearBars';
+import { languageItems } from '../components/FilterSidebar';
+import { MentionedInFilter, withMentionedIn } from '../components/MentionedInFilter';
 import { WorkList } from '../components/WorkList';
 import { DetailHead } from '../ui/DetailHead';
 import { NotFound, isNotFound } from '../ui/NotFound';
@@ -25,6 +28,20 @@ const pct = (share: number) => `${Math.round(share * 100)}%`;
 
 export function SourcePage() {
   const { id = '' } = useParams();
+  const [params, setParams] = useSearchParams();
+  const mentionedIn = params.getAll('mentionedIn').filter(Boolean);
+  const language = params.getAll('language').filter(Boolean);
+  const filtered = mentionedIn.length > 0 || language.length > 0;
+  const setList = (key: 'mentionedIn' | 'language', v: string[]) => setParams((p) => {
+    const n = new URLSearchParams(p);
+    n.delete(key);
+    v.forEach((x) => n.append(key, x));
+    return n;
+  });
+  const works = useQuery({
+    queryKey: ['source-works', id, mentionedIn, language],
+    queryFn: () => searchWorks({ source: id, limit: '10', mentionedIn, language }, ['language']),
+  });
   const source = useQuery({ queryKey: ['source', id], queryFn: () => getSource(id) });
   const groups = useQuery({ queryKey: ['taxgroups'], queryFn: getTaxGroups, staleTime: Infinity });
   const disciplines = useDisciplines();
@@ -61,7 +78,7 @@ export function SourcePage() {
         title={s.title}
         parts={[sentence(s.tier), s.publisher, s.issnL && `ISSN-L ${s.issnL}`]}
         actions={served
-          ? <FollowActions type="SOURCE" target={String(s.id)} label={s.title} feed={`/feeds/source/${s.id}.atom`} />
+          ? <FollowActions type="SOURCE" target={String(s.id)} label={s.title} feed={withMentionedIn(`/feeds/source/${s.id}.atom`, mentionedIn)} />
           : undefined}
       />
 
@@ -72,9 +89,19 @@ export function SourcePage() {
       <div className={`${list.page} ${classes.body}`}>
         <div className={list.mainCol}>
           <Section title="Recent papers">
-            {s.recentWorks.length ? <WorkList works={s.recentWorks} /> : <Text c="dimmed">No papers yet.</Text>}
+            <MentionedInFilter value={mentionedIn} onChange={(v) => setList('mentionedIn', v)} />
+            {works.data?.facets.language?.length || language.length ? (
+              <FacetGroup title="Language" current={language[0]} onSelect={(v) => setList('language', v ? [v] : [])}
+                items={languageItems(works.data?.facets.language)} />
+            ) : null}
+            {(() => {
+              const list = filtered ? works.data?.results : s.recentWorks;
+              if (filtered && works.isError) return <Alert color="red">{(works.error as Error).message}</Alert>;
+              if (!list) return <Loader size="sm" />;
+              return list.length ? <WorkList works={list} /> : <Text c="dimmed">No papers yet.</Text>;
+            })()}
             <p className={classes.more}>
-              <Link to={`/?source=${encodeURIComponent(id)}`}>All papers of this journal</Link>
+              <Link to={`/?source=${encodeURIComponent(id)}${[...mentionedIn.map((m) => `&mentionedIn=${m}`), ...language.map((l) => `&language=${l}`)].join('')}`}>All papers of this journal</Link>
             </p>
           </Section>
         </div>

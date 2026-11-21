@@ -55,4 +55,27 @@ describe('FilterSidebar', () => {
     await userEvent.selectOptions(select, 'Any');
     expect(onChange).toHaveBeenLastCalledWith({ subfield: undefined, offset: undefined });
   });
+
+  it('languageFacetNames', async () => {
+    server.use(xrHandler);
+    const seen: object[] = [];
+    renderApp(
+      <FilterSidebar filter={{}} taxGroups={taxGroups} onChange={(p) => seen.push(p)}
+        facets={{ language: [{ value: 'de', count: 5 }, { value: 'zh', count: 2 }, { value: '', count: 7 }] }} />,
+    );
+    expect(screen.getByRole('button', { name: 'German 5' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Chinese 2' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Undecided 7' }));
+    await userEvent.click(screen.getByRole('button', { name: 'German 5' }));
+    expect(seen).toEqual([{ language: ['none'], offset: undefined }, { language: ['de'], offset: undefined }]);
+  });
+
+  it('mentionedInCheckboxesChangeTheFilter', async () => {
+    server.use(xrHandler);
+    const seen: object[] = [];
+    renderApp(<FilterSidebar filter={{ mentionedIn: ['TITLE'] }} taxGroups={taxGroups} facets={{}} onChange={(p) => seen.push(p)} />);
+    expect(screen.getByLabelText('Title')).toBeChecked();
+    await userEvent.click(screen.getByLabelText('Full text'));
+    expect(seen).toEqual([{ mentionedIn: ['TITLE', 'BODY'], offset: undefined }]);
+  });
 });

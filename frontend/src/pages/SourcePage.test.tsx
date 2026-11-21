@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { Route, Routes } from 'react-router-dom';
 import { SourcePage } from './SourcePage';
-import { server, work, taxGroupHandler } from '../test/server';
+import { server, work, taxGroupHandler, emptyPage } from '../test/server';
 import { renderApp } from '../test/render';
 
 function renderSource() {
@@ -10,6 +10,8 @@ function renderSource() {
 }
 
 describe('SourcePage', () => {
+  beforeEach(() => server.use(http.get('/api/works', () => HttpResponse.json(emptyPage))));
+
   it('sourcePageShowsCategorisationAndRecentWorks', async () => {
     server.use(
       taxGroupHandler,
@@ -114,5 +116,30 @@ describe('SourcePage', () => {
     const langs = screen.getByRole('region', { name: 'Languages' });
     expect(within(langs).getByRole('rowheader', { name: 'Chinese' })).toBeInTheDocument();
     expect(within(langs).getByRole('rowheader', { name: 'English' })).toBeInTheDocument();
+  });
+
+  it('filtersTheJournalListByPartAndLanguage', async () => {
+    const seen: URLSearchParams[] = [];
+    server.use(
+      taxGroupHandler,
+      http.get('/api/sources/7', () => HttpResponse.json({
+        id: 7, title: 'Zootaxa', tier: 'CORE', subfields: [], taxgroups: [], codes: [], years: [], recentWorks: [work(1, 'Recent one')] })),
+      http.get('/api/works', ({ request }) => {
+        const q = new URL(request.url).searchParams;
+        seen.push(q);
+        return HttpResponse.json({ ...emptyPage, total: 1, results: [work(2, 'Filtered one')],
+          facets: { language: [{ value: 'de', count: 1 }] } });
+      }),
+    );
+    renderApp(<Routes><Route path="/source/:id" element={<SourcePage />} /></Routes>, '/source/7?mentionedIn=ABSTRACT&language=de');
+    expect(await screen.findByText('Filtered one')).toBeInTheDocument();
+    expect(screen.queryByText('Recent one')).toBeNull();
+    const q = seen[seen.length - 1];
+    expect(q.get('source')).toBe('7');
+    expect(q.getAll('mentionedIn')).toEqual(['ABSTRACT']);
+    expect(q.getAll('language')).toEqual(['de']);
+    expect(screen.getByLabelText('Abstract')).toBeChecked();
+    expect(screen.getByRole('button', { name: 'German 1' })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('link', { name: 'Atom feed' })).toHaveAttribute('href', '/feeds/source/7.atom?mentionedIn=ABSTRACT');
   });
 });

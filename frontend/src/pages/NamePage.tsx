@@ -1,10 +1,11 @@
 import { Alert, Anchor, Loader, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { getName, searchWorks } from '../api';
 import { FollowActions } from '../components/FollowActions';
 import { Section } from '../components/Section';
 import { ClassificationPath } from '../components/ClassificationPath';
+import { MentionedInFilter, withMentionedIn } from '../components/MentionedInFilter';
 import { WorkList } from '../components/WorkList';
 import { YearBars } from '../components/YearBars';
 import { DetailHead } from '../ui/DetailHead';
@@ -19,8 +20,11 @@ import { usePageTitle } from '../usePageTitle';
 
 export function NamePage() {
   const { id = '' } = useParams();
+  const [params, setParams] = useSearchParams();
+  const mentionedIn = params.getAll('mentionedIn').filter(Boolean);
+  const setMentioned = (v: string[]) => setParams((p) => { const n = new URLSearchParams(p); n.delete('mentionedIn'); v.forEach((x) => n.append('mentionedIn', x)); return n; });
   const name = useQuery({ queryKey: ['name', id], queryFn: () => getName(id) });
-  const works = useQuery({ queryKey: ['name-works', id], queryFn: () => searchWorks({ name: id, limit: '20' }) });
+  const works = useQuery({ queryKey: ['name-works', id, mentionedIn], queryFn: () => searchWorks({ name: id, limit: '20', mentionedIn }) });
   const n = name.data;
   usePageTitle(n?.name ?? `Name ${id}`);
 
@@ -39,7 +43,7 @@ export function NamePage() {
       <DetailHead
         title={<SciName name={n.name} rank={n.rank} kind={n.kind} />}
         parts={[words(n.rank), n.kind === 'OTU' ? n.kind : words(n.kind)]}
-        actions={<FollowActions type="NAME" target={String(n.id)} label={n.name} feed={`/feeds/name/${n.id}.atom`} />}
+        actions={<FollowActions type="NAME" target={String(n.id)} label={n.name} feed={withMentionedIn(`/feeds/name/${n.id}.atom`, mentionedIn)} />}
       />
 
       <div className={`${list.page} ${classes.body}`}>
@@ -71,13 +75,17 @@ export function NamePage() {
             ) : <Text c="dimmed">Not seen in any paper yet.</Text>}
           </Section>
 
+          <Section title="Filter">
+            <MentionedInFilter value={mentionedIn} onChange={setMentioned} />
+          </Section>
+
           <Section title="Papers naming this name">
             {works.isError ? <Alert color="red">{(works.error as Error).message}</Alert>
               : works.data ? (works.data.results.length ? <WorkList works={works.data.results} /> : <Text c="dimmed">No papers yet.</Text>)
               : <Loader size="sm" />}
             {works.data && works.data.total > works.data.results.length ? (
               <p className={classes.more}>
-                <Link to={`/?name=${encodeURIComponent(id)}`}>All {works.data.total} papers</Link>
+                <Link to={`/?name=${encodeURIComponent(id)}${mentionedIn.map((m) => `&mentionedIn=${m}`).join('')}`}>All {works.data.total} papers</Link>
               </p>
             ) : null}
           </Section>

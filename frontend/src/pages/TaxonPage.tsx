@@ -1,9 +1,11 @@
 import { Alert, Anchor, Loader, Text } from '@mantine/core';
 import { useQuery, useQueries } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { getClbClassification, getClbTaxon, getTaxonStats, getWork, getXr, searchWorks } from '../api';
 import type { Context } from '../api';
 import { ClassificationPath } from '../components/ClassificationPath';
+import { LanguageBreakdown } from '../components/LanguageBreakdown';
+import { MentionedInFilter, withMentionedIn } from '../components/MentionedInFilter';
 import { WorkList } from '../components/WorkList';
 import { YearBars } from '../components/YearBars';
 import { FollowActions } from '../components/FollowActions';
@@ -31,6 +33,9 @@ export function relevantVerbatim(contexts: Context[], lineageNames: (string | un
 
 export function TaxonPage() {
   const { id = '' } = useParams();
+  const [params, setParams] = useSearchParams();
+  const mentionedIn = params.getAll('mentionedIn').filter(Boolean);
+  const setMentioned = (v: string[]) => setParams((p) => { const n = new URLSearchParams(p); n.delete('mentionedIn'); v.forEach((x) => n.append('mentionedIn', x)); return n; });
   const xr = useQuery({ queryKey: ['xr'], queryFn: getXr, staleTime: Infinity });
   const key = xr.data?.key;
   const taxon = useQuery({ queryKey: ['clb-taxon', key, id], queryFn: () => getClbTaxon(key!, id), enabled: key !== undefined });
@@ -39,11 +44,11 @@ export function TaxonPage() {
   });
   const stats = useQuery({ queryKey: ['taxon-stats', id], queryFn: () => getTaxonStats(id) });
   const recent = useQuery({
-    queryKey: ['taxon-recent', id], queryFn: () => searchWorks({ taxon: id, mainSubjectOnly: 'true', limit: '10' }),
+    queryKey: ['taxon-recent', id, mentionedIn], queryFn: () => searchWorks({ taxon: id, mainSubjectOnly: 'true', limit: '10', mentionedIn }),
   });
   const acts = useQuery({
-    queryKey: ['taxon-acts', id],
-    queryFn: () => searchWorks({ taxon: id, mainSubjectOnly: 'true', hasActs: 'true', limit: '10' }),
+    queryKey: ['taxon-acts', id, mentionedIn],
+    queryFn: () => searchWorks({ taxon: id, mainSubjectOnly: 'true', hasActs: 'true', limit: '10', mentionedIn }),
   });
   // verbatim classifications used: those contexts of up to five recent works that name this taxon or an ancestor
   const recentWorks = (recent.data?.results ?? []).slice(0, 5);
@@ -70,20 +75,24 @@ export function TaxonPage() {
           title={<SciName name={name} rank={rank} />}
           parts={[words(rank), words(taxon.data?.status)]}
           actions={<FollowActions type="TAXON" target={id} label={name}
-            feed={`/feeds/taxon/${encodeURIComponent(id)}.atom`} />}
+            feed={withMentionedIn(`/feeds/taxon/${encodeURIComponent(id)}.atom`, mentionedIn)} />}
         />
       ) : <Loader size="sm" />}
       {classification.data?.length ? <ClassificationPath items={classification.data} order="root-first" /> : null}
 
       <div className={`${list.page} ${classes.body}`}>
         <div className={list.mainCol}>
+          <Section title="Filter">
+            <MentionedInFilter value={mentionedIn} onChange={setMentioned} />
+          </Section>
+
           <Section title="Recent papers (main subject)">
             {recent.isError ? <Alert color="red">{(recent.error as Error).message}</Alert>
               : recent.data ? (recent.data.results.length ? <WorkList works={recent.data.results} /> : <Text c="dimmed">No papers yet.</Text>)
               : <Loader size="sm" />}
             {total !== undefined && recent.data && total > recent.data.results.length ? (
               <p className={classes.more}>
-                <Link to={`/?taxon=${encodeURIComponent(id)}&mainSubjectOnly=true`}>All {total} papers</Link>
+                <Link to={`/?taxon=${encodeURIComponent(id)}&mainSubjectOnly=true${mentionedIn.map((m) => `&mentionedIn=${m}`).join('')}`}>All {total} papers</Link>
               </p>
             ) : null}
           </Section>
@@ -120,6 +129,11 @@ export function TaxonPage() {
             {stats.isError ? <Alert color="red">{(stats.error as Error).message}</Alert>
               : stats.data ? <YearBars years={stats.data.years} /> : <Loader size="sm" />}
           </Section>
+          {stats.data?.languages?.length ? (
+            <Section title="Languages">
+              <LanguageBreakdown languages={stats.data.languages} />
+            </Section>
+          ) : null}
         </SideColumn>
       </div>
     </article>

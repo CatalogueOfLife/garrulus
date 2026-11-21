@@ -145,4 +145,45 @@ describe('FollowButton', () => {
     await waitFor(() => expect(patch).not.toBeNull());
     expect(patch).toMatchObject({ filters: { subfield: '1110' } });
   });
+
+  it('savesMentionedIn', async () => {
+    let body: Record<string, unknown> | null = null;
+    document.cookie = 'XSRF-TOKEN=x1; path=/';
+    server.use(
+      signedIn,
+      http.get('/api/me/subscriptions', () => HttpResponse.json([])),
+      http.post('/api/me/subscriptions', async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(sub(), { status: 201 });
+      }),
+    );
+    renderApp(<FollowButton type="TAXON" target="T1" label="Carabus" />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Follow' }));
+    expect(await screen.findByText('Full text is available for some papers only.')).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText('Title'));
+    await userEvent.click(screen.getByLabelText('Full text'));
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(body).not.toBeNull());
+    expect(body).toMatchObject({ mentionedIn: ['TITLE', 'BODY'] });
+  });
+
+  it('existingFollowWithoutMentionedIn', async () => {
+    let patch: Record<string, unknown> | null = null;
+    server.use(
+      signedIn,
+      http.get('/api/me/subscriptions', () => HttpResponse.json([sub()])),
+      http.patch('/api/me/subscriptions/5', async ({ request }) => {
+        patch = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(sub());
+      }),
+    );
+    renderApp(<FollowButton type="TAXON" target="T1" label="Carabus" />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Following' }));
+    expect(await screen.findByLabelText('Title')).not.toBeChecked();
+    expect(screen.getByLabelText('Abstract')).not.toBeChecked();
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(patch).not.toBeNull());
+    // none checked clears it
+    expect(patch).toMatchObject({ mentionedIn: [] });
+  });
 });

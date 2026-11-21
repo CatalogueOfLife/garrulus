@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getAdminLayers, type LayerHealthDay } from '../../api';
+import { languageName } from '../../languages';
 import { EmptyState } from '../../ui/EmptyState';
 import styles from '../../ui/pages.module.css';
 import { usePageTitle } from '../../usePageTitle';
@@ -60,7 +61,7 @@ export function AdminLayersPage() {
     <div>
       <h1 className={styles.pageTitle}>Layers</h1>
       <QueryState query={q}>
-        {q.data && (q.data.health.length === 0 && Object.keys(q.data.contribution).length === 0 && q.data.coverage.length === 0 ? (
+        {q.data && (q.data.health.length === 0 && Object.keys(q.data.contribution).length === 0 && Object.keys(q.data.contributionByLanguage ?? {}).length === 0 && q.data.coverage.length === 0 ? (
           <EmptyState title="No coverage check yet.">
             The coverage check runs daily at 06:30 UTC and fills this page once the layers have harvested.
           </EmptyState>
@@ -76,6 +77,15 @@ export function AdminLayersPage() {
                 <thead><tr><th>Country</th><th>Layer</th><th className={classes.num}>First found</th><th className={classes.num}>Only found</th></tr></thead>
                 <tbody>{Object.entries(q.data.contributionByCountry).flatMap(([c, ls]) => Object.entries(ls).map(([l, v]) => (
                   <tr key={`${c}|${l}`}><td>{c}</td><td>{l}</td><td className={classes.num}>{v.first ?? 0}</td><td className={classes.num}>{v.only ?? 0}</td></tr>)))}</tbody>
+              </table>)}
+            </section>
+            <section className={classes.section}>
+              <h2>Contribution by language</h2>
+              {Object.keys(q.data.contributionByLanguage ?? {}).length === 0 ? <NoRows /> : (
+              <table className={classes.table}>
+                <thead><tr><th>Language</th><th>Layer</th><th className={classes.num}>First found</th><th className={classes.num}>Only found</th></tr></thead>
+                <tbody>{Object.entries(q.data.contributionByLanguage ?? {}).flatMap(([c, ls]) => Object.entries(ls).map(([l, v]) => (
+                  <tr key={`${c}|${l}`}><td>{c === 'UNDECIDED' ? 'Undecided' : languageName(c)}</td><td>{l}</td><td className={classes.num}>{v.first ?? 0}</td><td className={classes.num}>{v.only ?? 0}</td></tr>)))}</tbody>
               </table>)}
             </section>
             <section className={classes.section}>

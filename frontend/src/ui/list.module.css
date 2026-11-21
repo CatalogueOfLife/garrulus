@@ -11,6 +11,13 @@
   letter-spacing: -0.005em;
 }
 
+.titleEn {
+  margin: 0 0 2px;
+  font-size: var(--gr-type-meta-size);
+  line-height: var(--gr-type-meta-line);
+  color: var(--gr-grey);
+}
+
 .names {
   display: flex;
   flex-wrap: wrap;

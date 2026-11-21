@@ -4,10 +4,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation } from 'react-router-dom';
 import {
   ApiError, createSubscription, deleteSubscription, getSubscriptions, getTaxGroups, patchSubscription,
-  type Subscription, type SubscriptionFilters, type SubscriptionType,
+  type MentionedIn, type Subscription, type SubscriptionFilters, type SubscriptionType,
 } from '../api';
 import { useMe } from '../auth/useMe';
 import { ConfirmButton } from './ConfirmButton';
+import { MentionedInFilter } from './MentionedInFilter';
 import { disciplineOptions, resolveDiscipline, useDisciplines } from '../disciplines';
 import { sentence } from '../ui/sentence';
 
@@ -47,6 +48,7 @@ function Form({ onClose, type, target, label, existing, onExists }: Omit<DialogP
   const [newNames, setNewNames] = useState(existing?.newNamesOnly ?? false);
   const [abstracts, setAbstracts] = useState(existing?.includeAbstractOnly ?? true);
   const [refs, setRefs] = useState(existing?.includeReferences ?? false);
+  const [mentioned, setMentioned] = useState<MentionedIn[]>(existing?.mentionedIn ?? []);
   const [window, setWindow] = useState<'rolling' | 'since'>(existing?.sinceYear ? 'since' : 'rolling');
   const [year, setYear] = useState(existing?.sinceYear ? String(existing.sinceYear) : '');
   const [narrow, setNarrow] = useState<SubscriptionFilters>(existing?.filters ?? {});
@@ -62,7 +64,7 @@ function Form({ onClose, type, target, label, existing, onExists }: Omit<DialogP
     mutationFn: async () => {
       const since = window === 'since' ? parseSinceYear(year) : undefined;
       const filters = Object.fromEntries(Object.entries(narrow).filter(([, v]) => v)) as SubscriptionFilters;
-      const o = { mainSubjectOnly: main, newNamesOnly: newNames, includeAbstractOnly: abstracts, includeReferences: refs, filters };
+      const o = { mainSubjectOnly: main, newNamesOnly: newNames, includeAbstractOnly: abstracts, includeReferences: refs, filters, mentionedIn: mentioned };
       if (existing) return patchSubscription(existing.id, { ...o, sinceYear: since ?? null });
       return createSubscription(type, target, label, { ...o, sinceYear: since });
     },
@@ -100,6 +102,7 @@ function Form({ onClose, type, target, label, existing, onExists }: Omit<DialogP
       <Checkbox label="Only new names" checked={newNames} onChange={(e) => setNewNames(e.currentTarget.checked)} />
       <Checkbox label="Include papers with an abstract only" checked={abstracts} onChange={(e) => setAbstracts(e.currentTarget.checked)} />
       <Checkbox label="Include papers that only cite the name in references" checked={refs} onChange={(e) => setRefs(e.currentTarget.checked)} />
+      <MentionedInFilter legend="Mentioned in" value={mentioned} onChange={setMentioned} />
       <Radio.Group label="Papers published" value={window} onChange={(v) => setWindow(v as 'rolling' | 'since')}>
         <Stack gap={4} mt={4}>
           <Radio value="rolling" label="Last 90 days" />

@@ -75,4 +75,27 @@ describe('TaxonPage', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Taxon not found' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Go to the search' })).toHaveAttribute('href', '/');
   });
+
+  it('languageBreakdownAndMentionedIn', async () => {
+    const seen: URLSearchParams[] = [];
+    server.use(
+      xrHandler,
+      http.get('https://api.checklistbank.org/dataset/316691/taxon/T1', () => HttpResponse.json({
+        id: 'T1', label: 'Carabus', status: 'accepted', name: { scientificName: 'Carabus', rank: 'genus' } })),
+      http.get('https://api.checklistbank.org/dataset/316691/taxon/T1/classification', () => HttpResponse.json([])),
+      http.get('/api/taxa/T1/stats', () => HttpResponse.json({ taxonId: 'T1', total: 6, mainSubjectTotal: 3, years: [],
+        languages: [{ language: 'de', year: 2025, works: 4 }, { language: 'en', year: 2025, works: 2 }] })),
+      http.get('/api/works', ({ request }) => {
+        seen.push(new URL(request.url).searchParams);
+        return HttpResponse.json(emptyPage);
+      }),
+    );
+    renderApp(<Routes><Route path="/taxon/:id" element={<TaxonPage />} /></Routes>, '/taxon/T1?mentionedIn=TITLE');
+    const langs = await screen.findByRole('region', { name: 'Languages' });
+    expect(within(langs).getByRole('rowheader', { name: 'German' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Title')).toBeChecked();
+    expect(await screen.findByRole('link', { name: 'Atom feed' })).toHaveAttribute('href', '/feeds/taxon/T1.atom?mentionedIn=TITLE');
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every((q) => q.getAll('mentionedIn').join() === 'TITLE')).toBe(true);
+  });
 });

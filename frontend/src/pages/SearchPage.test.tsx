@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { SearchPage } from './SearchPage';
@@ -165,5 +165,51 @@ describe('SearchPage', () => {
     // a keyboard user stays where they were instead of being dropped to the top of the page
     expect(screen.getByRole('textbox', { name: 'Search text' })).toHaveFocus();
     expect(screen.getByRole('textbox', { name: 'Search text' })).toHaveValue('gekko');
+  });
+
+  it('mentionedInInUrlAndRequest', async () => {
+    const seen: string[] = [];
+    server.use(xrHandler, taxGroupHandler, sourcesHandler(), http.get('/api/works', ({ request }) => {
+      seen.push(new URL(request.url).search);
+      return HttpResponse.json(emptyPage);
+    }));
+    renderApp(<SearchPage />, '/?mentionedIn=TITLE&mentionedIn=BODY');
+    await waitFor(() => expect(seen.length).toBeGreaterThan(0));
+    expect(new URLSearchParams(seen[0]).getAll('mentionedIn')).toEqual(['TITLE', 'BODY']);
+    expect(screen.getByLabelText('Title')).toBeChecked();
+    expect(screen.getByLabelText('Abstract')).not.toBeChecked();
+    await userEvent.click(screen.getByLabelText('Abstract'));
+    await waitFor(() => expect(new URLSearchParams(screen.getByTestId('location').textContent!.split('?')[1]).getAll('mentionedIn'))
+      .toEqual(['TITLE', 'ABSTRACT', 'BODY']));
+  });
+
+  it('languageInRequest', async () => {
+    const seen: string[] = [];
+    server.use(xrHandler, taxGroupHandler, sourcesHandler(), http.get('/api/works', ({ request }) => {
+      seen.push(new URL(request.url).search);
+      return HttpResponse.json({ ...emptyPage, facets: { language: [{ value: 'de', count: 3 }, { value: '', count: 1 }] } });
+    }));
+    renderApp(<SearchPage />, '/');
+    await userEvent.click(await screen.findByRole('button', { name: 'German 3' }));
+    await waitFor(() => expect(screen.getByTestId('location').textContent).toContain('language=de'));
+    await waitFor(() => expect(seen.some((s) => new URLSearchParams(s).getAll('language').includes('de'))).toBe(true));
+    expect(new URLSearchParams(seen[0]).getAll('facet')).toContain('language');
+  });
+
+  it('machineTitleLine', async () => {
+    server.use(xrHandler, taxGroupHandler, sourcesHandler(), http.get('/api/works', () => HttpResponse.json({
+      ...emptyPage, total: 2, results: [
+        { ...work(1, 'Neue Käferart'), language: 'de', titleLang: 'de', titleEn: 'A new beetle species', titleEnKind: 'MACHINE' },
+        { ...work(2, '新种'), language: 'zh', titleLang: 'zh', titleEn: 'A new species', titleEnKind: 'PARALLEL' },
+      ],
+    })));
+    renderApp(<SearchPage />, '/');
+    const first = (await screen.findByText('Neue Käferart')).closest('article') as HTMLElement;
+    expect(first.querySelector('a')).toHaveAttribute('lang', 'de');
+    expect(within(first).getByText(/Machine translation:/)).toBeInTheDocument();
+    expect(within(first).getByText('A new beetle species')).toHaveAttribute('lang', 'en');
+    const second = screen.getByText('新种').closest('article') as HTMLElement;
+    expect(within(second).getByText(/English title:/)).toBeInTheDocument();
+    expect(within(second).queryByText(/Machine translation/)).toBeNull();
   });
 });

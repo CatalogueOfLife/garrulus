@@ -12,6 +12,7 @@ import styles from '../ui/pages.module.css';
 import { usePageTitle } from '../usePageTitle';
 
 const TYPE_LABEL: Record<Subscription['type'], string> = { TAXON: 'Taxon', SOURCE: 'Journal', NAME: 'Name', TAXGROUP: 'Group' };
+const PART_LABEL: Record<string, string> = { TITLE: 'title', ABSTRACT: 'abstract', BODY: 'full text' };
 const targetPath = (s: Subscription) => ({
   TAXON: `/taxon/${encodeURIComponent(s.target)}`,
   SOURCE: `/source/${encodeURIComponent(s.target)}`,
@@ -71,6 +72,7 @@ export function FollowingPage() {
                     <Anchor component={Link} to={targetPath(s)} underline="hover" className={styles.rowTitle}>{s.label}</Anchor>
                     <p className={styles.rowMeta}>
                       <span>{TYPE_LABEL[s.type]}</span> · <Anchor component={Link} to={`/hits?subscription=${s.id}`} inherit>Hits</Anchor>
+                      {s.mentionedIn?.length ? <> · <span>Mentioned in: {s.mentionedIn.map((m) => PART_LABEL[m] ?? m).join(', ')}</span></> : null}
                     </p>
                   </div>
                   <Switch label="Paused" checked={s.paused} onChange={() => pause.mutate(s)} />

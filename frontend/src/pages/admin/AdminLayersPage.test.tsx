@@ -41,6 +41,17 @@ describe('AdminLayersPage', () => {
     renderApp(<AdminLayersPage />, '/admin/layers');
     expect(await screen.findByText('OAI 2026-11-20 OK')).toBeInTheDocument();
     expect(screen.getByText('Layer health, last 1 day (empty outline: OK, grey: degraded, red: failing)')).toBeInTheDocument();
-    expect(screen.getAllByText('None yet.')).toHaveLength(3);
+    expect(screen.getAllByText('None yet.')).toHaveLength(4);
+  });
+
+  it('byLanguageTable', async () => {
+    server.use(http.get('/api/admin/layers', () => HttpResponse.json({
+      health: [], contribution: {}, contributionByCountry: {}, coverage: [],
+      contributionByLanguage: { de: { OAI: { first: 3, only: 1 } }, UNDECIDED: { CROSSREF: { first: 2, only: 2 } } },
+    })));
+    renderApp(<AdminLayersPage />, '/admin/layers');
+    expect(await screen.findByRole('heading', { name: 'Contribution by language' })).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: 'German' })).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: 'Undecided' })).toBeInTheDocument();
   });
 });
