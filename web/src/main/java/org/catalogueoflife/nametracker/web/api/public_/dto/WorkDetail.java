@@ -17,4 +17,5 @@ public record WorkDetail(long id, @Nullable String doi, @Nullable String title, 
     @Nullable String licence, boolean retained, @Nullable String textLevel, boolean hasActs, List<String> codes,
     List<String> taxgroups, List<NameDetail> names, List<ContextDto> contexts, @Nullable List<TextBlock> text,
     List<MentionSpan> titleMentions, List<MentionSpan> abstractMentions, List<ActSpan> abstractActs,
-    List<Snippet> snippets, List<IdentifierLink> identifiers) {}
+    List<Snippet> snippets, List<IdentifierLink> identifiers, @Nullable String languageSource,
+    @Nullable String titleLang, @Nullable String abstractLang, List<TextVersion> titles, List<TextVersion> abstracts) {}

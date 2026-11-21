@@ -91,11 +91,19 @@ public class CoverageCheckHandler implements TaskHandler {
     dormancy.run(day);
   }
 
-  /** The 28 days up to the day: LIVE works created then, by the layer that saw them first and that alone saw them. */
+  /** The 28 days up to the day: LIVE works created then, by the layer that saw them first and that alone saw them, per journal country and per work language. */
   private void contribution(LocalDate day) {
     List<Map<String, Object>> rows = sightings.contribution(Arrays.stream(Layer.values()).map(Layer::name).toList(),
         day.minusDays(27), day);
+    List<Map<String, Object>> byLanguage = sightings.contributionByLanguage(
+        Arrays.stream(Layer.values()).map(Layer::name).toList(), day.minusDays(27), day);
     tx.executeWithoutResult(s -> {
+      mapper.deleteContributionLanguage(day);
+      for (Map<String, Object> r : byLanguage) {
+        mapper.insertContributionLanguage(day, (String) r.get("layer"),
+            r.get("language") == null ? "" : (String) r.get("language"), ((Number) r.get("first_found")).longValue(),
+            ((Number) r.get("only_found")).longValue());
+      }
       mapper.deleteContribution(day);
       for (Map<String, Object> r : rows) {
         mapper.insertContribution(day, (String) r.get("layer"), r.get("country") == null ? "" : (String) r.get("country"),

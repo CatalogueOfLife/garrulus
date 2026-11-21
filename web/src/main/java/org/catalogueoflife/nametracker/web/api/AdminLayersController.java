@@ -25,7 +25,8 @@ public class AdminLayersController {
 
   /** The daily health of the layers of the last {@code days} days, their 28-day contribution and the worst coverage. */
   public record LayersView(List<LayerHealth> health, Map<String, Map<String, Long>> contribution,
-      Map<String, Map<String, Map<String, Long>>> contributionByCountry, List<CoverageRow> coverage) {}
+      Map<String, Map<String, Map<String, Long>>> contributionByCountry,
+      Map<String, Map<String, Map<String, Long>>> contributionByLanguage, List<CoverageRow> coverage) {}
 
   private final LayerHealthMapper layers;
   private final AdminAccess access;
@@ -42,7 +43,7 @@ public class AdminLayersController {
     if (days < 1 || days > MAX_DAYS) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "days must be 1.." + MAX_DAYS);
     }
-    LayerContribution c = LayerContribution.of(layers.latestContribution());
-    return new LayersView(layers.latest(days), c.total(), c.byCountry(), layers.coverageRows(COVERAGE_ROWS));
+    LayerContribution c = LayerContribution.of(layers.latestContribution(), layers.latestContributionLanguage());
+    return new LayersView(layers.latest(days), c.total(), c.byCountry(), c.byLanguage(), layers.coverageRows(COVERAGE_ROWS));
   }
 }

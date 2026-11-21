@@ -11,7 +11,7 @@ import org.catalogueoflife.nametracker.store.names.YearCount;
 @Mapper
 public interface SearchMapper {
 
-  Set<String> FACETS = Set.of("code", "taxgroup", "journalType", "year", "source", "hasActs");
+  Set<String> FACETS = Set.of("code", "taxgroup", "journalType", "year", "source", "hasActs", "language");
 
   /** Newest first: publication_date DESC NULLS LAST, id DESC. */
   List<WorkHit> search(@Param("f") WorkFilter f, @Param("limit") int limit, @Param("offset") int offset);

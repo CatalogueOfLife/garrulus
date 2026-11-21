@@ -21,6 +21,7 @@ import org.catalogueoflife.nametracker.store.search.SearchMapper;
 import org.catalogueoflife.nametracker.store.search.WorkFilter;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
+import org.catalogueoflife.nametracker.web.api.public_.EnglishTitle;
 import org.catalogueoflife.nametracker.web.api.public_.MentionedInParam;
 import org.catalogueoflife.nametracker.web.digest.HitNames;
 import org.springframework.beans.factory.annotation.Value;
@@ -152,6 +153,7 @@ public class FeedController {
   private AtomWriter.Entry entry(FeedRow w, String hitLines) {
     String url = publicUrl + "/work/" + w.id();
     StringBuilder sum = new StringBuilder();
+    String english = EnglishTitle.line(w.titleEn(), w.titleEnKind());
     if (w.sourceTitle() != null) {
       sum.append(w.sourceTitle());
     }
@@ -160,6 +162,9 @@ public class FeedController {
       sum.append(sum.isEmpty() ? "" : ", ").append(date);
     } else if (w.year() != null) {
       sum.append(sum.isEmpty() ? "" : ", ").append(w.year());
+    }
+    if (english != null) {
+      sum.append(sum.isEmpty() ? "" : "\n").append(english);
     }
     if (!hitLines.isEmpty()) {
       sum.append(sum.isEmpty() ? "" : "\n").append(hitLines);

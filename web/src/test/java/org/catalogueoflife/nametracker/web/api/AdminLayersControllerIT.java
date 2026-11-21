@@ -26,6 +26,7 @@ class AdminLayersControllerIT extends AbstractPostgresIT {
   void clean() {
     jdbc.update("DELETE FROM source_layer_coverage");
     jdbc.update("DELETE FROM layer_contribution");
+    jdbc.update("DELETE FROM layer_contribution_language");
     jdbc.update("DELETE FROM layer_health");
     jdbc.update("DELETE FROM source");
   }
@@ -82,5 +83,19 @@ class AdminLayersControllerIT extends AbstractPostgresIT {
     assertThat(get("/api/admin/layers?days=91", "test-token").statusCode()).isEqualTo(400);
     assertThat(get("/api/admin/layers?days=90", "test-token").statusCode()).isEqualTo(200);
     assertThat(get("/api/admin/layers", null).statusCode()).isEqualTo(401);
+  }
+
+  @Test
+  void languageBreakdown() throws Exception {
+    jdbc.update("DELETE FROM layer_contribution_language");
+    jdbc.update("INSERT INTO layer_contribution_language (day, layer, language, first_found, only_found) VALUES "
+        + "(current_date, 'MAGTECH', 'zh', 7, 2), (current_date, 'OAI', 'zh', 1, 0), (current_date, 'OAI', '', 3, 1), "
+        + "(current_date - 1, 'OAI', 'zh', 99, 99)");
+    JsonNode v = JSON.readTree(get("/api/admin/layers", "test-token").body());
+    assertThat(v.at("/contributionByLanguage/zh/MAGTECH/first").asLong()).isEqualTo(7);
+    assertThat(v.at("/contributionByLanguage/zh/MAGTECH/only").asLong()).isEqualTo(2);
+    assertThat(v.at("/contributionByLanguage/zh/OAI/first").asLong()).isEqualTo(1);
+    assertThat(v.at("/contributionByLanguage/UNDECIDED/OAI/first").asLong()).isEqualTo(3);
+    assertThat(v.at("/contributionByLanguage/UNDECIDED/OAI/only").asLong()).isEqualTo(1);
   }
 }

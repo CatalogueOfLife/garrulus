@@ -25,4 +25,8 @@ public interface WorkSightingMapper {
    */
   List<Map<String, Object>> contribution(@Param("layers") List<String> layers, @Param("from") java.time.LocalDate from,
       @Param("to") java.time.LocalDate to);
+
+  /** As {@link #contribution}, per work language ({@code language}, null for an undecided one) and layer. */
+  List<Map<String, Object>> contributionByLanguage(@Param("layers") List<String> layers,
+      @Param("from") java.time.LocalDate from, @Param("to") java.time.LocalDate to);
 }

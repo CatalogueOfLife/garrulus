@@ -510,7 +510,7 @@ curl ... -d '{"type":"BACKFILL","payload":{"fromYear":2020,"toYear":2024,"files"
 `yearFrom`, `yearTo`, `hasActs`, `actType`, `mainSubjectOnly`, `q`; `limit` ≤ 100, `offset` ≤ 10000; repeatable
 `facet`), `/api/works/{id}`, `/api/names?q=`, `/api/names/{id}`, `/api/taxa/{colId}/works` (`mainSubjectOnly` defaults
 to true), `/api/taxa/{colId}/stats`, `/api/sources` (filter `publicationStatus`; ceased journals are listed), `/api/sources/{id}`, `/api/xr`,
-`/api/vocab/taxgroup`, `/api/vocab/discipline` (`discipline` is an alias of the `subfield` filter; a retired code resolves to
+`/api/stats/languages` (works per language and year, `taxgroup/code/country/yearFrom/yearTo`; read from `language_stats`, as are a taxon's and a source's `languages` from `taxon_language_stats` and a live per-source count; `REBUILD_STATS` fills them, V23), repeatable `language` filter and facet on works (`none` = undecided; the facet shows undecided as `''`), `/api/vocab/taxgroup`, `/api/vocab/discipline` (`discipline` is an alias of the `subfield` filter; a retired code resolves to
 its replacement). Only
 `INDEXED` works are listed; taxon filters ignore names that occur only in references. The full text of a work is served
 only when its content is retained (open licence). `/api/works/{id}` sends the abstract (the Crossref JATS one as plain

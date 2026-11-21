@@ -6,6 +6,7 @@ import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.store.search.SearchMapper;
 import org.catalogueoflife.nametracker.store.search.WorkFilter;
 import org.catalogueoflife.nametracker.store.source.Source;
+import org.catalogueoflife.nametracker.store.stats.StatsMapper;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
 import org.catalogueoflife.nametracker.web.api.public_.dto.SourceDetail;
 import org.catalogueoflife.nametracker.web.api.public_.dto.SourceItem;
@@ -35,8 +36,11 @@ public class SourceController {
   private final WorkController works;
   private final SearchMapper search;
   private final IdentifierViews identifiers;
+  private final StatsMapper statistics;
 
-  public SourceController(SourceMapper sources, WorkController works, SearchMapper search, IdentifierViews identifiers) {
+  public SourceController(SourceMapper sources, WorkController works, SearchMapper search, IdentifierViews identifiers,
+      StatsMapper statistics) {
+    this.statistics = statistics;
     this.identifiers = identifiers;
     this.search = search;
     this.sources = sources;
@@ -74,7 +78,8 @@ public class SourceController {
     return new SourceDetail(s.id(), s.title(), s.publisher(), s.issnL(), s.tier(), s.journalType(), s.primarySubfield(),
         nn(s.subfields()), nn(s.taxgroups()), shares(s), nn(s.codes()), s.oaModel(), s.country(), s.nameDensity(),
         s.actRate(), s.worksPerYear(), s.publicationStatus(), s.ceasedReason(), s.lastIssueYear(), ref(sources, s),
-        search.yearCounts(f), works.page(f, RECENT, 0, List.of()).results(), identifiers.source(s));
+        search.yearCounts(f), works.page(f, RECENT, 0, List.of()).results(), identifiers.source(s),
+        statistics.sourceLanguages(id));
   }
 
   /** The continuing journal of a ceased source as a reference; null when none is set or it is not itself public. */

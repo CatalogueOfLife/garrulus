@@ -4,6 +4,7 @@ import java.util.List;
 import org.catalogueoflife.nametracker.store.names.NameMapper;
 import org.catalogueoflife.nametracker.store.names.TaxonYearStats;
 import org.catalogueoflife.nametracker.store.search.WorkFilter;
+import org.catalogueoflife.nametracker.store.stats.StatsMapper;
 import org.catalogueoflife.nametracker.web.api.public_.dto.TaxonStats;
 import org.catalogueoflife.nametracker.web.api.public_.dto.WorkPage;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,8 +21,10 @@ public class TaxonController {
 
   private final WorkController works;
   private final NameMapper names;
+  private final StatsMapper statistics;
 
-  public TaxonController(WorkController works, NameMapper names) {
+  public TaxonController(WorkController works, NameMapper names, StatsMapper statistics) {
+    this.statistics = statistics;
     this.works = works;
     this.names = names;
   }
@@ -33,11 +36,12 @@ public class TaxonController {
       @RequestParam(required = false) Integer yearFrom,
       @RequestParam(required = false) Integer yearTo,
       @RequestParam(name = "mentionedIn", required = false) List<String> mentionedIn,
+      @RequestParam(name = "language", required = false) List<String> language,
       @RequestParam(defaultValue = "20") int limit,
       @RequestParam(defaultValue = "0") int offset) {
     WorkController.checkPaging(limit, offset);
     WorkFilter f = WorkFilter.builder().taxon(colId).yearFrom(yearFrom).yearTo(yearTo).mainSubjectOnly(mainSubjectOnly)
-        .mentionedIn(MentionedInParam.parse(mentionedIn)).build();
+        .mentionedIn(MentionedInParam.parse(mentionedIn)).languages(LanguageParam.parse(language)).build();
     return works.page(f, limit, offset, List.of());
   }
 
@@ -46,6 +50,7 @@ public class TaxonController {
     List<TaxonYearStats> rows = names.taxonStats(colId);
     return new TaxonStats(colId, rows.stream().mapToLong(TaxonYearStats::works).sum(),
         rows.stream().mapToLong(TaxonYearStats::mainSubjectWorks).sum(),
-        rows.stream().map(r -> new TaxonStats.Year(r.year(), r.works(), r.mainSubjectWorks())).toList());
+        rows.stream().map(r -> new TaxonStats.Year(r.year(), r.works(), r.mainSubjectWorks())).toList(),
+        statistics.taxonLanguages(colId));
   }
 }

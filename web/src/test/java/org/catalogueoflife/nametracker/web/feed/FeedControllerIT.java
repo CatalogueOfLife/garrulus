@@ -305,4 +305,23 @@ class FeedControllerIT extends AbstractPostgresIT {
     workName(work("Anywhere", LocalDate.now(ZoneOffset.UTC).minusDays(2), src), name("Empty one"), taxon, true, false);
     assertThat(parse(get("/feeds/taxon/" + taxon + ".atom?mentionedIn=").body()).getElementsByTagNameNS(NS, "entry").getLength()).isEqualTo(1);
   }
+
+  @Test
+  void entryShowsEnglishTitle() throws Exception {
+    long src = source();
+    String taxon = "FE" + SEQ.incrementAndGet();
+    long n = name("Aus bus");
+    long zh = work("中文标题", LocalDate.now(ZoneOffset.UTC).minusDays(2), src);
+    long en = work("An English one", LocalDate.now(ZoneOffset.UTC).minusDays(3), src);
+    jdbc.update("UPDATE work SET language = 'zh', title_lang = 'zh', title_en = 'Chinese title', title_en_kind = 'MACHINE' WHERE id = ?", zh);
+    jdbc.update("UPDATE work SET language = 'en' WHERE id = ?", en);
+    workName(zh, n, taxon, true, false);
+    workName(en, n, taxon, true, false);
+    Document d = parse(get("/feeds/taxon/" + taxon + ".atom").body());
+    var entries = d.getElementsByTagNameNS(NS, "entry");
+    assertThat(entries.getLength()).isEqualTo(2);
+    String all = d.getDocumentElement().getTextContent();
+    assertThat(all).contains("Zootaxa").contains("\nMachine translation: Chinese title");
+    assertThat(all).doesNotContain("English title:");
+  }
 }

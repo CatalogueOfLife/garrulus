@@ -19,6 +19,7 @@ import org.catalogueoflife.nametracker.store.discipline.DisciplineMapper;
 import org.catalogueoflife.nametracker.store.index.ContextRow;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
 import org.catalogueoflife.nametracker.store.index.MentionRow;
+import org.catalogueoflife.nametracker.store.lang.WorkTextMapper;
 import org.catalogueoflife.nametracker.store.search.FacetCount;
 import org.catalogueoflife.nametracker.store.search.MainNameRow;
 import org.catalogueoflife.nametracker.store.search.SearchMapper;
@@ -79,9 +80,12 @@ public class WorkController {
   private final BlobStore blobs;
   private final DisciplineMapper disciplines;
   private final IdentifierViews identifiers;
+  private final WorkTextMapper texts;
 
   public WorkController(SearchMapper search, WorkMapper works, SourceMapper sources, ContentMapper contents,
-      IndexMapper index, BlobStore blobs, DisciplineMapper disciplines, IdentifierViews identifiers) {
+      IndexMapper index, BlobStore blobs, DisciplineMapper disciplines, IdentifierViews identifiers,
+      WorkTextMapper texts) {
+    this.texts = texts;
     this.identifiers = identifiers;
     this.disciplines = disciplines;
     this.search = search;
@@ -117,6 +121,7 @@ public class WorkController {
       @RequestParam(required = false) @Nullable String q,
       @RequestParam(required = false) @Nullable String identifier,
       @RequestParam(name = "mentionedIn", required = false) @Nullable List<String> mentionedIn,
+      @RequestParam(name = "language", required = false) @Nullable List<String> language,
       @RequestParam(defaultValue = "20") int limit,
       @RequestParam(defaultValue = "0") int offset,
       @RequestParam(name = "facet", required = false) @Nullable List<String> facet) {
@@ -134,7 +139,7 @@ public class WorkController {
         .subfield(discipline(subfield, discipline)).journalType(journalType).tier(tier).oa(oa)
         .country(blankToNull(country)).source(source).yearFrom(yearFrom).yearTo(yearTo).hasActs(hasActs)
         .actType(blankToNull(actType)).mainSubjectOnly(mainSubjectOnly).q(blankToNull(q))
-        .identifier(identifiers.parseWorkFilter(identifier)).mentionedIn(MentionedInParam.parse(mentionedIn)).build();
+        .identifier(identifiers.parseWorkFilter(identifier)).mentionedIn(MentionedInParam.parse(mentionedIn)).languages(LanguageParam.parse(language)).build();
     return page(f, limit, offset, facets);
   }
 
@@ -206,6 +211,7 @@ public class WorkController {
     List<MentionRow> mentions = index.mentions(id);
     List<ContextDto> contexts = index.contexts(id).stream().map(WorkController::context).toList();
     List<TextBlock> text = retained ? text(id, full.get(), mentions) : null;
+    var versions = texts.forWork(id);
     String abstractText = abstractOf(w);
     List<MentionSpan> abstractMentions = TextSpans.locate(abstractText, WorkMentions.inBlocks(mentions, "ABSTRACT"));
 
@@ -216,7 +222,9 @@ public class WorkController {
         w.taxgroups() == null ? List.of() : w.taxgroups(), names, contexts, text,
         TextSpans.locate(w.title(), search.titleMentions(List.of(id))),
         abstractMentions, ActSpans.locate(abstractText, abstractMentions),
-        text == null ? WorkMentions.bodySnippets(names, mentions) : List.of(), identifiers.work(id, w.doi()));
+        text == null ? WorkMentions.bodySnippets(names, mentions) : List.of(), identifiers.work(id, w.doi()),
+        w.languageSource(), w.titleLang(), w.abstractLang(), TextVersions.of(versions, "TITLE"),
+        TextVersions.of(versions, "ABSTRACT"));
   }
 
   /**
@@ -284,7 +292,7 @@ public class WorkController {
         h.sourceId() == null ? null : new SourceRef(h.sourceId(), h.sourceTitle()),
         all.stream().limit(3).map(Author::name).toList(), all.size(), h.textLevel(), h.hasActs(),
         mainNames.size() > 5 ? mainNames.subList(0, 5) : mainNames, h.volume(), h.issue(), h.pages(),
-        titleMentions);
+        titleMentions, h.language(), h.titleLang(), h.titleEn(), h.titleEnKind());
   }
 
   private static List<Author> authors(@Nullable String json) {

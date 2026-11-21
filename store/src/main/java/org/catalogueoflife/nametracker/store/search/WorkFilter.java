@@ -30,10 +30,12 @@ public record WorkFilter(
     @Nullable String q,
     @Nullable Identifier identifier,
     List<String> mentionedIn,
+    List<String> languages,
     List<String> taxgroupMembers) {
 
   public WorkFilter {
     mentionedIn = mentionedIn == null ? List.of() : mentionedIn;
+    languages = languages == null ? List.of() : languages;
     // with mentionedIn the group is tested on the same name row as the part, like a follow does
     taxgroupMembers = taxgroup == null ? List.of() : MentionedIn.groupMembers(taxgroup);
   }
@@ -62,6 +64,7 @@ public record WorkFilter(
     private @Nullable String q;
     private @Nullable Identifier identifier;
     private List<String> mentionedIn = List.of();
+    private List<String> languages = List.of();
 
     public Builder taxon(@Nullable String v) {
       this.taxon = v;
@@ -154,8 +157,14 @@ public record WorkFilter(
       return this;
     }
 
+    /** Decided work languages (ISO 639-1, already normalised), OR-ed; {@code ''} selects works without a decision. */
+    public Builder languages(@Nullable List<String> v) {
+      this.languages = v == null ? List.of() : v;
+      return this;
+    }
+
     public WorkFilter build() {
-      return new WorkFilter(taxon, name, code, taxgroup, subfield, journalType, tier, oa, country, source, yearFrom, yearTo, hasActs, actType, mainSubjectOnly, q, identifier, mentionedIn, null);
+      return new WorkFilter(taxon, name, code, taxgroup, subfield, journalType, tier, oa, country, source, yearFrom, yearTo, hasActs, actType, mainSubjectOnly, q, identifier, mentionedIn, languages, null);
     }
   }
 }

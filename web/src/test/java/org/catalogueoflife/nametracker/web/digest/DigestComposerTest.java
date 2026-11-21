@@ -196,4 +196,25 @@ class DigestComposerTest {
     // plain text keeps the text as it is
     assertThat(m.text()).contains("A <script>alert(1)</script> & \"co\"");
   }
+
+  @Test
+  void machineTitleLabelled() {
+    SourceRef src = new SourceRef(3, "Zootaxa");
+    WorkSummary machine = new WorkSummary(1, "10.1/m", "中文标题", 2026, LocalDate.of(2026, 11, 1), src, List.of(), 0,
+        "ABSTRACT_ONLY", false, List.of(), null, null, null, List.of(), "zh", "zh", "A <b> title", "MACHINE");
+    WorkSummary parallel = new WorkSummary(2, "10.1/p", "Titre", 2026, LocalDate.of(2026, 11, 1), src, List.of(), 0,
+        "ABSTRACT_ONLY", false, List.of(), null, null, null, List.of(), "fr", "fr", "Title", "PARALLEL");
+    WorkSummary english = new WorkSummary(3, "10.1/e", "English", 2026, LocalDate.of(2026, 11, 1), src, List.of(), 0,
+        "ABSTRACT_ONLY", false, List.of(), null, null, null, List.of(), "en", null, null, null);
+    Mail m = composer.compose(USER, List.of(new SubscriptionHits(9, "x", List.of(
+        new Paper(new Hit(1L, 9, 1, "ARTICLE", T0, article("A b"), null), machine),
+        new Paper(new Hit(2L, 9, 2, "ARTICLE", T0.plusSeconds(1), article("A c"), null), parallel),
+        new Paper(new Hit(3L, 9, 3, "ARTICLE", T0.plusSeconds(2), article("A d"), null), english)))), URL);
+    assertThat(m.text()).contains("中文标题\n  Machine translation: A <b> title\n")
+        .contains("Titre\n  English title: Title\n");
+    assertThat(m.text().lines().filter(l -> l.contains("English title:") || l.contains("Machine translation:")).count())
+        .isEqualTo(2);
+    assertThat(m.html()).contains("Machine translation: A &lt;b&gt; title").contains("English title: Title")
+        .doesNotContain("A <b> title");
+  }
 }

@@ -113,7 +113,7 @@ public class AdminStatusController {
     for (Map<String, Object> r : sources.countByTier()) {
       bySource.put((String) r.get("tier"), ((Number) r.get("n")).longValue());
     }
-    LayerContribution c = LayerContribution.of(health.latestContribution());
+    LayerContribution c = LayerContribution.of(health.latestContribution(), List.of());
     return new Status(nested(tasks.countByTypeAndState(), "type", "state"),
         nested(works.countByStateAndTextLevel(), "state", "text_level"), bySource, usageRows, runs.recent(RUNS),
         index.releases(LISTED).stream().map(r -> new XrReleaseStatus(r.key(), r.alias(), r.state(), r.current(),

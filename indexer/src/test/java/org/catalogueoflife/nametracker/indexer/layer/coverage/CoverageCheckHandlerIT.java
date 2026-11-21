@@ -32,6 +32,7 @@ class CoverageCheckHandlerIT extends AbstractPostgresIT {
   void clean() {
     jdbc.update("DELETE FROM layer_health");
     jdbc.update("DELETE FROM layer_contribution");
+    jdbc.update("DELETE FROM layer_contribution_language");
     jdbc.update("DELETE FROM source_layer_coverage");
     jdbc.update("DELETE FROM harvest_run");
     jdbc.update("DELETE FROM admin_notice");
@@ -188,6 +189,32 @@ class CoverageCheckHandlerIT extends AbstractPostgresIT {
       }
     }
     assertThat(cn && de).isTrue();
+  }
+
+  @Test
+  void contributionByLanguage() throws Exception {
+    long zh = work("10.6/zh", chinese);
+    jdbc.update("UPDATE work SET language = 'zh' WHERE id = ?", zh);
+    sight(zh, Layer.MAGTECH, chinese, DAY.minusDays(2) + "T10:00:00Z");
+    long en = work("10.6/en", source);
+    jdbc.update("UPDATE work SET language = 'en' WHERE id = ?", en);
+    sight(en, Layer.OPENALEX, source, DAY.minusDays(2) + "T10:00:00Z");
+    sight(en, Layer.CROSSREF, source, DAY.minusDays(1) + "T10:00:00Z");
+    long undecided = work("10.6/none", source);
+    sight(undecided, Layer.OAI, source, DAY.minusDays(2) + "T10:00:00Z");
+    check(DAY);
+    Map<String, long[]> by = new java.util.HashMap<>();
+    for (Map<String, Object> r : health.latestContributionLanguage()) {
+      long[] c = by.computeIfAbsent(r.get("language") + "/" + r.get("layer"), k -> new long[2]);
+      c[0] += ((Number) r.get("first_found")).longValue();
+      c[1] += ((Number) r.get("only_found")).longValue();
+    }
+    assertThat(by.get("zh/MAGTECH")).containsExactly(1, 1);
+    assertThat(by.get("en/OPENALEX")).containsExactly(1, 0);
+    assertThat(by.get("en/CROSSREF")).containsExactly(0, 0);
+    assertThat(by.get("/OAI")).containsExactly(1, 1); // undecided is stored as the empty language
+    check(DAY); // a rerun replaces the day's rows
+    assertThat(health.latestContributionLanguage()).hasSize(4);
   }
 
   @Test

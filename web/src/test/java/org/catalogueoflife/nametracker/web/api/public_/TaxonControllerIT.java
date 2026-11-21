@@ -23,12 +23,14 @@ class TaxonControllerIT extends AbstractPostgresIT {
 
   @LocalServerPort int port;
   @Autowired JdbcTemplate jdbc;
+  @Autowired org.catalogueoflife.nametracker.store.stats.StatsMapper stats;
 
   @BeforeEach
   void clean() {
     jdbc.update("DELETE FROM work");
     jdbc.update("DELETE FROM name_string");
     jdbc.update("DELETE FROM taxon_stats");
+    jdbc.update("DELETE FROM taxon_language_stats");
   }
 
   HttpResponse<String> get(String path) throws Exception {
@@ -115,5 +117,29 @@ class TaxonControllerIT extends AbstractPostgresIT {
     assertThat(JSON.readTree(get("/api/taxa/TXM/works?mentionedIn=TITLE&mentionedIn=ABSTRACT").body()).path("total").asInt()).isEqualTo(2);
     assertThat(JSON.readTree(get("/api/taxa/TXM/works?mentionedIn=BODY").body()).path("total").asInt()).isEqualTo(2);
     assertThat(get("/api/taxa/TXM/works?mentionedIn=X").statusCode()).isEqualTo(400);
+  }
+
+  @Test
+  void statsLanguages() throws Exception {
+    workWithName("10.8/a", "TL", true, false);
+    workWithName("10.8/b", "TL", false, false);
+    workWithName("10.8/c", "TL", true, true); // cited only: not counted
+    jdbc.update("UPDATE work SET language = 'zh' WHERE doi = '10.8/a'");
+    jdbc.update("UPDATE work SET language = 'en' WHERE doi = '10.8/c'");
+    stats.rebuildTaxonLanguageStats();
+    JsonNode r = JSON.readTree(get("/api/taxa/TL/stats").body());
+    assertThat(r.path("languages")).hasSize(2);
+    long zh = 0;
+    long undecided = 0;
+    for (JsonNode l : r.path("languages")) {
+      assertThat(l.path("year").asInt()).isEqualTo(2024);
+      if (l.path("language").asString().equals("zh")) zh = l.path("works").asLong();
+      if (l.path("language").asString().isEmpty()) undecided = l.path("works").asLong();
+    }
+    assertThat(zh).isEqualTo(1);
+    assertThat(undecided).isEqualTo(1);
+    // the tree above U1 holds both works too
+    assertThat(JSON.readTree(get("/api/taxa/U1/stats").body()).path("languages")).hasSize(2);
+    assertThat(JSON.readTree(get("/api/taxa/NOPE/stats").body()).path("languages")).isEmpty();
   }
 }

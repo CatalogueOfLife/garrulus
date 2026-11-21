@@ -17,6 +17,10 @@
       <arg column="volume" javaType="string"/>
       <arg column="issue" javaType="string"/>
       <arg column="pages" javaType="string"/>
+      <arg column="language" javaType="string"/>
+      <arg column="title_lang" javaType="string"/>
+      <arg column="title_en" javaType="string"/>
+      <arg column="title_en_kind" javaType="string"/>
     </constructor>
   </resultMap>
 
@@ -117,6 +121,8 @@
     <if test="f.actType != null"> AND EXISTS (SELECT 1 FROM mention m WHERE m.work_id = w.id AND m.act_type = #{f.actType})</if>
     <if test="f.identifier != null"> AND EXISTS (SELECT 1 FROM work_identifier wi WHERE wi.work_id = w.id
       AND wi.scheme = #{f.identifier.scheme} AND wi.value = #{f.identifier.value})</if>
+    <if test="!f.languages.isEmpty()"> AND COALESCE(w.language, '') IN
+      <foreach collection="f.languages" item="l" open="(" separator="," close=")">#{l}</foreach></if>
     <if test="f.q != null"> AND w.fts @@ websearch_to_tsquery('simple', #{f.q})</if>
     <if test="f.taxon != null">
       AND EXISTS (SELECT 1 FROM work_name wn WHERE wn.work_id = w.id AND wn.taxon_path @&gt; ARRAY[#{f.taxon}]::text[]
@@ -148,7 +154,7 @@
   <select id="search" resultMap="hit">
     SELECT w.id, w.doi, w.title, w.year, w.publication_date, w.source_id, s.title AS source_title,
            w.authors::text AS authors, w.text_level, COALESCE(w.has_acts, false) AS has_acts,
-           w.volume, w.issue, w.pages
+           w.volume, w.issue, w.pages, w.language, w.title_lang, w.title_en, w.title_en_kind
     <include refid="from"/>
     <include refid="where"/>
     ORDER BY w.publication_date DESC NULLS LAST, w.id DESC
@@ -164,11 +170,14 @@
       <arg column="year" javaType="integer"/>
       <arg column="source_title" javaType="string"/>
       <arg column="first_indexed" javaType="java.time.Instant"/>
+      <arg column="title_en" javaType="string"/>
+      <arg column="title_en_kind" javaType="string"/>
     </constructor>
   </resultMap>
 
   <sql id="feedCols">w.id, w.doi, w.title, w.publication_date, w.year, s.title AS source_title,
-           COALESCE(w.first_indexed_at, w.first_seen_at) AS first_indexed</sql>
+           COALESCE(w.first_indexed_at, w.first_seen_at) AS first_indexed,
+           w.title_en, w.title_en_kind</sql>
 
   <select id="feed" resultMap="feedRow">
     SELECT <include refid="feedCols"/>
@@ -197,7 +206,7 @@
   <select id="byIds" resultMap="hit">
     SELECT w.id, w.doi, w.title, w.year, w.publication_date, w.source_id, s.title AS source_title,
            w.authors::text AS authors, w.text_level, COALESCE(w.has_acts, false) AS has_acts,
-           w.volume, w.issue, w.pages
+           w.volume, w.issue, w.pages, w.language, w.title_lang, w.title_en, w.title_en_kind
     <include refid="from"/>
     WHERE w.state IN ('INDEXED', 'NOTIFIED') AND w.id IN
     <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
@@ -216,6 +225,7 @@
         <when test="facet == 'journalType'">s.journal_type</when>
         <when test="facet == 'year'">w.year::text</when>
         <when test="facet == 'source'">w.source_id::text</when>
+        <when test="facet == 'language'">COALESCE(w.language, '')</when>
         <otherwise>CASE WHEN COALESCE(w.has_acts, false) THEN 'true' ELSE 'false' END</otherwise>
       </choose>
       AS value

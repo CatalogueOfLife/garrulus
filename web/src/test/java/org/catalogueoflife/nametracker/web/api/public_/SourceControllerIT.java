@@ -150,4 +150,23 @@ class SourceControllerIT extends AbstractPostgresIT {
     assertThat(ids.valueStream().map(n -> n.path("scheme").asString()).toList())
         .containsExactly("ISSN", "ISSN", "ISSN_L", "OPENALEX", "IPNI_PUB", "BPH");
   }
+
+  @Test
+  void detailLanguages() throws Exception {
+    long s = source("Zootaxa", "CORE", true, "TAXONOMIC");
+    long other = source("Other", "CORE", true, "TAXONOMIC");
+    for (String[] w : new String[][] {{"a", "2024", "zh", "INDEXED"}, {"b", "2024", "zh", "INDEXED"},
+        {"c", "2025", null, "INDEXED"}, {"d", "2025", "en", "NAMES_FOUND"}}) {
+      jdbc.update("INSERT INTO work (doi, title, year, state, origin, language, source_id) VALUES (?, 't', ?, ?, 'LIVE', ?, ?)",
+          "10.7/" + w[0], Integer.parseInt(w[1]), w[3], w[2], s);
+    }
+    jdbc.update("INSERT INTO work (doi, title, year, state, origin, language, source_id) VALUES ('10.7/o', 't', 2024, 'INDEXED', 'LIVE', 'fr', ?)", other);
+    JsonNode d = JSON.readTree(get("/api/sources/" + s).body());
+    assertThat(d.path("languages")).hasSize(2);
+    assertThat(d.at("/languages/0/language").asString()).isEqualTo("zh");
+    assertThat(d.at("/languages/0/year").asInt()).isEqualTo(2024);
+    assertThat(d.at("/languages/0/works").asLong()).isEqualTo(2);
+    assertThat(d.at("/languages/1/language").asString()).isEmpty();
+    assertThat(d.at("/languages/1/year").asInt()).isEqualTo(2025);
+  }
 }

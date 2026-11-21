@@ -556,4 +556,78 @@ class WorkControllerIT extends AbstractPostgresIT {
     partsWork("10.9/e", false, false, false, 1, false, true);
     assertThat(sortedDois("/api/works?mentionedIn=")).containsExactly("10.9/e");
   }
+
+  long languageWork(String doi, String title, String language) {
+    long id = work(doi, title);
+    jdbc.update("UPDATE work SET language = ? WHERE id = ?", language, id);
+    return id;
+  }
+
+  @Test
+  void languageFilterAndFacet() throws Exception {
+    languageWork("10.9/zh", "Zh", "zh");
+    languageWork("10.9/ja", "Ja", "ja");
+    languageWork("10.9/en", "En", "en");
+    languageWork("10.9/none", "None", null);
+    JsonNode r = JSON.readTree(get("/api/works?language=zh&language=ja&facet=language").body());
+    assertThat(r.path("total").asInt()).isEqualTo(2);
+    assertThat(r.at("/facets/language")).hasSize(2);
+    JsonNode all = JSON.readTree(get("/api/works?facet=language").body());
+    assertThat(all.path("total").asInt()).isEqualTo(4);
+    assertThat(all.at("/facets/language")).hasSize(4);
+    boolean undecided = false;
+    for (JsonNode f : all.at("/facets/language")) {
+      undecided |= f.path("value").asString().isEmpty() && f.path("count").asInt() == 1;
+    }
+    assertThat(undecided).isTrue();
+    assertThat(JSON.readTree(get("/api/works?language=none").body()).path("total").asInt()).isEqualTo(1);
+    assertThat(JSON.readTree(get("/api/works?language=zh").body()).at("/results/0/language").asString()).isEqualTo("zh");
+  }
+
+  @Test
+  void languageAliasesNormalised() throws Exception {
+    languageWork("10.9/zh", "Zh", "zh");
+    languageWork("10.9/en", "En", "en");
+    assertThat(JSON.readTree(get("/api/works?language=chi").body()).path("total").asInt()).isEqualTo(1);
+    assertThat(JSON.readTree(get("/api/works?language=ZH").body()).path("total").asInt()).isEqualTo(1);
+    assertThat(get("/api/works?language=xx-not-a-language").statusCode()).isEqualTo(400);
+  }
+
+  @Test
+  void detailTitlesLabelled() throws Exception {
+    long w = languageWork("10.9/d", "Machine title source", "zh");
+    jdbc.update("UPDATE work SET language_source = 'DECLARED', title_lang = 'zh', abstract_lang = 'zh' WHERE id = ?", w);
+    jdbc.update("INSERT INTO work_text (work_id, field, lang, kind, text, source) VALUES "
+        + "(?, 'TITLE', 'zh', 'ORIGINAL', '原标题', 'MAGTECH')", w);
+    jdbc.update("INSERT INTO work_text (work_id, field, lang, kind, text, source, model) VALUES "
+        + "(?, 'TITLE', 'en', 'MACHINE', 'Original title', 'TRANSLATE', 'libretranslate-1.6')", w);
+    jdbc.update("INSERT INTO work_text (work_id, field, lang, kind, text, source) VALUES "
+        + "(?, 'ABSTRACT', 'en', 'PARALLEL', 'English abstract', 'MAGTECH')", w);
+    JsonNode d = JSON.readTree(get("/api/works/" + w).body());
+    assertThat(d.path("language").asString()).isEqualTo("zh");
+    assertThat(d.path("languageSource").asString()).isEqualTo("DECLARED");
+    assertThat(d.path("titleLang").asString()).isEqualTo("zh");
+    assertThat(d.path("abstractLang").asString()).isEqualTo("zh");
+    assertThat(d.path("titles")).hasSize(2);
+    assertThat(d.at("/titles/0/kind").asString()).isEqualTo("ORIGINAL");
+    assertThat(d.at("/titles/0/text").asString()).isEqualTo("原标题");
+    assertThat(d.at("/titles/1/kind").asString()).isEqualTo("MACHINE");
+    assertThat(d.at("/titles/1/model").asString()).isEqualTo("libretranslate-1.6");
+    assertThat(d.at("/abstracts/0/kind").asString()).isEqualTo("PARALLEL");
+    assertThat(d.at("/abstracts/0/lang").asString()).isEqualTo("en");
+    JsonNode plain = JSON.readTree(get("/api/works/" + work("10.9/plain", "Plain")).body());
+    assertThat(plain.path("titles")).isEmpty();
+    assertThat(plain.path("abstracts")).isEmpty();
+  }
+
+  @Test
+  void summaryCarriesEnglishTitle() throws Exception {
+    long w = languageWork("10.9/s", "中文标题", "zh");
+    jdbc.update("UPDATE work SET title_lang = 'zh', title_en = 'English title', title_en_kind = 'MACHINE' WHERE id = ?", w);
+    JsonNode r = JSON.readTree(get("/api/works").body());
+    assertThat(r.at("/results/0/language").asString()).isEqualTo("zh");
+    assertThat(r.at("/results/0/titleLang").asString()).isEqualTo("zh");
+    assertThat(r.at("/results/0/titleEn").asString()).isEqualTo("English title");
+    assertThat(r.at("/results/0/titleEnKind").asString()).isEqualTo("MACHINE");
+  }
 }

@@ -129,4 +129,18 @@
     WHERE day = (SELECT max(day) FROM layer_contribution)
   </select>
 
+  <delete id="deleteContributionLanguage">
+    DELETE FROM layer_contribution_language WHERE day = #{day}
+  </delete>
+
+  <insert id="insertContributionLanguage">
+    INSERT INTO layer_contribution_language (day, layer, language, first_found, only_found)
+    VALUES (#{day}, #{layer}, #{language}, #{first}, #{only})
+  </insert>
+
+  <select id="latestContributionLanguage" resultType="map">
+    SELECT layer, language, first_found, only_found FROM layer_contribution_language
+    WHERE day = (SELECT max(day) FROM layer_contribution_language)
+  </select>
+
 </mapper>

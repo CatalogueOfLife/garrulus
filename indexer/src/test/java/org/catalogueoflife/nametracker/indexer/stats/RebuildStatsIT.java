@@ -38,6 +38,8 @@ class RebuildStatsIT extends AbstractPostgresIT {
   @BeforeEach
   void clean() {
     jdbc.update("DELETE FROM taxon_stats");
+    jdbc.update("DELETE FROM taxon_language_stats");
+    jdbc.update("DELETE FROM language_stats");
     jdbc.update("DELETE FROM name_ubiquity");
     jdbc.update("DELETE FROM work_name");
     jdbc.update("DELETE FROM work");
@@ -203,5 +205,34 @@ class RebuildStatsIT extends AbstractPostgresIT {
     // LIVE, so the nightly rebuild is not stuck behind a REPROCESS backlog
     assertThat(jdbc.queryForObject("SELECT priority FROM task WHERE type = 'REBUILD_STATS'", Integer.class))
         .isEqualTo(TaskPriority.LIVE.code());
+  }
+
+  @Test
+  void languageTablesRebuiltAndReplaced() {
+    long n = name("Aus bus");
+    long zh = work(year, "INDEXED");
+    long en = work(year, "INDEXED");
+    long cited = work(year, "INDEXED");
+    work(year, "MATCHED"); // not listed
+    jdbc.update("UPDATE work SET language = 'zh', taxgroups = '{Insects}', codes = '{ZOOLOGICAL}' WHERE id = ?", zh);
+    jdbc.update("UPDATE work SET language = 'en' WHERE id = ?", en);
+    wn(zh, n, false, true, "A", "B");
+    wn(en, n, false, true, "A");
+    wn(cited, n, true, false, "A"); // cited only: not under the taxon
+    assertThat(stats.rebuildTaxonLanguageStats()).isEqualTo(3); // A/zh, A/en, B/zh
+    assertThat(stats.taxonLanguages("A")).hasSize(2);
+    assertThat(stats.taxonLanguages("B")).extracting("language").containsExactly("zh");
+    // the cube: 3 works; 'Insects' and 'ZOOLOGICAL' slices only hold the zh work; the undecided one is in the whole set only
+    stats.rebuildLanguageStats();
+    assertThat(stats.languages(null, null, null, null, null).stream().mapToLong(l -> l.works()).sum()).isEqualTo(3);
+    assertThat(stats.languages("Insects", null, null, null, null)).extracting("language").containsExactly("zh");
+    assertThat(stats.languages("Insects", "ZOOLOGICAL", null, null, null)).hasSize(1);
+    assertThat(stats.languages(null, null, null, year + 1, null)).isEmpty();
+    // a second run replaces: a work that is no longer listed disappears from every slice
+    jdbc.update("UPDATE work SET state = 'MATCHED' WHERE id = ?", zh);
+    stats.rebuildTaxonLanguageStats();
+    stats.rebuildLanguageStats();
+    assertThat(stats.taxonLanguages("B")).isEmpty();
+    assertThat(stats.languages("Insects", null, null, null, null)).isEmpty();
   }
 }

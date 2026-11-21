@@ -71,4 +71,13 @@ public interface LayerHealthMapper {
 
   /** The rows of the newest stored day: {@code layer}, {@code country}, {@code first_found}, {@code only_found}. */
   List<Map<String, Object>> latestContribution();
+
+  int deleteContributionLanguage(@Param("day") LocalDate day);
+
+  /** Stores one per-language contribution row of a day; an empty language is a work without a decision. */
+  int insertContributionLanguage(@Param("day") LocalDate day, @Param("layer") String layer,
+      @Param("language") String language, @Param("first") long first, @Param("only") long only);
+
+  /** The rows of the newest stored day: {@code layer}, {@code language}, {@code first_found}, {@code only_found}. */
+  List<Map<String, Object>> latestContributionLanguage();
 }

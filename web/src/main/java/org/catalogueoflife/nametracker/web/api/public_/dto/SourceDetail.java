@@ -2,6 +2,7 @@ package org.catalogueoflife.nametracker.web.api.public_.dto;
 
 import java.util.List;
 import org.catalogueoflife.nametracker.store.ident.IdentifierLink;
+import org.catalogueoflife.nametracker.store.lang.LanguageYear;
 import org.catalogueoflife.nametracker.store.names.YearCount;
 import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.JsonNode;
@@ -13,4 +14,4 @@ public record SourceDetail(long id, String title, @Nullable String publisher, @N
     @Nullable Float nameDensity, @Nullable Float actRate, @Nullable Integer worksPerYear,
     String publicationStatus, @Nullable String ceasedReason, @Nullable Integer lastIssueYear,
     @Nullable SourceRef continuedBy, List<YearCount> years, List<WorkSummary> recentWorks,
-    List<IdentifierLink> identifiers) {}
+    List<IdentifierLink> identifiers, List<LanguageYear> languages) {}

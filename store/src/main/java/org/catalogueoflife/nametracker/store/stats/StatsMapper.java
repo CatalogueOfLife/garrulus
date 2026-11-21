@@ -1,7 +1,10 @@
 package org.catalogueoflife.nametracker.store.stats;
 
+import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.catalogueoflife.nametracker.store.lang.LanguageYear;
+import org.jspecify.annotations.Nullable;
 
 /** Nightly rebuilds of the derived tables {@code name_ubiquity} and {@code taxon_stats}. Each is one atomic statement. */
 @Mapper
@@ -40,4 +43,30 @@ public interface StatsMapper {
   int setScoredShare(@Param("full") double full, @Param("threshold") double threshold, @Param("all") boolean all);
 
   int deleteScoredZero();
+
+  /**
+   * Replaces {@code taxon_language_stats}: per (taxon, language, year) the indexed works with a non-reference name under
+   * the taxon, like {@link #rebuildTaxonStats}; an undecided language is {@code ''}. One statement. Returns the rows written.
+   */
+  int rebuildTaxonLanguageStats();
+
+  /**
+   * Replaces {@code language_stats}: the indexed works with a year per language and year for every combination of
+   * taxgroup, code and country, each also as {@code ''} ("not filtered"). One statement. Returns the rows written.
+   */
+  int rebuildLanguageStats();
+
+  /** A slice of {@code language_stats}; null filters read the {@code ''} rows. Ordered by year, then works descending. */
+  List<LanguageYear> languages(@Param("taxgroup") @Nullable String taxgroup, @Param("code") @Nullable String code,
+      @Param("country") @Nullable String country, @Param("yearFrom") @Nullable Integer yearFrom,
+      @Param("yearTo") @Nullable Integer yearTo);
+
+  /** The rows of {@code taxon_language_stats} of the taxon, by year, then works descending. */
+  List<LanguageYear> taxonLanguages(@Param("taxonId") String taxonId);
+
+  /**
+   * The listed works of one source per language and year, counted live (bounded by {@code source_id}); a source has at
+   * most some thousand works a year.
+   */
+  List<LanguageYear> sourceLanguages(@Param("sourceId") long sourceId);
 }

@@ -40,6 +40,68 @@
     ON CONFLICT (taxon_id, year) DO UPDATE SET works = excluded.works, main_subject_works = excluded.main_subject_works
   </update>
 
+  <resultMap id="languageYear" type="org.catalogueoflife.nametracker.store.lang.LanguageYear">
+    <constructor>
+      <arg column="language" javaType="string"/>
+      <arg column="year" javaType="_int"/>
+      <arg column="works" javaType="_long"/>
+    </constructor>
+  </resultMap>
+
+  <update id="rebuildTaxonLanguageStats">
+    WITH fresh AS MATERIALIZED (
+      SELECT t.taxon_id, coalesce(w.language, '') AS language, w.year, count(DISTINCT wn.work_id)::int AS works
+      FROM work_name wn
+      JOIN work w ON w.id = wn.work_id AND w.state IN ('INDEXED','NOTIFIED') AND w.year IS NOT NULL
+      CROSS JOIN LATERAL unnest(wn.taxon_path) AS t(taxon_id)
+      WHERE NOT wn.only_reference
+      GROUP BY t.taxon_id, coalesce(w.language, ''), w.year),
+    del AS (DELETE FROM taxon_language_stats s WHERE NOT EXISTS
+      (SELECT 1 FROM fresh f WHERE f.taxon_id = s.taxon_id AND f.language = s.language AND f.year = s.year))
+    INSERT INTO taxon_language_stats (taxon_id, language, year, works)
+    SELECT taxon_id, language, year, works FROM fresh
+    ON CONFLICT (taxon_id, language, year) DO UPDATE SET works = excluded.works
+  </update>
+
+  <!-- every work counts once per combination: its group (or ''), its code (or ''), its journal's country (or '') -->
+  <update id="rebuildLanguageStats">
+    WITH fresh AS MATERIALIZED (
+      SELECT g.v AS taxgroup, c.v AS code, k.v AS country, coalesce(w.language, '') AS language, w.year,
+             count(*)::bigint AS works
+      FROM work w
+      LEFT JOIN source s ON s.id = w.source_id
+      CROSS JOIN LATERAL unnest(array_append(coalesce(w.taxgroups, '{}'::text[]), '')) AS g(v)
+      CROSS JOIN LATERAL unnest(array_append(coalesce(w.codes, '{}'::text[]), '')) AS c(v)
+      CROSS JOIN LATERAL unnest(CASE WHEN coalesce(s.country, '') = '' THEN ARRAY['']
+                                     ELSE ARRAY[s.country, ''] END) AS k(v)
+      WHERE w.state IN ('INDEXED','NOTIFIED') AND w.year IS NOT NULL
+      GROUP BY g.v, c.v, k.v, coalesce(w.language, ''), w.year),
+    del AS (DELETE FROM language_stats s WHERE NOT EXISTS
+      (SELECT 1 FROM fresh f WHERE f.taxgroup = s.taxgroup AND f.code = s.code AND f.country = s.country
+         AND f.language = s.language AND f.year = s.year))
+    INSERT INTO language_stats (taxgroup, code, country, language, year, works)
+    SELECT taxgroup, code, country, language, year, works FROM fresh
+    ON CONFLICT (taxgroup, code, country, language, year) DO UPDATE SET works = excluded.works
+  </update>
+
+  <select id="languages" resultMap="languageYear">
+    SELECT language, year, works FROM language_stats
+    WHERE taxgroup = coalesce(#{taxgroup}, '') AND code = coalesce(#{code}, '') AND country = coalesce(#{country}, '')
+    <if test="yearFrom != null"> AND year &gt;= #{yearFrom}</if>
+    <if test="yearTo != null"> AND year &lt;= #{yearTo}</if>
+    ORDER BY year, works DESC, language
+  </select>
+
+  <select id="taxonLanguages" resultMap="languageYear">
+    SELECT language, year, works FROM taxon_language_stats WHERE taxon_id = #{taxonId} ORDER BY year, works DESC, language
+  </select>
+
+  <select id="sourceLanguages" resultMap="languageYear">
+    SELECT coalesce(language, '') AS language, year, count(*) AS works FROM work
+    WHERE source_id = #{sourceId} AND state IN ('INDEXED','NOTIFIED') AND year IS NOT NULL
+    GROUP BY coalesce(language, ''), year ORDER BY year, works DESC, language
+  </select>
+
   <sql id="changed">abs(least(1.0, u.share / #{full}) - least(1.0, coalesce(u.scored_share, 0) / #{full})) > #{threshold}</sql>
 
   <select id="changedUbiquityCount" resultType="int">

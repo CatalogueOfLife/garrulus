@@ -13,6 +13,7 @@ import java.util.Set;
 import org.catalogueoflife.nametracker.store.account.AppUser;
 import org.catalogueoflife.nametracker.store.account.Hit;
 import org.catalogueoflife.nametracker.store.account.Subscription;
+import org.catalogueoflife.nametracker.web.api.public_.EnglishTitle;
 import org.catalogueoflife.nametracker.web.api.public_.dto.WorkSummary;
 import org.jspecify.annotations.Nullable;
 import org.springframework.web.util.HtmlUtils;
@@ -186,6 +187,10 @@ public final class DigestComposer {
     }
 
     text.append("\n* ").append(title).append('\n');
+    String english = EnglishTitle.line(w.titleEn(), w.titleEnKind());
+    if (english != null) {
+      text.append("  ").append(english).append('\n');
+    }
     if (!meta.isEmpty()) {
       text.append("  ").append(String.join(", ", meta)).append('\n');
     }
@@ -202,6 +207,10 @@ public final class DigestComposer {
         .append("\">\n")
         .append("<a style=\"color:").append(INK).append(";font-weight:600;text-decoration:underline\" href=\"")
         .append(esc(page)).append("\">").append(esc(title)).append("</a>\n");
+    if (english != null) {
+      html.append("<div style=\"font-size:13px;color:").append(GREY).append("\">").append(esc(english))
+          .append("</div>\n");
+    }
     if (!meta.isEmpty()) {
       html.append("<div style=\"font-size:13px;color:").append(GREY).append("\">")
           .append(esc(String.join(", ", meta))).append("</div>\n");
