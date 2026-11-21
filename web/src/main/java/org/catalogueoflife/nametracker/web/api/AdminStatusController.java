@@ -1,6 +1,7 @@
 package org.catalogueoflife.nametracker.web.api;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -10,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import org.catalogueoflife.nametracker.store.backfill.BackfillMapper;
 import org.catalogueoflife.nametracker.store.backfill.BackfillSummary;
+import org.catalogueoflife.nametracker.store.content.InstitutionalFetchMapper;
 import org.catalogueoflife.nametracker.store.harvest.HarvestRun;
 import org.catalogueoflife.nametracker.store.harvest.HarvestRunMapper;
 import org.catalogueoflife.nametracker.store.index.FinderRollout;
@@ -53,7 +55,8 @@ public class AdminStatusController {
       List<LayerHealth> layers,
       Map<String, Map<String, Long>> routes,
       Map<String, Map<String, Long>> contribution,
-      Map<String, Map<String, Map<String, Long>>> contributionByCountry) {}
+      Map<String, Map<String, Map<String, Long>>> contributionByCountry,
+      Map<String, Map<String, Long>> institutional) {}
 
   /** A release with its switch progress; the raw note of the row (switch options, who refused) is not exposed. */
   public record XrReleaseStatus(int key, String alias, String state, boolean current, @Nullable Integer keysTotal,
@@ -69,12 +72,13 @@ public class AdminStatusController {
   private final FinderRolloutMapper rollouts;
   private final LayerHealthMapper health;
   private final SourceRouteMapper routes;
+  private final InstitutionalFetchMapper institutional;
   private final Clock clock;
   private final AdminAccess access;
 
   public AdminStatusController(TaskMapper tasks, WorkMapper works, SourceMapper sources, ApiUsageMapper usage,
       HarvestRunMapper runs, IndexMapper index, BackfillMapper backfill, FinderRolloutMapper rollouts,
-      LayerHealthMapper health, SourceRouteMapper routes, Clock clock,
+      LayerHealthMapper health, SourceRouteMapper routes, InstitutionalFetchMapper institutional, Clock clock,
       AdminAccess access) {
     this.tasks = tasks;
     this.works = works;
@@ -86,6 +90,7 @@ public class AdminStatusController {
     this.rollouts = rollouts;
     this.health = health;
     this.routes = routes;
+    this.institutional = institutional;
     this.clock = clock;
     this.access = access;
   }
@@ -114,7 +119,21 @@ public class AdminStatusController {
         index.releases(LISTED).stream().map(r -> new XrReleaseStatus(r.key(), r.alias(), r.state(), r.current(),
             r.keysTotal(), r.keysLost(), r.switchStarted(), r.switchedAt())).toList(),
         backfill.recentSummaries(LISTED), rollouts.list(LISTED), health.latest(HEALTH_DAYS),
-        nested(routes.countByLayerAndStatus(), "layer", "status"), c.total(), c.byCountry());
+        nested(routes.countByLayerAndStatus(), "layer", "status"), c.total(), c.byCountry(),
+        institutional(today));
+  }
+
+  /** Institutional fetches per publisher: {@code today} (UTC) and {@code last30Days}, for the KU usage report. */
+  private Map<String, Map<String, Long>> institutional(LocalDate today) {
+    Instant dayStart = today.atStartOfDay(ZoneOffset.UTC).toInstant();
+    Map<String, Map<String, Long>> result = new LinkedHashMap<>();
+    for (Map<String, Object> r : institutional.countsByPublisher(dayStart, clock.instant().minus(Duration.ofDays(30)))) {
+      Map<String, Long> m = new LinkedHashMap<>();
+      m.put("today", ((Number) r.get("today")).longValue());
+      m.put("last30Days", ((Number) r.get("last30")).longValue());
+      result.put((String) r.get("publisher"), m);
+    }
+    return result;
   }
 
   /** Rows of (outer, inner, n) to outer -> inner -> n; a null inner key is written NONE. */

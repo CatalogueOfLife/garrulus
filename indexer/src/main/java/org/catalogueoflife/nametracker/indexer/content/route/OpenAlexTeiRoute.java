@@ -78,6 +78,14 @@ public class OpenAlexTeiRoute implements ContentRoute {
     return ROUTE;
   }
 
+  /**
+   * The COL dictionary check used to undo line-break hyphens in TEI, read once on first use; shared with the other TEI
+   * reader (the institutional route's GROBID text) so the dictionary is held once.
+   */
+  public Predicate<String> knownWords() {
+    return isKnownWord;
+  }
+
   @Override
   public boolean paid() {
     return true;

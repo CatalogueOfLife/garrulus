@@ -118,6 +118,8 @@ public class PoliteHttp {
     m.put("api.springernature.com", Duration.ofSeconds(1));
     m.put("articlemeta.scielo.org", Duration.ofSeconds(1));
     m.put("cir.nii.ac.jp", Duration.ofSeconds(1));
+    m.put("api.elsevier.com", Duration.ofSeconds(1)); // institutional TDM (off by default)
+    m.put("api.wiley.com", Duration.ofSeconds(10)); // institutional TDM (off by default)
     m.put("pmc-oa-opendata.s3.amazonaws.com", Duration.ofMillis(100));
     m.put(PENSOFT_KEY, Duration.ofSeconds(1));
     return m;

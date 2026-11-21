@@ -149,6 +149,20 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
     reads the newest stored day. A zero-yield day counts for FAILING only with a DONE run that day.
   - `NAMETRACKER_HARVEST_OUTAGE_DELAY` (30m): a harvest or onboarding page that meets an outage is enqueued again after
     this delay instead of failing.
+  - Institutional route `INSTITUTIONAL` (M6c, University of Copenhagen subscriber TDM APIs): **off**,
+    `NAMETRACKER_INSTITUTIONAL_ENABLED` (`nametracker.content.institutional.enabled`, false) plus the allow-list
+    `NAMETRACKER_INSTITUTIONAL_PUBLISHERS` (`ELSEVIER`, `WILEY`; empty). **Switch it on only after the KU library has
+    confirmed in writing which licences permit text and data mining for this use** (and whether Garrulus counts as
+    research under the EU TDM exception, DSM Art. 3; spec "Institutional access"). Elsevier needs `ELSEVIER_API_KEY`
+    (+ `ELSEVIER_INSTTOKEN` outside the KU IP range); Wiley needs `WILEY_TDM_TOKEN` and a local GROBID
+    (`NAMETRACKER_INSTITUTIONAL_GROBID_URL`) for its PDFs, else it is not loaded (WARN). Daily caps
+    `NAMETRACKER_INSTITUTIONAL_{ELSEVIER,WILEY}_DAILY_CAP` (500, counted in `institutional_fetch`). It runs last in
+    `RESOLVE_CONTENT`, only for DOIs of an allowed publisher, licence not open, no other full text, and not answered
+    within `nametracker.content.institutional.refetch-after` (365d; a reprocess re-fetch asks again); `freeOnly` does
+    not skip it (no cost per call). Its text is closed (spool, finder, purge), its abstracts are never stored, every
+    request is audited in `institutional_fetch` (V21: work, DOI, publisher, API, status, bytes, outcome). A 401 turns
+    the publisher off until restart. `GET /api/admin/status` reports `institutional` (per publisher `today`,
+    `last30Days`).
 - `indexer` matching and index (ADR-0005):
   - `NAMETRACKER_CLB_BASE_URL` (`https://api.checklistbank.org`): the XR (`GET /dataset/3LXR`) and name matching, not
     throttled. A CLB outage defers `MATCH_NAMES`/`XR_CHECK` 30 minutes without using an attempt. When

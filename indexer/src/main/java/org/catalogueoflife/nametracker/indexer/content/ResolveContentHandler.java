@@ -53,7 +53,9 @@ import tools.jackson.databind.JsonNode;
  * {@code content:<workId>:recheck:<k>}). The rules are checked again after each re-check, so a work that no longer
  * qualifies is resolved once more and then left alone.
  *
- * <p>With {@code "freeOnly":true} the paid routes ({@link ContentRoute#paid()}) are skipped. {@code "reprocess":true}
+ * <p>With {@code "freeOnly":true} the paid routes ({@link ContentRoute#paid()}) are skipped; the institutional route
+ * costs nothing per call and is not skipped (it guards against repeated fetches itself, see
+ * {@link ContentRoute#applies(Work, Source, boolean)}). {@code "reprocess":true}
  * comes from a forced FIND_NAMES whose full text is gone: a full text found is stored as usual and a forced FIND_NAMES
  * ({@code "refetched":true}) follows even when the document is unchanged; when none is found, nothing is written and
  * nothing follows, so the work keeps its content, text level and names (counted in an INFO line). If a route is down
@@ -145,7 +147,7 @@ public class ResolveContentHandler implements TaskHandler {
     Source source = work.sourceId() == null ? null : sources.get(work.sourceId());
 
     List<FetchedContent> results = new ArrayList<>();
-    FullText found = fullText(work, source, freeOnly);
+    FullText found = fullText(work, source, freeOnly, reprocess);
     FetchedContent full = found.content();
     if (reprocess && full == null && found.routeDown()) {
       // a route that is down may have the text: try again later rather than keep the old names
@@ -228,13 +230,13 @@ public class ResolveContentHandler implements TaskHandler {
   /** The first full text of the routes, or null; {@code routeDown} when a route threw a retryable problem on the way. */
   private record FullText(@Nullable FetchedContent content, boolean routeDown, @Nullable Instant budgetRetry) {}
 
-  private FullText fullText(Work work, Source source, boolean freeOnly) {
+  private FullText fullText(Work work, Source source, boolean freeOnly, boolean reprocess) {
     boolean down = false;
     Instant budgetRetry = null;
     for (ContentRoute r : routes) {
       try {
         if (freeOnly && r.paid()) continue;
-        if (!r.applies(work, source)) continue;
+        if (!r.applies(work, source, reprocess)) continue;
         Optional<FetchedContent> got = r.fetch(work, source);
         if (got.isPresent() && got.get().fulltext()) return new FullText(got.get(), down, null);
       } catch (BudgetExhaustedException e) {

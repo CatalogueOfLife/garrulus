@@ -195,6 +195,28 @@ nametracker:
       cinii:
         # free application id; blank = off. Only abstracts whose abstractLicenseFlag is allow are taken
         app-id: ${CINII_APPID:}
+    institutional:
+      # University of Copenhagen subscriber TDM APIs (route INSTITUTIONAL, after every open route). OFF by default, and
+      # it may be switched on ONLY after the KU library has confirmed in writing which licences permit text and data
+      # mining for this use (and whether Garrulus counts as research under the EU TDM exception, DSM Art. 3).
+      # Closed text: spooled, named, purged; abstracts never stored; every fetch audited in institutional_fetch.
+      enabled: ${NAMETRACKER_INSTITUTIONAL_ENABLED:false}
+      # allow-list, comma-separated: ELSEVIER, WILEY; empty = none
+      publishers: ${NAMETRACKER_INSTITUTIONAL_PUBLISHERS:}
+      # local GROBID that reads Wiley's PDFs; blank leaves Wiley out (one WARN at start)
+      grobid-url: ${NAMETRACKER_INSTITUTIONAL_GROBID_URL:}
+      # a work a publisher answered (OK, 4xx, unusable) is not asked again for this long, except to reprocess
+      refetch-after: 365d
+      elsevier:
+        base-url: https://api.elsevier.com
+        api-key: ${ELSEVIER_API_KEY:}
+        # optional inside the KU IP range
+        insttoken: ${ELSEVIER_INSTTOKEN:}
+        daily-cap: ${NAMETRACKER_INSTITUTIONAL_ELSEVIER_DAILY_CAP:500}
+      wiley:
+        base-url: https://api.wiley.com
+        token: ${WILEY_TDM_TOKEN:}
+        daily-cap: ${NAMETRACKER_INSTITUTIONAL_WILEY_DAILY_CAP:500}
   crossref:
     base-url: ${NAMETRACKER_CROSSREF_BASE_URL:https://api.crossref.org}
     # blank means the public pool

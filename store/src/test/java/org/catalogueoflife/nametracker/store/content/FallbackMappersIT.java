@@ -50,10 +50,33 @@ class FallbackMappersIT extends AbstractPostgresIT {
   }
 
   @Test
+  void institutionalAnswersAndCountsByPublisher() {
+    jdbc.update("DELETE FROM institutional_fetch");
+    long w = work();
+    Instant hourAgo = Instant.now().minus(Duration.ofHours(1));
+    java.util.List<String> definitive = java.util.List.of("OK", "NOT_FOUND");
+    assertThat(fetches.answeredSince(w, hourAgo, definitive)).isFalse();
+    fetches.insert(w, "10.1/x", "ELSEVIER", "ELSEVIER_TDM", 503, 0, "ERROR");
+    assertThat(fetches.answeredSince(w, hourAgo, definitive)).isFalse(); // an outage is no answer
+    fetches.insert(w, "10.1/x", "ELSEVIER", "ELSEVIER_TDM", 404, 0, "NOT_FOUND");
+    assertThat(fetches.answeredSince(w, hourAgo, definitive)).isTrue();
+    assertThat(fetches.answeredSince(w, Instant.now().plus(Duration.ofHours(1)), definitive)).isFalse();
+    jdbc.update("INSERT INTO institutional_fetch (doi, publisher, api, status, bytes, outcome, fetched_at) "
+        + "VALUES ('10.1/y', 'WILEY', 'WILEY_TDM', 200, 1, 'OK', now() - interval '3 days')");
+
+    var rows = fetches.countsByPublisher(hourAgo, Instant.now().minus(Duration.ofDays(30)));
+
+    assertThat(rows).extracting(r -> r.get("publisher") + " " + r.get("today") + " " + r.get("last30"))
+        .containsExactly("ELSEVIER 2 2", "WILEY 0 1");
+    jdbc.update("DELETE FROM institutional_fetch");
+  }
+
+  @Test
   void newContentRoutesAndAbstractSourcesAreAllowed() {
     long w = work();
     jdbc.update("INSERT INTO content (work_id, route, kind, retained) VALUES (?, 'OAI_JATS', 'JATS', true)", w);
-    jdbc.update("INSERT INTO content (work_id, route, kind, retained) VALUES (?, 'INSTITUTIONAL', 'JATS', false)", w);
+    jdbc.update("INSERT INTO content (work_id, route, kind, retained) VALUES (?, 'INSTITUTIONAL', 'ELSEVIER_XML', "
+        + "false)", w);
     for (String s : new String[] {"SPRINGER", "SCIELO", "CINII", "INSTITUTIONAL"}) {
       jdbc.update("UPDATE work SET abstract_source = ? WHERE id = ?", s, w);
     }

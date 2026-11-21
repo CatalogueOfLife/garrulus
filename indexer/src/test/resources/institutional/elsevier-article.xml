@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Hand-written sample in the shape of an Elsevier Article Retrieval API answer (httpAccept=text/xml). -->
+<full-text-retrieval-response xmlns="http://www.elsevier.com/xml/svapi/article/dtd"
+    xmlns:prism="http://prismstandard.org/namespaces/basic/2.0/" xmlns:dc="http://purl.org/dc/elements/1.1/"
+    xmlns:xocs="http://www.elsevier.com/xml/xocs/dtd" xmlns:ce="http://www.elsevier.com/xml/common/dtd"
+    xmlns:ja="http://www.elsevier.com/xml/ja/dtd" xmlns:sb="http://www.elsevier.com/xml/common/struct-bib/dtd"
+    xmlns:mml="http://www.w3.org/1998/Math/MathML">
+  <coredata>
+    <prism:doi>10.1016/j.ympev.2020.106789</prism:doi>
+    <dc:title>A new species of   Aus from Borneo</dc:title>
+    <dc:description>
+      Abstract
+      We describe Aus bus sp. nov. from Sabah.
+    </dc:description>
+    <openaccess>0</openaccess>
+  </coredata>
+  <originalText>
+    <xocs:doc>
+      <xocs:meta><xocs:doi>10.1016/j.ympev.2020.106789</xocs:doi></xocs:meta>
+      <xocs:serial-item>
+        <ja:article>
+          <ja:head>
+            <ce:title>A new species of Aus from Borneo</ce:title>
+            <ce:abstract><ce:section-title>Abstract</ce:section-title>
+              <ce:abstract-sec><ce:simple-para>We describe Aus bus sp. nov. from Sabah.</ce:simple-para></ce:abstract-sec>
+            </ce:abstract>
+            <ce:keywords><ce:section-title>Keywords</ce:section-title><ce:keyword><ce:text>Taxonomy</ce:text></ce:keyword></ce:keywords>
+          </ja:head>
+          <ja:body>
+            <ce:sections>
+              <ce:section id="s1">
+                <ce:section-title>Introduction</ce:section-title>
+                <ce:para>The genus <ce:italic>Aus</ce:italic> Smith, 1900 is known from Asia (<ce:cross-ref>Fig. 1</ce:cross-ref>).</ce:para>
+                <ce:section id="s1.1">
+                  <ce:section-title>Material</ce:section-title>
+                  <ce:para>Specimens of <ce:italic>Aus bus</ce:italic> were measured as <ce:formula><mml:math><mml:mi>x</mml:mi></mml:math></ce:formula> mm.</ce:para>
+                </ce:section>
+              </ce:section>
+            </ce:sections>
+            <ce:figure id="f1"><ce:label>Fig. 1</ce:label>
+              <ce:caption><ce:simple-para>Habitus of <ce:italic>Aus bus</ce:italic>.</ce:simple-para></ce:caption>
+            </ce:figure>
+          </ja:body>
+          <ja:tail>
+            <ce:bibliography><ce:section-title>References</ce:section-title>
+              <ce:bibliography-sec>
+                <ce:bib-reference id="r1"><ce:label>Smith, 1900</ce:label><sb:reference><sb:contribution><sb:authors><sb:author><ce:surname>Smith</ce:surname></sb:author></sb:authors><sb:title><sb:maintitle>On Aus</sb:maintitle></sb:title></sb:contribution></sb:reference></ce:bib-reference>
+              </ce:bibliography-sec>
+            </ce:bibliography>
+          </ja:tail>
+        </ja:article>
+      </xocs:serial-item>
+    </xocs:doc>
+  </originalText>
+</full-text-retrieval-response>

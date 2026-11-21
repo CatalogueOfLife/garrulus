@@ -178,4 +178,22 @@ class AdminStatusControllerIT extends AbstractPostgresIT {
     assertThat(s.at("/contributionByCountry/CN/MAGTECH/first").asLong()).isEqualTo(2);
     assertThat(s.at("/contributionByCountry/CN/MAGTECH/only").asLong()).isEqualTo(1);
   }
+
+  @Test
+  void institutionalCounts() throws Exception {
+    jdbc.update("DELETE FROM institutional_fetch");
+    jdbc.update("INSERT INTO institutional_fetch (doi, publisher, api, status, bytes, outcome, fetched_at) VALUES "
+        + "('10.1016/a', 'ELSEVIER', 'ELSEVIER_TDM', 200, 10, 'OK', now()), "
+        + "('10.1016/b', 'ELSEVIER', 'ELSEVIER_TDM', 404, 0, 'NOT_FOUND', now() - interval '10 days'), "
+        + "('10.1016/c', 'ELSEVIER', 'ELSEVIER_TDM', 200, 10, 'OK', now() - interval '40 days'), "
+        + "('10.1111/d', 'WILEY', 'WILEY_TDM', 200, 10, 'OK', now() - interval '2 days')");
+
+    JsonNode s = new ObjectMapper().readTree(get("test-token").body());
+
+    assertThat(s.at("/institutional/ELSEVIER/today").asLong()).isEqualTo(1);
+    assertThat(s.at("/institutional/ELSEVIER/last30Days").asLong()).isEqualTo(2);
+    assertThat(s.at("/institutional/WILEY/today").asLong()).isEqualTo(0);
+    assertThat(s.at("/institutional/WILEY/last30Days").asLong()).isEqualTo(1);
+    jdbc.update("DELETE FROM institutional_fetch");
+  }
 }
