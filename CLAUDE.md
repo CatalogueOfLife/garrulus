@@ -15,13 +15,15 @@ notifies users who follow taxa, journals or names. It also builds a public name�
 **Status:** design approved 2026-11-14. M0 (foundations), M1 (finder v1), M2 (harvest and content) and M3 (match and
 index: ADR-0005), M4 (accounts and alerts: ADR-0006; local only, deployment comes last) and M5 (lifecycle and
 backfill: ADR-0007; M5a XR switch, reprocessing and pending re-index, M5b snapshot backfill) are built locally; the
-full backfill runs later on the GBIF VM (apply V21 before it: its `work.fts` `SET EXPRESSION` rewrites all of `work` under an ACCESS EXCLUSIVE lock, instant on the empty database, blocking the web for the whole rewrite on a populated one). M2's week-long dev run continues (`docs/m2-dev-run.md`, M3 check in
+full backfill runs later on the GBIF VM (apply V21 to V23 together before it: V21's `work.fts` `SET EXPRESSION` rewrites all of `work` under an ACCESS EXCLUSIVE lock, instant on the empty database, blocking the web for the whole rewrite on a populated one). M2's week-long dev run continues (`docs/m2-dev-run.md`, M3 check in
 `docs/m3-dev-check.md`). The curated gold is imported and its baselines are committed (`docs/tuning-stage.md`).
 Roadmap (2026-11-18): M6 reach (layered harvesting, design `docs/superpowers/specs/2026-11-19-m6-layered-harvesting-design.md`,
 research `docs/research/`), M7 judging (the next tuning step), M8 the portal widget. M6a (identity and layered harvest:
 ADR-0008) is built locally and its dev check runs (`docs/m6a-dev-check.md`). M6b (journal registry, discovery,
 registration, admins and admin pages, candidate sampling, ceased journals, disciplines: ADR-0009) is built locally; its
-dev check is `docs/m6b-dev-check.md` (local run pending, GBIF checklist). Next: M6c.
+dev check is `docs/m6b-dev-check.md` (local run pending, GBIF checklist). M6c (crosslinks, languages and English titles,
+abstract and full-text fallbacks, the mentioned-in filter, the KU route, off: ADR-0010) is built locally; its dev check
+is `docs/m6c-dev-check.md` (local run pending, GBIF checklist, one open question for Markus). Next: M7.
 
 ## Commands
 
@@ -41,6 +43,27 @@ mvn -pl web spring-boot:run                         # web on 8080
 cd frontend && npm install                          # once
 cd frontend && npm run dev | npm test | npm run build   # Vite on 5173, proxies /api to 8080
 ```
+
+## LibreTranslate
+
+Machine-translated English titles (`TRANSLATE_TITLE`, ADR-0010) come from a local LibreTranslate 1.9.6 with Argos
+models, run natively like gnfinder (no docker); `web` never calls it, and abstracts are never sent to it. Install it into
+its own Python virtual environment:
+
+```
+python3 -m venv ~/.local/libretranslate && ~/.local/libretranslate/bin/pip install libretranslate==1.9.6
+~/.local/libretranslate/bin/libretranslate --host 127.0.0.1 --port 5055 --load-only zh,ja,ru,en   # models load at first start
+curl -s localhost:5055/languages      # check
+```
+
+- `--load-only` limits the models (memory); the VM loads the languages of the non-English titles it holds (the list in
+  `.env.example`). Keep `en` in it: translations go into English only.
+- Locally it is started by hand when needed, never as a login service: `nohup ~/.local/libretranslate/bin/libretranslate
+  --host 127.0.0.1 --port 5055 --load-only zh,ja,ru,en > data/run/libretranslate.log 2>&1 &` (stop with
+  `pkill -f 'libretranslate --host'`). The VM runs it as a systemd unit. Bind 127.0.0.1 and keep port 5055 closed to other hosts (firewall), as for gnfinder.
+- The indexer uses it only with `NAMETRACKER_TRANSLATION_ENABLED=true` and `NAMETRACKER_TRANSLATION_URL`
+  (`http://127.0.0.1:5055`); its own HTTP client, not `PoliteHttp` (loopback). A new LibreTranslate or model version:
+  change `NAMETRACKER_TRANSLATION_MODEL` (stored with every translation) and run `TRANSLATE_TITLE {"all":true}`.
 
 ## gnfinder
 
@@ -149,6 +172,14 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
     reads the newest stored day. A zero-yield day counts for FAILING only with a DONE run that day.
   - `NAMETRACKER_HARVEST_OUTAGE_DELAY` (30m): a harvest or onboarding page that meets an outage is enqueued again after
     this delay instead of failing.
+  - Abstract top-up (M6c, `content/topup`, ADR-0010): after the full-text routes, for a work still without an abstract,
+    Europe PMC, Springer Nature Meta (`SPRINGER_API_KEY`, free, blank = off; `NAMETRACKER_TOPUP_SPRINGER_DAILY_CAP`
+    100, `api_usage` `SPRINGER_META`), SciELO (`NAMETRACKER_TOPUP_SCIELO_COLLECTIONS`, `<doi prefix>=<collection>`,
+    default `10.1590/=scl`; also asked for parallels and the declared language), CiNii Research (`CINII_APPID`, free,
+    blank = off; only abstracts flagged `allow`). Each service at most once in 180 days per work (`text_lookup`; outages
+    are not remembered). Base URLs `nametracker.content.topup.{springer,scielo,cinii}.base-url`. OAI JATS (`OAI_JATS`)
+    is the first full-text route for journals with a `jats` OAI route. A TEI newly reported by OpenAlex re-resolves a
+    work (`RESOLVE_CONTENT {"tei":true}`, REPROCESS) at most `NAMETRACKER_CONTENT_TEI_RECHECK_PER_DAY` (200) a day.
   - Institutional route `INSTITUTIONAL` (M6c, University of Copenhagen subscriber TDM APIs): **off**,
     `NAMETRACKER_INSTITUTIONAL_ENABLED` (`nametracker.content.institutional.enabled`, false) plus the allow-list
     `NAMETRACKER_INSTITUTIONAL_PUBLISHERS` (`ELSEVIER`, `WILEY`; empty). **Switch it on only after the KU library has
@@ -343,11 +374,18 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   candidate-min-works=10}` (env `NAMETRACKER_SEED_*`).
 - `indexer` identifier lookups (M6c; `LINK_WORK`, `LINK_SOURCE`): `nametracker.links.enabled` (master) and
   `nametracker.links.<name>.enabled` (default true) for `crossref openalex europepmc biodiversitypmc zenodo-blr plazi
-  wikidata ipni crossref-journal`. `nametracker.links.biodiversitypmc.max-requests-per-day` (200): Biodiversity PMC
+  wikidata ipni crossref-journal bhl-doi`. Behind the harvest switch: `NAMETRACKER_LINKS_SOURCE_CRON` (`0 45 1 2 * *`,
+  `LINK_SOURCE` for every journal monthly) and `NAMETRACKER_LINKS_RETRY_CRON` (`0 15 6 * * *`, due misses). `nametracker.links.biodiversitypmc.max-requests-per-day` (200): Biodiversity PMC
   answers about 860 KB a document and cannot be asked for less, so that lookup applies only to works with acts or from
   a Plazi/BLR journal and counts its requests per UTC day in `api_usage` (`biodiversitypmc`); when the cap is spent the
   task is deferred to 00:05 UTC without using an attempt. Base URLs: `nametracker.links.{plazi,wikidata,ipni,
   biodiversitypmc}.base-url`.
+- `indexer` languages (M6c, ADR-0010): `nametracker.language.{min-margin=0.10, min-title-words=3, min-text-letters=100,
+  min-confidence=0.80, high-accuracy=false}` (properties only). Lingua's confidence is max-normalised, so the margin
+  over the second language is the gate; `high-accuracy` costs about 1 GB of heap. After a change, `DETECT_LANGUAGE
+  {"all":true}`. Titles: `NAMETRACKER_TRANSLATION_ENABLED` (false), `NAMETRACKER_TRANSLATION_URL` (blank = off),
+  `NAMETRACKER_TRANSLATION_MODEL` (`libretranslate-1.9.6/argos`), `NAMETRACKER_TRANSLATION_TIMEOUT` (30s); see
+  "LibreTranslate".
 - `indexer` salience (properties only, no env variables; set them in `application.yml`, `.env` or as `-D`/args):
   `nametracker.salience.{title=0.40, abstract=0.20, act=0.35, heading=0.15, share=0.25, repeat=0.15, ubiquity=0.50,
   ubiquity-full-share=0.02, threshold=0.35}`. A name with salience >= threshold is a main subject of the work.
@@ -423,10 +461,19 @@ curl ... -d '{"type":"HARVEST_CROSSREF","payload":{"date":"2026-11-14"},"priorit
     RUNNING run re-enqueues only the files not done (a DEAD file gets a new task); of a DONE run it starts a new run.
     A deploy (restart) during a backfill can use up attempts of the files being read; re-run the same `BACKFILL` to
     revive files that ended DEAD.
+- `LINK_WORK` / `LINK_SOURCE` (M6c): `{"workId"}`/`{"sourceId"}`, `{"ids":[…]}` (at most 5000) or
+  `{"afterId":0,"batch":…,"schemes":[…]}` (continues per batch). `LINK_WORK` is enqueued at `BACKFILL` when a work is
+  indexed the first time, `LINK_SOURCE` after a journal's completion and monthly. A miss is asked again after 30 and 180
+  days, then never. One-off back-fill of existing works after the M6c deploy: `LINK_WORK {"afterId":0}` at `BACKFILL`; a
+  new lookup back-fills with `{"afterId":0,"schemes":[…]}`.
+- `TRANSLATE_TITLE` (M6c): `{"workId":n,"force":false}` or `{"all":true,"afterId":0,"batch":500,"force":false}` (non-Latin
+  scripts first, continues per batch). Enqueued when a named work's language is not English and it has no English title;
+  off (DONE, INFO) without the translation switch and URL. Stores a MACHINE `work_text` title, never `work.title`.
 - `DETECT_LANGUAGE` (M6c, `{"afterId":0,"batch":1000,"all":false}` or `{"workIds":[…]}`, admin): detects the language from title,
   abstract and retained full text and decides again. By default only works whose `language_source` is null (legacy rows) or
   `UNDECIDED` are read; `"all":true` re-decides every work (after changing the detector or `nametracker.language.*`);
   `workIds` always decides the works named. `LanguageService.decide` is the only writer of `work.language`/`language_source`.
+  Queue `DETECT_LANGUAGE {}` once after the M6c deploy.
 - Re-indexing: a work that is `INDEXED` stays `INDEXED` and listed while a new `FIND_NAMES` result waits in
   `mention_pending` / `classification_context_pending`; `MATCH_NAMES` swaps it in one transaction, without a gap.
   A re-index gives a follow an `ARTICLE` hit only if the follow did not match the previous index (ADR-0006,
@@ -507,11 +554,14 @@ curl ... -d '{"type":"BACKFILL","payload":{"fromYear":2020,"toYear":2024,"files"
 ## Public API (`web`, no token)
 
 `/api/works` (filters `taxon`, `name`, `code`, `taxgroup`, `subfield`, `journalType`, `tier`, `oa`, `country`, `source`,
-`yearFrom`, `yearTo`, `hasActs`, `actType`, `mainSubjectOnly`, `q`; `limit` ≤ 100, `offset` ≤ 10000; repeatable
-`facet`), `/api/works/{id}`, `/api/names?q=`, `/api/names/{id}`, `/api/taxa/{colId}/works` (`mainSubjectOnly` defaults
+`yearFrom`, `yearTo`, `hasActs`, `actType`, `mainSubjectOnly`, `q`, `identifier=<SCHEME>:<value>`, repeatable
+`mentionedIn` (`TITLE`, `ABSTRACT`, `BODY`; any suffices; also on `/api/taxa/{colId}/works`); `limit` ≤ 100,
+`offset` ≤ 10000; repeatable `facet`), `/api/works/{id}`, `/api/names?q=`, `/api/names/{id}`, `/api/taxa/{colId}/works` (`mainSubjectOnly` defaults
 to true), `/api/taxa/{colId}/stats`, `/api/sources` (filter `publicationStatus`; ceased journals are listed), `/api/sources/{id}`, `/api/xr`,
 `/api/stats/languages` (works per language and year, `taxgroup/code/country/yearFrom/yearTo`; read from `language_stats`, as are a taxon's and a source's `languages` from `taxon_language_stats` and a live per-source count; `REBUILD_STATS` fills them, V23), repeatable `language` filter and facet on works (`none` = undecided; the facet shows undecided as `''`), `/api/vocab/taxgroup`, `/api/vocab/discipline` (`discipline` is an alias of the `subfield` filter; a retired code resolves to
-its replacement). Only
+its replacement). Work and journal details carry `identifiers` (scheme, label, value, url); a work detail also
+`languageSource`, `titleLang`, `abstractLang` and `titles`/`abstracts` with their `kind` (ORIGINAL, PARALLEL, MACHINE: a
+machine translation is always labelled). Only
 `INDEXED` works are listed; taxon filters ignore names that occur only in references. The full text of a work is served
 only when its content is retained (open licence). `/api/works/{id}` sends the abstract (the Crossref JATS one as plain
 paragraphs, else OpenAlex's) with `abstractMentions` (stored mentions located by verbatim, like `titleMentions`) and,
@@ -634,7 +684,8 @@ on any command lists its options.
 - `docs/design.md`: the approved design. Goals, constraints, components, data model, workflows, roadmap.
 - `docs/adr/`: later decisions, one file each (0004: onboarding gate, harvest windows, budget, keyless limits; 0005:
   index pipeline, spool, XR pin, placement, salience, categorisation, OpenAPI; 0008: work identity, layered harvest, routes, coverage;
-  0009: journal registry and its fold, discovery, registration, the SSRF design, admins and notices, disciplines, sampling, ceased journals).
+  0009: journal registry and its fold, discovery, registration, the SSRF design, admins and notices, disciplines, sampling, ceased journals;
+  0010: identifier schemes and lookups, language decision, English and machine titles, abstract top-ups, the KU route, mentioned-in).
 
 ## Ground rules (from the design)
 
