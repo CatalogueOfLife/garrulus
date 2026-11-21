@@ -212,4 +212,31 @@ describe('SearchPage', () => {
     expect(within(second).getByText(/English title:/)).toBeInTheDocument();
     expect(within(second).queryByText(/Machine translation/)).toBeNull();
   });
+
+  it('languageFilterHidesFeedAndFollow', async () => {
+    server.use(xrHandler, taxGroupHandler, sourcesHandler(), http.get('/api/works', () =>
+      HttpResponse.json({ ...emptyPage, total: 1, results: [work(1, 'Carabid revision')], facets: { language: [{ value: 'de', count: 1 }] } })));
+    renderApp(<SearchPage />, '/?taxgroup=Insects&language=de');
+    await screen.findByText('Carabid revision');
+    expect(screen.queryByRole('link', { name: 'Atom feed' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Follow' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Follow' })).toBeNull();
+    expect(screen.getByText('Feeds and follows do not filter by language.')).toBeInTheDocument();
+  });
+
+  it('taxgroupFeedCarriesMentionedIn', async () => {
+    server.use(xrHandler, taxGroupHandler, sourcesHandler(), http.get('/api/works', () =>
+      HttpResponse.json({ ...emptyPage, total: 1, results: [work(1, 'Carabid revision')] })));
+    renderApp(<SearchPage />, '/?taxgroup=Insects&mentionedIn=TITLE');
+    expect(await screen.findByRole('link', { name: 'Atom feed' })).toHaveAttribute('href', '/feeds/taxgroup/Insects.atom?mentionedIn=TITLE');
+  });
+
+  it('selectedLanguageWithoutBucketStaysListed', async () => {
+    server.use(xrHandler, taxGroupHandler, sourcesHandler(), http.get('/api/works', () => HttpResponse.json(emptyPage)));
+    renderApp(<SearchPage />, '/?language=none');
+    const row = await screen.findByRole('button', { name: 'Undecided 0' });
+    expect(row).toHaveAttribute('aria-current', 'true');
+    await userEvent.click(row);
+    await waitFor(() => expect(screen.getByTestId('location').textContent).not.toContain('language='));
+  });
 });

@@ -77,10 +77,12 @@ export function SourcePage() {
       <DetailHead
         title={s.title}
         parts={[sentence(s.tier), s.publisher, s.issnL && `ISSN-L ${s.issnL}`]}
-        actions={served
+        actions={served && !language.length
           ? <FollowActions type="SOURCE" target={String(s.id)} label={s.title} feed={withMentionedIn(`/feeds/source/${s.id}.atom`, mentionedIn)} />
           : undefined}
       />
+
+      {served && language.length ? <Text size="sm" c="dimmed">Feeds and follows do not filter by language.</Text> : null}
 
       <IdentifierLinks identifiers={s.identifiers} />
 
@@ -92,7 +94,7 @@ export function SourcePage() {
             <MentionedInFilter value={mentionedIn} onChange={(v) => setList('mentionedIn', v)} />
             {works.data?.facets.language?.length || language.length ? (
               <FacetGroup title="Language" current={language[0]} onSelect={(v) => setList('language', v ? [v] : [])}
-                items={languageItems(works.data?.facets.language)} />
+                items={languageItems(works.data?.facets.language, language)} />
             ) : null}
             {(() => {
               const list = filtered ? works.data?.results : s.recentWorks;

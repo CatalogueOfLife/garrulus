@@ -32,10 +32,15 @@ function counts(list?: FacetCount[]): Map<string, number> {
 }
 
 /** The facet's languages with their names; the works without a decided language (facet value empty) are `none`. */
-export function languageItems(list?: FacetCount[]): { value: string; label: string; count: number }[] {
-  return (list ?? []).map((f) => (f.value === ''
+export function languageItems(list?: FacetCount[], selected: string[] = []): { value: string; label: string; count: number }[] {
+  const items = (list ?? []).map((f) => (f.value === ''
     ? { value: 'none', label: 'Undecided', count: f.count }
     : { value: f.value, label: languageName(f.value), count: f.count }));
+  // a selected language without a bucket stays listed (count 0) so it can be cleared
+  for (const v of selected) {
+    if (!items.some((i) => i.value === v)) items.push({ value: v, label: v === 'none' ? 'Undecided' : languageName(v), count: 0 });
+  }
+  return items;
 }
 
 /** A text input that keeps its own state while typing and commits on blur or Enter only. */
@@ -136,7 +141,7 @@ export function FilterSidebar({ filter, taxonLabel, facets, taxGroups, onChange 
       {facets.language?.length || filter.language?.length ? (
         <FacetGroup title="Language" current={filter.language?.[0]}
           onSelect={(v) => onChange({ language: v ? [v] : undefined, offset: undefined })}
-          items={languageItems(facets.language)} />
+          items={languageItems(facets.language, filter.language)} />
       ) : null}
 
       <Field title="Mentioned in">

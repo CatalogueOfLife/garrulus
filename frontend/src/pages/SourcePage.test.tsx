@@ -140,6 +140,17 @@ describe('SourcePage', () => {
     expect(q.getAll('language')).toEqual(['de']);
     expect(screen.getByLabelText('Abstract')).toBeChecked();
     expect(screen.getByRole('button', { name: 'German 1' })).toHaveAttribute('aria-current', 'true');
-    expect(screen.getByRole('link', { name: 'Atom feed' })).toHaveAttribute('href', '/feeds/source/7.atom?mentionedIn=ABSTRACT');
+    // feeds and follows do not filter by language: hidden while a language is selected
+    expect(screen.queryByRole('link', { name: 'Atom feed' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Follow' })).toBeNull();
+    expect(screen.getByText('Feeds and follows do not filter by language.')).toBeInTheDocument();
+  });
+
+  it('keepsFeedWithoutLanguageFilter', async () => {
+    server.use(taxGroupHandler, http.get('/api/sources/7', () => HttpResponse.json({
+      id: 7, title: 'Zootaxa', tier: 'CORE', subfields: [], taxgroups: [], codes: [], years: [], recentWorks: [] })));
+    renderApp(<Routes><Route path="/source/:id" element={<SourcePage />} /></Routes>, '/source/7?mentionedIn=ABSTRACT');
+    expect(await screen.findByRole('link', { name: 'Atom feed' })).toHaveAttribute('href', '/feeds/source/7.atom?mentionedIn=ABSTRACT');
+    expect(screen.queryByText('Feeds and follows do not filter by language.')).toBeNull();
   });
 });

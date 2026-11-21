@@ -3,6 +3,7 @@ import { Alert, Button, Pagination, Skeleton, TextInput } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { ApiError, filterFromParams, filterToParams, getTaxGroups, listSources, searchWorks, type FacetName, type WorkFilter } from '../api';
+import { withMentionedIn } from '../components/MentionedInFilter';
 import { FollowActions } from '../components/FollowActions';
 import { FilterSidebar, activeFilterCount } from '../components/FilterSidebar';
 import { WorkList } from '../components/WorkList';
@@ -44,7 +45,7 @@ export function SearchPage() {
   };
 
   // a Follow is offered when the taxgroup is the only filter
-  const onlyGroup = Object.entries(filter).every(([k, v]) => !v || k === 'taxgroup' || k === 'offset') ? filter.taxgroup : undefined;
+  const onlyGroup = filter.language?.length ? undefined : Object.entries(filter).every(([k, v]) => !v || k === 'taxgroup' || k === 'offset' || k === 'mentionedIn') ? filter.taxgroup : undefined;
   const activeFilters = activeFilterCount(filter);
   const offset = Number(filter.offset ?? 0);
   const page = Math.floor(offset / PAGE_SIZE) + 1;
@@ -81,11 +82,12 @@ export function SearchPage() {
         {/* the first row: the result count, and the Follow of a lone taxonomic group where every page has its actions */}
         <HeadRow compact actions={onlyGroup
           ? <FollowActions type="TAXGROUP" target={onlyGroup} label={onlyGroup}
-              feed={`/feeds/taxgroup/${encodeURIComponent(onlyGroup)}.atom`} />
+              feed={withMentionedIn(`/feeds/taxgroup/${encodeURIComponent(onlyGroup)}.atom`, filter.mentionedIn)} />
           : undefined}>
           <p className={classes.count14}>
             {data && data.results.length ? `${data.total.toLocaleString('en')} works` : '\u00a0'}
           </p>
+          {filter.language?.length ? <p className={classes.count14}>Feeds and follows do not filter by language.</p> : null}
         </HeadRow>
         <div className={classes.page}>
           <div className={classes.sideWrap}>
