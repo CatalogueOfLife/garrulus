@@ -281,4 +281,28 @@ class FeedControllerIT extends AbstractPostgresIT {
     assertThat(parse(get("/feeds/name/" + n + ".atom?mentionedIn=ABSTRACT").body()).getElementsByTagNameNS(NS, "entry").getLength()).isEqualTo(1);
     assertThat(get("/feeds/taxon/" + taxon + ".atom?mentionedIn=NOPE").statusCode()).isEqualTo(400);
   }
+
+  @Test
+  void taxgroupFeedTestsGroupAndPartOnTheSameName() throws Exception {
+    long src = source();
+    long mammal = name("Mammal one");
+    long beetle = name("Beetle one");
+    long w = work("Mammal title, beetle body", LocalDate.now(ZoneOffset.UTC).minusDays(2), src);
+    workName(w, mammal, "TXG1", true, false);
+    workName(w, beetle, "TXG1", true, false);
+    jdbc.update("UPDATE work_name SET in_abstract = false, in_title = true, body_count = 0, taxgroup = 'Mammalia' WHERE work_id = ? AND name_string_id = ?", w, mammal);
+    jdbc.update("UPDATE work_name SET in_abstract = false, in_title = false, body_count = 3, taxgroup = 'Coleoptera' WHERE work_id = ? AND name_string_id = ?", w, beetle);
+    jdbc.update("UPDATE work SET taxgroups = '{Mammalia,Coleoptera,Arthropods}' WHERE id = ?", w);
+    assertThat(parse(get("/feeds/taxgroup/Arthropods.atom").body()).getElementsByTagNameNS(NS, "entry").getLength()).isEqualTo(1);
+    assertThat(parse(get("/feeds/taxgroup/Arthropods.atom?mentionedIn=TITLE").body()).getElementsByTagNameNS(NS, "entry").getLength()).isZero();
+    assertThat(parse(get("/feeds/taxgroup/Arthropods.atom?mentionedIn=BODY").body()).getElementsByTagNameNS(NS, "entry").getLength()).isEqualTo(1);
+  }
+
+  @Test
+  void emptyMentionedInMeansAnywhere() throws Exception {
+    long src = source();
+    String taxon = "FE" + SEQ.incrementAndGet();
+    workName(work("Anywhere", LocalDate.now(ZoneOffset.UTC).minusDays(2), src), name("Empty one"), taxon, true, false);
+    assertThat(parse(get("/feeds/taxon/" + taxon + ".atom?mentionedIn=").body()).getElementsByTagNameNS(NS, "entry").getLength()).isEqualTo(1);
+  }
 }

@@ -539,7 +539,7 @@ proxy targets `http://localhost:18080` on another port (never edit `vite.config.
   (newest first, 100), `GET`/`DELETE /api/me/registrations/{id}` (another user's is 404; DELETE sets `WITHDRAWN` and
   deletes its `REGISTERED` signal, the source stays). `status` is read from the source's current tier: `COVERED`,
   `CANDIDATE`, `DECLINED`, `CEASED` (plus `IDENTIFYING`, `NOT_IDENTIFIED`, `WITHDRAWN`).
-- Feeds: `/feeds/{taxon,source,name,taxgroup}/<id>.atom` (public) and `/feeds/s/<token>.atom` (private, per follow).
+- Feeds: `/feeds/{taxon,source,name,taxgroup}/<id>.atom[?mentionedIn=TITLE&mentionedIn=ABSTRACT|BODY]` (public; the same part filter as `/api/works`; empty value = anywhere) and `/feeds/s/<token>.atom` (private, per follow).
 - Admin: `POST /api/admin/digests/run` with `{"userId":n}` and the admin token sends that user's digest now.
 - Dev sign-in: `docker compose --profile mail up -d mailpit` (SMTP 1025, UI http://localhost:8025) and
   `spring.mail.host=localhost`, `spring.mail.port=1025` in `.env`. Vite listens on 127.0.0.1:5173 (it proxies `/api`,

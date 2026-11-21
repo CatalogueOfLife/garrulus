@@ -146,4 +146,12 @@ class SubscriptionMatcherTest {
     var any = withMentioned("SOURCE", "7", false);
     assertThat(SubscriptionMatcher.match(any, FULL, List.of()).matches()).isTrue();
   }
+
+  @Test
+  void referenceOnlyNameNeverCountsForAPartEvenWithIncludeReferences() {
+    var s = new Subscription(1L, 1, "TAXON", "Carabidae", null, false, false, true, true, "{}", "t", null, false,
+        Instant.EPOCH, "OK", null, null, null, List.of("TITLE"));
+    var ref = new WorkNameView(1, "n", new String[] {"Carabidae"}, null, false, true, new String[0], "EXACT", true, true, true, 5);
+    assertThat(SubscriptionMatcher.match(s, FULL, List.of(ref)).matches()).isFalse();
+  }
 }

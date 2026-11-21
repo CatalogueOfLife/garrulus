@@ -129,7 +129,10 @@
     <if test="(f.mainSubjectOnly or !f.mentionedIn.isEmpty()) and f.taxon == null and f.name == null">
       AND EXISTS (SELECT 1 FROM work_name wn WHERE wn.work_id = w.id
         <if test="f.mainSubjectOnly"> AND wn.main_subject</if>
-        <if test="!f.mentionedIn.isEmpty()"> AND NOT wn.only_reference</if><include refid="mentionedIn"/>)
+        <if test="!f.mentionedIn.isEmpty()"> AND NOT wn.only_reference</if>
+        <if test="!f.mentionedIn.isEmpty() and f.taxgroup != null"> AND wn.taxgroup IN
+          <foreach collection="f.taxgroupMembers" item="g" open="(" separator="," close=")">#{g}</foreach></if>
+        <include refid="mentionedIn"/>)
     </if>
   </sql>
 

@@ -550,4 +550,10 @@ class WorkControllerIT extends AbstractPostgresIT {
     assertThat(n.path("inHeading").asBoolean()).isTrue();
     assertThat(n.path("bodyCount").asInt()).isEqualTo(5);
   }
+
+  @Test
+  void emptyMentionedInMeansAnywhere() throws Exception {
+    partsWork("10.9/e", false, false, false, 1, false, true);
+    assertThat(sortedDois("/api/works?mentionedIn=")).containsExactly("10.9/e");
+  }
 }

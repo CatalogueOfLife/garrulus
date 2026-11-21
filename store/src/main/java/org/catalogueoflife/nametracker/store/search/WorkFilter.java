@@ -29,10 +29,13 @@ public record WorkFilter(
     boolean mainSubjectOnly,
     @Nullable String q,
     @Nullable Identifier identifier,
-    List<String> mentionedIn) {
+    List<String> mentionedIn,
+    List<String> taxgroupMembers) {
 
   public WorkFilter {
     mentionedIn = mentionedIn == null ? List.of() : mentionedIn;
+    // with mentionedIn the group is tested on the same name row as the part, like a follow does
+    taxgroupMembers = taxgroup == null ? List.of() : MentionedIn.groupMembers(taxgroup);
   }
 
   public static Builder builder() {
@@ -152,7 +155,7 @@ public record WorkFilter(
     }
 
     public WorkFilter build() {
-      return new WorkFilter(taxon, name, code, taxgroup, subfield, journalType, tier, oa, country, source, yearFrom, yearTo, hasActs, actType, mainSubjectOnly, q, identifier, mentionedIn);
+      return new WorkFilter(taxon, name, code, taxgroup, subfield, journalType, tier, oa, country, source, yearFrom, yearTo, hasActs, actType, mainSubjectOnly, q, identifier, mentionedIn, null);
     }
   }
 }

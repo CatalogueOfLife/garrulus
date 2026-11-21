@@ -13,6 +13,11 @@
   <artifactId>nametracker-store</artifactId>
 
   <dependencies>
+    <!-- TaxGroup: a group's members for the per-name group test of mentionedIn -->
+    <dependency>
+      <groupId>org.catalogueoflife</groupId>
+      <artifactId>vocab</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.mybatis.spring.boot</groupId>
       <artifactId>mybatis-spring-boot-starter</artifactId>
