@@ -12,4 +12,8 @@ describe('LanguageBreakdown', () => {
     expect(within(rows[1]).getAllByRole('cell').map((c) => c.textContent)).toEqual(['15', '10', '5']);
     expect(within(rows[2]).getAllByRole('cell').map((c) => c.textContent)).toEqual(['3', '3', '0']);
   });
+  it('undecidedRow', () => {
+    render(<LanguageBreakdown languages={[{ language: '', year: 2025, works: 4 }]} />);
+    expect(screen.getByRole('rowheader', { name: 'Undecided' })).toBeInTheDocument();
+  });
 });

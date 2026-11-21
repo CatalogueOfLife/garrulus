@@ -8,8 +8,8 @@ export function IdentifierLinks({ identifiers }: { identifiers?: IdentifierLink[
     <ul className={`${classes.identifiers} gr-wrap`} aria-label="Identifiers">
       {identifiers.map((i) => (
         <li key={`${i.scheme}:${i.value}`}>
-          {i.url
-            ? <a href={i.url} target="_blank" rel="noopener">{i.label} {i.value}</a>
+          {i.url && /^https?:\/\//i.test(i.url)
+            ? <a href={i.url} target="_blank" rel="noopener noreferrer">{i.label} {i.value}</a>
             : <span>{i.label} {i.value}</span>}
         </li>
       ))}

@@ -53,7 +53,7 @@ function where(n: NameDetail): string {
 /** The label of a stored version of a title, never presenting a machine translation as the article's own. */
 function versionLabel(v: TextVersion): string {
   if (v.kind === 'MACHINE') return 'Machine translation';
-  return isEnglish(v.lang) ? 'English title' : 'Original title';
+  return isEnglish(v.lang) ? 'English title' : `Parallel title (${languageName(v.lang)})`;
 }
 
 function NameRow({ n, withTaxon }: { n: NameDetail; withTaxon: boolean }) {
@@ -100,11 +100,12 @@ export function WorkPage() {
   const snippets = w.snippets ?? [];
   const [first, ...rest] = paragraphs(w.abstract ?? '', w.abstractMentions ?? [], 'ABSTRACT', w.abstractActs ?? []);
   const authors = w.authors.map((a) => a.name);
-  const titleLang = w.titleLang ?? w.language ?? undefined;
-  const abstractLang = w.abstractLang ?? w.language ?? undefined;
+  const titleLang = w.titleLang || w.language || undefined;
+  const abstractLang = w.abstractLang || w.language || undefined;
   // the other versions of the title: not the original itself
   const otherTitles = (w.titles ?? []).filter((t) => t.kind !== 'ORIGINAL' && t.text !== w.title);
   const hasEnglishTitle = isEnglish(titleLang) || otherTitles.some((t) => isEnglish(t.lang));
+  const abstractTranslatable = !!(w.abstract && abstractLang && !isEnglish(abstractLang));
   const otherAbstracts = (w.abstracts ?? []).filter((a) => a.kind !== 'ORIGINAL' && a.text !== w.abstract);
 
   return (
@@ -119,10 +120,10 @@ export function WorkPage() {
             {t.kind === 'MACHINE' && t.model ? ` (${t.model})` : ''}
             {': '}
           </span>
-          <span lang={t.lang}>{t.text}</span>
+          <span lang={t.lang || undefined}>{t.text}</span>
         </p>
       ))}
-      {w.title && !isEnglish(titleLang) && !hasEnglishTitle ? <TranslateButton text={w.title} lang={titleLang!} /> : null}
+      {w.title && !isEnglish(titleLang) && !hasEnglishTitle ? <TranslateButton text={w.title} lang={titleLang!} showHint={!abstractTranslatable} /> : null}
       <MetaLine
         authors={authors} authorCount={authors.length} source={w.source} volume={w.volume} issue={w.issue}
         pages={w.pages} date={w.publicationDate} year={w.year} textLevel={w.textLevel as WorkSummary['textLevel']}
@@ -140,13 +141,13 @@ export function WorkPage() {
         <div className={`${list.mainCol} ${classes.text}`}>
           {first ? <p className={classes.lede} lang={abstractLang}><HighlightedText block={first} as="span" names={info} /></p> : null}
           {rest.map((b) => <p key={b.id} className={classes.para} lang={abstractLang}><HighlightedText block={b} as="span" names={info} /></p>)}
-          {first && w.abstract && abstractLang && !isEnglish(abstractLang) ? <TranslateButton text={w.abstract} lang={abstractLang} /> : null}
+          {first && abstractTranslatable ? <TranslateButton text={w.abstract!} lang={abstractLang!} /> : null}
           {otherAbstracts.map((a) => (
             <details key={`${a.kind}:${a.lang}`} className={classes.version}>
               <summary>
                 {a.kind === 'MACHINE' ? `Machine translation (${languageName(a.lang)})` : `Abstract in ${languageName(a.lang)}`}
               </summary>
-              {paragraphs(a.text, [], 'ABSTRACT', []).map((b) => <p key={b.id} lang={a.lang}>{b.text}</p>)}
+              {paragraphs(a.text, [], 'ABSTRACT', []).map((b) => <p key={b.id} lang={a.lang || undefined}>{b.text}</p>)}
             </details>
           ))}
           {showText ? (

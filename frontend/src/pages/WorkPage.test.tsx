@@ -210,4 +210,21 @@ describe('WorkPage', () => {
     expect(within(col).getByText('(title, abstract, full text)')).toBeInTheDocument();
     expect(within(col).getByText('(abstract)')).toBeInTheDocument();
   });
+
+  it('parallelNonEnglishTitleNamed', async () => {
+    mount({ ...base, titles: [{ lang: 'zh', kind: 'PARALLEL', text: '中文题' }], titleLang: 'en', language: 'en' });
+    expect(await screen.findByText('Parallel title (Chinese):')).toBeInTheDocument();
+  });
+
+  it('noEmptyLangAttribute', async () => {
+    mount({ ...base, titleLang: '', language: '' });
+    const h = await screen.findByRole('heading', { level: 1 });
+    expect(h.hasAttribute('lang')).toBe(false);
+  });
+
+  it('translateHintOncePerPage', async () => {
+    mount({ ...base, title: '中文', abstract: '摘要', language: 'zh', titleLang: 'zh', abstractLang: 'zh' });
+    await screen.findByRole('heading', { level: 1 });
+    expect(await screen.findAllByText(/use its Translate option/)).toHaveLength(1);
+  });
 });
