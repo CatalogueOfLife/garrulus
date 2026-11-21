@@ -181,6 +181,9 @@ nametracker:
     spool-max-age: ${NAMETRACKER_SPOOL_MAX_AGE:14d}
     open-licences: ${NAMETRACKER_CONTENT_OPEN_LICENCES:cc-by,cc-by-sa,cc0,public-domain}
     # abstract top-up after the full-text routes: Europe PMC (always on), Springer Nature Meta, SciELO, CiNii Research
+    # RESOLVE_CONTENT re-resolves per UTC day for works whose OpenAlex TEI just appeared (REPROCESS priority); the rest
+    # waits for later days (api_usage service TEI_RECHECK)
+    tei-recheck-per-day: ${NAMETRACKER_CONTENT_TEI_RECHECK_PER_DAY:200}
     topup:
       springer:
         # free key from dev.springernature.com; blank = off. Requests a UTC day, counted in api_usage (SPRINGER_META)

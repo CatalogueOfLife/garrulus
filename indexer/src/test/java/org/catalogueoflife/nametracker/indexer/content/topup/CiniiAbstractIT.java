@@ -55,4 +55,23 @@ class CiniiAbstractIT {
     assertThatThrownBy(() -> topUp(w, "app-secret-77").fetch(work(1L, DOI, null), source(2, "JP")))
         .isInstanceOfSatisfying(HttpProblem.class, p -> assertThat(p.getMessage() + p.uri()).doesNotContain("app-secret-77"));
   }
+
+  /** The item's own DOI field decides: a longer DOI, or the DOI only inside another field, is another article. */
+  @Test
+  void aNearMissDoiOrALinkedDoiIsNoMatch(WireMockRuntimeInfo w) {
+    String near = "{\"items\":[{\"description\":\"Other article\",\"prism:doi\":\"10.1234/jp.12\","
+        + "\"abstractLicenseFlag\":\"allow\"}]}";
+    stubFor(get(urlPathEqualTo("/opensearch/articles")).willReturn(aResponse().withBody(near)));
+    assertThat(topUp(w, "app").fetch(work(1L, DOI, null), source(2, "JP"))).isEmpty();
+
+    String linked = "{\"items\":[{\"description\":\"Other article\",\"prism:doi\":\"10.9999/other\","
+        + "\"relatedLink\":\"https://doi.org/10.1234/jp.1\",\"abstractLicenseFlag\":\"allow\"}]}";
+    stubFor(get(urlPathEqualTo("/opensearch/articles")).willReturn(aResponse().withBody(linked)));
+    assertThat(topUp(w, "app").fetch(work(1L, DOI, null), source(2, "JP"))).isEmpty();
+
+    String typed = "{\"items\":[{\"description\":\"Right one\",\"dc:identifier\":[{\"@type\":\"cir:DOI\","
+        + "\"@value\":\"https://doi.org/10.1234/JP.1\"}],\"abstractLicenseFlag\":\"allow\"}]}";
+    stubFor(get(urlPathEqualTo("/opensearch/articles")).willReturn(aResponse().withBody(typed)));
+    assertThat(topUp(w, "app").fetch(work(1L, DOI, null), source(2, "JP"))).isPresent();
+  }
 }

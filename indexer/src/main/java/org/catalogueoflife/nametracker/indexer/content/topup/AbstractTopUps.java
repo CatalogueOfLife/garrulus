@@ -75,15 +75,17 @@ public class AbstractTopUps {
   }
 
   /**
-   * Runs the chain for the work. Returns true when something was stored (the caller reads the work again). Throws
+   * Runs the chain for the work. Returns what was stored and whether a service was down. Throws
    * {@link ServiceOutageException} for an outage on a {@code reprocess} run.
    */
-  public boolean run(Work work, @Nullable Source source, boolean reprocess) {
+  public Result run(Work work, @Nullable Source source, boolean reprocess) {
     Work cur = work;
     boolean wrote = false;
+    boolean outage = false;
     for (AbstractTopUp t : topUps) {
-      if (!t.enabled() || !t.applies(cur, source)) continue;
-      if (WorkUpsert.effectiveAbstract(cur) != null && !t.always()) continue;
+      if (!t.enabled()) continue;
+      if (WorkUpsert.effectiveAbstract(cur) != null && !t.always()) continue; // before applies(): it may read the DB
+      if (!t.applies(cur, source)) continue;
       if (lookups.triedSince(cur.id(), t.service(), clock.instant().minus(Duration.ofDays(RETRY_DAYS)))) continue;
       Optional<TopUpResult> got;
       try {
@@ -94,6 +96,7 @@ public class AbstractTopUps {
       } catch (IOException | RuntimeException e) {
         if (HarvestOutage.retryable(e) != null || e instanceof ServiceOutageException) {
           if (reprocess) throw new ServiceOutageException(t.service(), clock.instant().plus(OUTAGE_DELAY), e);
+          outage = true;
           LOG.warn("Top-up {} is down, skipped for work {}: {}", t.service(), cur.id(), e.toString());
         } else if (e instanceof HttpProblem p && p.status() != 401 && p.status() != 403) {
           LOG.warn("Top-up {} found nothing for work {}: {}", t.service(), cur.id(), e.toString());
@@ -113,10 +116,14 @@ public class AbstractTopUps {
       tx.executeWithoutResult(status -> store(id, service, found));
       wrote = true;
       Work again = works.get(cur.id());
-      if (again == null) return wrote;
+      if (again == null) return new Result(wrote, outage);
       cur = again;
     }
-    return wrote;
+    return new Result(wrote, outage);
+  }
+
+  /** {@code changed}: something was stored (read the work again); {@code outage}: a service was down and not asked. */
+  public record Result(boolean changed, boolean outage) {
   }
 
   /** In one transaction: the abstract when the work has none, the parallel texts, the declared language, the lookup. */

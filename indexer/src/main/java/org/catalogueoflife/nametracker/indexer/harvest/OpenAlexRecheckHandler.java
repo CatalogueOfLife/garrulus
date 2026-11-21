@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import org.catalogueoflife.nametracker.indexer.content.TeiRecheck;
 import org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexClient;
 import org.catalogueoflife.nametracker.indexer.openalex.OpenAlexWorks;
@@ -45,9 +46,11 @@ public class OpenAlexRecheckHandler implements TaskHandler {
   private final TransactionTemplate tx;
   private final Clock clock;
   private final WorksPager pager;
+  private final TeiRecheck teiRecheck;
 
   public OpenAlexRecheckHandler(OpenAlexClient openAlex, WorkMapper works, WorkUpsert upsert, SourceMapper sources,
-      TaskQueue queue, TransactionTemplate tx, Clock clock, WorksPager pager) {
+      TaskQueue queue, TransactionTemplate tx, Clock clock, WorksPager pager, TeiRecheck teiRecheck) {
+    this.teiRecheck = teiRecheck;
     this.pager = pager;
     this.openAlex = openAlex;
     this.works = works;
@@ -102,7 +105,7 @@ public class OpenAlexRecheckHandler implements TaskHandler {
           WorkUpsert.UpsertResult r = upsert.upsert(in, Layer.OPENALEX, inIds);
           pager.recordLanguage(r.id(), in, Layer.OPENALEX, null, List.of());
           WorksPager.enqueueAbstractResolve(queue, r, task.priority()); // OpenAlex may bring the first abstract
-          WorksPager.enqueueTei(queue, r, task.priority()); // or the TEI that was not there when the work was resolved
+          teiRecheck.enqueue(r); // or the TEI that was not there when the work was resolved
           WorksPager.enqueueMerge(queue, r, task.priority());
         }
         works.setOpenalexChecked(w.id(), now);

@@ -8,6 +8,8 @@ import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
 import org.catalogueoflife.nametracker.indexer.link.DoiBatching;
 import org.catalogueoflife.nametracker.indexer.link.LinkHttp;
+import org.catalogueoflife.nametracker.store.ident.IdScheme;
+import org.catalogueoflife.nametracker.store.ident.Identifier;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.work.Work;
 import org.jspecify.annotations.Nullable;
@@ -74,15 +76,33 @@ public class CiniiAbstract implements AbstractTopUp {
       }
       throw p;
     }
-    String doi = w.doi().toLowerCase(Locale.ROOT);
+    Identifier want = IdScheme.id(IdScheme.DOI, w.doi());
+    if (want == null) return Optional.empty();
     for (JsonNode item : root.path("items")) {
-      if (!item.toString().toLowerCase(Locale.ROOT).contains(doi)) continue;
+      if (!hasDoi(item, want.value())) continue;
       String flag = flag(item);
       String abs = text(item.path("description"));
       if (!"allow".equalsIgnoreCase(flag) || abs.isEmpty()) continue;
       return Optional.of(new TopUpResult(abs, null, null, "CINII", List.of(), null));
     }
     return Optional.empty();
+  }
+
+  /** True when the item's own DOI fields ({@code prism:doi}, {@code doi}, a DOI-typed {@code dc:identifier}) equal the DOI. */
+  static boolean hasDoi(JsonNode item, String doi) {
+    List<String> raw = new java.util.ArrayList<>();
+    for (String k : new String[] {"prism:doi", "doi"}) raw.add(item.path(k).asString(""));
+    JsonNode ids = item.path("dc:identifier");
+    for (JsonNode i : ids.isArray() ? ids : java.util.List.<JsonNode>of(ids)) {
+      if (i.isObject() && i.path("@type").asString("").toLowerCase(Locale.ROOT).contains("doi")) {
+        raw.add(i.path("@value").asString(""));
+      }
+    }
+    for (String r : raw) {
+      Identifier id = IdScheme.id(IdScheme.DOI, r);
+      if (id != null && id.value().equals(doi)) return true;
+    }
+    return false;
   }
 
   private static String flag(JsonNode item) {

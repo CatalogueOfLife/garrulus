@@ -606,6 +606,36 @@ class ResolveContentHandlerIT extends AbstractPostgresIT {
     assertThat(works.get(id).textLevel()).isEqualTo("ABSTRACT_ONLY");
   }
 
+  @Test
+  void noTextWorkIsRecheckedWhenATopUpWasDown(WireMockRuntimeInfo w) throws Exception {
+    stubFor(get(urlPathEqualTo("/rest/search")).willReturn(aResponse().withStatus(503).withHeader("Retry-After", "0")));
+    long src = source("CORE");
+    long id = jdbc.queryForObject("INSERT INTO work (doi, source_id, origin, first_seen_at) VALUES ('10.1234/nt.1', ?, "
+        + "'LIVE', now()) RETURNING id", Long.class, src);
+
+    withTopUps(List.of(), europePmc(w)).handle(task(id));
+
+    assertThat(works.get(id).textLevel()).isEqualTo("NO_TEXT");
+    assertThat(jdbc.queryForObject("SELECT dedup_key FROM task WHERE type = 'RESOLVE_CONTENT'", String.class))
+        .isEqualTo("content:" + id + ":recheck:1");
+
+    // a definite miss is not retried
+    jdbc.update("DELETE FROM task");
+    stubFor(get(urlPathEqualTo("/rest/search")).willReturn(aResponse().withBody(fixture("europepmc/search-empty.json"))));
+    withTopUps(List.of(), europePmc(w)).handle(task(id));
+    assertThat(count("SELECT count(*) FROM task WHERE type = 'RESOLVE_CONTENT'")).isZero();
+  }
+
+  @Test
+  void aTeiRunSkipsAWorkThatHasFullTextNow() throws Exception {
+    ContentRoute tei = route("OPENALEX_TEI", x -> { throw new AssertionError("must not run"); });
+    long id = work(source("CORE"), "T", "A", "cc-by", Instant.now());
+    jdbc.update("UPDATE work SET text_level = 'FULLTEXT', state = 'INDEXED' WHERE id = ?", id);
+    withTopUps(List.of(tei)).handle(new Task(1, "RESOLVE_CONTENT", "{\"workId\":" + id + ",\"tei\":true}",
+        TaskPriority.REPROCESS, null, 1, Instant.now(), null, null, null, "x", null));
+    assertThat(contents.listByWork(id)).isEmpty();
+  }
+
   private interface Fetch {
     Optional<FetchedContent> get(Work w);
   }

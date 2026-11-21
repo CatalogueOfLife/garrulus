@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
+import org.catalogueoflife.nametracker.indexer.content.TeiRecheck;
 import org.catalogueoflife.nametracker.indexer.lang.LanguageService;
 import org.catalogueoflife.nametracker.indexer.lang.ParallelTexts;
 import org.catalogueoflife.nametracker.indexer.layer.TextIn;
@@ -55,10 +56,12 @@ public class WorksPager {
   private final WorkTextMapper texts;
   private final WorkMapper workMapper;
   private final ParallelTexts parallelTexts;
+  private final TeiRecheck teiRecheck;
 
   public WorksPager(OpenAlexClient client, WorkUpsert upsert, TaskQueue queue, TransactionTemplate tx,
       WorkSightingMapper sightings, LanguageService languages, WorkTextMapper texts, WorkMapper workMapper,
-      ParallelTexts parallelTexts) {
+      ParallelTexts parallelTexts, TeiRecheck teiRecheck) {
+    this.teiRecheck = teiRecheck;
     this.workMapper = workMapper;
     this.parallelTexts = parallelTexts;
     this.sightings = sightings;
@@ -140,7 +143,7 @@ public class WorksPager {
         queue.enqueue(RESOLVE_CONTENT, "{\"workId\":" + r.id() + "}", contentPriority, "content:" + r.id());
       } else {
         enqueueAbstractResolve(queue, r, contentPriority);
-        enqueueTei(queue, r, contentPriority);
+        teiRecheck.enqueue(r);
       }
       enqueueMerge(queue, r, contentPriority);
       return r.created();
@@ -218,18 +221,6 @@ public class WorksPager {
   public static void enqueueAbstractResolve(TaskQueue queue, WorkUpsert.UpsertResult r, TaskPriority priority) {
     if (r.abstractChanged()) {
       enqueueReresolve(queue, r.id(), priority, "content:" + r.id() + ":abs:" + r.abstractSha(), null);
-    }
-  }
-
-  /**
-   * When OpenAlex now says the work has TEI that it did not say before, queues RESOLVE_CONTENT for it again (key
-   * {@code content:<id>:tei}): all routes run, the TEI one within the OpenAlex budget (it is the paid route, so this is
-   * not a {@code freeOnly} run); {@code "tei":true} makes a spent budget defer the task to the next day instead of
-   * dropping the route. Call it in the transaction of the upsert.
-   */
-  public static void enqueueTei(TaskQueue queue, WorkUpsert.UpsertResult r, TaskPriority priority) {
-    if (r.teiAppeared()) {
-      queue.enqueue(RESOLVE_CONTENT, "{\"workId\":" + r.id() + ",\"tei\":true}", priority, "content:" + r.id() + ":tei");
     }
   }
 

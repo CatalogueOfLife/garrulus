@@ -89,6 +89,14 @@ class SpringerMetaAbstractIT {
   }
 
   @Test
+  void aForbiddenKeyIsRefusedLikeA401(WireMockRuntimeInfo w) {
+    stubFor(get(urlPathEqualTo("/meta/v2/json")).willReturn(aResponse().withStatus(403)));
+    var t = topUp(w, new FakeApiUsage(), "k", 100);
+    assertThatThrownBy(() -> t.fetch(work(1L, DOI, null), null)).isInstanceOf(TopUpSkipped.class);
+    assertThat(t.enabled()).isFalse();
+  }
+
+  @Test
   void theKeyIsNotInAnErrorMessage(WireMockRuntimeInfo w) {
     stubFor(get(urlPathEqualTo("/meta/v2/json")).willReturn(aResponse().withStatus(500)));
     assertThatThrownBy(() -> topUp(w, new FakeApiUsage(), "sekret-key-123", 100).fetch(work(1L, DOI, null), null))

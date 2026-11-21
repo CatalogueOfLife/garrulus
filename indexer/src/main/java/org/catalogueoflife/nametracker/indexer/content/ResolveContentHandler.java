@@ -141,6 +141,7 @@ public class ResolveContentHandler implements TaskHandler {
       LOG.warn("RESOLVE_CONTENT for unknown work {}", workId);
       return;
     }
+    if (tei && "FULLTEXT".equals(work.textLevel())) return; // the full text came another way meanwhile
     Source source = work.sourceId() == null ? null : sources.get(work.sourceId());
 
     List<FetchedContent> results = new ArrayList<>();
@@ -160,8 +161,13 @@ public class ResolveContentHandler implements TaskHandler {
       throw new ServiceOutageException("OpenAlex budget", found.budgetRetry());
     }
     if (full != null) results.add(full);
-    if (topUps != null && topUps.run(work, source, reprocess)) {
-      work = works.get(workId); // the abstract the top-up stored is what the ABSTRACT row and the finder read
+    boolean topUpOutage = false;
+    if (topUps != null) {
+      AbstractTopUps.Result top = topUps.run(work, source, reprocess);
+      topUpOutage = top.outage();
+      if (top.changed()) {
+        work = works.get(workId); // the abstract the top-up stored is what the ABSTRACT row and the finder read
+      }
     }
     if (AbstractRoute.present(work)) results.add(AbstractRoute.fetch(work));
 
@@ -213,7 +219,10 @@ public class ResolveContentHandler implements TaskHandler {
       }
     }
 
-    if ("ABSTRACT_ONLY".equals(finalLevel)) scheduleRecheck(task, work, source);
+    // a work with no text at all is looked at again too when a top-up service was down (it may have the abstract)
+    if ("ABSTRACT_ONLY".equals(finalLevel) || "NO_TEXT".equals(finalLevel) && topUpOutage) {
+      scheduleRecheck(task, work, source);
+    }
   }
 
   /** The first full text of the routes, or null; {@code routeDown} when a route threw a retryable problem on the way. */

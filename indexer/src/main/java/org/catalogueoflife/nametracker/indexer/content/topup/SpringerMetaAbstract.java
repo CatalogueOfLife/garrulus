@@ -33,7 +33,7 @@ import tools.jackson.databind.JsonNode;
  * The abstract from Springer Nature's metadata API ({@code /meta/v2/json?q=doi:<doi>&api_key=…}) for the DOIs of
  * Springer, BioMed Central and Nature ({@code 10.1007/}, {@code 10.1186/}, {@code 10.1038/}). It needs a free key
  * ({@code SPRINGER_API_KEY}; blank switches it off) and stops at {@code daily-cap} requests a UTC day, counted in
- * {@code api_usage} (service {@code SPRINGER_META}) and reserved before each request. A 401 switches it off until the
+ * {@code api_usage} (service {@code SPRINGER_META}) and reserved before each request. A 401 or 403 switches it off until the
  * next start, with one WARN. The key travels as a query parameter and is redacted wherever the URL is logged.
  */
 @Component
@@ -97,9 +97,9 @@ public class SpringerMetaAbstract implements AbstractTopUp {
     try {
       root = LinkHttp.json(http, uri, "application/json", "Springer Nature Meta");
     } catch (HttpProblem p) {
-      if (p.status() == 401) {
+      if (p.status() == 401 || p.status() == 403) {
         if (refused.compareAndSet(false, true)) {
-          LOG.warn("Springer Nature Meta refused the API key (401): the abstract top-up is off until the next start");
+          LOG.warn("Springer Nature Meta refused the API key (401/403): the abstract top-up is off until the next start");
         }
         throw new TopUpSkipped("Springer key refused");
       }
