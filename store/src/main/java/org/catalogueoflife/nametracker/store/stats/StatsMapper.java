@@ -51,15 +51,17 @@ public interface StatsMapper {
   int rebuildTaxonLanguageStats();
 
   /**
-   * Replaces {@code language_stats}: the indexed works with a year per language and year for every combination of
-   * taxgroup, code and country, each also as {@code ''} ("not filtered"). One statement. Returns the rows written.
+   * Replaces {@code language_stats}: the indexed works with a year per language and year for the whole set
+   * ({@code none}) and for each taxgroup, code and journal country on its own. One statement. Returns the rows written.
    */
   int rebuildLanguageStats();
 
-  /** A slice of {@code language_stats}; null filters read the {@code ''} rows. Ordered by year, then works descending. */
-  List<LanguageYear> languages(@Param("taxgroup") @Nullable String taxgroup, @Param("code") @Nullable String code,
-      @Param("country") @Nullable String country, @Param("yearFrom") @Nullable Integer yearFrom,
-      @Param("yearTo") @Nullable Integer yearTo);
+  /**
+   * A slice of {@code language_stats}: {@code dim} is none (value ''), taxgroup, code or country. Ordered by year, then
+   * works descending.
+   */
+  List<LanguageYear> languages(@Param("dim") String dim, @Param("value") String value,
+      @Param("yearFrom") @Nullable Integer yearFrom, @Param("yearTo") @Nullable Integer yearTo);
 
   /** The rows of {@code taxon_language_stats} of the taxon, by year, then works descending. */
   List<LanguageYear> taxonLanguages(@Param("taxonId") String taxonId);

@@ -7,9 +7,11 @@ public final class EnglishTitle {
 
   private EnglishTitle() {}
 
-  /** "English title: ..." for a parallel title, "Machine translation: ..." for a machine one, null without one. */
-  public static @Nullable String line(@Nullable String titleEn, @Nullable String kind) {
-    if (titleEn == null || titleEn.isBlank()) {
+  /** No line for an English title, whatever {@code titleEn} holds. "English title: ..." for a parallel title, "Machine translation: ..." for a machine one, null without one. */
+  public static @Nullable String line(@Nullable String titleLang, @Nullable String language, @Nullable String titleEn,
+      @Nullable String kind) {
+    String own = titleLang != null ? titleLang : language;
+    if ("en".equals(own) || titleEn == null || titleEn.isBlank()) {
       return null;
     }
     return ("MACHINE".equals(kind) ? "Machine translation: " : "English title: ") + titleEn.strip();

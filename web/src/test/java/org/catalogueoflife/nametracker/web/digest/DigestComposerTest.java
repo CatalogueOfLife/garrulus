@@ -206,7 +206,11 @@ class DigestComposerTest {
         "ABSTRACT_ONLY", false, List.of(), null, null, null, List.of(), "fr", "fr", "Title", "PARALLEL");
     WorkSummary english = new WorkSummary(3, "10.1/e", "English", 2026, LocalDate.of(2026, 11, 1), src, List.of(), 0,
         "ABSTRACT_ONLY", false, List.of(), null, null, null, List.of(), "en", null, null, null);
+    // an English work shows no second title, whatever title_en holds
+    WorkSummary stale = new WorkSummary(4, "10.1/s", "English too", 2026, LocalDate.of(2026, 11, 1), src, List.of(), 0,
+        "ABSTRACT_ONLY", false, List.of(), null, null, null, List.of(), "en", null, "Leftover", "MACHINE");
     Mail m = composer.compose(USER, List.of(new SubscriptionHits(9, "x", List.of(
+        new Paper(new Hit(4L, 9, 4, "ARTICLE", T0.plusSeconds(3), article("A e"), null), stale),
         new Paper(new Hit(1L, 9, 1, "ARTICLE", T0, article("A b"), null), machine),
         new Paper(new Hit(2L, 9, 2, "ARTICLE", T0.plusSeconds(1), article("A c"), null), parallel),
         new Paper(new Hit(3L, 9, 3, "ARTICLE", T0.plusSeconds(2), article("A d"), null), english)))), URL);
@@ -214,6 +218,7 @@ class DigestComposerTest {
         .contains("Titre\n  English title: Title\n");
     assertThat(m.text().lines().filter(l -> l.contains("English title:") || l.contains("Machine translation:")).count())
         .isEqualTo(2);
+    assertThat(m.text()).doesNotContain("Leftover");
     assertThat(m.html()).contains("Machine translation: A &lt;b&gt; title").contains("English title: Title")
         .doesNotContain("A <b> title");
   }

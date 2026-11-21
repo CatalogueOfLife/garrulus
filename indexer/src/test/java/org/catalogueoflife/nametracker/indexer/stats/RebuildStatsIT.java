@@ -222,17 +222,30 @@ class RebuildStatsIT extends AbstractPostgresIT {
     assertThat(stats.rebuildTaxonLanguageStats()).isEqualTo(3); // A/zh, A/en, B/zh
     assertThat(stats.taxonLanguages("A")).hasSize(2);
     assertThat(stats.taxonLanguages("B")).extracting("language").containsExactly("zh");
-    // the cube: 3 works; 'Insects' and 'ZOOLOGICAL' slices only hold the zh work; the undecided one is in the whole set only
+    // one dimension per row: 3 works in the whole set; the 'Insects' and 'ZOOLOGICAL' slices only hold the zh work
     stats.rebuildLanguageStats();
-    assertThat(stats.languages(null, null, null, null, null).stream().mapToLong(l -> l.works()).sum()).isEqualTo(3);
-    assertThat(stats.languages("Insects", null, null, null, null)).extracting("language").containsExactly("zh");
-    assertThat(stats.languages("Insects", "ZOOLOGICAL", null, null, null)).hasSize(1);
-    assertThat(stats.languages(null, null, null, year + 1, null)).isEmpty();
+    assertThat(stats.languages("none", "", null, null).stream().mapToLong(l -> l.works()).sum()).isEqualTo(3);
+    assertThat(stats.languages("taxgroup", "Insects", null, null)).extracting("language").containsExactly("zh");
+    assertThat(stats.languages("code", "ZOOLOGICAL", null, null)).hasSize(1);
+    assertThat(stats.languages("none", "", year + 1, null)).isEmpty();
     // a second run replaces: a work that is no longer listed disappears from every slice
     jdbc.update("UPDATE work SET state = 'MATCHED' WHERE id = ?", zh);
     stats.rebuildTaxonLanguageStats();
     stats.rebuildLanguageStats();
     assertThat(stats.taxonLanguages("B")).isEmpty();
-    assertThat(stats.languages("Insects", null, null, null, null)).isEmpty();
+    assertThat(stats.languages("taxgroup", "Insects", null, null)).isEmpty();
+  }
+
+  @Test
+  void allRebuildsShareOneTransaction() throws Exception {
+    jdbc.update("INSERT INTO taxon_stats (taxon_id, year, works, main_subject_works) VALUES ('STALE', 2000, 1, 1)");
+    jdbc.update("ALTER TABLE language_stats RENAME TO language_stats_x"); // the last rebuild fails
+    try {
+      org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class, () -> handler.handle(new Task(1, "REBUILD_STATS", "{}", TaskPriority.LIVE, null, 0, null, null, null, null, null, null)));
+    } finally {
+      jdbc.update("ALTER TABLE language_stats_x RENAME TO language_stats");
+    }
+    // the first rebuild would have deleted the stale row: it was rolled back with the failing one
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM taxon_stats WHERE taxon_id = 'STALE'", Integer.class)).isEqualTo(1);
   }
 }

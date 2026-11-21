@@ -153,7 +153,7 @@ public class FeedController {
   private AtomWriter.Entry entry(FeedRow w, String hitLines) {
     String url = publicUrl + "/work/" + w.id();
     StringBuilder sum = new StringBuilder();
-    String english = EnglishTitle.line(w.titleEn(), w.titleEnKind());
+    String english = EnglishTitle.line(null, null, w.titleEn(), w.titleEnKind());
     if (w.sourceTitle() != null) {
       sum.append(w.sourceTitle());
     }

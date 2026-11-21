@@ -177,7 +177,7 @@
 
   <sql id="feedCols">w.id, w.doi, w.title, w.publication_date, w.year, s.title AS source_title,
            COALESCE(w.first_indexed_at, w.first_seen_at) AS first_indexed,
-           w.title_en, w.title_en_kind</sql>
+           CASE WHEN coalesce(w.title_lang, w.language) = 'en' THEN NULL ELSE w.title_en END AS title_en, w.title_en_kind</sql>
 
   <select id="feed" resultMap="feedRow">
     SELECT <include refid="feedCols"/>

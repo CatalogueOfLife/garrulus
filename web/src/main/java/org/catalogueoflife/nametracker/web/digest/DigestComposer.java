@@ -187,7 +187,7 @@ public final class DigestComposer {
     }
 
     text.append("\n* ").append(title).append('\n');
-    String english = EnglishTitle.line(w.titleEn(), w.titleEnKind());
+    String english = EnglishTitle.line(w.titleLang(), w.language(), w.titleEn(), w.titleEnKind());
     if (english != null) {
       text.append("  ").append(english).append('\n');
     }

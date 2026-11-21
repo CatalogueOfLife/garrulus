@@ -13,6 +13,7 @@ import org.catalogueoflife.nametracker.store.task.TaskQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * {@code REBUILD_STATS}, payload {@code {}}, dedup key {@code stats:<date>}. Rebuilds {@code name_ubiquity} (last 5
@@ -32,8 +33,11 @@ public class RebuildStatsHandler implements TaskHandler {
   private final TaskQueue queue;
   private final Clock clock;
   private final SalienceProperties props;
+  private final TransactionTemplate tx;
 
-  public RebuildStatsHandler(StatsMapper stats, TaskQueue queue, Clock clock, SalienceProperties props) {
+  public RebuildStatsHandler(StatsMapper stats, TaskQueue queue, Clock clock, SalienceProperties props,
+      TransactionTemplate tx) {
+    this.tx = tx;
     this.props = props;
     this.stats = stats;
     this.queue = queue;
@@ -49,11 +53,11 @@ public class RebuildStatsHandler implements TaskHandler {
   public void handle(Task task) {
     LocalDate today = LocalDate.now(clock.withZone(ZoneOffset.UTC));
     int ubiquity = stats.rebuildUbiquity(today.getYear() - 4);
-    int taxa = stats.rebuildTaxonStats();
-    int taxonLanguages = stats.rebuildTaxonLanguageStats();
-    int languages = stats.rebuildLanguageStats();
+    // the three public statistics change together: a reader never sees one rebuilt and another not
+    int[] rows = tx.execute(s -> new int[] {stats.rebuildTaxonStats(), stats.rebuildTaxonLanguageStats(),
+        stats.rebuildLanguageStats()});
     LOG.info("Rebuilt name_ubiquity ({} rows), taxon_stats ({}), taxon_language_stats ({}) and language_stats ({})",
-        ubiquity, taxa, taxonLanguages, languages);
+        ubiquity, rows[0], rows[1], rows[2]);
     // the ubiquity feeds salience: rescore the works with a name whose penalty moved since it was last scored
     if (stats.changedUbiquityCount(props.ubiquityFullShare(), RescoreHandler.CHANGE_THRESHOLD) > 0) {
       queue.enqueue("RESCORE_SALIENCE", "{\"afterId\":0}", TaskPriority.REPROCESS, "rescore:changed:" + today,

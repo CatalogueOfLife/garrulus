@@ -139,7 +139,8 @@ public class WorkController {
         .subfield(discipline(subfield, discipline)).journalType(journalType).tier(tier).oa(oa)
         .country(blankToNull(country)).source(source).yearFrom(yearFrom).yearTo(yearTo).hasActs(hasActs)
         .actType(blankToNull(actType)).mainSubjectOnly(mainSubjectOnly).q(blankToNull(q))
-        .identifier(identifiers.parseWorkFilter(identifier)).mentionedIn(MentionedInParam.parse(mentionedIn)).languages(LanguageParam.parse(language)).build();
+        .identifier(identifiers.parseWorkFilter(identifier)).mentionedIn(MentionedInParam.parse(mentionedIn))
+        .languages(LanguageParam.parse(language)).build();
     return page(f, limit, offset, facets);
   }
 

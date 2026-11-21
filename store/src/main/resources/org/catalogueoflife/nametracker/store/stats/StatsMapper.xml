@@ -63,30 +63,28 @@
     ON CONFLICT (taxon_id, language, year) DO UPDATE SET works = excluded.works
   </update>
 
-  <!-- every work counts once per combination: its group (or ''), its code (or ''), its journal's country (or '') -->
+  <!-- one row per dimension value: the whole set, each group, each code, the journal's country -->
   <update id="rebuildLanguageStats">
     WITH fresh AS MATERIALIZED (
-      SELECT g.v AS taxgroup, c.v AS code, k.v AS country, coalesce(w.language, '') AS language, w.year,
-             count(*)::bigint AS works
+      SELECT d.dim, d.value, coalesce(w.language, '') AS language, w.year, count(*)::bigint AS works
       FROM work w
       LEFT JOIN source s ON s.id = w.source_id
-      CROSS JOIN LATERAL unnest(array_append(coalesce(w.taxgroups, '{}'::text[]), '')) AS g(v)
-      CROSS JOIN LATERAL unnest(array_append(coalesce(w.codes, '{}'::text[]), '')) AS c(v)
-      CROSS JOIN LATERAL unnest(CASE WHEN coalesce(s.country, '') = '' THEN ARRAY['']
-                                     ELSE ARRAY[s.country, ''] END) AS k(v)
+      CROSS JOIN LATERAL (
+        SELECT 'none' AS dim, '' AS value
+        UNION ALL SELECT 'taxgroup', g FROM unnest(w.taxgroups) AS g
+        UNION ALL SELECT 'code', c FROM unnest(w.codes) AS c
+        UNION ALL SELECT 'country', s.country WHERE coalesce(s.country, '') &lt;&gt; '') AS d
       WHERE w.state IN ('INDEXED','NOTIFIED') AND w.year IS NOT NULL
-      GROUP BY g.v, c.v, k.v, coalesce(w.language, ''), w.year),
+      GROUP BY d.dim, d.value, coalesce(w.language, ''), w.year),
     del AS (DELETE FROM language_stats s WHERE NOT EXISTS
-      (SELECT 1 FROM fresh f WHERE f.taxgroup = s.taxgroup AND f.code = s.code AND f.country = s.country
-         AND f.language = s.language AND f.year = s.year))
-    INSERT INTO language_stats (taxgroup, code, country, language, year, works)
-    SELECT taxgroup, code, country, language, year, works FROM fresh
-    ON CONFLICT (taxgroup, code, country, language, year) DO UPDATE SET works = excluded.works
+      (SELECT 1 FROM fresh f WHERE f.dim = s.dim AND f.value = s.value AND f.language = s.language AND f.year = s.year))
+    INSERT INTO language_stats (dim, value, language, year, works)
+    SELECT dim, value, language, year, works FROM fresh
+    ON CONFLICT (dim, value, language, year) DO UPDATE SET works = excluded.works
   </update>
 
   <select id="languages" resultMap="languageYear">
-    SELECT language, year, works FROM language_stats
-    WHERE taxgroup = coalesce(#{taxgroup}, '') AND code = coalesce(#{code}, '') AND country = coalesce(#{country}, '')
+    SELECT language, year, works FROM language_stats WHERE dim = #{dim} AND value = #{value}
     <if test="yearFrom != null"> AND year &gt;= #{yearFrom}</if>
     <if test="yearTo != null"> AND year &lt;= #{yearTo}</if>
     ORDER BY year, works DESC, language

@@ -175,7 +175,7 @@ paths:
     get:
       tags: [stats]
       summary: Listed works per work language and year, from the nightly language_stats
-      description: Works without a year are left out. Ordered by year, then works descending. The figures are as of the last REBUILD_STATS.
+      description: Works without a year are left out. Ordered by year, then works descending. Give at most one of taxgroup, code and country (the figures are kept per single dimension; a combination is a 400). The figures are as of the last REBUILD_STATS.
       operationId: languageStats
       parameters:
         - {name: taxgroup, in: query, schema: {type: string}}

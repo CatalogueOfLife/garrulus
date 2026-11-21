@@ -72,7 +72,12 @@ class StatsControllerIT extends AbstractPostgresIT {
     assertThat(insects25).hasSize(2);
     assertThat(languages("?taxgroup=Insects&yearTo=2024")).hasSize(1);
     assertThat(languages("?code=BOTANICAL")).hasSize(1);
-    assertThat(languages("?country=DE&taxgroup=Insects")).hasSize(2);
+    assertThat(languages("?country=DE")).hasSize(2);
+    // one dimension at most: a combination is a 400 saying so
+    HttpResponse<String> two = get("/api/stats/languages?country=DE&taxgroup=Insects");
+    assertThat(two.statusCode()).isEqualTo(400);
+    assertThat(two.body()).contains("at most one of taxgroup, code and country");
+    assertThat(get("/api/stats/languages?code=ZOOLOGICAL&taxgroup=Insects&country=DE").statusCode()).isEqualTo(400);
     assertThat(languages("?country=FR")).isEmpty();
     assertThat(get("/api/stats/languages?taxgroup=Unicorns").statusCode()).isEqualTo(400);
     assertThat(get("/api/stats/languages?code=NOPE").statusCode()).isEqualTo(400);

@@ -17,14 +17,25 @@ public class StatsController {
     this.stats = stats;
   }
 
-  /** {@code language} is {@code ''} for works without a decision. Ordered by year, then works descending. */
+  /** At most one of taxgroup, code and country (400 otherwise). {@code language} is {@code ''} for works without a decision. Ordered by year, then works descending. */
   @GetMapping("/api/stats/languages")
   public List<LanguageYear> languages(@RequestParam(required = false) String taxgroup,
       @RequestParam(required = false) String code, @RequestParam(required = false) String country,
       @RequestParam(required = false) Integer yearFrom, @RequestParam(required = false) Integer yearTo) {
     WorkController.requireOneOf("taxgroup", blank(taxgroup), WorkController.TAXGROUPS);
     WorkController.requireOneOf("code", blank(code), WorkController.CODES);
-    return stats.languages(blank(taxgroup), blank(code), blank(country), yearFrom, yearTo);
+    String[] dim = {"none", ""};
+    int given = 0;
+    for (String[] d : new String[][] {{"taxgroup", blank(taxgroup)}, {"code", blank(code)}, {"country", blank(country)}}) {
+      if (d[1] != null) {
+        dim = d;
+        given++;
+      }
+    }
+    if (given > 1) {
+      throw WorkController.bad("give at most one of taxgroup, code and country");
+    }
+    return stats.languages(dim[0], dim[1], yearFrom, yearTo);
   }
 
   private static String blank(String s) {
