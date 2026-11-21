@@ -147,7 +147,8 @@ public class AbstractTopUps {
       if (lang != null) works.setTextLangs(workId, null, lang);
       w = works.get(workId);
     }
-    List<TextIn> kept = parallelTexts.of(w.title(), WorkUpsert.effectiveAbstract(w), r.parallels());
+    List<TextIn> kept = parallelTexts.of(w.title(), w.titleLang(), WorkUpsert.effectiveAbstract(w), w.abstractLang(),
+        r.parallels());
     for (TextIn t : kept) {
       texts.upsertRanked(new WorkText(workId, t.field(), t.lang(), t.kind(), t.text(), r.abstractSource(), null, null),
           TEXT_RANK);

@@ -1,11 +1,13 @@
 package org.catalogueoflife.nametracker.indexer.lang;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import org.catalogueoflife.nametracker.finder.api.Block;
 import org.catalogueoflife.nametracker.finder.api.BlockType;
 import org.catalogueoflife.nametracker.finder.api.Document;
+import org.catalogueoflife.nametracker.store.content.TextLookupMapper;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
 import org.catalogueoflife.nametracker.store.lang.LanguageCodes;
 import org.catalogueoflife.nametracker.store.lang.LanguageEvidence;
@@ -24,18 +26,26 @@ import org.springframework.stereotype.Component;
 /**
  * Records what each signal says about the language of a work and decides it ({@link LanguageDecider}): declared by a
  * layer, OpenAlex's value, detection from the title and abstract, detection from the full text. The decision is
- * written to {@code work.language} and {@code language_source}, only on a change. The evidence holds codes and
+ * written to {@code work.language} and {@code language_source}, only on a change; {@code title_en} is brought up to date
+ * on every decision (it depends on {@code title_lang} too, which other paths set). The evidence holds codes and
  * confidences, never text (the raw column is a declared code and nothing else).
  *
  * <p>A decision that leaves a work in a language other than English with no English title enqueues
  * {@code TRANSLATE_TITLE} (key {@code translate:<id>}, at BACKFILL) when translation is enabled, but only once the work
- * has been named: the translation's name check needs the title's mentions.
+ * has been named (the translation's name check needs the title's mentions) and not when the configured model's
+ * translation of it was dropped before ({@code text_lookup} service {@code TRANSLATE:<model>}, see
+ * {@link #translationDropped(String)}).
  */
 @Component
 public class LanguageService {
 
   /** The task that translates a title; its handler follows with the translation work. */
   public static final String TRANSLATE_TITLE = "TRANSLATE_TITLE";
+  /** The {@code text_lookup} service that records a dropped translation of a model: {@code TRANSLATE:<model>}. */
+  public static String translationDropped(String model) {
+    return "TRANSLATE:" + model;
+  }
+
   /** Letters of the body the detector reads. */
   static final int BODY_LETTERS = 5000;
 
@@ -47,11 +57,14 @@ public class LanguageService {
   private final LanguageDecider decider;
   private final LanguageDetector detector;
   private final TaskQueue queue;
+  private final TextLookupMapper lookups;
   private final boolean translationEnabled;
+  private final String translationModel;
 
   public LanguageService(LanguageEvidenceMapper evidence, WorkTextMapper texts, WorkMapper works, SourceMapper sources,
-      IndexMapper index, LanguageDecider decider, LanguageDetector detector, TaskQueue queue,
-      @Value("${nametracker.translation.enabled:false}") boolean translationEnabled) {
+      IndexMapper index, LanguageDecider decider, LanguageDetector detector, TaskQueue queue, TextLookupMapper lookups,
+      @Value("${nametracker.translation.enabled:false}") boolean translationEnabled,
+      @Value("${nametracker.translation.model:libretranslate-1.9.6/argos}") String translationModel) {
     this.evidence = evidence;
     this.texts = texts;
     this.works = works;
@@ -60,7 +73,9 @@ public class LanguageService {
     this.decider = decider;
     this.detector = detector;
     this.queue = queue;
+    this.lookups = lookups;
     this.translationEnabled = translationEnabled;
+    this.translationModel = translationModel;
   }
 
   /** Stores the evidence (one row per work, kind and source) and decides again. */
@@ -108,15 +123,17 @@ public class LanguageService {
     LanguageDecider.Decision d = decider.decide(evidence.forWork(workId), journal);
     if (!Objects.equals(d.lang(), w.language()) || !d.source().equals(w.languageSource())) {
       evidence.setDecision(workId, d.lang(), d.source());
-      texts.refreshTitleEn(workId);
     }
+    // also without a new decision: title_lang may have changed alone (the refresh writes only a change)
+    texts.refreshTitleEn(workId);
     translateIfNeeded(w, d);
     return d;
   }
 
   private void translateIfNeeded(Work w, LanguageDecider.Decision d) {
     if (!translationEnabled || d.lang() == null || "en".equals(d.lang()) || w.titleEn() != null
-        || "en".equals(w.titleLang()) || index.namesDocSha(w.id()) == null) {
+        || "en".equals(w.titleLang()) || index.namesDocSha(w.id()) == null
+        || lookups.triedSince(w.id(), translationDropped(translationModel), Instant.EPOCH)) {
       return;
     }
     queue.enqueue(TRANSLATE_TITLE, "{\"workId\":" + w.id() + "}", TaskPriority.BACKFILL, "translate:" + w.id());

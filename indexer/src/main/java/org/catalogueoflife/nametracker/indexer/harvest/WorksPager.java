@@ -180,7 +180,9 @@ public class WorksPager {
     String al = LanguageCodes.normalise(abstractLang);
     if (!titleKept) tl = null; // a layer's language label is only for text it supplied and the store kept
     if (!absKept) al = null;
-    List<TextIn> kept = parallelTexts.of(title, abs, textVersions);
+    // the own text's language: the layer's label for text it supplied, else what is stored, else detected
+    List<TextIn> kept = parallelTexts.of(title, tl != null ? tl : stored != null ? stored.titleLang() : null, abs,
+        al != null ? al : stored != null ? stored.abstractLang() : null, textVersions);
     if (tl == null && titleLang == null
         && kept.stream().anyMatch(t -> "TITLE".equals(t.field()) && "ORIGINAL".equals(t.kind()))) {
       // an ORIGINAL title says the work's own title is not the article's language: only with a confident language of

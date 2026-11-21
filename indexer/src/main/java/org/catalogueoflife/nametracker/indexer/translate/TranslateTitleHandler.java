@@ -1,13 +1,16 @@
 package org.catalogueoflife.nametracker.indexer.translate;
 
 import java.text.Normalizer;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
+import org.catalogueoflife.nametracker.indexer.lang.LanguageService;
 import org.catalogueoflife.nametracker.indexer.task.TaskHandler;
+import org.catalogueoflife.nametracker.store.content.TextLookupMapper;
 import org.catalogueoflife.nametracker.store.lang.LanguageCodes;
 import org.catalogueoflife.nametracker.store.lang.WorkText;
 import org.catalogueoflife.nametracker.store.lang.WorkTextMapper;
@@ -32,7 +35,9 @@ import tools.jackson.databind.JsonNode;
  *
  * <p>Nothing is written for a work that has not been named yet (the name check needs the finder's title mentions;
  * {@code FindNamesHandler} enqueues the task again through {@code LanguageService}), nor for a translation that is
- * blank, echoes the title, or drops a Latin-script name mentioned in the title. {@code all} pages the works of non-Latin
+ * blank, echoes the title, or drops a Latin-script name mentioned in the title. Such a drop is remembered per model
+ * ({@code text_lookup} service {@code TRANSLATE:<model>}): the title is not sent again for that model unless
+ * {@code force}, and {@code LanguageService} enqueues no more tasks for it. {@code all} pages the works of non-Latin
  * languages first, then those of Latin-script languages, and continues per batch ({@code translate-all:<script>:<afterId>},
  * at this task's priority and run_after). Off (the task ends DONE with an INFO) unless translation is enabled and a
  * translator is configured. An outage of the service defers the task.
@@ -51,18 +56,20 @@ public class TranslateTitleHandler implements TaskHandler {
   private final WorkTextMapper texts;
   private final SearchMapper search;
   private final TaskQueue queue;
+  private final TextLookupMapper lookups;
   private final AtomicLong dropped = new AtomicLong();
   private final AtomicLong failed = new AtomicLong();
   private final AtomicBoolean warned = new AtomicBoolean();
 
   public TranslateTitleHandler(TranslationProperties props, ObjectProvider<TitleTranslator> translator,
-      WorkMapper works, WorkTextMapper texts, SearchMapper search, TaskQueue queue) {
+      WorkMapper works, WorkTextMapper texts, SearchMapper search, TaskQueue queue, TextLookupMapper lookups) {
     this.props = props;
     this.translator = translator;
     this.works = works;
     this.texts = texts;
     this.search = search;
     this.queue = queue;
+    this.lookups = lookups;
   }
 
   @Override
@@ -125,7 +132,7 @@ public class TranslateTitleHandler implements TaskHandler {
   }
 
   private void translate(TitleTranslator t, Work w, boolean force) throws Exception {
-    String from = w.titleLang() != null ? w.titleLang() : w.language();
+    String from = LanguageCodes.normalise(w.titleLang() != null ? w.titleLang() : w.language());
     if (from == null || "en".equals(from) || !t.sources().contains(from)) return;
     if (w.title() == null || w.title().isBlank()) return;
     if (search.namesDocSha(w.id()) == null) return; // not named yet: the name check has no mentions to check
@@ -135,11 +142,14 @@ public class TranslateTitleHandler implements TaskHandler {
       if ("PARALLEL".equals(v.kind())) return;
       if ("MACHINE".equals(v.kind()) && !force && t.model().equals(v.model())) return;
     }
+    String droppedKey = LanguageService.translationDropped(t.model());
+    if (!force && lookups.triedSince(w.id(), droppedKey, Instant.EPOCH)) return; // dropped before, same model
     String out = t.translate(w.title(), from);
     String reason = rejection(w, out);
     if (reason != null) {
       LOG.info("Dropped the translation of the title of work {} ({}); {} dropped so far", w.id(), reason,
           dropped.incrementAndGet());
+      lookups.record(w.id(), droppedKey, false);
       return;
     }
     texts.upsert(new WorkText(w.id(), "TITLE", "en", "MACHINE", out.strip(), t.engine(), t.model(), null));

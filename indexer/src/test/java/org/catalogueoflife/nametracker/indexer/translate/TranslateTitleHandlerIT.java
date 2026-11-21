@@ -24,7 +24,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
 
 @Import(TranslateTitleHandlerIT.Fake.class)
-@TestPropertySource(properties = {"nametracker.translation.enabled=true"})
+@TestPropertySource(properties = {"nametracker.translation.enabled=true", "nametracker.translation.model=fake/1"})
 class TranslateTitleHandlerIT extends AbstractPostgresIT {
 
   interface ThrowingFn { String apply(String t, String from) throws java.io.IOException; }
@@ -55,6 +55,7 @@ class TranslateTitleHandlerIT extends AbstractPostgresIT {
   @Autowired IndexMapper index;
   @Autowired WorkTextMapper texts;
   @Autowired TranslationProperties props;
+  @Autowired org.catalogueoflife.nametracker.indexer.lang.LanguageService languages;
 
   @BeforeEach
   void clean() {
@@ -106,6 +107,32 @@ class TranslateTitleHandlerIT extends AbstractPostgresIT {
         .isEqualTo("中国步甲属一新种 Carabus auratus");
     assertThat(jdbc.queryForObject("SELECT count(*) FROM work WHERE fts @@ websearch_to_tsquery('english', 'cockroach OR china') "
         + "AND id = ?", Long.class, id)).isEqualTo(1);
+  }
+
+  private long translateTasks() {
+    return jdbc.queryForObject("SELECT count(*) FROM task WHERE type = 'TRANSLATE_TITLE'", Long.class);
+  }
+
+  @Test
+  void aDroppedTranslationIsNotAskedAgainUntilTheModelChanges() throws Exception {
+    long id = work("中国步甲属一新种 Carabus auratus", "zh", true);
+    titleMention(id, "Carabus auratus");
+    languages.evidence(id, org.catalogueoflife.nametracker.indexer.lang.LanguageService.declared(id, "OAI", "zh"));
+    assertThat(translateTasks()).isEqualTo(1); // a named Chinese work without an English title
+    jdbc.update("DELETE FROM task");
+    fake.fn = (t, from) -> "A new species of ground beetle from China";
+
+    run(id); // dropped: it loses the name
+    run(id);
+    assertThat(fake.calls).hasSize(1);
+    languages.decide(id); // another sighting decides again
+    assertThat(translateTasks()).isZero();
+
+    handler.handle(task("{\"workId\":" + id + ",\"force\":true}")); // a forced run asks again
+    assertThat(fake.calls).hasSize(2);
+    fake.model = "fake/2"; // as does a new model
+    run(id);
+    assertThat(fake.calls).hasSize(3);
   }
 
   @Test
@@ -167,7 +194,7 @@ class TranslateTitleHandlerIT extends AbstractPostgresIT {
     TranslateTitleHandler off = new TranslateTitleHandler(
         new TranslationProperties(false, "http://localhost:5055", "m", java.time.Duration.ofSeconds(30)),
         new org.springframework.beans.factory.support.DefaultListableBeanFactory().getBeanProvider(TitleTranslator.class),
-        handlerWorks(), texts, handlerSearch(), handlerQueue());
+        handlerWorks(), texts, handlerSearch(), handlerQueue(), textLookups);
     off.handle(task("{\"workId\":" + id + "}"));
     off.handle(task("{\"all\":true}"));
     assertThat(fake.calls).isEmpty();
@@ -177,6 +204,7 @@ class TranslateTitleHandlerIT extends AbstractPostgresIT {
   @Autowired org.catalogueoflife.nametracker.store.work.WorkMapper workMapper;
   @Autowired org.catalogueoflife.nametracker.store.search.SearchMapper searchMapper;
   @Autowired org.catalogueoflife.nametracker.store.task.TaskQueue taskQueue;
+  @Autowired org.catalogueoflife.nametracker.store.content.TextLookupMapper textLookups;
 
   private org.catalogueoflife.nametracker.store.work.WorkMapper handlerWorks() { return workMapper; }
   private org.catalogueoflife.nametracker.store.search.SearchMapper handlerSearch() { return searchMapper; }
@@ -267,7 +295,7 @@ class TranslateTitleHandlerIT extends AbstractPostgresIT {
     run(inWord);
     assertThat(machineRows(inWord)).isZero();
     fake.fn = (t, f) -> "A new species Rana, from Spain";
-    run(inWord);
+    handler.handle(task("{\"workId\":" + inWord + ",\"force\":true}")); // the drop is remembered: force asks again
     assertThat(machineRows(inWord)).isEqualTo(1);
   }
 

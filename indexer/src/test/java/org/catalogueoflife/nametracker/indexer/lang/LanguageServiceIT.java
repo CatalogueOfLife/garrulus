@@ -64,6 +64,22 @@ class LanguageServiceIT extends AbstractPostgresIT {
   }
 
   @Test
+  void aDecisionRefreshesTheEnglishTitleAfterTitleLangChangedAlone() {
+    long id = store("10.1000/tl", "中国步甲属一新种", null, null, Layer.OAI, "zh");
+    jdbc.update("INSERT INTO work_text (work_id, field, lang, kind, text, source, model) VALUES (?, 'TITLE', 'en', "
+        + "'MACHINE', 'A new species of ground beetle', 'fake', 'm')", id);
+    jdbc.update("UPDATE work SET title_lang = 'en', title_en = NULL, title_en_kind = NULL WHERE id = ?", id);
+    languages.decide(id);
+    assertThat(jdbc.queryForObject("SELECT title_en FROM work WHERE id = ?", String.class, id)).isNull(); // English
+
+    jdbc.update("UPDATE work SET title_lang = 'zh' WHERE id = ?", id); // a path that changes title_lang alone
+    languages.decide(id); // the decision itself (zh, DECLARED) does not change
+
+    assertThat(jdbc.queryForMap("SELECT title_en, title_en_kind FROM work WHERE id = ?", id))
+        .containsEntry("title_en", "A new species of ground beetle").containsEntry("title_en_kind", "MACHINE");
+  }
+
+  @Test
   void oaiEnglishSpelledOutIsEnglish() {
     long id = store("10.1000/oai", "Some title", null, null, Layer.OAI, "English");
     assertThat(decision(id)).containsEntry("language", "en").containsEntry("language_source", "DECLARED");

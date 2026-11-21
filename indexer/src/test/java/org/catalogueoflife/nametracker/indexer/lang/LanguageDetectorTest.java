@@ -17,6 +17,28 @@ class LanguageDetectorTest {
       + "comparan con sus congéneres. Las nuevas especies se diferencian de todas las demás del género por la forma "
       + "de la genitalia masculina y por el color del pronoto. Se proporciona una clave de las especies.";
 
+  private static final String NO_ABSTRACT = "Vi beskriver to nye arter av kakerlakker fra det sørvestlige Kina og "
+      + "sammenligner dem med deres nærmeste slektninger. De nye artene skiller seg fra alle kjente medlemmer av "
+      + "slekten i formen på hannens kjønnsorganer og i fargen på brystskjoldet. En nøkkel til artene er gitt.";
+
+  @Test
+  void everyDetectorLanguageIsInTheOneCodeForm() {
+    assertThat(LanguageDetector.supportedCodes()).hasSize(40).allSatisfy(c -> {
+      assertThat(org.catalogueoflife.nametracker.store.lang.LanguageCodes.normalise(c)).isEqualTo(c);
+      assertThat(LanguageDetector.supports(org.catalogueoflife.nametracker.store.lang.LanguageCodes.normalise(c)))
+          .isTrue();
+    });
+  }
+
+  @Test
+  void norwegianIsNoAsLanguageCodesHasIt() {
+    for (String raw : List.of("nb", "nn", "no", "nob", "Norwegian")) {
+      assertThat(LanguageDetector.supports(org.catalogueoflife.nametracker.store.lang.LanguageCodes.normalise(raw)))
+          .as(raw).isTrue();
+    }
+    assertThat(D.detect(NO_ABSTRACT).lang()).isEqualTo("no");
+  }
+
   @Test
   void chineseTitle() {
     LanguageDetector.Detection d = D.detect("中国西南地区蜚蠊科两新属");

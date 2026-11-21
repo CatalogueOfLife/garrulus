@@ -48,6 +48,29 @@ class LibreTranslateClientIT {
   }
 
   @Test
+  void serviceCodesAreNormalisedAndSentBackAsTheServiceNamesThem(WireMockRuntimeInfo wm) throws Exception {
+    wm.getWireMock().register(get(urlEqualTo("/languages")).willReturn(aResponse().withBody(
+        "[{\"code\":\"zh-Hant\",\"targets\":[\"en\"]},{\"code\":\"zh-Hans\",\"targets\":[\"en\"]},"
+            + "{\"code\":\"nb\",\"targets\":[\"en\"]},{\"code\":\"pt-BR\",\"targets\":[\"en\"]},"
+            + "{\"code\":\"pt\",\"targets\":[\"en\"]},{\"code\":\"xx-unknown\",\"targets\":[\"en\"]},"
+            + "{\"code\":\"en\",\"targets\":[\"zh-Hans\"]}]")));
+    wm.getWireMock().register(post(urlEqualTo("/translate")).willReturn(aResponse()
+        .withBody("{\"translatedText\":\"A new species\"}")));
+    LibreTranslateClient c = client(wm.getHttpBaseUrl(), Clock.systemUTC());
+
+    assertThat(c.sources()).containsExactlyInAnyOrder("zh", "no", "pt"); // the decided languages' form
+    c.translate("一新种", "zh");
+    c.translate("En ny art", "no");
+    c.translate("Uma nova espécie", "pt");
+    wm.getWireMock().verifyThat(1, postRequestedFor(urlEqualTo("/translate")).withRequestBody(
+        equalToJson("{\"q\":\"一新种\",\"source\":\"zh-Hans\",\"target\":\"en\",\"format\":\"text\"}")));
+    wm.getWireMock().verifyThat(1, postRequestedFor(urlEqualTo("/translate")).withRequestBody(
+        equalToJson("{\"q\":\"En ny art\",\"source\":\"nb\",\"target\":\"en\",\"format\":\"text\"}")));
+    wm.getWireMock().verifyThat(1, postRequestedFor(urlEqualTo("/translate")).withRequestBody(
+        equalToJson("{\"q\":\"Uma nova espécie\",\"source\":\"pt\",\"target\":\"en\",\"format\":\"text\"}")));
+  }
+
+  @Test
   void connectionRefusedIsOutage() {
     LibreTranslateClient c = client("http://127.0.0.1:9", Clock.systemUTC());
     assertThatThrownBy(() -> c.translate("x", "zh")).isInstanceOf(ServiceOutageException.class);

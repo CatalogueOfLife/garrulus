@@ -69,7 +69,10 @@ public final class LanguageCodes {
     return null;
   }
 
-  /** Norwegian is one language here: Bokmål, Nynorsk and the macrolanguage are {@code no}, as the detector has it. */
+  /**
+   * Norwegian is one language here: Bokmål, Nynorsk and the macrolanguage are {@code no}; the detector reports its
+   * Bokmål as {@code no} too.
+   */
   private static String unify(String code) {
     return "nb".equals(code) || "nn".equals(code) ? "no" : code;
   }

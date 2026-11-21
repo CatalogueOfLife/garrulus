@@ -10,12 +10,14 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.finder.remote.ConnectFailures;
 import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
+import org.catalogueoflife.nametracker.store.lang.LanguageCodes;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -23,6 +25,12 @@ import tools.jackson.databind.JsonNode;
  * it does not go through PoliteHttp (which refuses loopback addresses on purpose): the client calls the configured URL
  * only, follows no redirect and has a timeout. A refused connection, a timeout and a 5xx are an outage (30 minutes);
  * any other failure is an {@link IOException}.
+ *
+ * <p>The service's language codes ({@code zh-Hans}, {@code nb}, {@code pt-BR}) are normalised with
+ * {@link LanguageCodes} to the form of the decided languages ({@code zh}, {@code no}, {@code pt}): {@link #sources()}
+ * answers those, and {@link #translate} sends the service's own code back. Where several service codes give one
+ * language, the plain code wins, then a {@code Hans} variant, then the first listed; a code that is no language is left
+ * out.
  */
 public class LibreTranslateClient implements TitleTranslator {
 
@@ -38,6 +46,8 @@ public class LibreTranslateClient implements TitleTranslator {
   private final HttpClient http;
   private final String userAgent;
   private Set<String> sources;
+  /** Normalised code to the service's code. */
+  private Map<String, String> serviceCodes;
   private Instant sourcesAt;
 
   public LibreTranslateClient(URI baseUrl, String model, Duration timeout, Clock clock) {
@@ -66,22 +76,41 @@ public class LibreTranslateClient implements TitleTranslator {
     Instant now = clock.instant();
     if (sources == null || now.isAfter(sourcesAt.plus(LANGUAGES_TTL))) {
       JsonNode langs = FinderJson.mapper().readTree(send(request("/languages").GET().build()));
-      Set<String> s = new LinkedHashSet<>();
+      Map<String, String> codes = new LinkedHashMap<>();
       for (JsonNode l : langs) {
-        for (JsonNode t : l.path("targets")) {
-          if ("en".equals(t.asString()) && !"en".equals(l.path("code").asString())) s.add(l.path("code").asString());
-        }
+        String code = l.path("code").asString("");
+        String norm = LanguageCodes.normalise(code);
+        if (norm == null || "en".equals(norm)) continue;
+        boolean toEnglish = false;
+        for (JsonNode t : l.path("targets")) toEnglish |= "en".equals(LanguageCodes.normalise(t.asString("")));
+        if (!toEnglish) continue;
+        String held = codes.get(norm);
+        if (held == null || rank(code, norm) < rank(held, norm)) codes.put(norm, code);
       }
-      sources = Set.copyOf(s);
+      serviceCodes = Map.copyOf(codes);
+      sources = Set.copyOf(codes.keySet());
       sourcesAt = now;
     }
     return sources;
   }
 
+  /** 0 for the plain code, 1 for a Simplified (Hans) variant, 2 for any other. */
+  private static int rank(String code, String norm) {
+    if (code.equalsIgnoreCase(norm)) return 0;
+    return code.toLowerCase(Locale.ROOT).contains("hans") ? 1 : 2;
+  }
+
+  /** The service's code of a (normalised) language, as {@link #sources()} last read them; else the code itself. */
+  private synchronized String serviceCode(String from) {
+    String n = LanguageCodes.normalise(from);
+    if (serviceCodes == null || n == null) return from;
+    return serviceCodes.getOrDefault(n, from);
+  }
+
   @Override
   public String translate(String text, String from) throws IOException {
     String body = FinderJson.mapper().writeValueAsString(
-        Map.of("q", text, "source", from, "target", "en", "format", "text"));
+        Map.of("q", text, "source", serviceCode(from), "target", "en", "format", "text"));
     HttpRequest req = request("/translate").header("Content-Type", "application/json")
         .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8)).build();
     String resp = send(req);

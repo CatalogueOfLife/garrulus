@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
+import org.catalogueoflife.nametracker.store.lang.LanguageCodes;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
@@ -46,6 +47,11 @@ public class LanguageDetector {
   /** Whether the detector can tell this (normalised) language: the 40 it is built over. */
   public static boolean supports(@Nullable String code) {
     return code != null && SUPPORTED.contains(code);
+  }
+
+  /** The codes of the 40 languages, in the form {@link LanguageCodes#normalise} gives. */
+  static Set<String> supportedCodes() {
+    return Set.copyOf(SUPPORTED);
   }
 
   private static final Pattern MARKUP = Pattern.compile("<[^>]*>");
@@ -236,7 +242,10 @@ public class LanguageDetector {
     return n;
   }
 
+  /** The language's code in the one form of {@link LanguageCodes} (Bokmål is {@code no}, as Nynorsk would be). */
   private static String code(Language l) {
-    return l.getIsoCode639_1().toString().toLowerCase(Locale.ROOT);
+    String iso = l.getIsoCode639_1().toString().toLowerCase(Locale.ROOT);
+    String c = LanguageCodes.normalise(iso);
+    return c != null ? c : iso;
   }
 }

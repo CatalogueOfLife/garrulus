@@ -12,11 +12,11 @@ public interface TitleTranslator {
   /** Stored as the {@code model} of the translation: a different model translates a title again on request. */
   String model();
 
-  /** Language codes the translator reads and translates to English. */
+  /** The languages the translator reads and translates to English, as {@code LanguageCodes} normalises them. */
   Set<String> sources() throws IOException;
 
   /**
-   * The English translation of {@code text} written in {@code from}.
+   * The English translation of {@code text} written in {@code from} (a normalised code of {@link #sources()}).
    *
    * @throws org.catalogueoflife.nametracker.indexer.task.ServiceOutageException when the service is down
    * @throws IOException when this request failed
