@@ -27,6 +27,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.catalogueoflife.nametracker.web.api.public_.MentionedInParam;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
@@ -67,38 +69,42 @@ public class FeedController {
   }
 
   @GetMapping("/feeds/taxon/{colId}.atom")
-  public ResponseEntity<byte[]> taxon(@PathVariable String colId) {
+  public ResponseEntity<byte[]> taxon(@PathVariable String colId,
+      @RequestParam(name = "mentionedIn", required = false) List<String> mentionedIn) {
     // a COL id cannot be checked without calling CLB: an unknown one is an empty feed
     return publicFeed("taxon/" + colId, "taxon " + colId,
-        filter(colId, null, null, null, true));
+        filter(colId, null, null, null, true, mentionedIn));
   }
 
   @GetMapping("/feeds/source/{id}.atom")
-  public ResponseEntity<byte[]> source(@PathVariable long id) {
+  public ResponseEntity<byte[]> source(@PathVariable long id,
+      @RequestParam(name = "mentionedIn", required = false) List<String> mentionedIn) {
     Source s = sources.get(id);
     if (s == null || !Boolean.TRUE.equals(s.active()) || !PUBLIC_TIERS.contains(s.tier())) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "no source " + id);
     }
-    return publicFeed("source/" + id, s.title(), filter(null, null, null, id, false));
+    return publicFeed("source/" + id, s.title(), filter(null, null, null, id, false, mentionedIn));
   }
 
   @GetMapping("/feeds/name/{id}.atom")
-  public ResponseEntity<byte[]> name(@PathVariable long id) {
+  public ResponseEntity<byte[]> name(@PathVariable long id,
+      @RequestParam(name = "mentionedIn", required = false) List<String> mentionedIn) {
     var n = names.get(id);
     if (n == null) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "no name " + id);
     }
-    return publicFeed("name/" + id, n.name(), filter(null, id, null, null, false));
+    return publicFeed("name/" + id, n.name(), filter(null, id, null, null, false, mentionedIn));
   }
 
   @GetMapping("/feeds/taxgroup/{group}.atom")
-  public ResponseEntity<byte[]> taxgroup(@PathVariable String group) {
+  public ResponseEntity<byte[]> taxgroup(@PathVariable String group,
+      @RequestParam(name = "mentionedIn", required = false) List<String> mentionedIn) {
     try {
       TaxGroup.valueOf(group);
     } catch (IllegalArgumentException e) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "no taxgroup " + group);
     }
-    return publicFeed("taxgroup/" + group, group, filter(null, null, group, null, true));
+    return publicFeed("taxgroup/" + group, group, filter(null, null, group, null, true, mentionedIn));
   }
 
   @GetMapping("/feeds/s/{token}.atom")
@@ -126,8 +132,10 @@ public class FeedController {
         .header("X-Robots-Tag", "noindex").header("Referrer-Policy", "no-referrer").body(xml);
   }
 
-  private static WorkFilter filter(String taxon, Long name, String taxgroup, Long source, boolean mainSubjectOnly) {
-    return WorkFilter.builder().taxon(taxon).name(name).taxgroup(taxgroup).source(source).mainSubjectOnly(mainSubjectOnly).build();
+  private static WorkFilter filter(String taxon, Long name, String taxgroup, Long source, boolean mainSubjectOnly,
+      List<String> mentionedIn) {
+    return WorkFilter.builder().taxon(taxon).name(name).taxgroup(taxgroup).source(source).mainSubjectOnly(mainSubjectOnly)
+        .mentionedIn(MentionedInParam.parse(mentionedIn)).build();
   }
 
   private ResponseEntity<byte[]> publicFeed(String path, String label, WorkFilter f) {

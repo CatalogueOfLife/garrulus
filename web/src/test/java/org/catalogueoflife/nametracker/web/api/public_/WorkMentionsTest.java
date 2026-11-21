@@ -20,7 +20,7 @@ class WorkMentionsTest {
 
   static NameDetail name(long id) {
     return new NameDetail(id, "n" + id, "BINOMIAL", null, "NONE", null, null, null, null, null, null, 0f, false, false, 1,
-        List.of(), "best", List.of());
+        List.of(), "best", List.of(), false, false, false, 0);
   }
 
   @Test

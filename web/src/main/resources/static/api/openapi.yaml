@@ -68,6 +68,7 @@ paths:
         - {name: mainSubjectOnly, in: query, schema: {type: boolean, default: false}}
         - {name: q, in: query, description: "Full-text query over title and abstract.", schema: {type: string}}
         - {name: identifier, in: query, description: "An external identifier of the work as `SCHEME:value`, split at the first colon (e.g. `PMCID:PMC10768028`, `DOI:10.1/x`); the value is normalised through its scheme. 400 for an unknown or non-work scheme or an invalid value.", schema: {type: string}}
+        - {name: mentionedIn, in: query, description: "Repeatable: the name (taxon or name filter, else any non-reference name) must occur in one of these parts of the work: TITLE, ABSTRACT, BODY (text or a heading). Other values are 400.", schema: {type: array, items: {type: string, enum: [TITLE, ABSTRACT, BODY]}}, style: form, explode: true}
         - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
         - {name: offset, in: query, schema: {type: integer, minimum: 0, maximum: 10000, default: 0}}
         - name: facet
@@ -143,6 +144,7 @@ paths:
         - {name: mainSubjectOnly, in: query, schema: {type: boolean, default: true}}
         - {name: yearFrom, in: query, schema: {type: integer}}
         - {name: yearTo, in: query, schema: {type: integer}}
+        - {name: mentionedIn, in: query, description: "Repeatable: the name (taxon or name filter, else any non-reference name) must occur in one of these parts of the work: TITLE, ABSTRACT, BODY (text or a heading). Other values are 400.", schema: {type: array, items: {type: string, enum: [TITLE, ABSTRACT, BODY]}}, style: form, explode: true}
         - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
         - {name: offset, in: query, schema: {type: integer, minimum: 0, maximum: 10000, default: 0}}
       responses:
@@ -621,6 +623,7 @@ components:
         includeReferences: {type: boolean}
         filters: {$ref: "#/components/schemas/SubscriptionFilters"}
         sinceYear: {type: [integer, "null"], minimum: 1750}
+        mentionedIn: {type: array, items: {type: string, enum: [TITLE, ABSTRACT, BODY]}, description: "Only names in these parts of a work count (empty: anywhere); duplicates are folded."}
         paused: {type: boolean, description: "Change only."}
     SubscriptionFilters:
       type: object
@@ -646,6 +649,7 @@ components:
         includeReferences: {type: boolean}
         filters: {$ref: "#/components/schemas/SubscriptionFilters"}
         sinceYear: {type: [integer, "null"]}
+        mentionedIn: {type: array, items: {type: string, enum: [TITLE, ABSTRACT, BODY]}}
         paused: {type: boolean}
         feedUrl: {type: string, description: "Secret Atom feed URL of this subscription."}
         created: {type: string, format: date-time}
@@ -739,6 +743,10 @@ components:
         mentionCount: {type: integer}
         actTypes: {type: array, items: {type: string}}
         bestSnippet: {type: string}
+        inTitle: {type: boolean}
+        inAbstract: {type: boolean}
+        inHeading: {type: boolean}
+        bodyCount: {type: integer, description: "Mentions in body text (headings aside)."}
         classification: {type: array, items: {$ref: "#/components/schemas/TaxonRef"}}
     MentionSpan:
       type: object

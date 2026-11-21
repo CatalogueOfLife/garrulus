@@ -74,6 +74,10 @@
       <arg column="usage_rank" javaType="string"/>
       <arg column="usage_status" javaType="string"/>
       <arg column="classification" javaType="string"/>
+      <arg column="in_title" javaType="_boolean"/>
+      <arg column="in_abstract" javaType="_boolean"/>
+      <arg column="in_heading" javaType="_boolean"/>
+      <arg column="body_count" javaType="_int"/>
     </constructor>
   </resultMap>
 
@@ -85,6 +89,15 @@
   </resultMap>
 
   <sql id="from">FROM work w LEFT JOIN source s ON s.id = w.source_id</sql>
+
+  <!-- Where the name occurs (parameter object "f", alias wn): TITLE, ABSTRACT, BODY (text or a heading), OR-ed; nothing when empty. -->
+  <sql id="mentionedIn">
+    <trim prefix=" AND (" suffix=")" prefixOverrides="OR ">
+      <if test='f.mentionedIn.contains("TITLE")'> OR wn.in_title</if>
+      <if test='f.mentionedIn.contains("ABSTRACT")'> OR wn.in_abstract</if>
+      <if test='f.mentionedIn.contains("BODY")'> OR (wn.body_count &gt; 0 OR wn.in_heading)</if>
+    </trim>
+  </sql>
 
   <!-- The one filter shared by search, count and facet. Parameter object is "f". -->
   <sql id="where">
@@ -106,14 +119,17 @@
     <if test="f.q != null"> AND w.fts @@ websearch_to_tsquery('simple', #{f.q})</if>
     <if test="f.taxon != null">
       AND EXISTS (SELECT 1 FROM work_name wn WHERE wn.work_id = w.id AND wn.taxon_path @&gt; ARRAY[#{f.taxon}]::text[]
-        AND NOT wn.only_reference <if test="f.mainSubjectOnly"> AND wn.main_subject</if>)
+        AND NOT wn.only_reference <if test="f.mainSubjectOnly"> AND wn.main_subject</if><include refid="mentionedIn"/>)
     </if>
     <if test="f.name != null">
       AND EXISTS (SELECT 1 FROM work_name wn WHERE wn.work_id = w.id AND wn.name_string_id = #{f.name}
-        <if test="f.mainSubjectOnly"> AND wn.main_subject</if>)
+        <if test="!f.mentionedIn.isEmpty()"> AND NOT wn.only_reference</if>
+        <if test="f.mainSubjectOnly"> AND wn.main_subject</if><include refid="mentionedIn"/>)
     </if>
-    <if test="f.mainSubjectOnly and f.taxon == null and f.name == null">
-      AND EXISTS (SELECT 1 FROM work_name wn WHERE wn.work_id = w.id AND wn.main_subject)
+    <if test="(f.mainSubjectOnly or !f.mentionedIn.isEmpty()) and f.taxon == null and f.name == null">
+      AND EXISTS (SELECT 1 FROM work_name wn WHERE wn.work_id = w.id
+        <if test="f.mainSubjectOnly"> AND wn.main_subject</if>
+        <if test="!f.mentionedIn.isEmpty()"> AND NOT wn.only_reference</if><include refid="mentionedIn"/>)
     </if>
   </sql>
 
@@ -246,6 +262,7 @@
   <select id="workNames" resultMap="workNameRow">
     SELECT wn.name_string_id, ns.name, ns.kind, ns.rank, wn.placement_method, wn.usage_id, wn.taxon_path, wn.code,
            wn.taxgroup, wn.salience, wn.main_subject, wn.only_reference, wn.mention_count, wn.act_types, wn.best_snippet,
+           wn.in_title, wn.in_abstract, wn.in_heading, wn.body_count,
            COALESCE(own.usage_name, other.usage_name) AS usage_name,
            COALESCE(own.usage_rank, other.usage_rank) AS usage_rank,
            COALESCE(own.usage_status, other.usage_status) AS usage_status,

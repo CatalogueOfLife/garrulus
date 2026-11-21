@@ -317,4 +317,21 @@ class EvaluateHitsHandlerIT extends AbstractPostgresIT {
     assertThat((String) row.get("payload")).contains("\"workId\": " + w);
     assertThat(((Number) row.get("priority")).intValue()).isEqualTo(TaskPriority.BACKFILL.code());
   }
+
+  @Test
+  void followWithTitleGetsHitsOnlyForTitlePapers() throws Exception {
+    long inTitle = work();
+    name(inTitle, carabus, "Coleoptera", true);
+    jdbc.update("UPDATE work_name SET in_title = true, in_abstract = false WHERE work_id = ?", inTitle);
+    long inAbstract = work();
+    name(inAbstract, carabus, "Coleoptera", true);
+    long s = subs.insert(new Subscription(null, user, "TAXON", "Carabidae", null, false, false, true, false, "{}", null,
+        null, false, null, "OK", null, null, null, List.of("TITLE")));
+    jdbc.update("UPDATE subscription SET created = ? WHERE id = ?",
+        java.sql.Timestamp.from(Instant.now().minus(Duration.ofDays(1))), s);
+    handler.handle(task(inTitle));
+    handler.handle(task(inAbstract));
+    assertThat(hits.find(s, inTitle, "ARTICLE")).isNotNull();
+    assertThat(hits.find(s, inAbstract, "ARTICLE")).isNull();
+  }
 }

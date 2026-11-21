@@ -102,7 +102,8 @@ public class HitMatcher {
     for (WorkName r : rows) {
       out.add(new WorkNameView(r.nameStringId(), byId.getOrDefault(r.nameStringId(), ""),
           r.taxonPath().toArray(String[]::new), r.taxgroup(), r.mainSubject(), r.onlyReference(),
-          r.actTypes().toArray(String[]::new), r.placementMethod()));
+          r.actTypes().toArray(String[]::new), r.placementMethod(), r.inTitle(), r.inAbstract(), r.inHeading(),
+          r.bodyCount()));
     }
     return out;
   }

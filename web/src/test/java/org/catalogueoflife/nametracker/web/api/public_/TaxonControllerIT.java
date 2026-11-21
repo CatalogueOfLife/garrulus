@@ -105,4 +105,15 @@ class TaxonControllerIT extends AbstractPostgresIT {
         .exchange((req, res) -> res.getStatusCode().value());
     assertThat(post).isEqualTo(403);
   }
+
+  @Test
+  void mentionedInOnTaxonWorks() throws Exception {
+    workWithName("10.1/abs", "TXM", true, false);
+    jdbc.update("UPDATE work_name SET in_abstract = false, in_title = true WHERE work_id = (SELECT id FROM work WHERE doi = '10.1/abs')");
+    workWithName("10.1/abstract", "TXM", true, false);
+    assertThat(JSON.readTree(get("/api/taxa/TXM/works?mentionedIn=TITLE").body()).path("total").asInt()).isEqualTo(1);
+    assertThat(JSON.readTree(get("/api/taxa/TXM/works?mentionedIn=TITLE&mentionedIn=ABSTRACT").body()).path("total").asInt()).isEqualTo(2);
+    assertThat(JSON.readTree(get("/api/taxa/TXM/works?mentionedIn=BODY").body()).path("total").asInt()).isEqualTo(2);
+    assertThat(get("/api/taxa/TXM/works?mentionedIn=X").statusCode()).isEqualTo(400);
+  }
 }

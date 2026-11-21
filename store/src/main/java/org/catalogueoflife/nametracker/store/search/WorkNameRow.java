@@ -10,4 +10,5 @@ import org.jspecify.annotations.Nullable;
 public record WorkNameRow(long nameStringId, String name, String kind, @Nullable String rank, String placementMethod,
     @Nullable String usageId, List<String> taxonPath, @Nullable String code, @Nullable String taxgroup, float salience,
     boolean mainSubject, boolean onlyReference, int mentionCount, List<String> actTypes, String bestSnippet,
-    @Nullable String usageName, @Nullable String usageRank, @Nullable String usageStatus, String classification) {}
+    @Nullable String usageName, @Nullable String usageRank, @Nullable String usageStatus, String classification,
+    boolean inTitle, boolean inAbstract, boolean inHeading, int bodyCount) {}

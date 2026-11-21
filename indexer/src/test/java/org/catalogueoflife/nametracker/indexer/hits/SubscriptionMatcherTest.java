@@ -22,7 +22,17 @@ class SubscriptionMatcherTest {
   }
 
   private static WorkNameView name(long id, String group, boolean main, boolean ref, String... acts) {
-    return new WorkNameView(id, "Name " + id, new String[] {"Animalia", "Carabidae"}, group, main, ref, acts, "EXACT");
+    return new WorkNameView(id, "Name " + id, new String[] {"Animalia", "Carabidae"}, group, main, ref, acts, "EXACT", false, false, false, 1);
+  }
+
+  private static WorkNameView part(long id, boolean title, boolean abs, boolean heading, int body) {
+    return new WorkNameView(id, "Name " + id, new String[] {"Animalia", "Carabidae"}, null, true, false, new String[0],
+        "EXACT", title, abs, heading, body);
+  }
+
+  private static Subscription withMentioned(String type, String target, boolean main, String... parts) {
+    return new Subscription(1L, 1, type, target, null, main, false, true, false, "{}", "t", null, false, Instant.EPOCH,
+        "OK", null, null, null, List.of(parts));
   }
 
   @Test
@@ -105,5 +115,35 @@ class SubscriptionMatcherTest {
     assertThat(SubscriptionMatcher.match(s, FULL, List.of(name(1, "Coleoptera", true, false))).matches()).isTrue();
     assertThat(SubscriptionMatcher.match(s, FULL, List.of(name(1, "Mammals", true, false))).matches()).isFalse();
     assertThat(SubscriptionMatcher.match(s, FULL, List.of(name(1, null, true, false))).matches()).isFalse();
+  }
+
+  @Test
+  void emptyMentionedInIsUnchanged() {
+    var m = SubscriptionMatcher.match(withMentioned("TAXON", "Carabidae", true), FULL, List.of(part(1, false, false, false, 0)));
+    assertThat(m.matches()).isTrue();
+  }
+
+  @Test
+  void titleOnlyFollow() {
+    var s = withMentioned("TAXON", "Carabidae", true, "TITLE");
+    assertThat(SubscriptionMatcher.match(s, FULL, List.of(part(1, false, true, false, 3))).matches()).isFalse();
+    assertThat(SubscriptionMatcher.match(s, FULL, List.of(part(1, true, false, false, 0))).matches()).isTrue();
+  }
+
+  @Test
+  void bodyIncludesHeadings() {
+    var s = withMentioned("TAXON", "Carabidae", true, "BODY");
+    assertThat(SubscriptionMatcher.match(s, FULL, List.of(part(1, false, false, true, 0))).matches()).isTrue();
+    assertThat(SubscriptionMatcher.match(s, FULL, List.of(part(1, false, false, false, 0))).matches()).isFalse();
+  }
+
+  @Test
+  void sourceFollowWithTitleOnlyNeedsATitleName() {
+    var s = withMentioned("SOURCE", "7", false, "TITLE");
+    assertThat(SubscriptionMatcher.match(s, FULL, List.of(part(1, false, true, false, 1))).matches()).isFalse();
+    assertThat(SubscriptionMatcher.match(s, FULL, List.of()).matches()).isFalse();
+    assertThat(SubscriptionMatcher.match(s, FULL, List.of(part(1, true, false, false, 0))).matches()).isTrue();
+    var any = withMentioned("SOURCE", "7", false);
+    assertThat(SubscriptionMatcher.match(any, FULL, List.of()).matches()).isTrue();
   }
 }

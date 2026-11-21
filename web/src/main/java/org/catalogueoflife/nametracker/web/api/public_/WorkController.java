@@ -116,6 +116,7 @@ public class WorkController {
       @RequestParam(defaultValue = "false") boolean mainSubjectOnly,
       @RequestParam(required = false) @Nullable String q,
       @RequestParam(required = false) @Nullable String identifier,
+      @RequestParam(name = "mentionedIn", required = false) @Nullable List<String> mentionedIn,
       @RequestParam(defaultValue = "20") int limit,
       @RequestParam(defaultValue = "0") int offset,
       @RequestParam(name = "facet", required = false) @Nullable List<String> facet) {
@@ -133,7 +134,7 @@ public class WorkController {
         .subfield(discipline(subfield, discipline)).journalType(journalType).tier(tier).oa(oa)
         .country(blankToNull(country)).source(source).yearFrom(yearFrom).yearTo(yearTo).hasActs(hasActs)
         .actType(blankToNull(actType)).mainSubjectOnly(mainSubjectOnly).q(blankToNull(q))
-        .identifier(identifiers.parseWorkFilter(identifier)).build();
+        .identifier(identifiers.parseWorkFilter(identifier)).mentionedIn(MentionedInParam.parse(mentionedIn)).build();
     return page(f, limit, offset, facets);
   }
 
@@ -268,7 +269,8 @@ public class WorkController {
     }
     return new NameDetail(r.nameStringId(), r.name(), r.kind(), r.rank(), r.placementMethod(), r.usageId(),
         r.usageName(), r.usageRank(), r.usageStatus(), r.code(), r.taxgroup(), r.salience(), r.mainSubject(),
-        r.onlyReference(), r.mentionCount(), r.actTypes(), r.bestSnippet(), classification);
+        r.onlyReference(), r.mentionCount(), r.actTypes(), r.bestSnippet(), classification, r.inTitle(), r.inAbstract(),
+        r.inHeading(), r.bodyCount());
   }
 
   private static ContextDto context(ContextRow c) {

@@ -485,4 +485,69 @@ class WorkControllerIT extends AbstractPostgresIT {
         .path("url").asString()).isEqualTo("https://testdb.example/42");
     assertThat(JSON.readTree(get("/api/works?identifier=TESTDB:42").body()).path("total").asLong()).isEqualTo(1);
   }
+
+  /** One work_name with explicit parts; taxon path is {U1, MI}. */
+  long partsWork(String doi, boolean title, boolean abs, boolean heading, int body, boolean ref, boolean main) {
+    long w = work(doi, "T " + doi);
+    long ns = nameString("Name " + doi);
+    jdbc.update("INSERT INTO work_name (work_id, name_string_id, mention_count, body_count, in_title, in_abstract, "
+        + "in_heading, only_reference, best_snippet, placement_method, usage_id, taxon_path, salience, main_subject) "
+        + "VALUES (?, ?, 1, ?, ?, ?, ?, ?, 's', 'MATCH', 'U1', '{U1,MI}', 0.9, ?)", w, ns, body, title, abs, heading, ref, main);
+    return w;
+  }
+
+  List<String> sortedDois(String path) throws Exception {
+    return JSON.readTree(get(path).body()).path("results").valueStream().map(n -> n.path("doi").asString()).sorted().toList();
+  }
+
+  @Test
+  void taxonTitleOrAbstract() throws Exception {
+    partsWork("10.9/body", false, false, false, 4, false, true);
+    partsWork("10.9/abs", false, true, false, 0, false, true);
+    partsWork("10.9/title", true, false, false, 0, false, true);
+    assertThat(sortedDois("/api/works?taxon=MI&mentionedIn=TITLE&mentionedIn=ABSTRACT")).containsExactly("10.9/abs", "10.9/title");
+    assertThat(sortedDois("/api/works?taxon=MI")).hasSize(3);
+    assertThat(sortedDois("/api/works?name=" + jdbc.queryForObject("SELECT name_string_id FROM work_name wn JOIN work w ON w.id = wn.work_id WHERE w.doi = '10.9/title'", Long.class)
+        + "&mentionedIn=ABSTRACT")).isEmpty();
+  }
+
+  @Test
+  void bodyIncludesHeadings() throws Exception {
+    partsWork("10.9/text", false, false, false, 2, false, true);
+    partsWork("10.9/heading", false, false, true, 0, false, true);
+    partsWork("10.9/none", true, false, false, 0, false, true);
+    assertThat(sortedDois("/api/works?mentionedIn=BODY")).containsExactly("10.9/heading", "10.9/text");
+  }
+
+  @Test
+  void referencesNeverCount() throws Exception {
+    partsWork("10.9/ref", true, true, true, 3, true, false);
+    assertThat(sortedDois("/api/works?mentionedIn=TITLE")).isEmpty();
+    assertThat(sortedDois("/api/works?taxon=MI&mentionedIn=BODY")).isEmpty();
+  }
+
+  @Test
+  void withMainSubjectOnly() throws Exception {
+    partsWork("10.9/main", true, false, false, 0, false, true);
+    partsWork("10.9/minor", true, false, false, 0, false, false);
+    assertThat(sortedDois("/api/works?mentionedIn=TITLE")).containsExactly("10.9/main", "10.9/minor");
+    assertThat(sortedDois("/api/works?mentionedIn=TITLE&mainSubjectOnly=true")).containsExactly("10.9/main");
+  }
+
+  @Test
+  void badValueIs400() throws Exception {
+    assertThat(get("/api/works?mentionedIn=TITEL").statusCode()).isEqualTo(400);
+    assertThat(get("/api/works?mentionedIn=TITLE&mentionedIn=title").statusCode()).isEqualTo(400);
+    assertThat(get("/api/works?mentionedIn=TITLE&mentionedIn=TITLE").statusCode()).isEqualTo(200);
+  }
+
+  @Test
+  void nameDetailHasFlags() throws Exception {
+    long w = partsWork("10.9/flags", true, false, true, 5, false, true);
+    JsonNode n = JSON.readTree(get("/api/works/" + w).body()).path("names").get(0);
+    assertThat(n.path("inTitle").asBoolean()).isTrue();
+    assertThat(n.path("inAbstract").asBoolean()).isFalse();
+    assertThat(n.path("inHeading").asBoolean()).isTrue();
+    assertThat(n.path("bodyCount").asInt()).isEqualTo(5);
+  }
 }

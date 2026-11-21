@@ -263,4 +263,22 @@ class FeedControllerIT extends AbstractPostgresIT {
     jdbc.update("UPDATE subscription SET feed_token = 'rotated' || id WHERE id = ?", sub);
     assertThat(get("/feeds/s/" + token + ".atom").statusCode()).isEqualTo(404);
   }
+
+  @Test
+  void publicFeedMentionedIn() throws Exception {
+    long src = source();
+    String taxon = "FM" + SEQ.incrementAndGet();
+    long n = name("Mentioned one");
+    long abs = work("In abstract", LocalDate.now(ZoneOffset.UTC).minusDays(2), src);
+    long ttl = work("In title", LocalDate.now(ZoneOffset.UTC).minusDays(2), src);
+    workName(abs, n, taxon, true, false);
+    workName(ttl, n, taxon, true, false);
+    jdbc.update("UPDATE work_name SET in_abstract = false, in_title = true, body_count = 0 WHERE work_id = ?", ttl);
+    Document d = parse(get("/feeds/taxon/" + taxon + ".atom?mentionedIn=TITLE").body());
+    assertThat(d.getElementsByTagNameNS(NS, "entry").getLength()).isEqualTo(1);
+    assertThat(d.getElementsByTagNameNS(NS, "entry").item(0).getTextContent()).contains("In title");
+    assertThat(parse(get("/feeds/taxon/" + taxon + ".atom").body()).getElementsByTagNameNS(NS, "entry").getLength()).isEqualTo(2);
+    assertThat(parse(get("/feeds/name/" + n + ".atom?mentionedIn=ABSTRACT").body()).getElementsByTagNameNS(NS, "entry").getLength()).isEqualTo(1);
+    assertThat(get("/feeds/taxon/" + taxon + ".atom?mentionedIn=NOPE").statusCode()).isEqualTo(400);
+  }
 }

@@ -238,4 +238,19 @@ class SubscriptionControllerIT extends AbstractAuthIT {
     assertThat(taxon.get("publicationStatus").isNull()).isTrue();
     assertThat(taxon.get("continuedBy").isNull()).isTrue();
   }
+
+  @Test
+  void mentionedInSavedAndReturned() throws Exception {
+    Browser b = newUser();
+    JsonNode s = body(create(b, "{\"type\":\"TAXON\",\"target\":\"MS1\",\"label\":\"a\",\"mentionedIn\":[\"TITLE\",\"TITLE\",\"BODY\"]}"));
+    assertThat(s.get("mentionedIn")).hasSize(2);
+    long id = s.get("id").asLong();
+    assertThat(jdbc.queryForObject("SELECT mentioned_in::text FROM subscription WHERE id = ?", String.class, id)).isEqualTo("{TITLE,BODY}");
+    JsonNode u = body(b.json("PATCH", "/api/me/subscriptions/" + id, "{\"mentionedIn\":[\"ABSTRACT\"]}", true));
+    assertThat(u.get("mentionedIn").get(0).asString()).isEqualTo("ABSTRACT");
+    assertThat(body(b.json("PATCH", "/api/me/subscriptions/" + id, "{\"mentionedIn\":[]}", true)).get("mentionedIn")).isEmpty();
+    assertThat(b.json("PATCH", "/api/me/subscriptions/" + id, "{\"mentionedIn\":[\"FOO\"]}", true).statusCode()).isEqualTo(400);
+    assertThat(b.json("PATCH", "/api/me/subscriptions/" + id, "{\"mentionedIn\":\"TITLE\"}", true).statusCode()).isEqualTo(400);
+    assertThat(create(b, "{\"type\":\"TAXON\",\"target\":\"MS2\",\"label\":\"a\"}").statusCode()).isEqualTo(201);
+  }
 }

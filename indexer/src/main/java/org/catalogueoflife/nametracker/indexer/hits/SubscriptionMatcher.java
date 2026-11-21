@@ -23,10 +23,11 @@ public final class SubscriptionMatcher {
     List<WorkNameView> hits = names.stream()
         .filter(n -> source || targetMatches(s, n))
         .filter(n -> s.includeReferences() || !n.onlyReference())
+        .filter(n -> s.mentionedIn().isEmpty() || n.mentionedIn(s.mentionedIn()))
         .filter(n -> !s.mainSubjectOnly() || n.mainSubject())
         .filter(n -> !s.newNamesOnly() || n.actTypes().length > 0)
         .toList();
-    if (source && !s.mainSubjectOnly() && !s.newNamesOnly()) return new Match(true, hits);
+    if (source && !s.mainSubjectOnly() && !s.newNamesOnly() && s.mentionedIn().isEmpty()) return new Match(true, hits);
     return hits.isEmpty() ? NO : new Match(true, hits);
   }
 

@@ -1,6 +1,7 @@
 package org.catalogueoflife.nametracker.web.me;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import org.catalogueoflife.nametracker.web.api.public_.dto.SourceRef;
 import org.jspecify.annotations.Nullable;
@@ -12,4 +13,5 @@ public record SubscriptionDto(long id, String type, String target, String label,
     boolean newNamesOnly, boolean includeAbstractOnly, boolean includeReferences, Map<String, Object> filters,
     @Nullable Integer sinceYear, boolean paused, String feedUrl, Instant created,
     String targetStatus, @Nullable String xrNote, @Nullable String previousTarget,
-    @Nullable String publicationStatus, @Nullable Integer lastIssueYear, @Nullable SourceRef continuedBy) {}
+    @Nullable String publicationStatus, @Nullable Integer lastIssueYear, @Nullable SourceRef continuedBy,
+    List<String> mentionedIn) {}

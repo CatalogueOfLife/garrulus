@@ -32,10 +32,12 @@ public class TaxonController {
       @RequestParam(defaultValue = "true") boolean mainSubjectOnly,
       @RequestParam(required = false) Integer yearFrom,
       @RequestParam(required = false) Integer yearTo,
+      @RequestParam(name = "mentionedIn", required = false) List<String> mentionedIn,
       @RequestParam(defaultValue = "20") int limit,
       @RequestParam(defaultValue = "0") int offset) {
     WorkController.checkPaging(limit, offset);
-    WorkFilter f = WorkFilter.builder().taxon(colId).yearFrom(yearFrom).yearTo(yearTo).mainSubjectOnly(mainSubjectOnly).build();
+    WorkFilter f = WorkFilter.builder().taxon(colId).yearFrom(yearFrom).yearTo(yearTo).mainSubjectOnly(mainSubjectOnly)
+        .mentionedIn(MentionedInParam.parse(mentionedIn)).build();
     return works.page(f, limit, offset, List.of());
   }
 

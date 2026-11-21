@@ -1,5 +1,6 @@
 package org.catalogueoflife.nametracker.store.search;
 
+import java.util.List;
 import org.catalogueoflife.nametracker.store.ident.Identifier;
 import org.jspecify.annotations.Nullable;
 
@@ -27,7 +28,12 @@ public record WorkFilter(
     @Nullable String actType,
     boolean mainSubjectOnly,
     @Nullable String q,
-    @Nullable Identifier identifier) {
+    @Nullable Identifier identifier,
+    List<String> mentionedIn) {
+
+  public WorkFilter {
+    mentionedIn = mentionedIn == null ? List.of() : mentionedIn;
+  }
 
   public static Builder builder() {
     return new Builder();
@@ -52,6 +58,7 @@ public record WorkFilter(
     private boolean mainSubjectOnly;
     private @Nullable String q;
     private @Nullable Identifier identifier;
+    private List<String> mentionedIn = List.of();
 
     public Builder taxon(@Nullable String v) {
       this.taxon = v;
@@ -138,8 +145,14 @@ public record WorkFilter(
       return this;
     }
 
+    /** Parts of a work the name must occur in ({@code TITLE}, {@code ABSTRACT}, {@code BODY}); empty means anywhere. */
+    public Builder mentionedIn(@Nullable List<String> v) {
+      this.mentionedIn = v == null ? List.of() : v;
+      return this;
+    }
+
     public WorkFilter build() {
-      return new WorkFilter(taxon, name, code, taxgroup, subfield, journalType, tier, oa, country, source, yearFrom, yearTo, hasActs, actType, mainSubjectOnly, q, identifier);
+      return new WorkFilter(taxon, name, code, taxgroup, subfield, journalType, tier, oa, country, source, yearFrom, yearTo, hasActs, actType, mainSubjectOnly, q, identifier, mentionedIn);
     }
   }
 }

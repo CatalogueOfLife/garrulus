@@ -16,6 +16,7 @@ import org.catalogueoflife.nametracker.store.account.SubscriptionMapper;
 import org.catalogueoflife.nametracker.store.index.IndexMapper;
 import org.catalogueoflife.nametracker.store.source.Source;
 import org.catalogueoflife.nametracker.store.source.SourceMapper;
+import org.catalogueoflife.nametracker.web.api.public_.MentionedInParam;
 import org.catalogueoflife.nametracker.web.api.public_.SourceController;
 import org.catalogueoflife.nametracker.web.api.public_.WorkController;
 import org.catalogueoflife.nametracker.web.auth.CurrentUser;
@@ -46,9 +47,9 @@ public class SubscriptionController {
   static final Set<String> FILTER_KEYS =
       Set.of("code", "taxgroup", "subfield", "journalType", "tier", "oa", "country");
   private static final Set<String> CREATE_KEYS = Set.of("type", "target", "label", "mainSubjectOnly", "newNamesOnly",
-      "includeAbstractOnly", "includeReferences", "filters", "sinceYear");
+      "includeAbstractOnly", "includeReferences", "filters", "sinceYear", "mentionedIn");
   private static final Set<String> PATCH_KEYS = Set.of("label", "mainSubjectOnly", "newNamesOnly",
-      "includeAbstractOnly", "includeReferences", "filters", "sinceYear", "paused");
+      "includeAbstractOnly", "includeReferences", "filters", "sinceYear", "paused", "mentionedIn");
   private static final SecureRandom RANDOM = new SecureRandom();
 
   private final SubscriptionMapper subscriptions;
@@ -75,7 +76,7 @@ public class SubscriptionController {
         s.includeAbstractOnly(), s.includeReferences(), filtersOf(s.filters()), s.sinceYear(), s.paused(),
         feedUrl(s.feedToken()), s.created(), s.targetStatus(), s.xrNote(), s.previousTarget(),
         src == null ? null : src.publicationStatus(), src == null ? null : src.lastIssueYear(),
-        src == null ? null : SourceController.ref(sources, src));
+        src == null ? null : SourceController.ref(sources, src), s.mentionedIn());
   }
 
   private @Nullable Source sourceOf(String target) {
@@ -119,7 +120,7 @@ public class SubscriptionController {
     Subscription s = new Subscription(null, userId, type, target, label, bool(body, "mainSubjectOnly", mainDefault),
         bool(body, "newNamesOnly", false), bool(body, "includeAbstractOnly", true),
         bool(body, "includeReferences", false), filtersJson(body.get("filters")), newToken(),
-        sinceYear(body.get("sinceYear")), false, null);
+        sinceYear(body.get("sinceYear")), false, null, "OK", null, null, null, mentionedIn(body.get("mentionedIn")));
     long id;
     try {
       id = subscriptions.insert(s);
@@ -144,7 +145,7 @@ public class SubscriptionController {
         body.containsKey("filters") ? filtersJson(body.get("filters")) : s.filters(), s.feedToken(),
         body.containsKey("sinceYear") ? sinceYear(body.get("sinceYear")) : s.sinceYear(),
         bool(body, "paused", s.paused()), s.created(), s.targetStatus(), s.xrNote(), s.xrNoteAt(), s.previousTarget(),
-        s.mentionedIn());
+        body.containsKey("mentionedIn") ? mentionedIn(body.get("mentionedIn")) : s.mentionedIn());
     subscriptions.update(u);
     return dto(owned(userId, id));
   }
@@ -289,6 +290,17 @@ public class SubscriptionController {
       throw bad(key + " must be a string");
     }
     return s;
+  }
+
+  /** A list of TITLE, ABSTRACT, BODY (duplicates folded); null or an empty list means anywhere. */
+  private static List<String> mentionedIn(@Nullable Object v) {
+    if (v == null) {
+      return List.of();
+    }
+    if (!(v instanceof List<?> l) || !l.stream().allMatch(x -> x instanceof String)) {
+      throw bad("mentionedIn is a list of TITLE, ABSTRACT or BODY");
+    }
+    return MentionedInParam.parse(l.stream().map(String.class::cast).toList());
   }
 
   private static boolean bool(Map<String, Object> body, String key, boolean dflt) {
