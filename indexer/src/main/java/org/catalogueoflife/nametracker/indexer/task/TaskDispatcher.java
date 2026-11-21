@@ -143,7 +143,7 @@ public class TaskDispatcher implements DisposableBean {
     } catch (Throwable e) { // an Error must not leave the task RUNNING either
       BudgetExhaustedException budget = budgetCause(e);
       if (budget != null) {
-        defer(task, "the OpenAlex budget", budget.retryAt());
+        defer(task, "the " + budget.service() + " budget", budget.retryAt());
         return;
       }
       ServiceOutageException outage = outageCause(e);

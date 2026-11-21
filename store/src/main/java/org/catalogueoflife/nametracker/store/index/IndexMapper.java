@@ -1,6 +1,5 @@
 package org.catalogueoflife.nametracker.store.index;
 
-import java.time.Instant;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -247,8 +246,8 @@ public interface IndexMapper {
   @Nullable NameString nameString(@Param("id") long id);
 
 
-  /** When the work was first indexed, null if it never was (or is gone). */
-  @Nullable Instant firstIndexedAt(@Param("workId") long workId);
+  /** True when the work was never indexed and does not come from the snapshot backfill; null for an unknown work. */
+  @Nullable Boolean firstLiveIndexing(@Param("workId") long workId);
 
   /**
    * Sets codes, taxgroups and has_acts, and also state INDEXED, indexed_at = now(), placed_release (the XR release the

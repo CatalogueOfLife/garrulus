@@ -13,9 +13,9 @@ import org.catalogueoflife.nametracker.store.ident.Identifier;
  * lookup can use what an earlier one found.
  *
  * <p>A target missing from the answer is a miss. A retryable {@code HttpProblem}, an {@code IOException} or a
- * {@code ServiceOutageException} is an outage (the task is deferred, nothing is recorded), a
- * {@code BudgetExhaustedException} defers the task to its {@code retryAt} and records nothing either. Call every
- * service through {@code PoliteHttp}.
+ * {@code ServiceOutageException} is an outage, a {@code BudgetExhaustedException} a spent cap: either blocks the lookup
+ * for the rest of the run, its targets are put off to the exception's {@code retryAt} without counting a try, and the
+ * next lookup runs (see {@code LinkRunner}). Call every service through {@code PoliteHttp}.
  */
 public interface IdentifierLookup {
 

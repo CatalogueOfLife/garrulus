@@ -90,7 +90,7 @@ public class SpringerMetaAbstract implements AbstractTopUp {
     if (usage.reserve(USAGE, today, 1) > dailyCap) {
       usage.reserve(USAGE, today, -1);
       Instant retry = today.plusDays(1).atTime(LocalTime.of(0, 5)).toInstant(ZoneOffset.UTC);
-      throw new BudgetExhaustedException(retry);
+      throw new BudgetExhaustedException(USAGE, retry);
     }
     URI uri = URI.create(base + "/meta/v2/json?q=doi:" + LinkHttp.enc(w.doi()) + "&api_key=" + LinkHttp.enc(apiKey));
     JsonNode root;

@@ -20,15 +20,24 @@ public interface LinkAttemptMapper {
   /** The rows of the given subjects (one lookup or all). */
   List<LinkAttempt> forSubjects(@Param("entity") char entity, @Param("ids") List<Long> ids);
 
+  /**
+   * Puts the lookup's retry of the subjects off to {@code nextTry} without counting a try (its service was down or its
+   * cap spent): a new row gets {@code attempts} 0 (last_tried is then when it was put off), an existing row only a new
+   * next_try, unless it has no retry left (a hit or a final miss recorded meanwhile). Returns the rows written.
+   */
+  int defer(@Param("entity") char entity, @Param("ids") List<Long> ids, @Param("lookup") String lookup,
+      @Param("nextTry") Instant nextTry);
+
   /** Rows of the entity whose next_try has come, oldest first. */
   List<LinkAttempt> due(@Param("entity") char entity, @Param("now") Instant now, @Param("limit") int limit);
 
   /**
-   * Distinct subject ids of the entity with a row due, ascending, counting only rows of the given lookups (the enabled
-   * ones; none: nothing) and only works that are INDEXED or NOTIFIED, sources that have not CEASED.
+   * Distinct subject ids of the entity above {@code afterId} with a row due, ascending (one page), counting only rows of
+   * the given lookups (the enabled ones; none: nothing) and only works that are INDEXED or NOTIFIED, sources that have
+   * not CEASED.
    */
-  List<Long> dueIds(@Param("entity") char entity, @Param("now") Instant now, @Param("limit") int limit,
-      @Param("lookups") List<String> lookups);
+  List<Long> dueIds(@Param("entity") char entity, @Param("now") Instant now, @Param("afterId") long afterId,
+      @Param("limit") int limit, @Param("lookups") List<String> lookups);
 
   /** Ends the retries of one row (its lookup no longer applies to the subject); the row stays as the record of the tries. */
   int clearNextTry(@Param("entity") char entity, @Param("subjectId") long subjectId, @Param("lookup") String lookup);

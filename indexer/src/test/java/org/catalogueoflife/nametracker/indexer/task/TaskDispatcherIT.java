@@ -87,6 +87,19 @@ class TaskDispatcherIT extends AbstractPostgresIT {
     }
 
     @Bean
+    TaskHandler capHandler() {
+      return new TaskHandler() {
+        @Override public String type() {
+          return "CAP";
+        }
+
+        @Override public void handle(Task task) {
+          throw new BudgetExhaustedException("biodiversitypmc", RETRY_AT);
+        }
+      };
+    }
+
+    @Bean
     TaskHandler wrappedBudgetHandler() {
       return new TaskHandler() {
         @Override public String type() {
@@ -192,6 +205,15 @@ class TaskDispatcherIT extends AbstractPostgresIT {
     Task t = mapper.get(id);
     assertThat(t.state()).isEqualTo(TaskState.QUEUED);
     assertThat(t.lastError()).contains("StackOverflowError");
+  }
+
+  @Test
+  void aDeferralNamesTheServiceWhoseCapIsSpent(CapturedOutput out) {
+    long id = queue.enqueue("CAP", "{}", TaskPriority.LIVE, null);
+    await().atMost(10, SECONDS).until(() -> RETRY_AT.equals(mapper.get(id).runAfter()));
+    assertThat(mapper.get(id).attempts()).isZero();
+    await().atMost(5, SECONDS).until(() -> out.getAll().contains("(CAP) waits for the biodiversitypmc budget"));
+    assertThat(out.getAll()).doesNotContain("(CAP) waits for the OpenAlex budget");
   }
 
   @Test

@@ -437,8 +437,8 @@
     SELECT id, name, kind, rank FROM name_string WHERE id = #{id}
   </select>
 
-  <select id="firstIndexedAt" resultType="java.time.Instant">
-    SELECT first_indexed_at FROM work WHERE id = #{workId}
+  <select id="firstLiveIndexing" resultType="boolean">
+    SELECT first_indexed_at IS NULL AND origin &lt;&gt; 'BACKFILL' FROM work WHERE id = #{workId}
   </select>
 
   <update id="updateIndexed">

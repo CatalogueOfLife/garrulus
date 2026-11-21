@@ -49,6 +49,8 @@ class LinkWorkHandlerIT extends AbstractPostgresIT {
   @Autowired LinkWorkHandler handler;
   @Autowired LinkScheduler scheduler;
   @Autowired ScriptedLookup workLookup;
+  @Autowired ScriptedLookup laterLookup;
+  @Autowired org.springframework.core.env.ConfigurableEnvironment env;
   @Autowired TaskQueue queue;
   @Autowired IndexMapper index;
   @Autowired HarvestOutage outage;
@@ -60,6 +62,7 @@ class LinkWorkHandlerIT extends AbstractPostgresIT {
     jdbc.update("DELETE FROM link_attempt");
     jdbc.update("DELETE FROM work");
     workLookup.reset();
+    laterLookup.reset();
   }
 
   private long work(String doi, String state) {
@@ -164,10 +167,16 @@ class LinkWorkHandlerIT extends AbstractPostgresIT {
     assertThat(jdbc.queryForObject("SELECT count(*) FROM link_attempt", Long.class)).isZero();
   }
 
-  @Test
-  void reindexDoesNotEnqueue() {
-    long w = indexed();
+  @Autowired LinkGate gate;
+  @Autowired org.springframework.beans.factory.ObjectProvider<IdentifierLookup> allLookups;
+
+  /** MATCH_NAMES of the work with a placement that always indexes; the work is made ready for its first indexing. */
+  private void match(long w, LinkGate links) {
     jdbc.update("UPDATE work SET state = 'NAMES_FOUND', first_indexed_at = NULL WHERE id = ?", w);
+    matchAgain(w, links);
+  }
+
+  private void matchAgain(long w, LinkGate links) {
     XrReleaseService xr = mock(XrReleaseService.class);
     when(xr.currentVerified()).thenReturn(1);
     WorkPlacer placer = mock(WorkPlacer.class);
@@ -176,47 +185,176 @@ class LinkWorkHandlerIT extends AbstractPostgresIT {
       index.setIndexed(id, new String[0], new String[0], false, key);
       return WorkIndexing.Outcome.INDEXED;
     };
-    MatchNamesHandler match = new MatchNamesHandler(xr, placer, indexing, outage, queue, index);
+    MatchNamesHandler match = new MatchNamesHandler(xr, placer, indexing, outage, queue, index, links);
     Task t = new Task(1, MatchNamesHandler.TYPE, "{\"workId\":" + w + "}", TaskPriority.LIVE, TaskState.RUNNING, 1,
         null, null, null, null, null, null);
-
     try {
       match.handle(t);
     } catch (Exception e) {
       throw new IllegalStateException(e);
     }
+  }
+
+  @Test
+  void reindexDoesNotEnqueue() {
+    long w = indexed();
+    match(w, gate);
     assertThat(linkTasks()).isEqualTo(1);
     assertThat(jdbc.queryForObject("SELECT priority FROM task WHERE type = 'LINK_WORK'", Integer.class))
         .isEqualTo(TaskPriority.BACKFILL.code());
     jdbc.update("UPDATE task SET state = 'DONE' WHERE type = 'LINK_WORK'"); // the key no longer holds a second one off
-    try {
-      match.handle(t); // the work is indexed again (a reprocess)
-    } catch (Exception e) {
-      throw new IllegalStateException(e);
-    }
+    matchAgain(w, gate); // the work is indexed again (a reprocess)
     assertThat(linkTasks()).isEqualTo(1);
+  }
+
+  @Test
+  void aBackfilledWorkIsNotLinkedOneByOne() {
+    long w = indexed();
+    jdbc.update("UPDATE work SET origin = 'BACKFILL' WHERE id = ?", w);
+    match(w, gate);
+    assertThat(linkTasks()).isZero(); // the paged LINK_WORK {"afterId":0} after the backfill links it
+    handler.handle(task("{\"afterId\":0}"));
+    assertThat(workLookup.asked).anySatisfy(batch -> assertThat(batch).extracting(LinkTarget::id).contains(w));
+  }
+
+  @Test
+  void noPerWorkLinkTaskWhileLinksAreOff() {
+    long w = indexed();
+    match(w, new LinkGate(new LinkProperties(env, false), allLookups));
+    assertThat(linkTasks()).isZero();
+
+    long v = indexed();
+    workLookup.enabled = false; // the master switch is on, but no work lookup is
+    env.getPropertySources().addFirst(new org.springframework.core.env.MapPropertySource("bhl-off",
+        Map.of("nametracker.links.bhl-doi.enabled", "false")));
+    try {
+      match(v, gate);
+    } finally {
+      env.getPropertySources().remove("bhl-off");
+    }
+    assertThat(linkTasks()).isZero();
   }
 
   private long linkTasks() {
     return jdbc.queryForObject("SELECT count(*) FROM task WHERE type = 'LINK_WORK'", Long.class);
   }
 
+  private Map<String, Object> attempt(long work, String lookup) {
+    return jdbc.queryForMap("SELECT attempts, found, next_try FROM link_attempt WHERE entity = 'W' "
+        + "AND subject_id = ? AND lookup = ?", work, lookup);
+  }
+
   @Test
-  void outageDefersWithoutAttempt() {
+  void anOutageOfTheOnlyLookupDefersTheTaskAndTheTargetsWithoutAnAttempt() {
     long w = indexed();
     workLookup.failure = () -> new HttpProblem(URI.create("https://example.org/x"), 503, true, "down", null);
     assertThatThrownBy(() -> handler.handle(task("{\"workId\":" + w + "}")))
         .isInstanceOf(ServiceOutageException.class);
-    assertThat(jdbc.queryForObject("SELECT count(*) FROM link_attempt", Long.class)).isZero();
+    assertThat(attempt(w)).containsEntry("attempts", 0).containsEntry("found", false);
+    assertThat(until(attempt(w).get("next_try"))).isBetween(Duration.ofMinutes(25), Duration.ofMinutes(35));
 
-    workLookup.failure = () -> new BudgetExhaustedException(Instant.now().plusSeconds(3600));
+    jdbc.update("DELETE FROM link_attempt");
+    Instant capReset = Instant.now().plusSeconds(3600);
+    workLookup.failure = () -> new BudgetExhaustedException(capReset);
     assertThatThrownBy(() -> handler.handle(task("{\"workId\":" + w + "}")))
         .isInstanceOf(BudgetExhaustedException.class);
-    assertThat(jdbc.queryForObject("SELECT count(*) FROM link_attempt", Long.class)).isZero();
+    assertThat(attempt(w)).containsEntry("attempts", 0);
+    assertThat(((java.sql.Timestamp) attempt(w).get("next_try")).toInstant()).isCloseTo(capReset,
+        org.assertj.core.api.Assertions.within(1, java.time.temporal.ChronoUnit.SECONDS));
 
+    jdbc.update("DELETE FROM link_attempt");
     workLookup.failure = () -> new HttpProblem(URI.create("https://example.org/x"), 400, false, "bad", null);
     assertThatThrownBy(() -> handler.handle(task("{\"workId\":" + w + "}"))).isInstanceOf(HttpProblem.class);
     assertThat(jdbc.queryForObject("SELECT count(*) FROM link_attempt", Long.class)).isZero();
+  }
+
+  @Test
+  void aDeferredTargetCountsItsFirstRealTryAsTheFirstAttempt() {
+    long w = indexed();
+    workLookup.failure = () -> new HttpProblem(URI.create("https://example.org/x"), 503, true, "down", null);
+    assertThatThrownBy(() -> handler.handle(task("{\"workId\":" + w + "}")))
+        .isInstanceOf(ServiceOutageException.class);
+    handler.handle(task("{\"workId\":" + w + "}")); // not due before the outage's retry time
+    assertThat(workLookup.calls()).isEqualTo(1);
+
+    workLookup.failure = null;
+    makeDue(w);
+    handler.handle(task("{\"workId\":" + w + "}"));
+    assertThat(attempt(w)).containsEntry("attempts", 1).containsEntry("found", false);
+    assertThat(until(attempt(w).get("next_try"))).isBetween(Duration.ofDays(29), Duration.ofDays(31));
+  }
+
+  @Test
+  void aCapReachedMidPageDefersTheRestOfThatLookupAndTheNextLookupAndPageStillRun() {
+    long w1 = indexed();
+    long w2 = indexed();
+    long w3 = indexed();
+    long w4 = indexed();
+    laterLookup.enabled = true;
+    laterLookup.answers.put(w3, List.of(new Identifier("TESTDB", "33")));
+    Instant capReset = Instant.now().plus(Duration.ofHours(5));
+    java.util.concurrent.atomic.AtomicInteger n = new java.util.concurrent.atomic.AtomicInteger();
+    workLookup.failure = () -> n.incrementAndGet() == 1 ? null : new BudgetExhaustedException(capReset);
+
+    handler.handle(task("{\"afterId\":0,\"batch\":3}"));
+
+    assertThat(workLookup.calls()).isEqualTo(2); // the call that met the cap; w3 is not asked after it
+    assertThat(attempt(w1)).containsEntry("attempts", 1).containsEntry("found", false);
+    for (long w : List.of(w2, w3)) {
+      assertThat(attempt(w)).containsEntry("attempts", 0).containsEntry("found", false);
+      assertThat(((java.sql.Timestamp) attempt(w).get("next_try")).toInstant()).isCloseTo(capReset,
+          org.assertj.core.api.Assertions.within(1, java.time.temporal.ChronoUnit.SECONDS));
+    }
+    assertThat(laterLookup.calls()).isEqualTo(3);
+    assertThat(attempt(w3, "test-later")).containsEntry("attempts", 1).containsEntry("found", true);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM work_identifier WHERE work_id = ? AND scheme = 'TESTDB'",
+        Long.class, w3)).isEqualTo(1);
+    assertThat(jdbc.queryForObject("SELECT payload FROM task WHERE type = 'LINK_WORK'", String.class))
+        .containsPattern("\"afterId\": ?" + w3 + "\\b");
+    assertThat(w4).isGreaterThan(w3);
+  }
+
+  @Test
+  void anOutageOfALaterLookupKeepsWhatTheEarlierOneFoundAndTheTaskEnds() {
+    long w = indexed();
+    workLookup.answers.put(w, List.of(new Identifier("TESTDB", "8")));
+    laterLookup.enabled = true;
+    laterLookup.applies = true;
+    laterLookup.failure = () -> new HttpProblem(URI.create("https://example.org/x"), 503, true, "down", null);
+    jdbc.update("DELETE FROM work_identifier");
+
+    handler.handle(task("{\"workId\":" + w + "}")); // no deferral: the first lookup did its part
+
+    assertThat(attempt(w, "test")).containsEntry("found", true);
+    assertThat(attempt(w, "test-later")).containsEntry("attempts", 0);
+    assertThat(until(attempt(w, "test-later").get("next_try"))).isBetween(Duration.ofMinutes(25),
+        Duration.ofMinutes(35));
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM work_identifier WHERE work_id = ?", Long.class, w))
+        .isEqualTo(1);
+  }
+
+  @Test
+  void aRefusedBiodiversityPmcReservationLeavesItsTargetsDueAtTheCapResetAndCountsNothing() {
+    long w = indexed();
+    jdbc.update("UPDATE work SET has_acts = true WHERE id = ?", w);
+    jdbc.update("INSERT INTO work_identifier (work_id, scheme, value, first_layer) VALUES (?, 'PMCID', 'PMC1', 'X')", w);
+    java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneOffset.UTC);
+    jdbc.update("DELETE FROM api_usage WHERE service = 'biodiversitypmc'");
+    jdbc.update("INSERT INTO api_usage (service, day, calls) VALUES ('biodiversitypmc', ?, 200)", today);
+    var on = new org.springframework.core.env.MapPropertySource("bpmc-on",
+        Map.of("nametracker.links.biodiversitypmc.enabled", "true"));
+    env.getPropertySources().addFirst(on);
+    try {
+      handler.handle(task("{\"workId\":" + w + "}")); // the scripted lookup still runs: no deferral
+    } finally {
+      env.getPropertySources().remove("bpmc-on");
+      jdbc.update("DELETE FROM api_usage WHERE service = 'biodiversitypmc'");
+    }
+    Map<String, Object> bpmc = attempt(w, "biodiversitypmc");
+    assertThat(bpmc).containsEntry("attempts", 0).containsEntry("found", false);
+    assertThat(((java.sql.Timestamp) bpmc.get("next_try")).toInstant())
+        .isEqualTo(today.plusDays(1).atTime(0, 5).toInstant(java.time.ZoneOffset.UTC));
+    assertThat(workLookup.calls()).isEqualTo(1);
   }
 
   @Test
@@ -318,6 +456,30 @@ class LinkWorkHandlerIT extends AbstractPostgresIT {
 
   private int sweep() {
     return scheduler.sweep(org.catalogueoflife.nametracker.store.ident.IdScheme.Entity.WORK, LinkWorkHandler.TYPE);
+  }
+
+  @Test
+  void theSweepPagesTheDueSubjectsUpToTheDailyLimit() {
+    List<Long> ws = new java.util.ArrayList<>();
+    for (int i = 0; i < 5; i++) ws.add(indexed());
+    handler.handle(task("{\"afterId\":0}"));
+    ws.forEach(this::makeDue);
+    var entity = org.catalogueoflife.nametracker.store.ident.IdScheme.Entity.WORK;
+
+    assertThat(scheduler.sweep(entity, LinkWorkHandler.TYPE, 2, 5)).isEqualTo(5);
+    List<Map<String, Object>> tasks = jdbc.queryForList("SELECT payload, dedup_key FROM task WHERE type = 'LINK_WORK' "
+        + "ORDER BY id");
+    assertThat(tasks).extracting(t -> t.get("payload").toString().replace(" ", "")).containsExactly(
+        "{\"ids\":[" + ws.get(0) + "," + ws.get(1) + "]}", "{\"ids\":[" + ws.get(2) + "," + ws.get(3) + "]}",
+        "{\"ids\":[" + ws.get(4) + "]}");
+    assertThat(tasks).extracting(t -> (String) t.get("dedup_key")).doesNotHaveDuplicates()
+        .allMatch(k -> k.startsWith("link-due:W:"));
+
+    jdbc.update("DELETE FROM task");
+    assertThat(scheduler.sweep(entity, LinkWorkHandler.TYPE, 2, 3)).isEqualTo(3); // the daily limit
+    assertThat(jdbc.queryForList("SELECT payload FROM task WHERE type = 'LINK_WORK' ORDER BY id", String.class))
+        .extracting(p -> p.replace(" ", "")).containsExactly("{\"ids\":[" + ws.get(0) + "," + ws.get(1) + "]}",
+            "{\"ids\":[" + ws.get(2) + "]}");
   }
 
   @Test

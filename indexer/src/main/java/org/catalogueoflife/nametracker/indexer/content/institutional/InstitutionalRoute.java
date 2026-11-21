@@ -269,7 +269,8 @@ public class InstitutionalRoute implements ContentRoute {
     if (!today.equals(capLogged.put(p.publisher(), today))) {
       LOG.info("Institutional route: the daily cap of {} ({} fetches) is reached until 00:00 UTC", p.publisher(), cap);
     }
-    throw new BudgetExhaustedException(today.plusDays(1).atTime(LocalTime.of(0, 5)).toInstant(ZoneOffset.UTC));
+    throw new BudgetExhaustedException("institutional " + p.publisher(),
+        today.plusDays(1).atTime(LocalTime.of(0, 5)).toInstant(ZoneOffset.UTC));
   }
 
   private @Nullable Answer request(PublisherTdm p, long workId, String doi) {

@@ -87,7 +87,7 @@ public class BiodiversityPmcLookup implements IdentifierLookup {
     if (usage.reserve(SERVICE, today, reserved) > maxRequestsPerDay) {
       usage.reserve(SERVICE, today, -reserved);
       Instant retry = today.plusDays(1).atTime(LocalTime.of(0, 5)).toInstant(ZoneOffset.UTC);
-      throw new BudgetExhaustedException(retry);
+      throw new BudgetExhaustedException(SERVICE, retry);
     }
     int unsent = reserved;
     try {

@@ -258,3 +258,5 @@ nametracker:
     enabled: ${NAMETRACKER_LINKS_ENABLED:true}
     source-cron: ${NAMETRACKER_LINKS_SOURCE_CRON:0 45 1 2 * *}
     retry-cron: ${NAMETRACKER_LINKS_RETRY_CRON:0 15 6 * * *}
+    # the daily retry sweep queues at most this many due works (and as many journals), in tasks of 5000 ids
+    retry-per-day: ${NAMETRACKER_LINKS_RETRY_PER_DAY:100000}

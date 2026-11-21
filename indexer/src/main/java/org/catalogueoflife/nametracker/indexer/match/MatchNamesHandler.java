@@ -2,7 +2,9 @@ package org.catalogueoflife.nametracker.indexer.match;
 
 import org.catalogueoflife.nametracker.finder.api.FinderJson;
 import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
+import org.catalogueoflife.nametracker.indexer.link.LinkGate;
 import org.catalogueoflife.nametracker.indexer.link.LinkWorkHandler;
+import org.catalogueoflife.nametracker.store.ident.IdScheme;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
 import org.jspecify.annotations.Nullable;
 import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
@@ -26,7 +28,9 @@ import org.springframework.stereotype.Component;
  * placed in this release for the previous matches (see {@link WorkPlacer#place(long, int)}). A CLB
  * outage, or a local bundle serving another release than the pinned one, defers the task without using an attempt;
  * nothing is written then. The first indexing of a work (no {@code first_indexed_at} before) also enqueues
- * {@code LINK_WORK} at BACKFILL, key {@code link:w<id>}. See {@link WorkPlacer} for names CLB cannot match.
+ * {@code LINK_WORK} at BACKFILL, key {@code link:w<id>}, unless the work came from the snapshot backfill (origin
+ * {@code BACKFILL}: those are linked in batches by one paged {@code LINK_WORK {"afterId":0}} after the backfill) or
+ * linking is off ({@link LinkGate}). See {@link WorkPlacer} for names CLB cannot match.
  */
 @Component
 public class MatchNamesHandler implements TaskHandler {
@@ -40,11 +44,13 @@ public class MatchNamesHandler implements TaskHandler {
   private final HarvestOutage outage;
   private final TaskQueue queue;
   private final @Nullable IndexMapper index;
+  private final @Nullable LinkGate links;
 
   @Autowired
   public MatchNamesHandler(XrReleaseService xr, WorkPlacer placer, WorkIndexing indexing, HarvestOutage outage,
-      TaskQueue queue, IndexMapper index) {
+      TaskQueue queue, IndexMapper index, LinkGate links) {
     this.index = index;
+    this.links = links;
     this.xr = xr;
     this.placer = placer;
     this.indexing = indexing;
@@ -52,15 +58,17 @@ public class MatchNamesHandler implements TaskHandler {
     this.queue = queue;
   }
 
+  /** Without a {@link LinkGate} the handler never enqueues {@code LINK_WORK}. */
   public MatchNamesHandler(IndexMapper index, MatchCache cache, XrReleaseService xr, WorkIndexing indexing,
       HarvestOutage outage, TaskQueue queue) {
-    this(xr, new WorkPlacer(index, cache, outage), indexing, outage, queue, index);
+    this(xr, new WorkPlacer(index, cache, outage), indexing, outage, queue, index, null);
   }
 
   /** Without an index mapper the handler never enqueues {@code LINK_WORK} (for tests that race the indexing). */
   public MatchNamesHandler(XrReleaseService xr, WorkPlacer placer, WorkIndexing indexing, HarvestOutage outage,
       TaskQueue queue) {
     this.index = null;
+    this.links = null;
     this.xr = xr;
     this.placer = placer;
     this.indexing = indexing;
@@ -85,8 +93,9 @@ public class MatchNamesHandler implements TaskHandler {
       LOG.warn("Deferring MATCH_NAMES of work {}: {}", workId, e.getMessage());
       throw new ServiceOutageException(ClbClient.SERVICE, outage.retryAt(), e);
     }
-    // read before the indexing sets it: a re-index never asks the lookups again
-    boolean firstIndexing = index != null && index.firstIndexedAt(workId) == null;
+    // read before the indexing sets it: a re-index never asks the lookups again; backfilled works are linked in pages
+    boolean link = index != null && links != null && Boolean.TRUE.equals(index.firstLiveIndexing(workId))
+        && links.on(IdScheme.Entity.WORK);
     switch (indexing.index(workId, placed, key)) {
       case STALE -> {
         LOG.debug("MATCH_NAMES of work {} is stale: its index changed while the names were placed", workId);
@@ -108,7 +117,7 @@ public class MatchNamesHandler implements TaskHandler {
       }
       case INDEXED -> { }
     }
-    if (firstIndexing) {
+    if (link) {
       LinkWorkHandler.enqueue(queue, workId, TaskPriority.BACKFILL, "link:w" + workId);
     }
     // hit evaluation follows the indexing and takes this task's place in the queue

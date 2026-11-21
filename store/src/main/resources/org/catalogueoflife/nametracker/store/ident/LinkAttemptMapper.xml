@@ -28,6 +28,18 @@
       SET attempts = link_attempt.attempts + 1, last_tried = now(), next_try = EXCLUDED.next_try, found = EXCLUDED.found
   </insert>
 
+  <insert id="defer" flushCache="true">
+    <choose>
+      <when test="ids != null and !ids.isEmpty()">
+        INSERT INTO link_attempt (entity, subject_id, lookup, attempts, last_tried, next_try, found) VALUES
+        <foreach collection="ids" item="i" separator=",">(#{entity}::char(1), #{i}, #{lookup}, 0, now(), #{nextTry}, false)</foreach>
+        ON CONFLICT (entity, subject_id, lookup) DO UPDATE SET next_try = EXCLUDED.next_try
+          WHERE link_attempt.next_try IS NOT NULL
+      </when>
+      <otherwise>INSERT INTO link_attempt SELECT * FROM link_attempt WHERE false</otherwise>
+    </choose>
+  </insert>
+
   <select id="forSubjects" resultMap="attempt">
     <choose>
       <when test="ids != null and !ids.isEmpty()">
@@ -51,6 +63,7 @@
         SELECT subject_id FROM (
           SELECT DISTINCT a.subject_id FROM link_attempt a
           WHERE a.entity = #{entity}::char(1) AND a.next_try IS NOT NULL AND a.next_try &lt;= #{now}
+            AND a.subject_id &gt; #{afterId}
             AND a.lookup IN <foreach collection="lookups" item="l" open="(" separator="," close=")">#{l}</foreach>
             AND (
             <choose>

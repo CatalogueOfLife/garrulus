@@ -42,8 +42,14 @@ import org.springframework.transaction.support.TransactionTemplate;
  * {@value #FIRST_RETRY_DAYS} days, a second miss after {@value #SECOND_RETRY_DAYS} days, a third never; a hit never.
  * Found identifiers are stored with {@code first_layer} (journals: {@code origin}) {@code LINK:<lookup>}; a work
  * identifier that belongs to another work enqueues {@code MERGE_WORKS} for the pair. A lookup's chunk is stored in one
- * transaction with its attempts, and the identifiers are read again before the next lookup runs. An outage defers the
- * task (the chunks stored so far stay: a repeat skips them by their attempts).
+ * transaction with its attempts, and the identifiers are read again before the next lookup runs.
+ *
+ * <p>A lookup whose service is down or whose daily cap is spent is blocked for the rest of the run: its remaining due
+ * targets are put off to the exception's {@code retryAt} without counting a try ({@link LinkAttemptMapper#defer}), and
+ * the next lookup runs. The daily retry sweep ({@link LinkScheduler}) picks the put-off targets up again. Only when no
+ * lookup could ask anything (every one with due targets was blocked) does the run rethrow the earliest blocking
+ * exception, so the task is deferred as a whole (a paged run then continues later instead of putting off page after
+ * page); the chunks stored so far stay, a repeat skips them by their attempts.
  */
 @Component
 public class LinkRunner {
@@ -110,6 +116,8 @@ public class LinkRunner {
       tried.computeIfAbsent(a.subjectId(), k -> new HashMap<>()).put(a.lookup(), a);
     }
     Instant now = clock.instant();
+    boolean asked = false;
+    RuntimeException blocked = null;
     for (IdentifierLookup lookup : active) {
       List<LinkTarget> due = new ArrayList<>();
       for (LinkTarget t : current) {
@@ -119,13 +127,31 @@ public class LinkRunner {
         else if (a != null) attempts.clearNextTry(key, t.id(), lookup.name()); // nothing left to look for: no more retries
       }
       boolean wrote = false;
-      for (int i = 0; i < due.size(); i += Math.max(1, lookup.batchSize())) {
-        List<LinkTarget> chunk = due.subList(i, Math.min(due.size(), i + Math.max(1, lookup.batchSize())));
-        Map<Long, List<Identifier>> found = ask(lookup, chunk);
+      int size = Math.max(1, lookup.batchSize());
+      for (int i = 0; i < due.size(); i += size) {
+        List<LinkTarget> chunk = due.subList(i, Math.min(due.size(), i + size));
+        Map<Long, List<Identifier>> found;
+        try {
+          found = ask(lookup, chunk);
+        } catch (BudgetExhaustedException | ServiceOutageException e) {
+          Instant retryAt = retryAt(e);
+          List<Long> rest = due.subList(i, due.size()).stream().map(LinkTarget::id).toList();
+          attempts.defer(key, rest, lookup.name(), retryAt);
+          LOG.info("Link lookup {} is blocked until {} ({}): {} targets put off", lookup.name(), retryAt,
+              e.getMessage(), rest.size());
+          if (blocked == null || retryAt.isBefore(retryAt(blocked))) blocked = e;
+          break;
+        }
+        asked = true;
         wrote |= store(entity, lookup, chunk, found, tried, priority, now);
       }
       if (wrote) current = load(entity, current.stream().map(LinkTarget::id).toList()); // the next lookup sees them
     }
+    if (blocked != null && !asked) throw blocked; // nothing could be asked: the task waits as a whole
+  }
+
+  private static Instant retryAt(RuntimeException e) {
+    return e instanceof BudgetExhaustedException b ? b.retryAt() : ((ServiceOutageException) e).retryAt();
   }
 
   private static boolean due(@Nullable LinkAttempt a, Instant now) {
