@@ -17,6 +17,7 @@ class SearchMapperIT extends AbstractPostgresIT {
 
   @Autowired SearchMapper search;
   @Autowired JdbcTemplate jdbc;
+  @Autowired org.apache.ibatis.session.SqlSessionFactory sessions;
 
   @BeforeEach
   void clean() {
@@ -78,6 +79,72 @@ class SearchMapperIT extends AbstractPostgresIT {
 
   List<Long> ids(WorkFilter f) {
     return search.search(f, 100, 0).stream().map(WorkHit::id).toList();
+  }
+
+  private long languageWork(String lang) {
+    long id = indexed("2026-01-01", "w " + lang, new String[] {});
+    jdbc.update("UPDATE work SET language = ? WHERE id = ?", lang, id);
+    return id;
+  }
+
+  private static WorkFilter languages(String... langs) {
+    return WorkFilter.builder().languages(List.of(langs)).build();
+  }
+
+  @Test
+  void languageFilterSelectsCodesAndTheUndecided() {
+    long zh = languageWork("zh");
+    long ja = languageWork("ja");
+    languageWork("en");
+    long none = languageWork(null);
+    assertThat(ids(languages("zh"))).containsExactly(zh);
+    assertThat(ids(languages("zh", "ja"))).containsExactlyInAnyOrder(zh, ja);
+    assertThat(ids(languages(""))).containsExactly(none);
+    assertThat(ids(languages("zh", ""))).containsExactlyInAnyOrder(zh, none);
+    assertThat(search.count(languages("ja", ""))).isEqualTo(2);
+    assertThat(search.count(languages())).isEqualTo(4);
+  }
+
+  /** The plan of the count query with sequential scans priced out: the language index must be usable. */
+  private String countPlan(WorkFilter f) {
+    var bound = sessions.getConfiguration()
+        .getMappedStatement("org.catalogueoflife.nametracker.store.search.SearchMapper.count")
+        .getBoundSql(java.util.Map.of("f", f, "param1", f));
+    String sql = bound.getSql();
+    for (var m : bound.getParameterMappings()) { // only the language list is bound here: plain strings
+      Object v = bound.getAdditionalParameter(m.getProperty());
+      sql = sql.replaceFirst("\\?", "'" + v + "'");
+    }
+    String explain = "EXPLAIN " + sql;
+    return jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<String>) con -> {
+      boolean auto = con.getAutoCommit();
+      con.setAutoCommit(false);
+      try (var st = con.createStatement()) {
+        st.execute("SET LOCAL enable_seqscan = off");
+        StringBuilder plan = new StringBuilder();
+        try (var rs = st.executeQuery(explain)) {
+          while (rs.next()) plan.append(rs.getString(1)).append('\n');
+        }
+        return plan.toString();
+      } finally {
+        con.rollback();
+        con.setAutoCommit(auto);
+      }
+    });
+  }
+
+  @Test
+  void languageFilterCanUseTheLanguageIndex() {
+    languageWork("zh");
+    languageWork(null);
+    // many works of another language, so a selective condition is worth an index lookup
+    jdbc.update("INSERT INTO work (doi, title, state, origin, language, text_level) SELECT '10.9/en' || g, 'en', "
+        + "'INDEXED', 'LIVE', 'en', 'ABSTRACT_ONLY' FROM generate_series(1, 2000) g");
+    jdbc.execute("ANALYZE work");
+    // an index condition on the language, not a full scan of the partial index with the filter applied per row
+    for (WorkFilter f : List.of(languages("zh"), languages("zh", ""), languages(""))) {
+      assertThat(countPlan(f)).contains("work_language_idx").containsPattern("Index Cond: \\(+(w\\.)?language");
+    }
   }
 
   @Test

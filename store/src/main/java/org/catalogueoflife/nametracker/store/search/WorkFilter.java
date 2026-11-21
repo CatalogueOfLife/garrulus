@@ -40,6 +40,16 @@ public record WorkFilter(
     taxgroupMembers = taxgroup == null ? List.of() : MentionedIn.groupMembers(taxgroup);
   }
 
+  /** The language codes of the filter, without the {@code ''} that selects works without a decision. */
+  public List<String> languageCodes() {
+    return languages.stream().filter(l -> !l.isEmpty()).toList();
+  }
+
+  /** Whether the filter selects works without a decided language. */
+  public boolean languageNone() {
+    return languages.contains("");
+  }
+
   public static Builder builder() {
     return new Builder();
   }

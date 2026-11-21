@@ -121,8 +121,11 @@
     <if test="f.actType != null"> AND EXISTS (SELECT 1 FROM mention m WHERE m.work_id = w.id AND m.act_type = #{f.actType})</if>
     <if test="f.identifier != null"> AND EXISTS (SELECT 1 FROM work_identifier wi WHERE wi.work_id = w.id
       AND wi.scheme = #{f.identifier.scheme} AND wi.value = #{f.identifier.value})</if>
-    <if test="!f.languages.isEmpty()"> AND COALESCE(w.language, '') IN
-      <foreach collection="f.languages" item="l" open="(" separator="," close=")">#{l}</foreach></if>
+    <!-- plain predicates on w.language, so work_language_idx (V21) serves them -->
+    <if test="!f.languages.isEmpty()"> AND (<if test="!f.languageCodes.isEmpty()">w.language IN
+      <foreach collection="f.languageCodes" item="l" open="(" separator="," close=")">#{l}</foreach></if>
+      <if test="!f.languageCodes.isEmpty() and f.languageNone"> OR </if>
+      <if test="f.languageNone">w.language IS NULL</if>)</if>
     <if test="f.q != null"> AND w.fts @@ websearch_to_tsquery('simple', #{f.q})</if>
     <if test="f.taxon != null">
       AND EXISTS (SELECT 1 FROM work_name wn WHERE wn.work_id = w.id AND wn.taxon_path @&gt; ARRAY[#{f.taxon}]::text[]
