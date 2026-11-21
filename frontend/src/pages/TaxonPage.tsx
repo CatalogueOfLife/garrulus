@@ -75,7 +75,7 @@ export function TaxonPage() {
           title={<SciName name={name} rank={rank} />}
           parts={[words(rank), words(taxon.data?.status)]}
           actions={<FollowActions type="TAXON" target={id} label={name}
-            feed={withMentionedIn(`/feeds/taxon/${encodeURIComponent(id)}.atom`, mentionedIn)} />}
+            feed={withMentionedIn(`/feeds/taxon/${encodeURIComponent(id)}.atom`, mentionedIn)} mentionedIn={mentionedIn} />}
         />
       ) : <Loader size="sm" />}
       {classification.data?.length ? <ClassificationPath items={classification.data} order="root-first" /> : null}

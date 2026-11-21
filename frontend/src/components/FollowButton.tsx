@@ -35,11 +35,13 @@ interface DialogProps {
   target: string;
   label: string;
   existing?: Subscription;
+  /** The page's mentioned-in filter: a new follow starts with it; an existing one keeps its own. */
+  initialMentionedIn?: MentionedIn[];
   /** The create call answered "exists": edit that subscription instead. */
   onExists?: (id: number) => void;
 }
 
-function Form({ onClose, type, target, label, existing, onExists }: Omit<DialogProps, 'opened'>) {
+function Form({ onClose, type, target, label, existing, onExists, initialMentionedIn }: Omit<DialogProps, 'opened'>) {
   const client = useQueryClient();
   const groups = useQuery({ queryKey: ['taxgroups'], queryFn: getTaxGroups, staleTime: Infinity });
   const disciplines = useDisciplines();
@@ -48,7 +50,7 @@ function Form({ onClose, type, target, label, existing, onExists }: Omit<DialogP
   const [newNames, setNewNames] = useState(existing?.newNamesOnly ?? false);
   const [abstracts, setAbstracts] = useState(existing?.includeAbstractOnly ?? true);
   const [refs, setRefs] = useState(existing?.includeReferences ?? false);
-  const [mentioned, setMentioned] = useState<MentionedIn[]>(existing?.mentionedIn ?? []);
+  const [mentioned, setMentioned] = useState<MentionedIn[]>(existing ? existing.mentionedIn ?? [] : initialMentionedIn ?? []);
   const [window, setWindow] = useState<'rolling' | 'since'>(existing?.sinceYear ? 'since' : 'rolling');
   const [year, setYear] = useState(existing?.sinceYear ? String(existing.sinceYear) : '');
   const [narrow, setNarrow] = useState<SubscriptionFilters>(existing?.filters ?? {});
@@ -163,7 +165,7 @@ export function FollowDialog(props: DialogProps) {
   );
 }
 
-export function FollowButton({ type, target, label }: { type: SubscriptionType; target: string; label: string }) {
+export function FollowButton({ type, target, label, initialMentionedIn }: { type: SubscriptionType; target: string; label: string; initialMentionedIn?: MentionedIn[] }) {
   const me = useMe();
   const here = useLocation();
   const [opened, setOpened] = useState(false);
@@ -185,7 +187,7 @@ export function FollowButton({ type, target, label }: { type: SubscriptionType; 
       </Button>
       <FollowDialog
         opened={opened} onClose={() => setOpened(false)} type={type} target={target} label={label}
-        existing={existing} onExists={setEditId}
+        existing={existing} onExists={setEditId} initialMentionedIn={initialMentionedIn}
       />
     </>
   );

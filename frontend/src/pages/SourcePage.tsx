@@ -78,7 +78,7 @@ export function SourcePage() {
         title={s.title}
         parts={[sentence(s.tier), s.publisher, s.issnL && `ISSN-L ${s.issnL}`]}
         actions={served && !language.length
-          ? <FollowActions type="SOURCE" target={String(s.id)} label={s.title} feed={withMentionedIn(`/feeds/source/${s.id}.atom`, mentionedIn)} />
+          ? <FollowActions type="SOURCE" target={String(s.id)} label={s.title} feed={withMentionedIn(`/feeds/source/${s.id}.atom`, mentionedIn)} mentionedIn={mentionedIn} />
           : undefined}
       />
 

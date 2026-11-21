@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { SearchPage } from './SearchPage';
 import { activeFilterCount } from '../components/FilterSidebar';
-import { server, work, emptyPage, taxGroupHandler, xrHandler, sourcesHandler } from '../test/server';
+import { server, work, emptyPage, taxGroupHandler, xrHandler, sourcesHandler, meBody } from '../test/server';
 import { renderApp } from '../test/render';
 
 describe('SearchPage', () => {
@@ -238,5 +238,31 @@ describe('SearchPage', () => {
     expect(row).toHaveAttribute('aria-current', 'true');
     await userEvent.click(row);
     await waitFor(() => expect(screen.getByTestId('location').textContent).not.toContain('language='));
+  });
+
+  it('languageNoteOnlyWhenATaxgroupFeedWasHidden', async () => {
+    server.use(xrHandler, taxGroupHandler, sourcesHandler(), http.get('/api/works', () =>
+      HttpResponse.json({ ...emptyPage, total: 1, results: [work(1, 'Carabid revision')] })));
+    renderApp(<SearchPage />, '/?language=de');
+    await screen.findByText('Carabid revision');
+    expect(screen.queryByText('Feeds and follows do not filter by language.')).toBeNull();
+  });
+
+  it('followFromTheSearchPageCarriesMentionedIn', async () => {
+    let body: Record<string, unknown> | null = null;
+    document.cookie = 'XSRF-TOKEN=x1; path=/';
+    server.use(xrHandler, taxGroupHandler, sourcesHandler(),
+      http.get('/api/me', () => HttpResponse.json(meBody)),
+      http.get('/api/me/subscriptions', () => HttpResponse.json([])),
+      http.post('/api/me/subscriptions', async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({}, { status: 201 });
+      }),
+      http.get('/api/works', () => HttpResponse.json({ ...emptyPage, total: 1, results: [work(1, 'Carabid revision')] })));
+    renderApp(<SearchPage />, '/?taxgroup=Insects&mentionedIn=TITLE');
+    await userEvent.click(await screen.findByRole('button', { name: 'Follow' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(body).not.toBeNull());
+    expect(body).toMatchObject({ mentionedIn: ['TITLE'] });
   });
 });

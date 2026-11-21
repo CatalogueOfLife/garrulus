@@ -186,4 +186,42 @@ describe('FollowButton', () => {
     // none checked clears it
     expect(patch).toMatchObject({ mentionedIn: [] });
   });
+
+  it('newFollowStartsWithThePageFilter', async () => {
+    let body: Record<string, unknown> | null = null;
+    document.cookie = 'XSRF-TOKEN=x1; path=/';
+    server.use(
+      signedIn,
+      http.get('/api/me/subscriptions', () => HttpResponse.json([])),
+      http.post('/api/me/subscriptions', async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(sub(), { status: 201 });
+      }),
+    );
+    renderApp(<FollowButton type="TAXON" target="T1" label="Carabus" initialMentionedIn={['TITLE']} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Follow' }));
+    expect(await screen.findByLabelText('Title')).toBeChecked();
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(body).not.toBeNull());
+    expect(body).toMatchObject({ mentionedIn: ['TITLE'] });
+  });
+
+  it('existingFollowKeepsItsOwnMentionedIn', async () => {
+    let patch: Record<string, unknown> | null = null;
+    server.use(
+      signedIn,
+      http.get('/api/me/subscriptions', () => HttpResponse.json([sub({ mentionedIn: ['ABSTRACT'] })])),
+      http.patch('/api/me/subscriptions/5', async ({ request }) => {
+        patch = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(sub());
+      }),
+    );
+    renderApp(<FollowButton type="TAXON" target="T1" label="Carabus" initialMentionedIn={['TITLE']} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Following' }));
+    expect(await screen.findByLabelText('Abstract')).toBeChecked();
+    expect(screen.getByLabelText('Title')).not.toBeChecked();
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(patch).not.toBeNull());
+    expect(patch).toMatchObject({ mentionedIn: ['ABSTRACT'] });
+  });
 });

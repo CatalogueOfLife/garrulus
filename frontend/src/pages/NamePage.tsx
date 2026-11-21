@@ -43,7 +43,7 @@ export function NamePage() {
       <DetailHead
         title={<SciName name={n.name} rank={n.rank} kind={n.kind} />}
         parts={[words(n.rank), n.kind === 'OTU' ? n.kind : words(n.kind)]}
-        actions={<FollowActions type="NAME" target={String(n.id)} label={n.name} feed={withMentionedIn(`/feeds/name/${n.id}.atom`, mentionedIn)} />}
+        actions={<FollowActions type="NAME" target={String(n.id)} label={n.name} feed={withMentionedIn(`/feeds/name/${n.id}.atom`, mentionedIn)} mentionedIn={mentionedIn} />}
       />
 
       <div className={`${list.page} ${classes.body}`}>
