@@ -21,9 +21,10 @@ Roadmap (2026-11-18): M6 reach (layered harvesting, design `docs/superpowers/spe
 research `docs/research/`), M7 judging (the next tuning step), M8 the portal widget. M6a (identity and layered harvest:
 ADR-0008) is built locally and its dev check runs (`docs/m6a-dev-check.md`). M6b (journal registry, discovery,
 registration, admins and admin pages, candidate sampling, ceased journals, disciplines: ADR-0009) is built locally; its
-dev check is `docs/m6b-dev-check.md` (local run pending, GBIF checklist). M6c (crosslinks, languages and English titles,
+dev check is `docs/m6b-dev-check.md` (local run done 2026-11-20 except the browser steps, GBIF checklist). M6c (crosslinks, languages and English titles,
 abstract and full-text fallbacks, the mentioned-in filter, the KU route, off: ADR-0010) is built locally; its dev check
-is `docs/m6c-dev-check.md` (local run pending, GBIF checklist, one open question for Markus). Next: M7.
+is `docs/m6c-dev-check.md` (local run done 2026-11-21 except LibreTranslate and the browser steps; GBIF checklist; open:
+one question for Markus and the language findings L1 to L3 there). Next: M7.
 
 ## Commands
 

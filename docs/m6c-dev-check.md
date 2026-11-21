@@ -13,10 +13,9 @@ task() { curl -s -X POST localhost:18080/api/admin/tasks -H "X-Admin-Token: $ADM
   -H 'Content-Type: application/json' -d "$1"; echo; }
 ```
 
-## Local run (pending)
+## Local run (2026-11-21, done except LibreTranslate and the browser steps)
 
-Runs once, after the final review's fix wave, so the dev run gets the final code. Record the results here (dated), as
-`docs/m6b-dev-check.md` does.
+Runs once, after the final review's fix wave, so the dev run gets the final code. Results below the steps, dated.
 
 1. **Build and test:** `mvn -B verify`, then `cd frontend && npm test && npm run build`, all green.
    `LinkWorkHandlerIT.newSchemeAndLookupNeedNoMigration` (a scheme and its lookup added without a migration) is part
@@ -106,18 +105,42 @@ Runs once, after the final review's fix wave, so the dev run gets the final code
    panel shows **no request** while it translates), the search page's language facet and mentioned-in boxes, a follow
    with "Mentioned in: title".
 
-Counts to record here (fill in):
+**Results (2026-11-21).** Steps 1 to 4 and 6 done; step 5 (LibreTranslate) not run on the laptop (torch and the
+models are several GB over a travel connection: run it on the GBIF VM); step 7 is Markus's.
 
 | Item | Count |
 |---|---|
-| V21 to V24 apply time | |
-| `language_source` before / after `DETECT_LANGUAGE` | |
-| The 148 `uz` works: new values | |
-| Undecided share of works with a title | |
-| ZooKeys links per scheme (200 works), misses per lookup | |
-| Phytotaxa, ZooKeys, Zootaxa journal identifiers | |
-| Titles translated / dropped, seconds per title, LibreTranslate RSS, its `/languages` codes | |
-| Top-ups (SciELO, Europe PMC) | |
+| Build and test (step 1) | `mvn -B verify` BUILD SUCCESS on every module; frontend 338 tests, `npm run build` green |
+| V21 to V24 apply time | 21.3 s in all, V21 21.3 s (`work.fts` rewrite and `LEGACY` back-fill of 111,268 works under ACCESS EXCLUSIVE; about 17 min at 5M if linear: apply it before the backfill); V22 to V24 under 15 ms |
+| `language_source` before / after `DETECT_LANGUAGE` | before: null 111,268 (`LEGACY` evidence 110,822); after (198 batches): DETECTED 79,252, FULLTEXT 19,008, OPENALEX 12,621, UNDECIDED 387; languages en 110,128, ru 313, es 148, fr 100, de 65, ja 23 |
+| The 148 `uz` works: new values | UNDECIDED 143, `tr` (DETECTED) 5. **They are Uzbek** (one journal, source 221 "Agro kimyo himoya va o`simliklar karantini", no country, no languages): OpenAlex was right. See finding L1 |
+| Undecided share of works with a title | 0.35 % |
+| Spot check of 20 DETECTED decisions | 17 right; 3 short English titles decided `de`, `no`, `vi` by a title margin just over 0.10 against an English abstract. See finding L2 |
+| ZooKeys links per scheme (200 works), misses per lookup | CROSSREF 200, DOI 200, OPENALEX 200, BIODIVERSITY_PMC 191, PMCID 191, PMID 190, PLAZI 139, BLR 198 (after the Zenodo fix); misses: europepmc 10, plazi 61, zenodo-blr 2. Biodiversity PMC 20 requests that day |
+| Phytotaxa, ZooKeys, Zootaxa journal identifiers | Zootaxa WIKIDATA Q220370, CROSSREF_JOURNAL; Phytotaxa WIKIDATA Q4807825, IPNI_PUB 20011462-1, CROSSREF_JOURNAL (no BPH: known, ADR-0010); ZooKeys WIKIDATA Q219980, DOAJ, CROSSREF_JOURNAL |
+| Titles translated / dropped, seconds per title, LibreTranslate RSS, its `/languages` codes | not run (step 5 pending) |
+| Top-ups (SciELO, Europe PMC) | Europe PMC: definite misses for both works tried (no work with a PMID lacks an abstract on the dev DB). SciELO: after the fix 4 of 4 articles found by PID (language DECLARED `en`); no abstract added for the two BJB works (ArticleMeta has no `v83` for them, checked live); no parallels for the Zoologia ones (English only) |
+
+**Bugs found and fixed in this run** (each with a test that pins the live behaviour):
+- `efd539f`: Zenodo DOI queries asked for 100 rows; Zenodo answers 400 above 25 for anonymous requests (checked live),
+  so every `zenodo-blr` lookup was a refused DOI and a miss (0 of 200). Now 25 rows: 198 of 200.
+- `331a65a`: the SciELO top-up searched ArticleMeta's identifiers listing for the DOI, but the listing has no DOI field
+  (and its window filters the processing date), so it could never find an article. The PID now comes from
+  Crossref's `alternative-id`; the article is accepted only when its DOI equals the work's.
+
+**Findings left open** (recommendations; no code changed after the closed review):
+- **L1, languages the detector lacks.** Lingua's set has no Uzbek, so the rare-language rule dropped OpenAlex's
+  correct `uz` (143 UNDECIDED) and a Turkish detection overrode it 5 times. Recommended: keep OpenAlex's language
+  when the detector does not support it, unless the detector is confident of English; and never let a DETECTED
+  language override an unsupported OpenAlex language.
+- **L2, a weak title beats a stronger abstract.** TITLE evidence ranks before ABSTRACT: 83 works have title and
+  abstract disagreeing, 80 were decided by the title, 68 of those against the abstract and OpenAlex, 71 with a title
+  margin under 0.15 (about 12 % of the non-English DETECTED decisions). Recommended: the title wins only from a margin
+  of about 0.20 (a property), else an agreeing abstract and OpenAlex decide. Part of the min-margin tuning item.
+- **L3, `DETECT_LANGUAGE` can fork.** A batch retried after a laptop sleep (connection pool errors during the clock
+  leap) ended at another id, because the default mode selects by state, and its continuation key
+  `detect-language:<last>` started a second chain (idempotent; undecided works read twice). Key the continuation on
+  the task's own `afterId`. Other paged handlers select by id alone and cannot fork.
 
 ## GBIF VM checklist
 
