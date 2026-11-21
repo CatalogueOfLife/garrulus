@@ -8,7 +8,6 @@ import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
@@ -17,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.catalogueoflife.nametracker.indexer.AbstractPostgresIT;
+import org.catalogueoflife.nametracker.indexer.TestHttpClients;
 import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
 import org.catalogueoflife.nametracker.indexer.match.ClbClient;
@@ -77,7 +77,7 @@ class XrSwitchIT extends AbstractPostgresIT {
   }
 
   static ClbClient client(String base, String matchBase) {
-    PoliteHttp http = new PoliteHttp(HttpClient.newHttpClient(), Map.of("localhost", Duration.ZERO),
+    PoliteHttp http = new PoliteHttp(TestHttpClients.production(), Map.of("localhost", Duration.ZERO),
         PoliteHttp.userAgent(), Clock.systemUTC(), d -> { });
     return new ClbClient(http, base, matchBase, new HarvestOutage(Duration.ofMinutes(30), Clock.systemUTC()));
   }

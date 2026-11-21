@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import java.net.URI;
-import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
 import java.time.Clock;
 import java.time.Duration;
@@ -15,6 +14,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.catalogueoflife.nametracker.indexer.TestHttpClients;
 import org.catalogueoflife.nametracker.store.net.PublicHost;
 import org.junit.jupiter.api.Test;
 
@@ -37,7 +37,7 @@ class PoliteHttpTest {
   }
 
   private PoliteHttp http(FakeTime t) {
-    return new PoliteHttp(HttpClient.newHttpClient(), Map.of(), PoliteHttp.userAgent(), t, t::sleep);
+    return new PoliteHttp(TestHttpClients.production(), Map.of(), PoliteHttp.userAgent(), t, t::sleep);
   }
 
   private URI uri(WireMockRuntimeInfo w, String path) {
@@ -180,7 +180,7 @@ class PoliteHttpTest {
   @Test
   void minIntervalCanBeChangedAtRuntime() {
     FakeTime t = new FakeTime();
-    PoliteHttp h = new PoliteHttp(HttpClient.newHttpClient(), Map.of(), PoliteHttp.userAgent(), t, t::sleep);
+    PoliteHttp h = new PoliteHttp(TestHttpClients.production(), Map.of(), PoliteHttp.userAgent(), t, t::sleep);
     HostLimiter l = h.limiterFor("oai.example.org");
     l.acquire();
     h.setMinInterval("OAI.example.org", Duration.ofSeconds(5));
@@ -200,7 +200,7 @@ class PoliteHttpTest {
   @Test
   void pensoftHostsShareOneLimiter() {
     FakeTime t = new FakeTime();
-    PoliteHttp h = new PoliteHttp(HttpClient.newHttpClient(), PoliteHttp.defaultIntervals(),
+    PoliteHttp h = new PoliteHttp(TestHttpClients.production(), PoliteHttp.defaultIntervals(),
         PoliteHttp.userAgent(), t, t::sleep);
     assertSame(h.limiterFor("pdfs.pensoft.net"), h.limiterFor("zookeys.pensoft.net"));
     assertNotSame(h.limiterFor("api.crossref.org"), h.limiterFor("api.openalex.org"));
@@ -209,12 +209,12 @@ class PoliteHttpTest {
   @Test
   void localHostsAreNotThrottledUnlessConfigured() {
     FakeTime t = new FakeTime();
-    PoliteHttp h = new PoliteHttp(HttpClient.newHttpClient(), Map.of("127.0.0.1", Duration.ofMillis(50)),
+    PoliteHttp h = new PoliteHttp(TestHttpClients.production(), Map.of("127.0.0.1", Duration.ofMillis(50)),
         PoliteHttp.userAgent(), t, t::sleep);
     assertEquals(Duration.ZERO, h.intervalFor("localhost"));
     assertEquals(Duration.ZERO, h.intervalFor("::1"));
     assertEquals(Duration.ofMillis(50), h.intervalFor("127.0.0.1"));
-    assertEquals(Duration.ZERO, new PoliteHttp(HttpClient.newHttpClient(), PoliteHttp.defaultIntervals(),
+    assertEquals(Duration.ZERO, new PoliteHttp(TestHttpClients.production(), PoliteHttp.defaultIntervals(),
         PoliteHttp.userAgent(), t, t::sleep).intervalFor("api.checklistbank.org"));
     assertEquals(PoliteHttp.DEFAULT_INTERVAL, h.intervalFor("example.org"));
     for (int i = 0; i < 5; i++) h.limiterFor("localhost").acquire();
@@ -231,7 +231,7 @@ class PoliteHttpTest {
     stubFor(get("/big").willReturn(ok("x".repeat(5000))));
     stubFor(get("/small").willReturn(ok("x".repeat(900))));
     FakeTime t = new FakeTime();
-    PoliteHttp h = new PoliteHttp(HttpClient.newHttpClient(), Map.of(), PoliteHttp.userAgent(), t, t::sleep, 1000);
+    PoliteHttp h = new PoliteHttp(TestHttpClients.production(), Map.of(), PoliteHttp.userAgent(), t, t::sleep, 1000);
     HttpProblem p = assertThrows(HttpProblem.class, () -> h.get(uri(w, "/big"), Map.of()));
     assertFalse(p.retryable());
     assertTrue(p.getMessage().contains("response larger than"), p.getMessage());
@@ -248,7 +248,7 @@ class PoliteHttpTest {
   @Test
   void aChannelHasItsOwnLimiterOnASharedHost() {
     FakeTime t = new FakeTime();
-    PoliteHttp h = new PoliteHttp(HttpClient.newHttpClient(), PoliteHttp.defaultIntervals(),
+    PoliteHttp h = new PoliteHttp(TestHttpClients.production(), PoliteHttp.defaultIntervals(),
         PoliteHttp.userAgent(), t, t::sleep);
     h.setMinInterval("oai", "zookeys.pensoft.net", Duration.ofSeconds(2));
     // the OAI spacing does not slow the Pensoft content fetches of the same host
@@ -256,7 +256,7 @@ class PoliteHttpTest {
     assertEquals(Duration.ofSeconds(2), h.intervalFor("oai", "zookeys.pensoft.net"));
     assertNotSame(h.limiterFor("zookeys.pensoft.net"), h.limiterFor("oai", "zookeys.pensoft.net"));
     // a channel limiter starts from the host's configured interval
-    PoliteHttp c = new PoliteHttp(HttpClient.newHttpClient(), Map.of("oai.example.org", Duration.ofSeconds(7)),
+    PoliteHttp c = new PoliteHttp(TestHttpClients.production(), Map.of("oai.example.org", Duration.ofSeconds(7)),
         PoliteHttp.userAgent(), t, t::sleep);
     assertEquals(Duration.ofSeconds(7), c.intervalFor("oai", "oai.example.org"));
   }
@@ -273,7 +273,7 @@ class PoliteHttpTest {
    * production trusts only its configured service base URLs.
    */
   private static PoliteHttp checked(FakeTime t, PublicHost hosts, String... trusted) {
-    return new PoliteHttp(HttpClient.newHttpClient(), Map.of(), PoliteHttp.userAgent(), t, t::sleep,
+    return new PoliteHttp(TestHttpClients.production(), Map.of(), PoliteHttp.userAgent(), t, t::sleep,
         PoliteHttp.DEFAULT_MAX_RESPONSE_BYTES, hosts, TrustedAuthorities.of(List.of(trusted)));
   }
 

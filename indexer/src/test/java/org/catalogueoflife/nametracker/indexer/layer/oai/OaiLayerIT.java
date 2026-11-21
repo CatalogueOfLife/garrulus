@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
-import java.net.http.HttpClient;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -15,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.catalogueoflife.nametracker.indexer.AbstractPostgresIT;
+import org.catalogueoflife.nametracker.indexer.TestHttpClients;
 import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
 import org.catalogueoflife.nametracker.indexer.layer.LayerHarvestHandler;
@@ -98,7 +98,7 @@ class OaiLayerIT extends AbstractPostgresIT {
   }
 
   private HarvestOaiHandler handler(Instant now) {
-    PoliteHttp http = new PoliteHttp(HttpClient.newHttpClient(), Map.of("localhost", Duration.ZERO),
+    PoliteHttp http = new PoliteHttp(TestHttpClients.production(), Map.of("localhost", Duration.ZERO),
         PoliteHttp.userAgent(), Clock.systemUTC(), d -> { });
     MockEnvironment env = new MockEnvironment().withProperty("nametracker.http.min-interval.localhost", "0s");
     OaiLayer layer = new OaiLayer(http, routes, env, Clock.fixed(now, ZoneOffset.UTC));

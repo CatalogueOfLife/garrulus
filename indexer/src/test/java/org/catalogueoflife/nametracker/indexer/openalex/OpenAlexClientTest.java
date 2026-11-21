@@ -8,7 +8,6 @@ import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import com.github.tomakehurst.wiremock.client.MappingBuilder;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,6 +19,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.catalogueoflife.nametracker.indexer.TestHttpClients;
 import org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException;
 import org.catalogueoflife.nametracker.indexer.cost.FakeApiUsage;
 import org.catalogueoflife.nametracker.indexer.cost.OpenAlexBudget;
@@ -42,7 +42,7 @@ class OpenAlexClientTest {
   }
 
   private OpenAlexClient client(WireMockRuntimeInfo w, String key) {
-    PoliteHttp http = new PoliteHttp(HttpClient.newHttpClient(), Map.of("localhost", Duration.ZERO),
+    PoliteHttp http = new PoliteHttp(TestHttpClients.production(), Map.of("localhost", Duration.ZERO),
         PoliteHttp.userAgent(), NOON, d -> { });
     OpenAlexBudget budget = new OpenAlexBudget(usage, new BigDecimal("1.00"), new BigDecimal("0.30"), NOON);
     return new OpenAlexClient(http, budget, key, w.getHttpBaseUrl());

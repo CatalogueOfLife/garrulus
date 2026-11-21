@@ -23,7 +23,6 @@ import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import java.io.IOException;
 import java.net.URI;
-import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -52,6 +51,7 @@ import org.catalogueoflife.nametracker.finder.api.Mention;
 import org.catalogueoflife.nametracker.finder.api.NameFinder;
 import org.catalogueoflife.nametracker.finder.api.NameKind;
 import org.catalogueoflife.nametracker.indexer.AbstractPostgresIT;
+import org.catalogueoflife.nametracker.indexer.TestHttpClients;
 import org.catalogueoflife.nametracker.indexer.content.ContentRoute;
 import org.catalogueoflife.nametracker.indexer.content.LicencePolicy;
 import org.catalogueoflife.nametracker.indexer.content.ResolveContentHandler;
@@ -585,7 +585,7 @@ class InstitutionalRouteIT extends AbstractPostgresIT {
   void aFailedFetchBlocksTheWorkForThirtyDays(WireMockRuntimeInfo w) throws Exception {
     elsevierAnswers(elsevierXml("An abstract.", "x".repeat(500)));
     long id = work(ELSEVIER_DOI, null);
-    PoliteHttp small = new PoliteHttp(HttpClient.newHttpClient(), Map.of("localhost", Duration.ZERO),
+    PoliteHttp small = new PoliteHttp(TestHttpClients.production(), Map.of("localhost", Duration.ZERO),
         PoliteHttp.userAgent(), Clock.systemUTC(), d -> { }, 200);
     ResolveContentHandler h = handler(route(on(w), small, InstitutionalRoute.LOCK_WAIT));
 

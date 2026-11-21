@@ -8,12 +8,12 @@ import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import java.io.IOException;
 import java.net.URI;
-import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.Map;
+import org.catalogueoflife.nametracker.indexer.TestHttpClients;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
 import org.junit.jupiter.api.Test;
 
@@ -27,7 +27,7 @@ public class OaiPmhClientTest {
   }
 
   static OaiPmhClient client() {
-    PoliteHttp http = new PoliteHttp(HttpClient.newHttpClient(), Map.of("localhost", Duration.ZERO),
+    PoliteHttp http = new PoliteHttp(TestHttpClients.production(), Map.of("localhost", Duration.ZERO),
         PoliteHttp.userAgent(), Clock.systemUTC(), d -> { });
     return new OaiPmhClient(http);
   }
@@ -129,7 +129,7 @@ public class OaiPmhClientTest {
 
   @Test
   void oaiSpacingLeavesThePensoftContentLimiterAlone() {
-    PoliteHttp http = new PoliteHttp(HttpClient.newHttpClient(), PoliteHttp.defaultIntervals(),
+    PoliteHttp http = new PoliteHttp(TestHttpClients.production(), PoliteHttp.defaultIntervals(),
         PoliteHttp.userAgent(), Clock.systemUTC(), d -> { });
     OaiLayer layer = new OaiLayer(http, null, new org.springframework.mock.env.MockEnvironment(), Clock.systemUTC());
     layer.polite(URI.create("https://zookeys.pensoft.net/oai.php"));

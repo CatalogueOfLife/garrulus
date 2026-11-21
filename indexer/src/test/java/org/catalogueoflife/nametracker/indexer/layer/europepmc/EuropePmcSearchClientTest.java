@@ -6,12 +6,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import java.io.IOException;
-import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import org.catalogueoflife.nametracker.indexer.TestHttpClients;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
 import org.catalogueoflife.nametracker.indexer.layer.HarvestedWork;
 import org.junit.jupiter.api.Test;
@@ -26,7 +26,7 @@ public class EuropePmcSearchClientTest {
   }
 
   public static PoliteHttp http() {
-    return new PoliteHttp(HttpClient.newHttpClient(), Map.of("localhost", Duration.ZERO), PoliteHttp.userAgent(),
+    return new PoliteHttp(TestHttpClients.production(), Map.of("localhost", Duration.ZERO), PoliteHttp.userAgent(),
         Clock.systemUTC(), d -> { });
   }
 

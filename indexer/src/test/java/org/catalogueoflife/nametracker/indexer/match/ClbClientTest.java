@@ -10,7 +10,6 @@ import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import java.io.IOException;
 import java.net.URI;
 import java.net.UnknownHostException;
-import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -19,6 +18,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.TreeMap;
+import org.catalogueoflife.nametracker.indexer.TestHttpClients;
 import org.catalogueoflife.nametracker.indexer.harvest.HarvestOutage;
 import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
@@ -43,7 +43,7 @@ class ClbClientTest {
   }
 
   static ClbClient client(WireMockRuntimeInfo w) {
-    PoliteHttp http = new PoliteHttp(HttpClient.newHttpClient(), Map.of("localhost", Duration.ZERO),
+    PoliteHttp http = new PoliteHttp(TestHttpClients.production(), Map.of("localhost", Duration.ZERO),
         PoliteHttp.userAgent(), Clock.systemUTC(), d -> { });
     return new ClbClient(http, w.getHttpBaseUrl(), new HarvestOutage(Duration.ofMinutes(30), CLOCK));
   }
@@ -64,7 +64,7 @@ class ClbClientTest {
 
   @Test
   void aBundleServesTheMatchesAndTheReleaseKey(WireMockRuntimeInfo w) throws IOException {
-    PoliteHttp http = new PoliteHttp(HttpClient.newHttpClient(), Map.of("localhost", Duration.ZERO),
+    PoliteHttp http = new PoliteHttp(TestHttpClients.production(), Map.of("localhost", Duration.ZERO),
         PoliteHttp.userAgent(), Clock.systemUTC(), d -> { });
     ClbClient c = new ClbClient(http, "http://localhost:1", w.getHttpBaseUrl() + "/",
         new HarvestOutage(Duration.ofMinutes(30), CLOCK));
@@ -194,7 +194,7 @@ class ClbClientTest {
 
   @Test
   void unknownHostIsAnOutageToo() {
-    PoliteHttp http = new PoliteHttp(HttpClient.newHttpClient(), Map.of(), PoliteHttp.userAgent(), Clock.systemUTC(),
+    PoliteHttp http = new PoliteHttp(TestHttpClients.production(), Map.of(), PoliteHttp.userAgent(), Clock.systemUTC(),
         d -> { }) {
       @Override
       public HttpResponse<byte[]> get(URI uri, Map<String, String> headers) {

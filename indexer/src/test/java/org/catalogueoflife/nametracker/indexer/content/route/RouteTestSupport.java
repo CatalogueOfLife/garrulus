@@ -1,11 +1,11 @@
 package org.catalogueoflife.nametracker.indexer.content.route;
 
 import java.io.IOException;
-import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Map;
+import org.catalogueoflife.nametracker.indexer.TestHttpClients;
 import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
 import org.catalogueoflife.nametracker.store.work.Work;
 
@@ -25,7 +25,7 @@ public final class RouteTestSupport {
   }
 
   public static PoliteHttp http() {
-    return new PoliteHttp(HttpClient.newHttpClient(), Map.of("localhost", Duration.ZERO), PoliteHttp.userAgent(),
+    return new PoliteHttp(TestHttpClients.production(), Map.of("localhost", Duration.ZERO), PoliteHttp.userAgent(),
         Clock.systemUTC(), d -> { });
   }
 
