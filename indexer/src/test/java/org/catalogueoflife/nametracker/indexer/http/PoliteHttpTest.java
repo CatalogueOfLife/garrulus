@@ -102,6 +102,26 @@ class PoliteHttpTest {
   }
 
   @Test
+  void getOnceMakesOneRequestAndReturnsTheAnswer(WireMockRuntimeInfo w) {
+    stubFor(get("/once").willReturn(aResponse().withStatus(503).withHeader("Retry-After", "7")));
+    FakeTime t = new FakeTime();
+    assertEquals(503, http(t).getOnce(uri(w, "/once"), Map.of()).statusCode());
+    verify(1, getRequestedFor(urlEqualTo("/once")));
+    assertTrue(t.sleeps.isEmpty(), t.sleeps.toString());
+  }
+
+  @Test
+  void getOnceIoFailureIsRetryableWithoutRetry() {
+    FakeTime t = new FakeTime();
+    HttpProblem p = assertThrows(HttpProblem.class,
+        () -> http(t).getOnce(URI.create("http://127.0.0.1:9/x?apikey=secret"), Map.of()));
+    assertTrue(p.retryable());
+    assertEquals(0, p.status());
+    assertFalse(p.getMessage().contains("secret"), p.getMessage());
+    assertTrue(t.sleeps.isEmpty(), t.sleeps.toString());
+  }
+
+  @Test
   void givesUpAfterThreeRetries(WireMockRuntimeInfo w) {
     stubFor(get("/down").willReturn(aResponse().withStatus(503)));
     HttpProblem p = assertThrows(HttpProblem.class, () -> http(new FakeTime()).get(uri(w, "/down"), Map.of()));

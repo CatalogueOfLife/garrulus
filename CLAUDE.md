@@ -157,11 +157,15 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
     (+ `ELSEVIER_INSTTOKEN` outside the KU IP range); Wiley needs `WILEY_TDM_TOKEN` and a local GROBID
     (`NAMETRACKER_INSTITUTIONAL_GROBID_URL`) for its PDFs, else it is not loaded (WARN). Daily caps
     `NAMETRACKER_INSTITUTIONAL_{ELSEVIER,WILEY}_DAILY_CAP` (500, counted in `institutional_fetch`). It runs last in
-    `RESOLVE_CONTENT`, only for DOIs of an allowed publisher, licence not open, no other full text, and not answered
-    within `nametracker.content.institutional.refetch-after` (365d; a reprocess re-fetch asks again); `freeOnly` does
-    not skip it (no cost per call). Its text is closed (spool, finder, purge), its abstracts are never stored, every
-    request is audited in `institutional_fetch` (V21: work, DOI, publisher, API, status, bytes, outcome). A 401 turns
-    the publisher off until restart. `GET /api/admin/status` reports `institutional` (per publisher `today`,
+    `RESOLVE_CONTENT`, and only when every earlier route answered (not after one was down or waited for its budget);
+    only for DOIs of an allowed publisher, licence not open, no other full text, not answered within
+    `nametracker.content.institutional.refetch-after` (365d) and not FAILED (e.g. a body over the size limit) within 30
+    days (a reprocess re-fetch asks again); `freeOnly` does not skip it (no cost per call). Every request is a single
+    attempt, audited in `institutional_fetch` (V21: work, DOI, publisher, API, status, bytes, outcome) and counted
+    against the cap; 429/5xx/IO or GROBID down defers the task 30 minutes, a full cap to 00:05 UTC, a busy publisher
+    lock 5 minutes. A 401, or `nametracker.content.institutional.max-consecutive-403` (5) 403s in a row (rows marked
+    REFUSED_SYSTEMIC, which block nothing), turns the publisher off until restart. Its text is closed (spool, finder,
+    purge), its abstracts are never stored. `GET /api/admin/status` reports `institutional` (per publisher `today`,
     `last30Days`).
 - `indexer` matching and index (ADR-0005):
   - `NAMETRACKER_CLB_BASE_URL` (`https://api.checklistbank.org`): the XR (`GET /dataset/3LXR`) and name matching, not

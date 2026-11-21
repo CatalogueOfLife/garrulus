@@ -49,9 +49,14 @@ final class ElsevierTdm implements PublisherTdm {
     return KIND;
   }
 
+  /** A {@code 10.1016/} DOI whose path has no {@code .} or {@code ..} segment (it would leave the API's path). */
   @Override
   public boolean claims(String doi) {
-    return doi.startsWith(PREFIX) && doi.length() > PREFIX.length();
+    if (!doi.startsWith(PREFIX) || doi.length() == PREFIX.length()) return false;
+    for (String segment : doi.split("/", -1)) {
+      if (segment.equals(".") || segment.equals("..")) return false;
+    }
+    return true;
   }
 
   /** The DOI is a path: each part encoded, its slashes kept. */

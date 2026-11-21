@@ -250,6 +250,28 @@ public class PoliteHttp {
     }
   }
 
+  /**
+   * One exchange without retries, for a caller that must count every request (the institutional route): spaced,
+   * checked and redirected like {@link #get}, but a 429 or 5xx is returned as it is and an I/O failure (an unknown host
+   * included: no second lookup) is a retryable {@link HttpProblem} at once. Only a body over the size cap or a
+   * refused host is a non-retryable one.
+   */
+  public HttpResponse<byte[]> getOnce(URI uri, Map<String, String> headers) {
+    URI safe = redact(uri);
+    AtomicBoolean tooLarge = new AtomicBoolean();
+    try {
+      return follow(uri, headers, null, tooLarge);
+    } catch (IOException e) {
+      if (tooLarge.get()) {
+        throw new HttpProblem(safe, 0, false, "response larger than " + maxResponseBytes + " bytes: " + safe, e);
+      }
+      throw new HttpProblem(safe, 0, true, (unknownHost(e) ? "Unknown host: " : "I/O failure: ") + safe, e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new HttpProblem(safe, 0, false, "Interrupted: " + safe, e);
+    }
+  }
+
   /** One exchange: the start URL and each redirect hop checked, spaced and sent; the last answer is returned. */
   private HttpResponse<byte[]> follow(URI start, Map<String, String> headers, @Nullable String channel,
       AtomicBoolean tooLarge) throws IOException, InterruptedException {

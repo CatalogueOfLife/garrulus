@@ -8,6 +8,11 @@
     RETURNING id
   </select>
 
+  <update id="setOutcome">
+    UPDATE institutional_fetch SET outcome = #{outcome} WHERE id IN
+    <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+  </update>
+
   <select id="countSince" resultType="int">
     SELECT count(*) FROM institutional_fetch WHERE publisher = #{publisher} AND fetched_at &gt;= #{since}
   </select>

@@ -55,7 +55,10 @@ import tools.jackson.databind.JsonNode;
  *
  * <p>With {@code "freeOnly":true} the paid routes ({@link ContentRoute#paid()}) are skipped; the institutional route
  * costs nothing per call and is not skipped (it guards against repeated fetches itself, see
- * {@link ContentRoute#applies(Work, Source, boolean)}). {@code "reprocess":true}
+ * {@link ContentRoute#applies(Work, Source, boolean)}). A route of last resort ({@link ContentRoute#lastResort()},
+ * the institutional route) is skipped when an earlier route was down or waited for its budget in this run; when it is
+ * down, busy or at its daily cap itself and no full text was found, the task is deferred to when it may ask again
+ * (without using an attempt, nothing written). {@code "reprocess":true}
  * comes from a forced FIND_NAMES whose full text is gone: a full text found is stored as usual and a forced FIND_NAMES
  * ({@code "refetched":true}) follows even when the document is unchanged; when none is found, nothing is written and
  * nothing follows, so the work keeps its content, text level and names (counted in an INFO line). If a route is down
@@ -149,6 +152,10 @@ public class ResolveContentHandler implements TaskHandler {
     List<FetchedContent> results = new ArrayList<>();
     FullText found = fullText(work, source, freeOnly, reprocess);
     FetchedContent full = found.content();
+    if (full == null && found.lastResortRetry() != null) {
+      // the institutional route is down, busy or at its daily cap: ask again then rather than store less
+      throw new ServiceOutageException("institutional route", found.lastResortRetry());
+    }
     if (reprocess && full == null && found.routeDown()) {
       // a route that is down may have the text: try again later rather than keep the old names
       throw new ServiceOutageException("full text routes", clock.instant().plus(OUTAGE_DELAY));
@@ -227,27 +234,39 @@ public class ResolveContentHandler implements TaskHandler {
     }
   }
 
-  /** The first full text of the routes, or null; {@code routeDown} when a route threw a retryable problem on the way. */
-  private record FullText(@Nullable FetchedContent content, boolean routeDown, @Nullable Instant budgetRetry) {}
+  /**
+   * The first full text of the routes, or null; {@code routeDown} when a route threw a retryable problem on the way,
+   * {@code lastResortRetry} when a route of last resort was down, busy or capped (when to ask again).
+   */
+  private record FullText(@Nullable FetchedContent content, boolean routeDown, @Nullable Instant budgetRetry,
+      @Nullable Instant lastResortRetry) {}
 
   private FullText fullText(Work work, Source source, boolean freeOnly, boolean reprocess) {
     boolean down = false;
     Instant budgetRetry = null;
+    Instant lastResortRetry = null;
     for (ContentRoute r : routes) {
       try {
         if (freeOnly && r.paid()) continue;
+        // a route of last resort only when every earlier route answered: one that is down may have the open text
+        if (r.lastResort() && (down || budgetRetry != null)) continue;
         if (!r.applies(work, source, reprocess)) continue;
         Optional<FetchedContent> got = r.fetch(work, source);
-        if (got.isPresent() && got.get().fulltext()) return new FullText(got.get(), down, null);
+        if (got.isPresent() && got.get().fulltext()) return new FullText(got.get(), down, null, null);
       } catch (BudgetExhaustedException e) {
         LOG.info("Route {} skipped for work {}: budget spent until {}", r.route(), work.id(), e.retryAt());
-        budgetRetry = e.retryAt();
+        if (r.lastResort()) lastResortRetry = e.retryAt();
+        else budgetRetry = e.retryAt();
+      } catch (ServiceOutageException e) {
+        LOG.warn("Route {} failed for work {}: {}", r.route(), work.id(), e.toString());
+        if (r.lastResort()) lastResortRetry = e.retryAt();
+        else down = true;
       } catch (RuntimeException e) {
-        if (HarvestOutage.retryable(e) != null || e instanceof ServiceOutageException) down = true;
+        if (HarvestOutage.retryable(e) != null) down = true;
         LOG.warn("Route {} failed for work {}: {}", r.route(), work.id(), e.toString());
       }
     }
-    return new FullText(null, down, budgetRetry);
+    return new FullText(null, down, budgetRetry, lastResortRetry);
   }
 
   private void scheduleRecheck(Task task, Work work, Source source) {

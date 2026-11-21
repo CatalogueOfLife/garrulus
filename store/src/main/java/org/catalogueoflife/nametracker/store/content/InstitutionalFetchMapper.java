@@ -17,6 +17,9 @@ public interface InstitutionalFetchMapper {
       @Param("api") String api, @Param("status") int status, @Param("bytes") int bytes,
       @Param("outcome") String outcome);
 
+  /** Sets the outcome of audit rows (a provisional OK that the conversion found unusable, a systemic 403). */
+  int setOutcome(@Param("ids") Collection<Long> ids, @Param("outcome") String outcome);
+
   /** Fetches of the publisher at or after {@code since}. */
   int countSince(@Param("publisher") String publisher, @Param("since") Instant since);
 

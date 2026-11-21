@@ -207,6 +207,8 @@ nametracker:
       grobid-url: ${NAMETRACKER_INSTITUTIONAL_GROBID_URL:}
       # a work a publisher answered (OK, 4xx, unusable) is not asked again for this long, except to reprocess
       refetch-after: 365d
+      # this many 403s of one publisher in a row mean the token is refused: the publisher is off until restart
+      max-consecutive-403: 5
       elsevier:
         base-url: https://api.elsevier.com
         api-key: ${ELSEVIER_API_KEY:}

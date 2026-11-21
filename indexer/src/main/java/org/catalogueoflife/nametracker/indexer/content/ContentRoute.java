@@ -29,6 +29,16 @@ public interface ContentRoute {
    */
   Optional<FetchedContent> fetch(Work w, @Nullable Source s);
 
+  /**
+   * True for a route of last resort (the institutional route): {@code RESOLVE_CONTENT} skips it in a run where an
+   * earlier route was down or waits for its budget (that route may still have the open text), and an outage
+   * ({@link org.catalogueoflife.nametracker.indexer.task.ServiceOutageException}) or a spent cap
+   * ({@link org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException}) of it defers the whole task.
+   */
+  default boolean lastResort() {
+    return false;
+  }
+
   /** True for a route that costs money per call; {@code RESOLVE_CONTENT} with {@code freeOnly} skips it. */
   default boolean paid() {
     return false;

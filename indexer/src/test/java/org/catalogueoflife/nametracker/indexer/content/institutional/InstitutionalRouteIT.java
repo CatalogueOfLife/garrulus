@@ -15,21 +15,27 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.catalogueoflife.nametracker.indexer.content.route.RouteTestSupport.fixture;
 import static org.catalogueoflife.nametracker.indexer.content.route.RouteTestSupport.http;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Stream;
@@ -52,7 +58,15 @@ import org.catalogueoflife.nametracker.indexer.content.ResolveContentHandler;
 import org.catalogueoflife.nametracker.indexer.content.route.EuropePmcRoute;
 import org.catalogueoflife.nametracker.indexer.content.route.PmcidResolver;
 import org.catalogueoflife.nametracker.indexer.finder.FindNamesHandler;
+import org.catalogueoflife.nametracker.indexer.content.FetchedContent;
+import org.catalogueoflife.nametracker.indexer.cost.BudgetExhaustedException;
 import org.catalogueoflife.nametracker.indexer.finder.Spool;
+import org.catalogueoflife.nametracker.indexer.http.HttpProblem;
+import org.catalogueoflife.nametracker.indexer.http.PoliteHttp;
+import org.catalogueoflife.nametracker.indexer.task.ServiceOutageException;
+import org.catalogueoflife.nametracker.store.source.Source;
+import org.catalogueoflife.nametracker.store.work.Work;
+import org.jspecify.annotations.Nullable;
 import org.catalogueoflife.nametracker.store.blob.BlobStore;
 import org.catalogueoflife.nametracker.store.content.Content;
 import org.catalogueoflife.nametracker.store.content.ContentMapper;
@@ -171,8 +185,14 @@ class InstitutionalRouteIT extends AbstractPostgresIT {
   private static InstitutionalProperties props(WireMockRuntimeInfo w, boolean enabled, String publishers, int cap,
       String grobid) {
     String base = w.getHttpBaseUrl();
-    return new InstitutionalProperties(enabled, publishers, grobid, Duration.ofDays(365), base, "test-els-key",
-        "test-els-inst", cap, base, "test-wiley-token", cap);
+    return props(w, enabled, publishers, cap, grobid, 5);
+  }
+
+  private static InstitutionalProperties props(WireMockRuntimeInfo w, boolean enabled, String publishers, int cap,
+      String grobid, int max403) {
+    String base = w.getHttpBaseUrl();
+    return new InstitutionalProperties(enabled, publishers, grobid, Duration.ofDays(365), max403, base,
+        "test-els-key", "test-els-inst", cap, base, "test-wiley-token", cap);
   }
 
   private static InstitutionalProperties on(WireMockRuntimeInfo w) {
@@ -180,7 +200,31 @@ class InstitutionalRouteIT extends AbstractPostgresIT {
   }
 
   private InstitutionalRoute route(InstitutionalProperties p) {
-    return new InstitutionalRoute(p, http(), audit, contents, policy, Clock.systemUTC(), word -> false);
+    return route(p, http(), InstitutionalRoute.LOCK_WAIT);
+  }
+
+  private InstitutionalRoute route(InstitutionalProperties p, PoliteHttp http, Duration lockWait) {
+    return new InstitutionalRoute(p, http, audit, contents, policy, Clock.systemUTC(), word -> false, lockWait);
+  }
+
+  /** A route that throws what it is given, standing in for an open route that is down or out of budget. */
+  private static ContentRoute failing(RuntimeException e) {
+    return new ContentRoute() {
+      @Override
+      public String route() {
+        return "PMC";
+      }
+
+      @Override
+      public boolean applies(Work w, @Nullable Source s) {
+        return true;
+      }
+
+      @Override
+      public Optional<FetchedContent> fetch(Work w, @Nullable Source s) {
+        throw e;
+      }
+    };
   }
 
   private ResolveContentHandler handler(ContentRoute... routes) {
@@ -340,22 +384,20 @@ class InstitutionalRouteIT extends AbstractPostgresIT {
   void everyFetchAudited(WireMockRuntimeInfo w) throws Exception {
     stubFor(get(urlPathEqualTo("/content/article/doi/10.1016/j.a.2020.1")).willReturn(aResponse().withStatus(403)));
     stubFor(get(urlPathEqualTo("/content/article/doi/10.1016/j.a.2020.2")).willReturn(aResponse().withStatus(404)));
-    stubFor(get(urlPathEqualTo("/content/article/doi/10.1016/j.a.2020.3")).willReturn(aResponse().withStatus(503)));
     stubFor(get(urlPathEqualTo(WILEY_PATH)).willReturn(aResponse().withHeader("Content-Type", "application/pdf")
         .withBody("%PDF-1.7 fake pdf bytes")));
     stubFor(post(urlPathEqualTo("/grobid/api/processFulltextDocument")).willReturn(aResponse()
         .withHeader("Content-Type", "application/xml").withBody(fixture("openalex/tei-small.xml"))));
     long refused = work("10.1016/j.a.2020.1", null);
     long missing = work("10.1016/j.a.2020.2", null);
-    long down = work("10.1016/j.a.2020.3", null);
     long wiley = work(WILEY_DOI, null);
     ResolveContentHandler h = handler(route(on(w)));
 
-    for (long id : List.of(refused, missing, down, wiley)) h.handle(resolve(id));
+    for (long id : List.of(refused, missing, wiley)) h.handle(resolve(id));
 
     assertThat(auditRows()).extracting(a -> a.get("work_id") + " " + a.get("publisher") + " " + a.get("status") + " "
         + a.get("outcome")).containsExactly(refused + " ELSEVIER 403 REFUSED", missing + " ELSEVIER 404 NOT_FOUND",
-        down + " ELSEVIER 503 ERROR", wiley + " WILEY 200 OK");
+        wiley + " WILEY 200 OK");
     assertThat(works.get(refused).textLevel()).isEqualTo("ABSTRACT_ONLY");
     assertThat(works.get(wiley).textLevel()).isEqualTo("FULLTEXT");
     Content c = row(wiley, "INSTITUTIONAL");
@@ -394,11 +436,16 @@ class InstitutionalRouteIT extends AbstractPostgresIT {
     long c = work("10.1016/j.a.2020.3", null);
     ResolveContentHandler h = handler(route(props(w, true, "elsevier", 2, "")));
 
-    for (long id : List.of(a, b, c)) h.handle(resolve(id));
+    h.handle(resolve(a));
+    h.handle(resolve(b));
+    ServiceOutageException deferred = assertThrows(ServiceOutageException.class, () -> h.handle(resolve(c)));
 
     verify(2, getRequestedFor(urlPathMatching("/content/article/doi/.*")));
     assertThat(auditRows()).extracting(r -> r.get("work_id")).containsExactly(null, a, b);
-    assertThat(works.get(c).textLevel()).isEqualTo("ABSTRACT_ONLY");
+    // to the next UTC day, nothing written meanwhile
+    assertThat(deferred.retryAt()).isEqualTo(LocalDate.now(ZoneOffset.UTC).plusDays(1).atTime(0, 5)
+        .toInstant(ZoneOffset.UTC));
+    assertThat(works.get(c).textLevel()).isNull();
   }
 
   @Test
@@ -441,17 +488,139 @@ class InstitutionalRouteIT extends AbstractPostgresIT {
   }
 
   @Test
+  void anOutageIsOneRequestOneAuditRowAndDefers(WireMockRuntimeInfo w) {
+    stubFor(get(urlPathEqualTo(ELSEVIER_PATH)).willReturn(aResponse().withStatus(503)));
+    long id = work(ELSEVIER_DOI, null);
+    Instant before = Instant.now();
+
+    ServiceOutageException e = assertThrows(ServiceOutageException.class,
+        () -> handler(route(on(w))).handle(resolve(id)));
+
+    verify(1, getRequestedFor(urlPathEqualTo(ELSEVIER_PATH))); // no retry inside the route
+    assertThat(auditRows()).extracting(r -> r.get("status") + " " + r.get("outcome")).containsExactly("503 ERROR");
+    assertThat(audit.countSince("ELSEVIER", before.minusSeconds(5))).isEqualTo(1); // one cap unit
+    assertThat(e.retryAt()).isAfter(before.plus(Duration.ofMinutes(29)));
+    assertThat(works.get(id).textLevel()).isNull(); // deferred before anything was written
+  }
+
+  @Test
   void anOutageDoesNotBlockTheNextTry(WireMockRuntimeInfo w) throws Exception {
     stubFor(get(urlPathEqualTo(ELSEVIER_PATH)).willReturn(aResponse().withStatus(503)));
     long id = work(ELSEVIER_DOI, null);
     ResolveContentHandler h = handler(route(on(w)));
-    h.handle(resolve(id));
+    assertThrows(ServiceOutageException.class, () -> h.handle(resolve(id)));
 
     elsevierAnswers(elsevierXml("An abstract.", "Aus bus here."));
     h.handle(resolve("{\"workId\":" + id + ",\"recheck\":1}"));
 
     assertThat(auditRows()).extracting(r -> r.get("outcome")).containsExactly("ERROR", "OK");
     assertThat(works.get(id).textLevel()).isEqualTo("FULLTEXT");
+  }
+
+  @Test
+  void skippedWhenAnOpenRouteWasDown(WireMockRuntimeInfo w) throws Exception {
+    elsevierAnswers(elsevierXml("An abstract.", "Aus bus here."));
+    long id = work(ELSEVIER_DOI, "The stored abstract.");
+    HttpProblem down = new HttpProblem(URI.create("http://localhost/x"), 503, true, "down", null);
+
+    handler(failing(down), route(on(w))).handle(resolve(id));
+
+    verify(0, getRequestedFor(urlPathEqualTo(ELSEVIER_PATH)));
+    assertThat(auditRows()).isEmpty();
+    assertThat(works.get(id).textLevel()).isEqualTo("ABSTRACT_ONLY"); // the normal recheck follows
+  }
+
+  @Test
+  void skippedWhenAnOpenRouteWaitsForItsBudget(WireMockRuntimeInfo w) throws Exception {
+    elsevierAnswers(elsevierXml("An abstract.", "Aus bus here."));
+    long id = work(ELSEVIER_DOI, "The stored abstract.");
+
+    handler(failing(new BudgetExhaustedException(Instant.now().plus(Duration.ofHours(3)))), route(on(w)))
+        .handle(resolve(id));
+
+    verify(0, getRequestedFor(urlPathEqualTo(ELSEVIER_PATH)));
+    assertThat(works.get(id).textLevel()).isEqualTo("ABSTRACT_ONLY");
+  }
+
+  @Test
+  void consecutive403sSwitchThePublisherOffWithoutBlockingTheWorks(WireMockRuntimeInfo w) throws Exception {
+    stubFor(get(urlPathMatching("/content/article/doi/.*")).willReturn(aResponse().withStatus(403)));
+    List<Long> ids = new ArrayList<>();
+    for (int i = 1; i <= 4; i++) ids.add(work("10.1016/j.a.2020." + i, null));
+    InstitutionalRoute r = route(props(w, true, "elsevier", 500, "", 3));
+    ResolveContentHandler h = handler(r);
+
+    for (long id : ids) h.handle(resolve(id));
+
+    verify(3, getRequestedFor(urlPathMatching("/content/article/doi/.*")));
+    assertThat(auditRows()).extracting(a -> a.get("status") + " " + a.get("outcome"))
+        .containsExactly("403 REFUSED_SYSTEMIC", "403 REFUSED_SYSTEMIC", "403 REFUSED_SYSTEMIC");
+    // after a restart (a new route) the works are asked again: the token was at fault, not the articles
+    InstitutionalRoute restarted = route(props(w, true, "elsevier", 500, "", 3));
+    assertThat(restarted.applies(works.get(ids.get(0)), null)).isTrue();
+  }
+
+  @Test
+  void aRefusalBelowTheBreakerKeepsItsBlock(WireMockRuntimeInfo w) throws Exception {
+    stubFor(get(urlPathEqualTo("/content/article/doi/10.1016/j.a.2020.1")).willReturn(aResponse().withStatus(403)));
+    stubFor(get(urlPathEqualTo("/content/article/doi/10.1016/j.a.2020.2")).willReturn(aResponse().withStatus(404)));
+    stubFor(get(urlPathEqualTo("/content/article/doi/10.1016/j.a.2020.3")).willReturn(aResponse().withStatus(403)));
+    stubFor(get(urlPathEqualTo("/content/article/doi/10.1016/j.a.2020.4")).willReturn(aResponse().withStatus(403)));
+    long a = work("10.1016/j.a.2020.1", null);
+    long b = work("10.1016/j.a.2020.2", null);
+    long c = work("10.1016/j.a.2020.3", null);
+    long d = work("10.1016/j.a.2020.4", null);
+    InstitutionalRoute r = route(props(w, true, "elsevier", 500, "", 3));
+    ResolveContentHandler h = handler(r);
+
+    for (long id : List.of(a, b, c, d)) h.handle(resolve(id)); // the 404 broke the streak: 1, then 2 in a row
+
+    assertThat(r.publishers()).containsExactly("ELSEVIER");
+    assertThat(auditRows()).extracting(x -> x.get("outcome"))
+        .containsExactly("REFUSED", "NOT_FOUND", "REFUSED", "REFUSED");
+    assertThat(r.applies(works.get(a), null)).isFalse(); // not asked again for a year
+  }
+
+  @Test
+  void aFailedFetchBlocksTheWorkForThirtyDays(WireMockRuntimeInfo w) throws Exception {
+    elsevierAnswers(elsevierXml("An abstract.", "x".repeat(500)));
+    long id = work(ELSEVIER_DOI, null);
+    PoliteHttp small = new PoliteHttp(HttpClient.newHttpClient(), Map.of("localhost", Duration.ZERO),
+        PoliteHttp.userAgent(), Clock.systemUTC(), d -> { }, 200);
+    ResolveContentHandler h = handler(route(on(w), small, InstitutionalRoute.LOCK_WAIT));
+
+    h.handle(resolve(id)); // the body is over the size limit: a failure that would repeat
+    h.handle(resolve("{\"workId\":" + id + ",\"recheck\":1}"));
+
+    verify(1, getRequestedFor(urlPathEqualTo(ELSEVIER_PATH)));
+    assertThat(auditRows()).extracting(r -> r.get("outcome")).containsExactly("FAILED");
+    jdbc.update("UPDATE institutional_fetch SET fetched_at = now() - interval '31 days'");
+    h.handle(resolve("{\"workId\":" + id + ",\"recheck\":2}"));
+    verify(2, getRequestedFor(urlPathEqualTo(ELSEVIER_PATH)));
+  }
+
+  @Test
+  void aBusyPublisherDefersInsteadOfWaiting(WireMockRuntimeInfo w) throws Exception {
+    stubFor(get(urlPathEqualTo("/content/article/doi/10.1016/j.a.2020.1")).willReturn(aResponse()
+        .withFixedDelay(1500).withBody(elsevierXml("An abstract.", "Aus bus here."))));
+    long a = work("10.1016/j.a.2020.1", null);
+    long b = work("10.1016/j.a.2020.2", null);
+    ResolveContentHandler h = handler(route(on(w), http(), Duration.ofMillis(100)));
+
+    var slow = java.util.concurrent.CompletableFuture.runAsync(() -> {
+      try {
+        h.handle(resolve(a));
+      } catch (Exception e) {
+        throw new IllegalStateException(e);
+      }
+    });
+    Thread.sleep(500); // a holds Elsevier's lock while its request runs
+    ServiceOutageException e = assertThrows(ServiceOutageException.class, () -> h.handle(resolve(b)));
+    slow.get();
+
+    assertThat(e.retryAt()).isAfter(Instant.now());
+    verify(0, getRequestedFor(urlPathEqualTo("/content/article/doi/10.1016/j.a.2020.2")));
+    assertThat(auditRows()).extracting(r -> r.get("work_id")).containsExactly(a);
   }
 
   @Test

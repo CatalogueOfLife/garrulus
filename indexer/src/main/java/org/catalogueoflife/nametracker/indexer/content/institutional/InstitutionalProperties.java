@@ -22,6 +22,7 @@ public class InstitutionalProperties {
   private final Set<String> publishers;
   private final @Nullable String grobidUrl;
   private final Duration refetchAfter;
+  private final int maxConsecutive403;
   private final String elsevierBaseUrl;
   private final @Nullable String elsevierApiKey;
   private final @Nullable String elsevierInsttoken;
@@ -35,6 +36,7 @@ public class InstitutionalProperties {
       @Value("${nametracker.content.institutional.publishers:}") String publishers,
       @Value("${nametracker.content.institutional.grobid-url:}") String grobidUrl,
       @Value("${nametracker.content.institutional.refetch-after:365d}") Duration refetchAfter,
+      @Value("${nametracker.content.institutional.max-consecutive-403:5}") int maxConsecutive403,
       @Value("${nametracker.content.institutional.elsevier.base-url:https://api.elsevier.com}") String elsevierBaseUrl,
       @Value("${nametracker.content.institutional.elsevier.api-key:}") String elsevierApiKey,
       @Value("${nametracker.content.institutional.elsevier.insttoken:}") String elsevierInsttoken,
@@ -46,6 +48,7 @@ public class InstitutionalProperties {
     this.publishers = parse(publishers);
     this.grobidUrl = blankToNull(grobidUrl);
     this.refetchAfter = refetchAfter;
+    this.maxConsecutive403 = maxConsecutive403;
     this.elsevierBaseUrl = trimSlash(elsevierBaseUrl);
     this.elsevierApiKey = blankToNull(elsevierApiKey);
     this.elsevierInsttoken = blankToNull(elsevierInsttoken);
@@ -91,6 +94,14 @@ public class InstitutionalProperties {
   /** How long a definitive answer for a work keeps the route from asking for it again (except to reprocess). */
   public Duration refetchAfter() {
     return refetchAfter;
+  }
+
+  /**
+   * This many 403s of one publisher in a row (no other answer between) mean the token, not the articles, is refused:
+   * the publisher is switched off until the next start.
+   */
+  public int maxConsecutive403() {
+    return maxConsecutive403;
   }
 
   public String elsevierBaseUrl() {

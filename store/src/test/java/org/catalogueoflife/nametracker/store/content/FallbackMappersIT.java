@@ -58,7 +58,11 @@ class FallbackMappersIT extends AbstractPostgresIT {
     assertThat(fetches.answeredSince(w, hourAgo, definitive)).isFalse();
     fetches.insert(w, "10.1/x", "ELSEVIER", "ELSEVIER_TDM", 503, 0, "ERROR");
     assertThat(fetches.answeredSince(w, hourAgo, definitive)).isFalse(); // an outage is no answer
-    fetches.insert(w, "10.1/x", "ELSEVIER", "ELSEVIER_TDM", 404, 0, "NOT_FOUND");
+    long nf = fetches.insert(w, "10.1/x", "ELSEVIER", "ELSEVIER_TDM", 404, 0, "NOT_FOUND");
+    assertThat(fetches.answeredSince(w, hourAgo, definitive)).isTrue();
+    assertThat(fetches.setOutcome(java.util.List.of(nf), "REFUSED_SYSTEMIC")).isEqualTo(1);
+    assertThat(fetches.answeredSince(w, hourAgo, definitive)).isFalse();
+    fetches.setOutcome(java.util.List.of(nf), "NOT_FOUND");
     assertThat(fetches.answeredSince(w, hourAgo, definitive)).isTrue();
     assertThat(fetches.answeredSince(w, Instant.now().plus(Duration.ofHours(1)), definitive)).isFalse();
     jdbc.update("INSERT INTO institutional_fetch (doi, publisher, api, status, bytes, outcome, fetched_at) "
