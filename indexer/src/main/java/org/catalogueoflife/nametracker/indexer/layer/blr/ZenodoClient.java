@@ -68,8 +68,12 @@ public class ZenodoClient {
     }
   }
 
-  /** The rows a DOI query asks for (Zenodo's own maximum for anonymous requests is 100 on this endpoint). */
-  public static final int DOI_ROWS = 100;
+  /**
+   * The rows a DOI query asks for: Zenodo's maximum page size for anonymous requests is 25 (a larger {@code size} is a
+   * 400 "validation error", checked live 2026-11-21). A batch of {@link #PAGE_SIZE} DOIs whose records (figures of the
+   * same article come with them) fill more than this page is caught by {@link DoiHits#truncated()}.
+   */
+  public static final int DOI_ROWS = PAGE_SIZE;
 
   /**
    * The publication records of the community whose DOI is one of {@code dois}

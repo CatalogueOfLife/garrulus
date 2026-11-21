@@ -37,7 +37,7 @@ class ZenodoBlrLookupIT {
     assertThat(out).containsOnlyKeys(1L);
     assertThat(out.get(1L)).containsExactly(new Identifier("BLR", "10446357"));
     verify(1, getRequestedFor(urlPathEqualTo("/api/records")).withQueryParam("communities", equalTo("biosyslit"))
-        .withQueryParam("type", equalTo("publication")).withQueryParam("size", equalTo("100"))
+        .withQueryParam("type", equalTo("publication")).withQueryParam("size", equalTo("25"))
         .withQueryParam("q", equalTo("doi:(\"" + ZOOKEYS + "\" OR \"10.3897/not.there\")")));
   }
 
