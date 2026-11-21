@@ -62,8 +62,10 @@ curl -s localhost:5055/languages      # check
   --host 127.0.0.1 --port 5055 --load-only zh,ja,ru,en > data/run/libretranslate.log 2>&1 &` (stop with
   `pkill -f 'libretranslate --host'`). The VM runs it as a systemd unit. Bind 127.0.0.1 and keep port 5055 closed to other hosts (firewall), as for gnfinder.
 - The indexer uses it only with `NAMETRACKER_TRANSLATION_ENABLED=true` and `NAMETRACKER_TRANSLATION_URL`
-  (`http://127.0.0.1:5055`); its own HTTP client, not `PoliteHttp` (loopback). A new LibreTranslate or model version:
-  change `NAMETRACKER_TRANSLATION_MODEL` (stored with every translation) and run `TRANSLATE_TITLE {"all":true}`.
+  (`http://127.0.0.1:5055`); its own HTTP client, not `PoliteHttp` (loopback). Its `/languages` codes are normalised
+  (`zh-Hans`/`zh-Hant` → `zh`, `nb` → `no`) and its own code is sent back on `/translate`. A new LibreTranslate or model
+  version: change `NAMETRACKER_TRANSLATION_MODEL` (stored with every translation; a translation dropped for a lost name
+  is remembered per model in `text_lookup` `TRANSLATE:<model>`) and run `TRANSLATE_TITLE {"all":true}`.
 
 ## gnfinder
 
@@ -173,12 +175,15 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   - `NAMETRACKER_HARVEST_OUTAGE_DELAY` (30m): a harvest or onboarding page that meets an outage is enqueued again after
     this delay instead of failing.
   - Abstract top-up (M6c, `content/topup`, ADR-0010): after the full-text routes, for a work still without an abstract,
-    Europe PMC, Springer Nature Meta (`SPRINGER_API_KEY`, free, blank = off; `NAMETRACKER_TOPUP_SPRINGER_DAILY_CAP`
+    Europe PMC (keyless; `NAMETRACKER_TOPUP_EUROPEPMC_ENABLED`, `nametracker.content.topup.europepmc.enabled`, default
+    true), Springer Nature Meta (`SPRINGER_API_KEY`, free, blank = off; `NAMETRACKER_TOPUP_SPRINGER_DAILY_CAP`
     100, `api_usage` `SPRINGER_META`), SciELO (`NAMETRACKER_TOPUP_SCIELO_COLLECTIONS`, `<doi prefix>=<collection>`,
     default `10.1590/=scl`; also asked for parallels and the declared language), CiNii Research (`CINII_APPID`, free,
     blank = off; only abstracts flagged `allow`). Each service at most once in 180 days per work (`text_lookup`; outages
-    are not remembered). Base URLs `nametracker.content.topup.{springer,scielo,cinii}.base-url`. OAI JATS (`OAI_JATS`)
-    is the first full-text route for journals with a `jats` OAI route. A TEI newly reported by OpenAlex re-resolves a
+    and spent caps are not remembered; a NO_TEXT work that met either gets the delayed recheck). Base URLs
+    `nametracker.content.topup.{springer,scielo,cinii}.base-url`. OAI JATS (`OAI_JATS`) is the first full-text route
+    for journals with a `jats` OAI route; it asks nothing with `NAMETRACKER_LAYERS_OAI_ENABLED=false` or for a CEASED
+    journal. A TEI newly reported by OpenAlex re-resolves a
     work (`RESOLVE_CONTENT {"tei":true}`, REPROCESS) at most `NAMETRACKER_CONTENT_TEI_RECHECK_PER_DAY` (200) a day.
   - Institutional route `INSTITUTIONAL` (M6c, University of Copenhagen subscriber TDM APIs): **off**,
     `NAMETRACKER_INSTITUTIONAL_ENABLED` (`nametracker.content.institutional.enabled`, false) plus the allow-list
@@ -375,11 +380,14 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
 - `indexer` identifier lookups (M6c; `LINK_WORK`, `LINK_SOURCE`): `nametracker.links.enabled` (master) and
   `nametracker.links.<name>.enabled` (default true) for `crossref openalex europepmc biodiversitypmc zenodo-blr plazi
   wikidata ipni crossref-journal bhl-doi`. Behind the harvest switch: `NAMETRACKER_LINKS_SOURCE_CRON` (`0 45 1 2 * *`,
-  `LINK_SOURCE` for every journal monthly) and `NAMETRACKER_LINKS_RETRY_CRON` (`0 15 6 * * *`, due misses). `nametracker.links.biodiversitypmc.max-requests-per-day` (200): Biodiversity PMC
+  `LINK_SOURCE` for every journal monthly) and `NAMETRACKER_LINKS_RETRY_CRON` (`0 15 6 * * *`, due misses: tasks of
+  5000 ids, at most `NAMETRACKER_LINKS_RETRY_PER_DAY`, 100000, subjects per entity and day). A lookup whose service is
+  down or whose daily cap is spent is skipped for the rest of the task: its targets get `next_try` = the retry time
+  without counting a try (`link_attempt.attempts` 0) and the next lookup and page go on; only a task in which no lookup
+  could ask anything is deferred. `nametracker.links.biodiversitypmc.max-requests-per-day` (200): Biodiversity PMC
   answers about 860 KB a document and cannot be asked for less, so that lookup applies only to works with acts or from
-  a Plazi/BLR journal and counts its requests per UTC day in `api_usage` (`biodiversitypmc`); when the cap is spent the
-  task is deferred to 00:05 UTC without using an attempt. Base URLs: `nametracker.links.{plazi,wikidata,ipni,
-  biodiversitypmc}.base-url`.
+  a Plazi/BLR journal and counts its requests per UTC day in `api_usage` (`biodiversitypmc`); when the cap is spent its
+  targets wait for 00:05 UTC. Base URLs: `nametracker.links.{plazi,wikidata,ipni,biodiversitypmc}.base-url`.
 - `indexer` languages (M6c, ADR-0010): `nametracker.language.{min-margin=0.10, min-title-words=3, min-text-letters=100,
   min-confidence=0.80, high-accuracy=false}` (properties only). Lingua's confidence is max-normalised, so the margin
   over the second language is the gate; `high-accuracy` costs about 1 GB of heap. After a change, `DETECT_LANGUAGE
@@ -463,9 +471,11 @@ curl ... -d '{"type":"HARVEST_CROSSREF","payload":{"date":"2026-11-14"},"priorit
     revive files that ended DEAD.
 - `LINK_WORK` / `LINK_SOURCE` (M6c): `{"workId"}`/`{"sourceId"}`, `{"ids":[…]}` (at most 5000) or
   `{"afterId":0,"batch":…,"schemes":[…]}` (continues per batch). `LINK_WORK` is enqueued at `BACKFILL` when a work is
-  indexed the first time, `LINK_SOURCE` after a journal's completion and monthly. A miss is asked again after 30 and 180
-  days, then never. One-off back-fill of existing works after the M6c deploy: `LINK_WORK {"afterId":0}` at `BACKFILL`; a
-  new lookup back-fills with `{"afterId":0,"schemes":[…]}`.
+  indexed the first time, except for works of origin `BACKFILL` (snapshot backfill) and while no work lookup is on;
+  `LINK_SOURCE` after a journal's completion and monthly. A miss is asked again after 30 and 180 days, then never.
+  One-off back-fill of existing works after the M6c deploy, **and again after the full snapshot backfill** (its works
+  are linked only this way): `LINK_WORK {"afterId":0}` at `BACKFILL`; a new lookup back-fills with
+  `{"afterId":0,"schemes":[…]}`.
 - `TRANSLATE_TITLE` (M6c): `{"workId":n,"force":false}` or `{"all":true,"afterId":0,"batch":500,"force":false}` (non-Latin
   scripts first, continues per batch). Enqueued when a named work's language is not English and it has no English title;
   off (DONE, INFO) without the translation switch and URL. Stores a MACHINE `work_text` title, never `work.title`.

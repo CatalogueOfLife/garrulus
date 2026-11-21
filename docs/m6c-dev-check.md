@@ -20,9 +20,12 @@ Runs once, after the final review's fix wave, so the dev run gets the final code
 
 1. **Build and test:** `mvn -B verify`, then `cd frontend && npm test && npm run build`, all green.
    `LinkWorkHandlerIT.newSchemeAndLookupNeedNoMigration` (a scheme and its lookup added without a migration) is part
-   of `mvn -B verify`; there is no CI, so this run is its record.
-2. **Deploy:** jars from `main` into `data/run/` (the previous ones kept as `*-2026-11-2x-pre-m6c.jar`), indexer and web
-   restarted as for M6b. **Flyway applies V21, V22 and V23 together.** Record the time: V21's `work.fts`
+   of `mvn -B verify`; there is no CI, so this run is its record. (The indexer tests use the production HTTP/1.1
+   client since the fix wave; the earlier `EuropePmcLinkLookupIT` resets came from the JDK default's h2c upgrade.)
+2. **Deploy:** jars from `main` into `data/run/` (the previous ones kept as `*-2026-11-2x-pre-m6c.jar`), then restart
+   **the indexer first (it migrates), then web**: a web started first refuses to start against the older schema
+   (`SchemaCheck`, "behind") until the indexer has migrated; the old web keeps serving meanwhile.
+   **Flyway applies V21, V22 and V23 together.** Record the time: V21's `work.fts`
    `SET EXPRESSION` rewrites all of `work` (about 104k rows) under an ACCESS EXCLUSIVE lock, and its `LEGACY` back-fill
    copies every work's language.
 
@@ -60,10 +63,15 @@ Runs once, after the final review's fix wave, so the dev run gets the final code
 
    Record links per scheme and the miss share per lookup; check one ZooKeys work page and the three journal pages in
    the SPA. The Biodiversity PMC requests of the day: `select * from api_usage where service = 'biodiversitypmc'`.
+   Rows with `attempts = 0` are lookups put off because their service was down or their cap spent (`next_try` is
+   when they come due again); the other lookups of the same task ran regardless.
 5. **LibreTranslate** (see CLAUDE.md "LibreTranslate"), started by hand:
    `libretranslate --host 127.0.0.1 --port 5055 --load-only zh,ja,ru,en`, then the indexer restarted with
    `NAMETRACKER_TRANSLATION_ENABLED=true` and `NAMETRACKER_TRANSLATION_URL=http://127.0.0.1:5055`. Note its resident
-   memory (`ps -o rss= -p <pid>`). Translate 50 named works of those languages without an English title:
+   memory (`ps -o rss= -p <pid>`) and record the codes it names (`curl -s 127.0.0.1:5055/languages | jq -c
+   '[.[].code]'`): the client normalises them (`zh-Hans` and `zh-Hant` to `zh`, `nb` to `no`) and sends the service's
+   own code back, so a Chinese title is translated whether the service says `zh` or `zh-Hans`. Translate 50 named works
+   of those languages without an English title:
 
    ```
    for id in $(data/run/psql.sh -At -c "select id from work where names_doc_sha is not null and title_en is null and coalesce(title_lang, language) in ('zh','ja','ru') order by id desc limit 50"); do
@@ -73,7 +81,9 @@ Runs once, after the final review's fix wave, so the dev run gets the final code
    grep -c 'Dropped the translation' data/run/indexer.log
    ```
 
-   Record seconds per title (task `finished - started`), how many were dropped for a lost name, and that an English
+   Record seconds per title (task `finished - started`), how many were dropped for a lost name (each drop is remembered:
+   `select count(*) from text_lookup where service like 'TRANSLATE:%'`; only `force` or a new model asks again), and
+   that an English
    word of one translated title finds the work (`/api/works?q=<word>`) and its list entry says "Machine translation".
    (The brief's `TRANSLATE_TITLE {"all":true}` pages every non-English title; on the dev DB 50 single tasks are enough.)
 6. **Top-ups:** one SciELO and one Europe PMC work without abstract.
@@ -102,7 +112,7 @@ Counts to record here (fill in):
 | Undecided share of works with a title | |
 | ZooKeys links per scheme (200 works), misses per lookup | |
 | Phytotaxa, ZooKeys, Zootaxa journal identifiers | |
-| Titles translated / dropped, seconds per title, LibreTranslate RSS | |
+| Titles translated / dropped, seconds per title, LibreTranslate RSS, its `/languages` codes | |
 | Top-ups (SciELO, Europe PMC) | |
 
 ## GBIF VM checklist
@@ -117,7 +127,16 @@ Run after the M6c deployment on the always-on installation. Deployment checks fi
 - **The `LINK_WORK` back-fill of existing works** (pre-flight L11: new works get `LINK_WORK` on first indexing only;
   this also recovers a work whose enqueue was lost):
   `task '{"type":"LINK_WORK","payload":{"afterId":0},"priority":"BACKFILL","dedupKey":"link-works:backfill"}'`.
-  It continues per batch at `BACKFILL`.
+  It continues per batch at `BACKFILL`; a lookup whose service is down or whose cap is spent puts its targets off and
+  the pages go on.
+- **After the full snapshot backfill, the same paged `LINK_WORK` once more** (final review I2): works of origin
+  `BACKFILL` get no `LINK_WORK` of their own when first indexed (one task per work would turn the batched lookups into
+  about 5M single Crossref and 5M single Europe PMC calls), so they are linked in pages of 200 after the backfill's
+  `FIND_NAMES`/`MATCH_NAMES` have drained. Works linked before are skipped by their attempts.
+  `task '{"type":"LINK_WORK","payload":{"afterId":0},"priority":"BACKFILL","dedupKey":"link-works:after-backfill"}'`.
+  Watch its progress: `select payload, state from task where type = 'LINK_WORK' and dedup_key like 'link-works:%' order by id desc limit 3`.
+  The misses of that run come due together after 30 days; the daily sweep queues at most
+  `nametracker.links.retry-per-day` (100,000) works a day (record how many days it takes).
 - Keys and switches: `SPRINGER_API_KEY` and `CINII_APPID` (free) set or knowingly blank;
   `NAMETRACKER_INSTITUTIONAL_ENABLED` **false** and `NAMETRACKER_INSTITUTIONAL_PUBLISHERS` empty;
   `NAMETRACKER_TRANSLATION_*` set only once LibreTranslate runs as a service; port 5055 (like gnfinder's 8778) closed to
@@ -174,7 +193,10 @@ curl -s "localhost:18080/api/works?language=none&limit=1" | jq '.total'
 curl -s "localhost:18080/api/stats/languages?yearFrom=2020" | jq '.[0:10]'
 curl -s "localhost:18080/api/stats/languages?taxgroup=Insects" | jq '.[0:10]'
 curl -s -o /dev/null -w '%{http_code}\n' "localhost:18080/api/stats/languages?taxgroup=Insects&country=CN"   # 400
+data/run/psql.sh -c "explain select count(*) from work w where w.state in ('INDEXED','NOTIFIED') and (w.language in ('zh') or w.language is null)"
 ```
+
+The plan uses `work_language_idx` (an index condition on `language`), the predicate the `language` filter sends.
 
 **Parallels.** Magtech and SciELO works carry their English (or original) versions:
 
@@ -220,8 +242,10 @@ OAI and Magtech hosts); no `api.elsevier.com` or `api.wiley.com` while the route
   ```
 
   Also look at the `DOAJ` values from Wikidata (P5115 holds ISSN-like values; they link to `doaj.org/toc/<issn>`).
-- **The Biodiversity PMC daily cap** (200 requests, about 1.7 GB): requests a day, and whether the cap is hit (tasks
-  deferred to 00:05 UTC): `select day, calls from api_usage where service = 'biodiversitypmc' order by day desc limit 14`.
+- **The Biodiversity PMC daily cap** (200 requests, about 1.7 GB): requests a day, and whether the cap is hit (its
+  targets put off to 00:05 UTC, `link_attempt` rows with `attempts = 0`; the other lookups go on):
+  `select day, calls from api_usage where service = 'biodiversitypmc' order by day desc limit 14` and
+  `select lookup, count(*) from link_attempt where attempts = 0 and next_try is not null group by 1`.
 - **Detection agreement:** on works with both a declared language and a detection, at least 95 % agree:
 
   ```
@@ -296,27 +320,26 @@ M6c.
   `MatchNamesHandler` keeps a production constructor that disables linking (prefer test wiring).
 - Clearing a due row of a work that left INDEXED is permanent (no retries if it returns); global `sweep()` counts in ITs
   may depend on test order in the shared DB; `LinkRunner.valid` hard-codes the column scheme strings.
-- OpenAlex single-DOI lookup fetches the full work (no `select`); "targets stay due on a refused reservation" proven by
-  reading only; `TaskDispatcher`'s deferral log says "the OpenAlex budget" for any budget.
+- OpenAlex single-DOI lookup fetches the full work (no `select`).
 - Rows of an unregistered scheme are listed publicly with their raw code (decide: hide them?); `distinct()` before
   `registry.links` for journal lists; tests for the `work.doi` fallback, no duplicate DOI, and the DOI URL form in the
   identifier filter; `IdentifierViews` depends on the static `WorkController.bad`; a long `WorkFilter.build()` line;
   `SearchMapperIT` keeps a local builder wrapper.
-- `EuropePmcLinkLookupIT` is flaky under full-suite load (WireMock connection resets; passes alone).
 
 **Languages and texts**
 - Multi-valued or decorated OAI language strings give null (a first-token fallback would help); locale tables depend on
   the JDK; the markup stripper drops text between a bare `<` and `>`; HTML entities are not decoded before detection.
-- `translateIfNeeded` enqueues on every decide (deduplicated); `BackfillFileIT` approximates "survives FIND_NAMES"
+- `translateIfNeeded` enqueues on every decide (deduplicated; no longer after a remembered drop); `BackfillFileIT`
+  approximates "survives FIND_NAMES"
   through `detectFromWork` and `decide` instead of the handler.
 - The Magtech Chinese ORIGINAL title is not in `work.fts`; overload noise in `WorksPager.store`, `recordLanguage` and the
   `HarvestedWork` constructors; the BLR layer's and the known-work JATS branch's Crossref items carry no
-  `original-title`; repeated OAI `dc:description` elements become PARALLEL abstracts.
+  `original-title`; a repeated OAI `dc:description` in another language than the work's (a translated rights
+  statement) still becomes a PARALLEL abstract.
 - `TRANSLATE_TITLE` retranslates a MACHINE row of another model without `force` (deviation from the brief, deliberate).
 
 **Fallbacks and the institutional route**
-- `OaiJatsRoute` repeats its identifier and route reads in `applies` and `fetch`; no OAI JATS test with a non-open
-  licence.
+- `OaiJatsRoute` repeats its identifier and route reads in `applies` and `fetch`.
 - `TeiRecheck` drops a flip beyond its 60-day horizon (WARN); a dedup-swallowed enqueue still uses a slot of the day;
   no keyless test of the TEI gate.
 - `ElsevierXml` ignores `ce:table` cells; the frontend `AdminStatus` type lacks `institutional`; a persistent publisher
