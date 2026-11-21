@@ -28,6 +28,18 @@ public interface LinkAttemptMapper {
   int defer(@Param("entity") char entity, @Param("ids") List<Long> ids, @Param("lookup") String lookup,
       @Param("nextTry") Instant nextTry);
 
+  /**
+   * Writes the marker row {@code lookup} (no retry, not found, attempts 0) for those of the subjects that have no row at
+   * all: they went through the lookups and none applied. Returns the rows written.
+   */
+  int markSeen(@Param("entity") char entity, @Param("ids") List<Long> ids, @Param("lookup") String lookup);
+
+  /**
+   * Listed works (INDEXED, NOTIFIED) above {@code afterId} without any {@code link_attempt} row, ascending, at most
+   * {@code limit}: works no lookup has seen yet (indexed while linking was off, or of origin BACKFILL).
+   */
+  List<Long> untriedWorks(@Param("afterId") long afterId, @Param("limit") int limit);
+
   /** Rows of the entity whose next_try has come, oldest first. */
   List<LinkAttempt> due(@Param("entity") char entity, @Param("now") Instant now, @Param("limit") int limit);
 

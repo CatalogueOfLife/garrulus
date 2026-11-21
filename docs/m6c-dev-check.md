@@ -25,12 +25,12 @@ Runs once, after the final review's fix wave, so the dev run gets the final code
 2. **Deploy:** jars from `main` into `data/run/` (the previous ones kept as `*-2026-11-2x-pre-m6c.jar`), then restart
    **the indexer first (it migrates), then web**: a web started first refuses to start against the older schema
    (`SchemaCheck`, "behind") until the indexer has migrated; the old web keeps serving meanwhile.
-   **Flyway applies V21, V22 and V23 together.** Record the time: V21's `work.fts`
+   **Flyway applies V21 to V24 together.** Record the time: V21's `work.fts`
    `SET EXPRESSION` rewrites all of `work` (about 104k rows) under an ACCESS EXCLUSIVE lock, and its `LEGACY` back-fill
    copies every work's language.
 
    ```
-   data/run/psql.sh -c "select version, success, execution_time from flyway_schema_history order by installed_rank desc limit 3"
+   data/run/psql.sh -c "select version, success, execution_time from flyway_schema_history order by installed_rank desc limit 4"
    data/run/psql.sh -c "select count(*) from work_language_evidence where kind = 'LEGACY'"
    ```
 
@@ -64,7 +64,8 @@ Runs once, after the final review's fix wave, so the dev run gets the final code
    Record links per scheme and the miss share per lookup; check one ZooKeys work page and the three journal pages in
    the SPA. The Biodiversity PMC requests of the day: `select * from api_usage where service = 'biodiversitypmc'`.
    Rows with `attempts = 0` are lookups put off because their service was down or their cap spent (`next_try` is
-   when they come due again); the other lookups of the same task ran regardless.
+   when they come due again); the other lookups of the same task ran regardless. Lookup `none` marks a work no lookup
+   applied to (seen, never retried).
 5. **LibreTranslate** (see CLAUDE.md "LibreTranslate"), started by hand:
    `libretranslate --host 127.0.0.1 --port 5055 --load-only zh,ja,ru,en`, then the indexer restarted with
    `NAMETRACKER_TRANSLATION_ENABLED=true` and `NAMETRACKER_TRANSLATION_URL=http://127.0.0.1:5055`. Note its resident
@@ -106,7 +107,7 @@ Counts to record here (fill in):
 
 | Item | Count |
 |---|---|
-| V21 to V23 apply time | |
+| V21 to V24 apply time | |
 | `language_source` before / after `DETECT_LANGUAGE` | |
 | The 148 `uz` works: new values | |
 | Undecided share of works with a title | |
@@ -119,24 +120,29 @@ Counts to record here (fill in):
 
 Run after the M6c deployment on the always-on installation. Deployment checks first:
 
-- **V21, V22 and V23 apply together, before the full backfill.** V21's `work.fts` `SET EXPRESSION` rewrites all of
+- **V21 to V24 apply together, before the full backfill.** V21's `work.fts` `SET EXPRESSION` rewrites all of
   `work` under ACCESS EXCLUSIVE in one transaction: instant on the empty database, blocking `web` for the whole rewrite
-  on a populated one. Check: `select version, success, execution_time from flyway_schema_history order by installed_rank desc limit 3`.
+  on a populated one. Check: `select version, success, execution_time from flyway_schema_history order by installed_rank desc limit 4`.
 - **Queue `DETECT_LANGUAGE {}` after the deploy** (on a database that held works before V21), so legacy rows are decided:
   `task '{"type":"DETECT_LANGUAGE","payload":{},"priority":"REPROCESS","dedupKey":"detect-language:deploy"}'`.
-- **The `LINK_WORK` back-fill of existing works** (pre-flight L11: new works get `LINK_WORK` on first indexing only;
-  this also recovers a work whose enqueue was lost):
+- **The `LINK_WORK` back-fill of existing works** (optional speed-up: the daily sweep also reaches every listed work no
+  lookup has seen, at most `retry-per-day` a day; this pages through all of them at once and recovers a work whose
+  enqueue was lost):
   `task '{"type":"LINK_WORK","payload":{"afterId":0},"priority":"BACKFILL","dedupKey":"link-works:backfill"}'`.
   It continues per batch at `BACKFILL`; a lookup whose service is down or whose cap is spent puts its targets off and
   the pages go on.
-- **After the full snapshot backfill, the same paged `LINK_WORK` once more** (final review I2): works of origin
-  `BACKFILL` get no `LINK_WORK` of their own when first indexed (one task per work would turn the batched lookups into
-  about 5M single Crossref and 5M single Europe PMC calls), so they are linked in pages of 200 after the backfill's
-  `FIND_NAMES`/`MATCH_NAMES` have drained. Works linked before are skipped by their attempts.
+- **Works of origin `BACKFILL` get no `LINK_WORK` of their own** when first indexed: the snapshot backfill, route
+  backfills, the Crossref history and any layer's records older than the live window (one task per work would turn the
+  batched lookups into about 5M single Crossref and 5M single Europe PMC calls). **The daily link sweep catches them
+  up**, with works indexed while linking was off: listed works without any `link_attempt` row, walked by id from
+  `job_cursor` `link-untried:W`, at most `nametracker.links.retry-per-day` (100,000, shared with the due retries) a
+  day. Record how many days it takes after the full backfill:
+  `select position, updated from job_cursor where name = 'link-untried:W'` and
+  `select count(*) from work w where w.state in ('INDEXED','NOTIFIED') and not exists (select 1 from link_attempt a where a.entity = 'W' and a.subject_id = w.id)`.
+  Optional speed-up once the backfill's `FIND_NAMES`/`MATCH_NAMES` have drained: the paged run (works linked before
+  are skipped by their attempts)
   `task '{"type":"LINK_WORK","payload":{"afterId":0},"priority":"BACKFILL","dedupKey":"link-works:after-backfill"}'`.
-  Watch its progress: `select payload, state from task where type = 'LINK_WORK' and dedup_key like 'link-works:%' order by id desc limit 3`.
-  The misses of that run come due together after 30 days; the daily sweep queues at most
-  `nametracker.links.retry-per-day` (100,000) works a day (record how many days it takes).
+  The misses come due together after 30 days, under the same daily limit.
 - Keys and switches: `SPRINGER_API_KEY` and `CINII_APPID` (free) set or knowingly blank;
   `NAMETRACKER_INSTITUTIONAL_ENABLED` **false** and `NAMETRACKER_INSTITUTIONAL_PUBLISHERS` empty;
   `NAMETRACKER_TRANSLATION_*` set only once LibreTranslate runs as a service; port 5055 (like gnfinder's 8778) closed to

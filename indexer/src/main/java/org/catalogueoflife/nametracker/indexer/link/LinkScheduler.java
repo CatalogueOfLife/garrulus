@@ -7,6 +7,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.stream.Collectors;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+import org.catalogueoflife.nametracker.store.cursor.JobCursorMapper;
 import org.catalogueoflife.nametracker.store.ident.IdScheme.Entity;
 import org.catalogueoflife.nametracker.store.ident.LinkAttemptMapper;
 import org.catalogueoflife.nametracker.store.task.TaskPriority;
@@ -26,13 +27,19 @@ import org.springframework.stereotype.Component;
  * with a retry due, in id order, get one {@code LINK_WORK} / {@code LINK_SOURCE} {@code {"ids":[…]}} per
  * {@value #DUE_LIMIT} (key {@code link-due:<W|S>:<yyyy-mm-dd>:<page>}), at {@code BACKFILL}, up to
  * {@code nametracker.links.retry-per-day} ({@value #PER_DAY}) subjects per entity and day; the rest waits for the
- * next day's sweep.
+ * next day's sweep. Within what that budget leaves, the work sweep then queues listed works that no lookup has seen
+ * yet (no {@code link_attempt} row at all: works of origin BACKFILL, which get no {@code LINK_WORK} when first indexed,
+ * and works indexed while linking was off), in tasks of {@value #DUE_LIMIT} (key {@code link-untried:<day>:<first id>}),
+ * walking the works by id from where the last run stopped ({@code job_cursor} {@value #UNTRIED_CURSOR}); at the end it
+ * starts over at 0 the next day, so a work indexed late below the old position is found too. A work no lookup applies
+ * to is marked seen by {@link LinkRunner}, so it is not queued again. Nothing while no work lookup is enabled.
  */
 @Component
 public class LinkScheduler {
 
   static final int DUE_LIMIT = LinkPayload.MAX_IDS;
   static final int PER_DAY = 100_000;
+  static final String UNTRIED_CURSOR = "link-untried:W";
   private static final Logger LOG = LoggerFactory.getLogger(LinkScheduler.class);
   private static final String HARVEST = "nametracker.harvest.enabled";
   private static final String LINKS = "nametracker.links.enabled";
@@ -42,10 +49,12 @@ public class LinkScheduler {
   private final Clock clock;
   private final Environment env;
   private final ObjectProvider<IdentifierLookup> lookups;
+  private final JobCursorMapper cursors;
 
   public LinkScheduler(LinkAttemptMapper attempts, TaskQueue queue, Clock clock, Environment env,
-      ObjectProvider<IdentifierLookup> lookups) {
+      ObjectProvider<IdentifierLookup> lookups, JobCursorMapper cursors) {
     this.lookups = lookups;
+    this.cursors = cursors;
     this.attempts = attempts;
     this.queue = queue;
     this.clock = clock;
@@ -98,6 +107,33 @@ public class LinkScheduler {
       if (due.size() < limit) break;
     }
     if (queued > 0) LOG.info("Link retries: {} {}s due", queued, entity.name().toLowerCase());
+    if (entity == Entity.WORK && !names.isEmpty() && queued < perDay) {
+      queued += untried(type, pageSize, perDay - queued, day);
+    }
+    return queued;
+  }
+
+  /** Queues up to {@code budget} listed works no lookup has seen, from the stored cursor on; returns how many. */
+  private int untried(String type, int pageSize, int budget, String day) {
+    Long stored = cursors.position(UNTRIED_CURSOR);
+    long after = stored == null ? 0 : stored;
+    int queued = 0;
+    while (queued < budget) {
+      int limit = Math.min(pageSize, budget - queued);
+      List<Long> ids = attempts.untriedWorks(after, limit);
+      if (!ids.isEmpty()) {
+        String payload = "{\"ids\":[" + ids.stream().map(String::valueOf).collect(Collectors.joining(",")) + "]}";
+        queue.enqueue(type, payload, TaskPriority.BACKFILL, "link-untried:" + day + ":" + ids.get(0));
+        queued += ids.size();
+        after = ids.get(ids.size() - 1);
+      }
+      if (ids.size() < limit) {
+        after = 0; // the end: start over next time
+        break;
+      }
+    }
+    cursors.set(UNTRIED_CURSOR, after);
+    if (queued > 0) LOG.info("Link sweep: {} works no lookup has seen queued; cursor at {}", queued, after);
     return queued;
   }
 }

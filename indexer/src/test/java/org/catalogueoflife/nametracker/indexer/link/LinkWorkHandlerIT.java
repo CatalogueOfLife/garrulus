@@ -61,6 +61,7 @@ class LinkWorkHandlerIT extends AbstractPostgresIT {
     jdbc.update("DELETE FROM task");
     jdbc.update("DELETE FROM link_attempt");
     jdbc.update("DELETE FROM work");
+    jdbc.update("DELETE FROM job_cursor");
     workLookup.reset();
     laterLookup.reset();
   }
@@ -456,6 +457,85 @@ class LinkWorkHandlerIT extends AbstractPostgresIT {
 
   private int sweep() {
     return scheduler.sweep(org.catalogueoflife.nametracker.store.ident.IdScheme.Entity.WORK, LinkWorkHandler.TYPE);
+  }
+
+  private List<String> untriedPayloads() {
+    return jdbc.queryForList("SELECT payload FROM task WHERE type = 'LINK_WORK' AND dedup_key LIKE 'link-untried:%' "
+        + "ORDER BY id", String.class).stream().map(p -> p.replace(" ", "")).toList();
+  }
+
+  private static String ids(long... ids) {
+    return "{\"ids\":[" + java.util.Arrays.stream(ids).mapToObj(String::valueOf)
+        .collect(java.util.stream.Collectors.joining(",")) + "]}";
+  }
+
+  @Test
+  void theSweepLinksListedWorksThatWereNeverTried() {
+    long tried = indexed();
+    handler.handle(task("{\"workId\":" + tried + "}"));
+    long routeBackfill = indexed(); // e.g. a route backfill's work: origin BACKFILL, so no LINK_WORK of its own
+    jdbc.update("UPDATE work SET origin = 'BACKFILL' WHERE id = ?", routeBackfill);
+    long unlisted = work("10.7777/unlisted", "CONTENT_RESOLVED");
+    var entity = org.catalogueoflife.nametracker.store.ident.IdScheme.Entity.WORK;
+
+    assertThat(scheduler.sweep(entity, LinkWorkHandler.TYPE, 5000, 100)).isEqualTo(1);
+
+    assertThat(untriedPayloads()).containsExactly(ids(routeBackfill));
+    handler.handle(task(ids(routeBackfill)));
+    assertThat(attempt(routeBackfill)).containsEntry("attempts", 1);
+    assertThat(unlisted).isPositive();
+  }
+
+  @Test
+  void aWorkNoLookupAppliesToIsMarkedSoTheSweepDoesNotQueueItAgain() {
+    long w = indexed();
+    workLookup.applies = false;
+    handler.handle(task(ids(w)));
+    assertThat(jdbc.queryForList("SELECT lookup FROM link_attempt WHERE subject_id = ?", String.class, w))
+        .containsExactly(LinkRunner.NONE_APPLIED);
+    var entity = org.catalogueoflife.nametracker.store.ident.IdScheme.Entity.WORK;
+    assertThat(scheduler.sweep(entity, LinkWorkHandler.TYPE, 5000, 100)).isZero();
+  }
+
+  @Test
+  void noNeverTriedWorkIsQueuedWhileNoWorkLookupIsOn() {
+    indexed();
+    workLookup.enabled = false;
+    var entity = org.catalogueoflife.nametracker.store.ident.IdScheme.Entity.WORK;
+    env.getPropertySources().addFirst(new org.springframework.core.env.MapPropertySource("bhl-off",
+        Map.of("nametracker.links.bhl-doi.enabled", "false")));
+    try {
+      assertThat(scheduler.sweep(entity, LinkWorkHandler.TYPE, 5000, 100)).isZero();
+    } finally {
+      env.getPropertySources().remove("bhl-off");
+    }
+    assertThat(untriedPayloads()).isEmpty();
+    scheduler.retries(); // the scheduled entry point: off without the harvest switch (off in the tests)
+    assertThat(untriedPayloads()).isEmpty();
+  }
+
+  @Test
+  void theNeverTriedCursorAdvancesAcrossRunsAndWrapsAtTheEnd() {
+    long[] ws = new long[5];
+    for (int i = 0; i < 5; i++) ws[i] = indexed();
+    var entity = org.catalogueoflife.nametracker.store.ident.IdScheme.Entity.WORK;
+
+    assertThat(scheduler.sweep(entity, LinkWorkHandler.TYPE, 2, 3)).isEqualTo(3); // the day's budget
+    assertThat(untriedPayloads()).containsExactly(ids(ws[0], ws[1]), ids(ws[2]));
+    assertThat(jdbc.queryForObject("SELECT position FROM job_cursor WHERE name = 'link-untried:W'", Long.class))
+        .isEqualTo(ws[2]);
+
+    jdbc.update("DELETE FROM task");
+    assertThat(scheduler.sweep(entity, LinkWorkHandler.TYPE, 2, 3)).isEqualTo(2); // the rest, then the end
+    assertThat(untriedPayloads()).containsExactly(ids(ws[3], ws[4]));
+    assertThat(jdbc.queryForObject("SELECT position FROM job_cursor WHERE name = 'link-untried:W'", Long.class))
+        .isZero(); // wrapped: the next run starts over and finds what was indexed late below the old position
+
+    jdbc.update("DELETE FROM task");
+    handler.handle(task(ids(ws)));
+    assertThat(scheduler.sweep(entity, LinkWorkHandler.TYPE, 2, 3)).isZero(); // all tried: nothing, stays at 0
+    assertThat(jdbc.queryForObject("SELECT position FROM job_cursor WHERE name = 'link-untried:W'", Long.class))
+        .isZero();
   }
 
   @Test

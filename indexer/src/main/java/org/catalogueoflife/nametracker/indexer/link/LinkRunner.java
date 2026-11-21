@@ -54,6 +54,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Component
 public class LinkRunner {
 
+  /**
+   * The lookup name of the marker row a work gets when it went through every enabled lookup once and none applied to
+   * it: it counts as seen, so the sweep of never-tried works ({@link LinkScheduler}) does not queue it again.
+   */
+  public static final String NONE_APPLIED = "none";
   static final int FIRST_RETRY_DAYS = 30;
   static final int SECOND_RETRY_DAYS = 180;
   private static final Set<String> COLUMN_SCHEMES = Set.of("ISSN", "ISSN_L", "OPENALEX");
@@ -146,6 +151,10 @@ public class LinkRunner {
         wrote |= store(entity, lookup, chunk, found, tried, priority, now);
       }
       if (wrote) current = load(entity, current.stream().map(LinkTarget::id).toList()); // the next lookup sees them
+    }
+    if (entity == Entity.WORK && schemes == null) {
+      // a work no lookup applied to has no row: mark it seen, so the sweep of never-tried works leaves it
+      attempts.markSeen(key, current.stream().map(LinkTarget::id).toList(), NONE_APPLIED);
     }
     if (blocked != null && !asked) throw blocked; // nothing could be asked: the task waits as a whole
   }

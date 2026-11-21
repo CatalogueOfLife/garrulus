@@ -14,11 +14,11 @@ endpoints are in CLAUDE.md and are not repeated here. The dev check is `docs/m6c
 Binding constraints: **free only** (keyed services are off until their free key is set), every handler idempotent,
 every outage defers without using an attempt (ADR-0004), **`web` makes no outbound call**, **a machine translation is
 never presented as the original and never given to the finder**, **the KU route is off and its text closed**,
-expand-only migrations: **V21, V22 and V23**.
+expand-only migrations: **V21 to V24**.
 
 ## Decisions
 
-### Migrations (V21 to V23)
+### Migrations (V21 to V24)
 
 - **V21** (one file): work language columns (`language_source`, `language_decided_at`, `title_lang`, `abstract_lang`,
   `title_en`, `title_en_kind`), the widened `abstract_source` and `content.route` checks (`OAI_JATS`, `INSTITUTIONAL`),
@@ -29,7 +29,10 @@ expand-only migrations: **V21, V22 and V23**.
   because it might already be applied somewhere.
 - **V23** adds `taxon_language_stats` and `language_stats` (below). It was edited in place during the build, which was
   safe because it had not been applied anywhere.
-- **V21 to V23 apply together at the M6c deploy.** V21's `work.fts` `SET EXPRESSION` rewrites the whole `work` table
+- **V24** adds `job_cursor` (name, position): where a recurring job that walks a table by id stopped. Its first user is
+  the link sweep's walk over works no lookup has seen (below). No existing table keeps such state, and the task rows
+  that could carry it are purged after 14 days. Expand-only: one new table.
+- **V21 to V24 apply together at the M6c deploy.** V21's `work.fts` `SET EXPRESSION` rewrites the whole `work` table
   under an ACCESS EXCLUSIVE lock: instant on the empty GBIF database, blocking `web` for the whole rewrite on a populated
   one. So they are applied before the full backfill (same rule as V16, ADR-0008). Cost if wrong: a maintenance window.
 
@@ -90,18 +93,28 @@ expand-only migrations: **V21, V22 and V23**.
   `first_indexed_at` null; a re-index does not query again), **except for works of the snapshot backfill (origin
   `BACKFILL`) and while linking is off** (the master switch, or no work lookup enabled: `LinkGate`), so no task waits
   for a handler that is off; batched (`{"afterId","batch","schemes"}`) for back-fills. `LINK_SOURCE` at the end of a
-  journal's completion (with the fold survivor's id) and monthly for every journal. The spec's "for every INDEXED work"
-  is met for existing works by a one-off `LINK_WORK {"afterId":0}` (dev check), which also recovers a work whose enqueue
-  was lost (the `first_indexed_at` write and the enqueue are not atomic). **Backfilled works are linked by that same
-  paged run after the backfill** (GBIF checklist): one task per backfilled work would turn the batched lookups (Crossref
-  20 DOIs, OpenAlex 50, Europe PMC 25, Zenodo 100 a call) into one call per work, about 5M Crossref and 5M Europe PMC
-  calls instead of about 250k and 200k. Cost if wrong: backfilled works wait for the paged run.
+  journal's completion (with the fold survivor's id) and monthly for every journal. **Origin `BACKFILL` is wider than the
+  snapshot backfill:** route backfills (`ROUTE_BACKFILL`), the Crossref history (`HARVEST_CROSSREF_HISTORY`) and every
+  layer's records older than the live window (120 days) are stored as `BACKFILL` too. One task per such work would turn
+  the batched lookups (Crossref 20 DOIs, OpenAlex 50, Europe PMC 25, Zenodo 100 a call) into one call per work, about
+  5M Crossref and 5M Europe PMC calls at the GBIF backfill instead of about 250k and 200k. **They, and works indexed
+  while linking was off, are caught up by the daily sweep** (below), in batches. The spec's "for every INDEXED work" is
+  met that way; a paged `LINK_WORK {"afterId":0}` (dev check) is an optional speed-up, e.g. right after the deploy or
+  the full backfill. Cost if wrong: such works wait for the sweep (at most `retry-per-day` a day).
 - **Attempts:** a miss is asked again after 30 days, then after 180 days, then never (Plazi and BHL add papers late); a
   hit is never asked again. A daily sweep enqueues the subjects with due rows of enabled lookups and listed works
   (sources not CEASED), in id order, as `{"ids":[…]}` tasks of 5000, **up to `nametracker.links.retry-per-day`
   (100,000) per entity and day** (the rest waits for the next day: the misses of a 5M-work backfill come due together,
   and 5000 a day would lag by years), and deletes rows of deleted subjects; a due row a lookup no longer applies to is
   cleared, so skipped rows cannot starve the sweep.
+- **Never-tried works.** Within what the retries leave of that budget, the sweep queues listed works without any
+  `link_attempt` row (key `link-untried:<day>:<first id>`), walking `work` by id from a cursor kept in `job_cursor`
+  (`link-untried:W`); at the end it starts over at 0 the next day, so works indexed late below the old position are
+  found on the next pass. A work that went through every enabled lookup with none applying gets a marker row (lookup
+  `none`, no retry), so it is not queued again; "seen" means any row, so a work tried only by a lookup now switched off
+  is not re-queued (a new or re-enabled lookup back-fills with `{"schemes":[…]}`). The query walks `work_pkey` and
+  probes `link_attempt`'s primary key. Nothing while no work lookup is enabled. Before (fix wave I2 alone) such works
+  were never linked.
 - **A blocked lookup does not stop the others** (final review I1). When a lookup's service is down or its daily cap is
   spent, its remaining due targets of the run are put off to the exception's `retryAt` without counting a try (a new
   `link_attempt` row has `attempts` 0, an existing one only a new `next_try`); the next lookup and, in a paged run, the

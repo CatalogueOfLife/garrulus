@@ -15,7 +15,7 @@ notifies users who follow taxa, journals or names. It also builds a public name�
 **Status:** design approved 2026-11-14. M0 (foundations), M1 (finder v1), M2 (harvest and content) and M3 (match and
 index: ADR-0005), M4 (accounts and alerts: ADR-0006; local only, deployment comes last) and M5 (lifecycle and
 backfill: ADR-0007; M5a XR switch, reprocessing and pending re-index, M5b snapshot backfill) are built locally; the
-full backfill runs later on the GBIF VM (apply V21 to V23 together before it: V21's `work.fts` `SET EXPRESSION` rewrites all of `work` under an ACCESS EXCLUSIVE lock, instant on the empty database, blocking the web for the whole rewrite on a populated one). M2's week-long dev run continues (`docs/m2-dev-run.md`, M3 check in
+full backfill runs later on the GBIF VM (apply V21 to V24 together before it: V21's `work.fts` `SET EXPRESSION` rewrites all of `work` under an ACCESS EXCLUSIVE lock, instant on the empty database, blocking the web for the whole rewrite on a populated one). M2's week-long dev run continues (`docs/m2-dev-run.md`, M3 check in
 `docs/m3-dev-check.md`). The curated gold is imported and its baselines are committed (`docs/tuning-stage.md`).
 Roadmap (2026-11-18): M6 reach (layered harvesting, design `docs/superpowers/specs/2026-11-19-m6-layered-harvesting-design.md`,
 research `docs/research/`), M7 judging (the next tuning step), M8 the portal widget. M6a (identity and layered harvest:
@@ -381,7 +381,8 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
   `nametracker.links.<name>.enabled` (default true) for `crossref openalex europepmc biodiversitypmc zenodo-blr plazi
   wikidata ipni crossref-journal bhl-doi`. Behind the harvest switch: `NAMETRACKER_LINKS_SOURCE_CRON` (`0 45 1 2 * *`,
   `LINK_SOURCE` for every journal monthly) and `NAMETRACKER_LINKS_RETRY_CRON` (`0 15 6 * * *`, due misses: tasks of
-  5000 ids, at most `NAMETRACKER_LINKS_RETRY_PER_DAY`, 100000, subjects per entity and day). A lookup whose service is
+  5000 ids, at most `NAMETRACKER_LINKS_RETRY_PER_DAY`, 100000, subjects per entity and day; the works budget left over
+  goes to listed works no lookup has seen yet). A lookup whose service is
   down or whose daily cap is spent is skipped for the rest of the task: its targets get `next_try` = the retry time
   without counting a try (`link_attempt.attempts` 0) and the next lookup and page go on; only a task in which no lookup
   could ask anything is deferred. `nametracker.links.biodiversitypmc.max-requests-per-day` (200): Biodiversity PMC
@@ -471,10 +472,12 @@ curl ... -d '{"type":"HARVEST_CROSSREF","payload":{"date":"2026-11-14"},"priorit
     revive files that ended DEAD.
 - `LINK_WORK` / `LINK_SOURCE` (M6c): `{"workId"}`/`{"sourceId"}`, `{"ids":[…]}` (at most 5000) or
   `{"afterId":0,"batch":…,"schemes":[…]}` (continues per batch). `LINK_WORK` is enqueued at `BACKFILL` when a work is
-  indexed the first time, except for works of origin `BACKFILL` (snapshot backfill) and while no work lookup is on;
-  `LINK_SOURCE` after a journal's completion and monthly. A miss is asked again after 30 and 180 days, then never.
-  One-off back-fill of existing works after the M6c deploy, **and again after the full snapshot backfill** (its works
-  are linked only this way): `LINK_WORK {"afterId":0}` at `BACKFILL`; a new lookup back-fills with
+  indexed the first time, except for works of origin `BACKFILL` (snapshot backfill, route backfills, the Crossref
+  history, any layer's records older than the live window) and while no work lookup is on; the daily sweep catches
+  those up (listed works without any `link_attempt` row, cursor `job_cursor` `link-untried:W`, within
+  `retry-per-day`; a work no lookup applies to gets a marker row, lookup `none`). `LINK_SOURCE` after a journal's
+  completion and monthly. A miss is asked again after 30 and 180 days, then never. `LINK_WORK {"afterId":0}` at
+  `BACKFILL` is an optional speed-up (after the M6c deploy or the full backfill); a new lookup back-fills with
   `{"afterId":0,"schemes":[…]}`.
 - `TRANSLATE_TITLE` (M6c): `{"workId":n,"force":false}` or `{"all":true,"afterId":0,"batch":500,"force":false}` (non-Latin
   scripts first, continues per batch). Enqueued when a named work's language is not English and it has no English title;
