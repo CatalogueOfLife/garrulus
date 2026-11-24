@@ -36,7 +36,8 @@ public final class SubscriptionMatcher {
     return switch (s.type()) {
       case "TAXON" -> Arrays.asList(n.taxonPath()).contains(s.target());
       case "NAME" -> s.target().equals(String.valueOf(n.nameStringId()));
-      case "TAXGROUP" -> n.taxgroup() != null && TaxGroups.withAncestors(n.taxgroup()).contains(s.target());
+      // a taxgroup counts main subjects only, whatever the follow's mainSubjectOnly (as work.taxgroups in the search and feed)
+      case "TAXGROUP" -> n.mainSubject() && n.taxgroup() != null && TaxGroups.withAncestors(n.taxgroup()).contains(s.target());
       default -> false;
     };
   }

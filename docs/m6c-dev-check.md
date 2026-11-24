@@ -328,14 +328,12 @@ OAI and Magtech hosts); no `api.elsevier.com` or `api.wiley.com` while the route
   drops the token header by design) and that GROBID reads its PDFs. Switch on one publisher, a handful of DOIs, and
   read `select publisher, status, outcome, count(*) from institutional_fetch group by 1,2,3`.
 
-## Open question for Markus
+## Decided: taxgroup follows count main subjects only
 
-**Should a TAXGROUP follow use main-subject names only?** Without `mentionedIn`, a TAXGROUP follow (main subject off)
-tests every name of a work, while the taxgroup search and feed test `work.taxgroups`, which holds the groups of
-main-subject names only. So a name of the group that is not a main subject raises a follow alert for a work the
-group's feed and search do not list. Options: follows use main subjects only too (alerts match the feed), or the search
-and feed test every name (more works listed). With `mentionedIn` both already test the same name row. This predates
-M6c.
+Decided by Markus on 2026-11-24. The taxgroup criterion means "a main-subject name of that group (or a descendant
+group)" in the works search, the public taxgroup feed and TAXGROUP follows and hits, with and without `mentionedIn`,
+so all three list the same works. A follow's "main subject only" flag no longer matters for a TAXGROUP target. A work
+whose only name of the group is not a main subject is neither listed nor alerted. Existing hits for such works stay.
 
 ## Deferred minors, by area (for the final review)
 

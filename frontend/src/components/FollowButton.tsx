@@ -100,7 +100,9 @@ function Form({ onClose, type, target, label, existing, onExists, initialMention
   return (
     <Stack gap="sm">
       <Text size="sm" c="dimmed">{label}</Text>
-      <Checkbox label="Only main subject" checked={main} onChange={(e) => setMain(e.currentTarget.checked)} />
+      {type === 'TAXGROUP'
+        ? <Checkbox label="Only main subject" description="Always on for a group" checked disabled readOnly />
+        : <Checkbox label="Only main subject" checked={main} onChange={(e) => setMain(e.currentTarget.checked)} />}
       <Checkbox label="Only new names" checked={newNames} onChange={(e) => setNewNames(e.currentTarget.checked)} />
       <Checkbox label="Include papers with an abstract only" checked={abstracts} onChange={(e) => setAbstracts(e.currentTarget.checked)} />
       <Checkbox label="Include papers that only cite the name in references" checked={refs} onChange={(e) => setRefs(e.currentTarget.checked)} />

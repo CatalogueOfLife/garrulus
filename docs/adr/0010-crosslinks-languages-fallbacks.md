@@ -273,8 +273,11 @@ expand-only migrations: **V21 to V24**.
   group (and its descendants), `mainSubjectOnly` and the part are tested on the same `work_name` row** (the work-level
   `work.taxgroups` predicate is dropped), in the search and in `SubscriptionMatcher` alike; `MentionedInAgreementIT`
   runs the same fixtures through both. A PATCH keeps a follow's value; a new follow starts with the page's filter.
-- Open: without `mentionedIn` a TAXGROUP follow (main subject off) tests every name, while the taxgroup search and
-  feed use `work.taxgroups` (main-subject names only). Pre-existing; a product question in the dev check.
+- **Decided 2026-11-24 (Markus): taxgroup follows count main subjects only.** The taxgroup criterion means "a main-subject
+  name of that group (or a descendant group)" everywhere, with and without `mentionedIn`: the works search
+  (`/api/works?taxgroup=`), the public taxgroup feed and TAXGROUP follows and hits list the same works. A TAXGROUP follow
+  ignores its `mainSubjectOnly` flag (the UI shows it as always on); with `mentionedIn` the row must be a main-subject
+  name of the group and in the part. Taxon, name and source semantics are unchanged.
 
 ### Languages in the API and statistics
 

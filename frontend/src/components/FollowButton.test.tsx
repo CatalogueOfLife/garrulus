@@ -13,6 +13,15 @@ const sub = (over: object = {}) => ({
 });
 
 describe('FollowButton', () => {
+  it('taxgroupFollowIsAlwaysMainSubject', async () => {
+    server.use(signedIn, http.get('/api/me/subscriptions', () => HttpResponse.json([])));
+    renderApp(<FollowButton type="TAXGROUP" target="Arthropods" label="Arthropods" />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Follow' }));
+    const box = await screen.findByLabelText('Only main subject');
+    expect(box).toBeChecked();
+    expect(box).toBeDisabled();
+  });
+
   it('signedOutGoesToSignIn', async () => {
     renderApp(<FollowButton type="TAXON" target="T1" label="Carabus" />, '/taxon/T1?x=1');
     const link = await screen.findByRole('link', { name: 'Follow' });

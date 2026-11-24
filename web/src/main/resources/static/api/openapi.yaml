@@ -54,7 +54,7 @@ paths:
         - {name: taxon, in: query, description: "A usage id of the current XR.", schema: {type: string}}
         - {name: name, in: query, description: "A name id (see /api/names).", schema: {type: integer, format: int64}}
         - {name: code, in: query, description: "NomCode name, e.g. ZOOLOGICAL.", schema: {type: string}}
-        - {name: taxgroup, in: query, description: "TaxGroup name (see /api/vocab/taxgroup); hierarchical.", schema: {type: string}}
+        - {name: taxgroup, in: query, description: "TaxGroup name (see /api/vocab/taxgroup); hierarchical. Matches works with a main-subject name of the group or of a descendant group.", schema: {type: string}}
         - {name: subfield, in: query, description: "A discipline code (see /api/vocab/discipline); a retired code is resolved to its replacement.", schema: {type: string}}
         - {name: discipline, in: query, description: "Alias of subfield; 400 when both are given and differ.", schema: {type: string}}
         - {name: journalType, in: query, schema: {type: string, enum: [TAXONOMIC, GENERAL]}}

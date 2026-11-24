@@ -94,7 +94,6 @@ class MentionedInAgreementIT extends AbstractPostgresIT {
         new Case("TAXGROUP", "Coleoptera"), new Case("TAXGROUP", "Arthropods"), new Case("TAXGROUP", "Mammals"),
         new Case("SOURCE", String.valueOf(source)));
     int checked = 0;
-    int skipped = 0;
     for (Case c : cases) {
       for (List<String> parts : PARTS) {
         for (int i = 0; i < workIds.size(); i++) {
@@ -108,12 +107,6 @@ class MentionedInAgreementIT extends AbstractPostgresIT {
             default -> b.source(Long.parseLong(c.target));
           }
           // the public feed and the work search of the same filter
-          // Pre-existing divergence, not mentionedIn: without mentionedIn and with mainSubjectOnly=false the search
-          // tests the work-level taxgroups (main-subject names only) while a follow tests every name.
-          if (c.type.equals("TAXGROUP") && !main && parts.isEmpty()) {
-            skipped++;
-            continue;
-          }
           boolean found = search.search(b.build(), 100, 0).stream().anyMatch(h -> h.id() == w);
           var s = new Subscription(1L, 1, c.type, c.target, null, main, false, true, false, "{}", "t", null, false,
               Instant.EPOCH, "OK", null, null, null, parts);
@@ -127,6 +120,28 @@ class MentionedInAgreementIT extends AbstractPostgresIT {
         }
       }
     }
-    assertThat(checked).isEqualTo(cases.size() * PARTS.size() * workIds.size() * 2 - skipped);
+    assertThat(checked).isEqualTo(cases.size() * PARTS.size() * workIds.size() * 2);
+  }
+
+  /** Taxgroup counts main subjects only: works 5 and 6 (0-based) have a non-main Coleoptera name only, work 1 has it main. */
+  @Test
+  void taxgroupCountsMainSubjectsOnly() {
+    for (List<String> parts : List.of(List.<String>of(), List.of("TITLE"), List.of("ABSTRACT"))) {
+      for (boolean main : new boolean[] {true, false}) {
+        var f = WorkFilter.builder().mainSubjectOnly(main).mentionedIn(parts).taxgroup("Arthropods").build();
+        var ids = search.search(f, 100, 0).stream().map(h -> h.id()).toList();
+        assertThat(ids).as("%s main=%s", parts, main).doesNotContain(workIds.get(5), workIds.get(6));
+        var sub = new Subscription(1L, 1, "TAXGROUP", "Arthropods", null, main, false, true, false, "{}", "t", null, false,
+            Instant.EPOCH, "OK", null, null, null, parts);
+        for (int i : new int[] {5, 6}) {
+          var views = workNames.get(i).stream().map(x -> new WorkNameView(x.id, "n" + x.id, new String[] {"U1", "TX"}, x.group,
+              x.main, x.ref, new String[0], "MATCH", x.title, x.abs, x.heading, x.body)).toList();
+          assertThat(SubscriptionMatcher.match(sub, new WorkInfo(workIds.get(i), source, "FULLTEXT"), views).matches())
+              .as("work %d %s main=%s", i, parts, main).isFalse();
+        }
+        // work 1 (index 1) has Coleoptera main in the title: listed for TITLE and for no part
+        if (parts.isEmpty() || parts.contains("TITLE")) assertThat(ids).contains(workIds.get(1));
+      }
+    }
   }
 }
