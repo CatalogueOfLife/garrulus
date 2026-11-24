@@ -127,11 +127,13 @@ models are several GB over a travel connection: run it on the GBIF VM); step 7 i
   (Springer DOIs, journal country JP, no abstract): two filled (`abstract_jats_source` SPRINGER, served by
   `/api/works/108416` with 6 abstract mentions, `FIND_NAMES` done), one a definite miss (no abstract at Springer);
   3 calls counted in `api_usage` (`SPRINGER_META`).
-- **CiNii** (`CINII_APPID`): **refused**. Every request with the application id answers 403 with CiNii's "access
-  denied / Forbidden" page (JSON and RSS, any User-Agent); the same query without an id answers 200. The id is well
-  formed (20 letters and digits). Most likely NII has not activated it yet, or it was issued for another service:
-  check the approval mail. The code logs one WARN and skips CiNii (`TopUpSkipped`): nothing is remembered as a miss,
-  so the works are asked again once the id works. The CiNii live-shape check stays open.
+- **CiNii** (`CINII_APPID`): works. The id was refused (403 "access denied") on the day the registration mail
+  arrived and accepted a few hours later (NII activates it after the mail). The live shape matches the code: items
+  carry `description`, `abstractLicenseFlag` and the DOI as a typed `dc:identifier` (`{"@type":"cir:DOI","@value":…}`;
+  no `prism:doi`). On the dev data only five works qualify (Acta Arachnologica, the dev DB's only Japanese journal
+  with non-Springer DOIs), all flagged `disallow`: end to end on work 56760 CiNii answered, the miss was recorded
+  (`text_lookup` CINII false) and no abstract was stored, as the licence rule requires. An `allow` case is still to
+  be seen on the GBIF VM.
 
 **Bugs found and fixed in this run** (each with a test that pins the live behaviour):
 - `efd539f`: Zenodo DOI queries asked for 100 rows; Zenodo answers 400 above 25 for anonymous requests (checked live),
