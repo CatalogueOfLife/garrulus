@@ -121,6 +121,18 @@ models are several GB over a travel connection: run it on the GBIF VM); step 7 i
 | Titles translated / dropped, seconds per title, LibreTranslate RSS, its `/languages` codes | not run (step 5 pending) |
 | Top-ups (SciELO, Europe PMC) | Europe PMC: definite misses for both works tried (no work with a PMID lacks an abstract on the dev DB). SciELO: after the fix 4 of 4 articles found by PID (language DECLARED `en`); no abstract added for the two BJB works (ArticleMeta has no `v83` for them, checked live); no parallels for the Zoologia ones (English only) |
 
+**Keys tried (2026-11-24).**
+- **Springer Nature Meta** (`SPRINGER_API_KEY`): works. A direct call answers 200 with one record and the abstract as a
+  plain string (`records[].abstract`), the shape the code reads. End to end on three Ichthyological Research works
+  (Springer DOIs, journal country JP, no abstract): two filled (`abstract_jats_source` SPRINGER, served by
+  `/api/works/108416` with 6 abstract mentions, `FIND_NAMES` done), one a definite miss (no abstract at Springer);
+  3 calls counted in `api_usage` (`SPRINGER_META`).
+- **CiNii** (`CINII_APPID`): **refused**. Every request with the application id answers 403 with CiNii's "access
+  denied / Forbidden" page (JSON and RSS, any User-Agent); the same query without an id answers 200. The id is well
+  formed (20 letters and digits). Most likely NII has not activated it yet, or it was issued for another service:
+  check the approval mail. The code logs one WARN and skips CiNii (`TopUpSkipped`): nothing is remembered as a miss,
+  so the works are asked again once the id works. The CiNii live-shape check stays open.
+
 **Bugs found and fixed in this run** (each with a test that pins the live behaviour):
 - `efd539f`: Zenodo DOI queries asked for 100 rows; Zenodo answers 400 above 25 for anonymous requests (checked live),
   so every `zenodo-blr` lookup was a refused DOI and a miss (0 of 200). Now 25 rows: 198 of 200.
