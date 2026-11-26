@@ -21,9 +21,9 @@ class SearchMapperIT extends AbstractPostgresIT {
 
   @BeforeEach
   void clean() {
-    jdbc.update("DELETE FROM work");
-    jdbc.update("DELETE FROM source");
-    jdbc.update("DELETE FROM name_string");
+    // The ITs share one database: CASCADE also empties what other ITs left in the tables that refer to these
+    // (name_match from IndexMapperIT broke a plain DELETE when the run order put it first, as on Linux).
+    jdbc.execute("TRUNCATE work, source, name_string CASCADE");
   }
 
   static WorkFilter filter(UnaryOperator<Builder> f) {
