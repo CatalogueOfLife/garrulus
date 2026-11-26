@@ -6,9 +6,9 @@ notifies users who follow taxa, journals or names. It also builds a public nameâ
 
 **Naming:**
 - **Everything says `garrulus` (renamed from the working title `nametracker` on 2026-11-26, before the first
-  deploy):** Java packages `org.catalogueoflife.garrulus.*`, artifactIds `garrulus-*`, the database and its role. The GitHub
-  repository is `CatalogueOfLife/garrulus` (renamed the same day); only the local checkout may still be called
-  `nametracker`.
+  deploy):** Java packages `org.catalogueoflife.garrulus.*`, artifactIds `garrulus-*`, the database and its role, and the
+  public GitHub repository `CatalogueOfLife/garrulus` (first pushed the same day). Only the local checkout may still be
+  called `nametracker`.
 - **Public name "Garrulus"** (the European jay): everything users see. That covers the UI, logo, page titles, emails,
   feeds, public URLs and the outgoing HTTP User-Agent `Garrulus/<version> (+https://www.catalogueoflife.org)`.
 - **Configuration:** properties `garrulus.*`, environment variables `GARRULUS_*` (Spring's
