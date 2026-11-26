@@ -31,7 +31,7 @@ class MentionedInAgreementIT extends AbstractPostgresIT {
   void fixtures() {
     jdbc.update("DELETE FROM work");
     jdbc.update("DELETE FROM source");
-    jdbc.update("DELETE FROM name_string");
+    jdbc.execute("TRUNCATE name_string CASCADE"); // also what other ITs left referring to it (shared database, run order differs by OS)
     source = jdbc.queryForObject("INSERT INTO source (title, origin, tier, active) VALUES ('J', 'MANUAL', 'CORE', true) RETURNING id", Long.class);
     workIds.clear();
     workNames.clear();

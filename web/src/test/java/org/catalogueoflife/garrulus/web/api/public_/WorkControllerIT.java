@@ -65,7 +65,7 @@ class WorkControllerIT extends AbstractPostgresIT {
   void clean() {
     jdbc.update("DELETE FROM work");
     jdbc.update("DELETE FROM name_match");
-    jdbc.update("DELETE FROM name_string");
+    jdbc.execute("TRUNCATE name_string CASCADE"); // also what other ITs left referring to it (shared database, run order differs by OS)
   }
 
   HttpResponse<String> get(String path) throws Exception {

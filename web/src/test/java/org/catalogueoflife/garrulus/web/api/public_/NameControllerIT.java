@@ -28,7 +28,7 @@ class NameControllerIT extends AbstractPostgresIT {
     jdbc.update("DELETE FROM work");
     jdbc.update("DELETE FROM name_match");
     jdbc.update("DELETE FROM xr_release");
-    jdbc.update("DELETE FROM name_string");
+    jdbc.execute("TRUNCATE name_string CASCADE"); // also what other ITs left referring to it (shared database, run order differs by OS)
   }
 
   /** Other ITs insert their own current release: leave none behind. */

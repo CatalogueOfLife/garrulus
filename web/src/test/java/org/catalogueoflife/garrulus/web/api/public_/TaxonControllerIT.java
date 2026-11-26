@@ -28,7 +28,7 @@ class TaxonControllerIT extends AbstractPostgresIT {
   @BeforeEach
   void clean() {
     jdbc.update("DELETE FROM work");
-    jdbc.update("DELETE FROM name_string");
+    jdbc.execute("TRUNCATE name_string CASCADE"); // also what other ITs left referring to it (shared database, run order differs by OS)
     jdbc.update("DELETE FROM taxon_stats");
     jdbc.update("DELETE FROM taxon_language_stats");
   }
