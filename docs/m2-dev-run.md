@@ -26,10 +26,10 @@ All from the repo root with JDK 25 (`sdk env`). The admin token lives only in th
 docker compose up -d db
 mvn -B -DskipTests install
 mkdir -p data/run
-cp indexer/target/nametracker-indexer-0.1.0-SNAPSHOT.jar data/run/indexer.jar
-cp web/target/nametracker-web-0.1.0-SNAPSHOT.jar data/run/web.jar
+cp indexer/target/garrulus-indexer-0.1.0-SNAPSHOT.jar data/run/indexer.jar
+cp web/target/garrulus-web-0.1.0-SNAPSHOT.jar data/run/web.jar
 
-NAMETRACKER_INDEXER_PORT=18081 NAMETRACKER_HARVEST_ENABLED=true \
+GARRULUS_INDEXER_PORT=18081 GARRULUS_HARVEST_ENABLED=true \
   FINDER_DICTIONARY=$PWD/eval/work/dictionary-316691.bin \
   nohup java -jar data/run/indexer.jar > data/run/indexer.log 2>&1 &
 echo $! > data/run/indexer.pid
@@ -128,7 +128,7 @@ calls, most of them free singleton gets).
 - `74c176f` fix(indexer): Europe PMC fetches `fullTextXML` only when its (cached) search says `isOpenAccess = Y`,
   also for a PMCID that OpenAlex supplied. A work with only a PMCID is searched as `PMCID:<id>`. Test:
   `EuropePmcRouteTest.knownPmcidThatIsNotOpenAccessFetchesNothing`.
-- `07d54cb` fix(web): binds to `127.0.0.1` by default (`NAMETRACKER_WEB_ADDRESS`). Test: `WebBindAddressTest`.
+- `07d54cb` fix(web): binds to `127.0.0.1` by default (`GARRULUS_WEB_ADDRESS`). Test: `WebBindAddressTest`.
 - **Old LIVE works from the first run (one-off note):** before the fix, the first Crossref run (2026-11-14) created
   3,187 works as `LIVE`. 3,144 of them were published more than 120 days ago, 33 have no date and 10 are recent. They
   stay as they are: `origin` never changes, and the design's hit rule ("published within 60 days") keeps them from
@@ -149,9 +149,9 @@ The indexer only (pid 56563, same jar copy, port and env as above); no web file 
 migration.
 
 - `c619118` the Pensoft route applies only to a `[a-z0-9-]+` slug and a numeric id, and stays on `*.pensoft.net`.
-- `640da35` the indexer ITs are hermetic: unroutable base URLs, no key or mailto, no `.env` (`nametracker.dotenv`).
+- `640da35` the indexer ITs are hermetic: unroutable base URLs, no key or mailto, no `.env` (`garrulus.dotenv`).
 - `94692ec` a spent OpenAlex budget requeues any task at `retryAt` without using an attempt (dispatcher level).
-- `70b13f2` an outage defers a harvest or onboarding page by 30 minutes (`NAMETRACKER_HARVEST_OUTAGE_DELAY`), the run
+- `70b13f2` an outage defers a harvest or onboarding page by 30 minutes (`GARRULUS_HARVEST_OUTAGE_DELAY`), the run
   `DEFERRED`; other failures mark the run `FAILED`.
 - `35a1943` Crossref catches up every missed day (at most 14 days back) instead of skipping a day while a chain runs.
   The next fire (2026-11-16 03:00 UTC) enqueues 2026-11-15, the day after the last `CROSSREF` run.

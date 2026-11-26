@@ -26,7 +26,7 @@ Mailpit; deployment is a later stage.
 ### Hit rules and alert window
 
 - **Window** (Markus, 2026-11-16, replacing "no backfill hits"): a paper is eligible when its date
-  (`coalesce(publication_date, first_seen_at::date)`) is at most `nametracker.hits.window-days` (90) days old, inclusive,
+  (`coalesce(publication_date, first_seen_at::date)`) is at most `garrulus.hits.window-days` (90) days old, inclusive,
   or, for a follow with `since_year`, its year (`coalesce(year, year of first_seen_at)`) is at least `since_year`. In both
   cases it is at most `future-days` (7) ahead. In the rolling window a paper without a publication date but with a
   `year` before the year of the window start is outside, even when it was first seen today (an old paper harvested now
@@ -66,7 +66,7 @@ Mailpit; deployment is a later stage.
   and clears it.
 - **Sessions:** Spring Session JDBC, about 30 days, so a redeploy does not sign anyone out. The tables come from V7
   (`spring.session.jdbc.initialize-schema=never`). The cookie is HttpOnly, SameSite=Lax, Secure when
-  `NAMETRACKER_COOKIE_SECURE=true`.
+  `GARRULUS_COOKIE_SECURE=true`.
 - `DELETE /api/me` hard-deletes the user, subscriptions, hits, digests and the user's sessions. Unused sign-in tokens
   have no foreign key and expire within 15 minutes; the hourly job purges expired token rows.
 
@@ -85,7 +85,7 @@ Mailpit; deployment is a later stage.
 
 ### Digests
 
-- The hourly job (`nametracker.digest.cron`, default `0 5 * * * *`, UTC, `-` switches it off) runs on one instance
+- The hourly job (`garrulus.digest.cron`, default `0 5 * * * *`, UTC, `-` switches it off) runs on one instance
   under ShedLock. A user is due when the email is verified, the frequency is not `OFF`, the local hour (user time zone)
   has reached `digest_hour` on a due day (any day for `DAILY`, `digest_weekday` for `WEEKLY`) and none went out in the
   period.
@@ -106,7 +106,7 @@ Mailpit; deployment is a later stage.
 ### Unsubscribe
 
 Each digest carries `List-Unsubscribe` and `List-Unsubscribe-Post: List-Unsubscribe=One-Click` (RFC 8058). The URL holds
-an HMAC-signed token (user id, purpose) keyed by `NAMETRACKER_SIGNING_KEY` and sets `digest_frequency` to `OFF`
+an HMAC-signed token (user id, purpose) keyed by `GARRULUS_SIGNING_KEY` and sets `digest_frequency` to `OFF`
 without sign-in. `POST /api/unsubscribe` does it; a browser `GET` redirects to the SPA page `/unsubscribe?t=`. A blank
 key means a random key per start with a WARN, so links stop working after a restart; set it outside development.
 
@@ -164,7 +164,7 @@ Everything is configured by environment variables so that stays possible.
   mismatch or when no token is configured, never a fall-back to the session. Such a request is exempt from XSRF, and
   only when the header is present (path `/api/admin/**` and header `X-Admin-Token` present).
 - **Session (browser):** without the header the session must hold `ROLE_ADMIN` and its account's ORCID iD must be in
-  `NAMETRACKER_ADMIN_ORCIDS` (comma-separated, read at start; a leading `https://orcid.org/` is dropped, an invalid entry
+  `GARRULUS_ADMIN_ORCIDS` (comma-separated, read at start; a leading `https://orcid.org/` is dropped, an invalid entry
   is a WARN and ignored). Signed in otherwise: 403; not signed in: 401. A session write needs XSRF like every other
   session write, and the `XSRF-TOKEN` cookie is now also issued on `/api/admin/**`.
 - **The role comes only from an ORCID sign-in** of a listed iD. The email link (and the re-sign-in after an address

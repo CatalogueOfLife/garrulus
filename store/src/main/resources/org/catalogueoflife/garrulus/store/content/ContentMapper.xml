@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.garrulus.store.content.ContentMapper">
+
+  <resultMap id="result" type="org.catalogueoflife.garrulus.store.content.Content">
+    <constructor>
+      <idArg column="id" javaType="long"/>
+      <arg column="work_id" javaType="long"/>
+      <arg column="route" javaType="string"/>
+      <arg column="kind" javaType="string"/>
+      <arg column="license" javaType="string"/>
+      <arg column="retained" javaType="boolean"/>
+      <arg column="raw_sha256" javaType="string"/>
+      <arg column="doc_sha256" javaType="string"/>
+      <arg column="source_url" javaType="string"/>
+      <arg column="fetched_at" javaType="java.time.Instant"/>
+    </constructor>
+  </resultMap>
+
+  <select id="upsert" resultType="long" flushCache="true">
+    INSERT INTO content (work_id, route, kind, license, retained, raw_sha256, doc_sha256, source_url)
+    VALUES (#{o.workId}, #{o.route}, #{o.kind}, #{o.license}, #{o.retained}, #{o.rawSha256}, #{o.docSha256}, #{o.sourceUrl})
+    ON CONFLICT (work_id, route) DO UPDATE SET
+      kind = EXCLUDED.kind, license = EXCLUDED.license, retained = EXCLUDED.retained,
+      raw_sha256 = EXCLUDED.raw_sha256, doc_sha256 = EXCLUDED.doc_sha256, source_url = EXCLUDED.source_url,
+      fetched_at = now()
+    RETURNING id
+  </select>
+
+  <update id="moveContents">
+    UPDATE content c SET work_id = #{toWork} WHERE c.work_id = #{fromWork}
+      AND NOT EXISTS (SELECT 1 FROM content t WHERE t.work_id = #{toWork} AND t.route = c.route)
+  </update>
+
+  <select id="listByWork" resultMap="result">
+    SELECT * FROM content WHERE work_id = #{workId} ORDER BY id
+  </select>
+</mapper>

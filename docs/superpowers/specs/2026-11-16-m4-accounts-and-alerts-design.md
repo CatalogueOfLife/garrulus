@@ -100,7 +100,7 @@ Within A, two calls made with Markus on 2026-11-16:
   options (`main_subject_only`, `new_names_only`, `include_abstract_only`, `include_references`), `filters` (jsonb with
   the `/api/works` filter names: `code`, `taxgroup`, `subfield`, `journalType`, `tier`, `oa`, `country`), `feed_token`
   (random, 128 bits, URL-safe), `since_year` (nullable smallint: the alert start year; null means the rolling window
-  of the last 90 days, `NAMETRACKER_HIT_WINDOW_DAYS`), `paused`, created. Unique (user, type, target). Index on
+  of the last 90 days, `GARRULUS_HIT_WINDOW_DAYS`), `paused`, created. Unique (user, type, target). Index on
   (type, target).
   - Option defaults: `main_subject_only` true for `TAXON` and `TAXGROUP`, false for `NAME` and `SOURCE`;
     `new_names_only` false; `include_abstract_only` true; `include_references` false.
@@ -155,7 +155,7 @@ Within A, two calls made with Markus on 2026-11-16:
 
 ### Delivery (web)
 
-- **Digest job:** every hour on the hour (`NAMETRACKER_DIGEST_CRON`, default `0 5 * * * *`), single instance via
+- **Digest job:** every hour on the hour (`GARRULUS_DIGEST_CRON`, default `0 5 * * * *`), single instance via
   ShedLock (the `shedlock` table exists). A user is due when their email is verified, `digest_frequency` is not `OFF`,
   their local hour has reached `digest_hour` on a due day (any day for `DAILY`, `digest_weekday` for `WEEKLY`), and no
   digest went out in this period.
@@ -168,9 +168,9 @@ Within A, two calls made with Markus on 2026-11-16:
 - **Sending:** the hits are marked with a new `digest` row in one transaction, then the mail is sent; if sending
   fails, the marking is rolled back and the digest row is kept as `FAILED`, so the next hour tries again.
 - **Unsubscribe:** `List-Unsubscribe` with an HTTPS URL and `List-Unsubscribe-Post: List-Unsubscribe=One-Click`
-  (RFC 8058). The URL carries an HMAC-signed token (user id, purpose; key from `NAMETRACKER_SIGNING_KEY`) and sets
+  (RFC 8058). The URL carries an HMAC-signed token (user id, purpose; key from `GARRULUS_SIGNING_KEY`) and sets
   `digest_frequency=OFF` without sign-in. The footer also links to the subscription settings.
-- **Mail settings:** `NAMETRACKER_MAIL_FROM`, Spring's `spring.mail.*` (host, port, credentials). Development uses
+- **Mail settings:** `GARRULUS_MAIL_FROM`, Spring's `spring.mail.*` (host, port, credentials). Development uses
   Mailpit (`docker compose --profile mail up -d mailpit`, SMTP 1025, web UI 8025).
 - **Admin:** `POST /api/admin/digests/run` (`{"userId":n}`, admin token) sends a due-or-not digest now, for testing.
 
@@ -206,12 +206,12 @@ Within A, two calls made with Markus on 2026-11-16:
   - address on an account linked to a *different* ORCID iD: refused, with a message saying so; nothing changes.
   - In a merge, a duplicate (type, target) subscription keeps the older row (its `created` and options) and the
     other's hits move to it where they don't clash; the 100 cap applies to creating subscriptions, not to merges.
-- **Public base URL** for links in emails and feeds: `NAMETRACKER_PUBLIC_URL` (dev `http://localhost:5173`).
+- **Public base URL** for links in emails and feeds: `GARRULUS_PUBLIC_URL` (dev `http://localhost:5173`).
 - **Development:** the Vite dev server already proxies `/api`, `/oauth2`, `/login` and `/feeds` to `web` and keeps the
   `Host` header, so sign-in is same-origin as in production. The ORCID client therefore needs the redirect URI
   `http://localhost:5173/login/oauth2/code/orcid` (Vite's port) in addition to the production ones. For the dev run
   (`web` on 18080) the scratch Vite config proxies to 18080 and also listens on 5173, so the same redirect URI works;
-  `NAMETRACKER_PUBLIC_URL=http://localhost:5173`. If production ORCID refuses an http localhost redirect, a sandbox
+  `GARRULUS_PUBLIC_URL=http://localhost:5173`. If production ORCID refuses an http localhost redirect, a sandbox
   client is used for dev (`ORCID_BASE_URL=https://sandbox.orcid.org`).
 
 ### API (web, `/api/me`, session required)

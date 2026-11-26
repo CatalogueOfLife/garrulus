@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.garrulus.store.content.InstitutionalFetchMapper">
+
+  <select id="insert" resultType="long" flushCache="true">
+    INSERT INTO institutional_fetch (work_id, doi, publisher, api, status, bytes, outcome)
+    VALUES (#{workId}, #{doi}, #{publisher}, #{api}, #{status}, #{bytes}, #{outcome})
+    RETURNING id
+  </select>
+
+  <update id="setOutcome">
+    UPDATE institutional_fetch SET outcome = #{outcome} WHERE id IN
+    <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+  </update>
+
+  <select id="countSince" resultType="int">
+    SELECT count(*) FROM institutional_fetch WHERE publisher = #{publisher} AND fetched_at &gt;= #{since}
+  </select>
+
+  <select id="answeredSince" resultType="boolean">
+    SELECT EXISTS (SELECT 1 FROM institutional_fetch WHERE work_id = #{workId} AND fetched_at &gt;= #{since}
+      AND outcome IN
+      <foreach collection="outcomes" item="o" open="(" separator="," close=")">#{o}</foreach>)
+  </select>
+
+  <select id="countsByPublisher" resultType="map">
+    SELECT publisher, count(*) FILTER (WHERE fetched_at &gt;= #{today}) AS today, count(*) AS last30
+    FROM institutional_fetch WHERE fetched_at &gt;= #{since}
+    GROUP BY publisher ORDER BY publisher
+  </select>
+
+</mapper>

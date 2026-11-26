@@ -23,15 +23,15 @@ Also read `CLAUDE.md`, `docs/adr/0005-index-pipeline.md`, `docs/adr/0006-account
 - Never use local ports 8080/8081. Never commit `eval/work/`, `data/`, `.env`, PDFs, `eval/reports/OVERLAP/`.
 - Never print `.env` secrets (admin token, OpenAlex key, ORCID).
 - No paid OpenAlex API in the backfill or in reprocessing: no OpenAlex list calls, no OpenAlex content (`OpenAlexTeiRoute`)
-  downloads. The snapshot base URL default is `https://openalex.s3.amazonaws.com` (`NAMETRACKER_SNAPSHOT_BASE_URL`).
-- Production matching uses the public CLB API, unthrottled. A local bundle (`NAMETRACKER_CLB_MATCH_BASE_URL`) is a
+  downloads. The snapshot base URL default is `https://openalex.s3.amazonaws.com` (`GARRULUS_SNAPSHOT_BASE_URL`).
+- Production matching uses the public CLB API, unthrottled. A local bundle (`GARRULUS_CLB_MATCH_BASE_URL`) is a
   development option: with one, `XR_CHECK` never starts a switch on its own.
 - An XR switch creates zero hits: `XR_REPLACE` never enqueues `EVALUATE_HITS` and never writes `indexed_at` or `state`.
 - A work that was `INDEXED` stays `INDEXED` and listed through every re-index (finder, full text arriving, title
   clean-up, reprocessing) until its new index replaces the old one in one transaction.
 - Re-index hit rule: a re-indexed work gives a follow an `ARTICLE` hit only if the follow did not match the work's
   previous index; window, `since_year`, one `ARTICLE` per (follow, work) and `NEW_NAMES` stay as in ADR-0006.
-- Gate default `nametracker.xr.max-lost-share` = 0.05. Pre-match parallelism `NAMETRACKER_CLB_MATCH_PARALLELISM` = 8.
+- Gate default `garrulus.xr.max-lost-share` = 0.05. Pre-match parallelism `GARRULUS_CLB_MATCH_PARALLELISM` = 8.
 - Migrations are expand-only (`V8`…`V12`, one per task as listed); `web` keeps validating the schema.
 - Priorities: switch and reprocessing at `REPROCESS`, backfill at `BACKFILL`; the live harvest is untouched.
 - Every new task type is idempotent under redelivery and listed in `CLAUDE.md`.
@@ -61,7 +61,7 @@ Also read `CLAUDE.md`, `docs/adr/0005-index-pipeline.md`, `docs/adr/0006-account
 - Modify: `indexer/.../match/MatchCache.java`, `MatchQuery.java`, `MatchNamesHandler.java`, `XrReleaseService.java`
 - Create: `indexer/.../match/WorkPlacer.java`
 - Modify: `indexer/src/main/resources/application.yml` (comment "at most 10 requests a second" removed;
-  `nametracker.clb.match-parallelism: ${NAMETRACKER_CLB_MATCH_PARALLELISM:8}`)
+  `garrulus.clb.match-parallelism: ${GARRULUS_CLB_MATCH_PARALLELISM:8}`)
 - Test: `indexer/src/test/.../http/PoliteHttpTest` (or the existing limiter test), `match/MatchQueryTest.java`,
   `match/MatchCacheIT.java`, `match/MatchNamesHandlerIT.java`, `match/BundleMatchingIT.java`
 
@@ -241,7 +241,7 @@ timestamptz, baseline boolean NOT NULL DEFAULT false)`.
 **Files:**
 - Create: `store/src/main/resources/db/migration/V10__xr_switch.sql`
 - Create: `indexer/.../xr/XrSwitchHandler.java`, `XrPrematchHandler.java`, `XrGateHandler.java`,
-  `XrCancelHandler.java`, `XrSwitchProperties.java` (package `org.catalogueoflife.nametracker.indexer.xr`)
+  `XrCancelHandler.java`, `XrSwitchProperties.java` (package `org.catalogueoflife.garrulus.indexer.xr`)
 - Modify: `indexer/.../match/XrReleaseService.java`, `XrCheckHandler.java`, `IndexMapper` (+ XML), `XrRelease.java`
 - Test: `indexer/src/test/.../xr/XrSwitchIT.java`
 
@@ -262,7 +262,7 @@ together with `state`.
     An admin switch to a `REFUSED` key clears the refusal.
   - `XR_PREMATCH {"key":k,"afterName":0,"afterHint":"","batch":2000}`: next batch of distinct
     (`name_string_id`, `hint_key`) of the current release's `name_match` ordered by both; matches each in key `k`
-    with `nametracker.clb.match-parallelism` threads (`MatchCache.match`, cache hits are free); an
+    with `garrulus.clb.match-parallelism` threads (`MatchCache.match`, cache hits are free); an
     `UnmatchableNameException` stores nothing for that key (counted); continues; the last batch enqueues
     `XR_GATE {"key":k}`. Stops silently when the release is no longer `PREPARING` (cancelled).
   - `XR_GATE {"key":k}`: `keys_total` = matched (not `none`) keys on the current release; `keys_lost` = of those, keys
@@ -351,8 +351,8 @@ and, for a moved follow, `target` (ruling: the XR switch is the one writer of th
 **Files:**
 - Create: `indexer/.../finder/ReloadableNameFinder.java`, `indexer/.../finder/BuildDictionaryHandler.java`
 - Modify: `indexer/.../finder/FinderConfig.java`, `application.yml`
-  (`nametracker.finder.dictionary-dir: ${NAMETRACKER_DICTIONARY_DIR:}`,
-  `nametracker.finder.xr-zip-url: ${NAMETRACKER_XR_ZIP_URL:https://download.checklistbank.org/col/xr_latest_coldp.zip}`)
+  (`garrulus.finder.dictionary-dir: ${GARRULUS_DICTIONARY_DIR:}`,
+  `garrulus.finder.xr-zip-url: ${GARRULUS_XR_ZIP_URL:https://download.checklistbank.org/col/xr_latest_coldp.zip}`)
 - Test: `indexer/src/test/.../finder/BuildDictionaryIT.java`, `ReloadableNameFinderTest.java`
 
 **Interfaces:**
@@ -362,7 +362,7 @@ and, for a moved follow, `target` (ruling: the XR switch is the one writer of th
   - `ReloadableNameFinder implements NameFinder`: delegates to an `AtomicReference<NameFinder>`; `void swap(NameFinder)`.
     `FinderConfig` wraps the in-process pipeline in it. Choice at start: with `dictionary-dir` set, the file
     `dictionary-<currentKey>.bin` if present, else `FINDER_DICTIONARY`, else the newest `dictionary-*.bin` in the dir;
-    a remote finder (`NAMETRACKER_FINDER_URL`) is never wrapped.
+    a remote finder (`GARRULUS_FINDER_URL`) is never wrapped.
   - `BUILD_DICTIONARY {"key":k}`: with no `dictionary-dir` or a remote finder → INFO and done. Else streams the zip from
     `xr-zip-url` (no local copy of the zip; HTTP client streaming, not `PoliteHttp`'s buffered body), builds; if the
     built release key ≠ `k` → WARN ("latest XR zip is <x>, not <k>; keeping the current dictionary") and done. Else
@@ -387,7 +387,7 @@ and, for a moved follow, `target` (ruling: the XR switch is the one writer of th
 - Create: `store/src/main/resources/db/migration/V12__backfill.sql`, `store/.../backfill/BackfillMapper.java` (+ XML)
 - Create: `indexer/.../backfill/SnapshotClient.java`, `BackfillHandler.java`, `BackfillFileHandler.java`
 - Modify: `store/.../work/WorkUpsert.java` (`insertIfNew`), `application.yml`
-  (`nametracker.snapshot.base-url: ${NAMETRACKER_SNAPSHOT_BASE_URL:https://openalex.s3.amazonaws.com}`)
+  (`garrulus.snapshot.base-url: ${GARRULUS_SNAPSHOT_BASE_URL:https://openalex.s3.amazonaws.com}`)
 - Test: `indexer/src/test/.../backfill/BackfillIT.java`, `BackfillFileIT.java`, `SnapshotClientTest.java`
 
 **V12:** `backfill_run (id bigserial PK, from_year smallint NOT NULL, to_year smallint NOT NULL, snapshot_date date NOT
@@ -471,8 +471,8 @@ PRIMARY KEY (run_id, idx))`.
 - Create: `docs/adr/0007-lifecycle-and-backfill.md`
 - Modify: `docs/adr/0005-index-pipeline.md` (no throttle; pin section points at ADR-0007; bundle mismatch defers),
   `docs/adr/0006-accounts-and-alerts.md` (re-index hit rule amendment), `CLAUDE.md` (status, new env variables
-  `NAMETRACKER_CLB_MATCH_PARALLELISM`, `NAMETRACKER_DICTIONARY_DIR`, `NAMETRACKER_XR_ZIP_URL`,
-  `NAMETRACKER_SNAPSHOT_BASE_URL`, `nametracker.xr.max-lost-share`; task types `XR_SWITCH`, `XR_PREMATCH`, `XR_GATE`,
+  `GARRULUS_CLB_MATCH_PARALLELISM`, `GARRULUS_DICTIONARY_DIR`, `GARRULUS_XR_ZIP_URL`,
+  `GARRULUS_SNAPSHOT_BASE_URL`, `garrulus.xr.max-lost-share`; task types `XR_SWITCH`, `XR_PREMATCH`, `XR_GATE`,
   `XR_CANCEL`, `XR_REPLACE`, `XR_FINISH`, `BUILD_DICTIONARY`, `REPROCESS_NAMES`, `BACKFILL`, `BACKFILL_FILE` with
   payloads and admin curl examples; remove "10 requests a second"), `docs/design.md` (roadmap: M5 split, status)
 

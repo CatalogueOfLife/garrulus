@@ -2,8 +2,8 @@
 
 **Garrulus** is the public name of the application: the genus of the European jay, *Garrulus glandarius*. Jays are
 loud, curious birds that notice everything in the wood and spread what they find, which is what the application does
-with names in the literature. The internal id stays `nametracker`: Java packages, Maven artifactIds, the database,
-systemd units and the repository.
+with names in the literature. Code, configuration, deployment and the GitHub repository say `garrulus` too (the working title was
+`nametracker`).
 
 **Use "Garrulus" for everything people see:** UI and page titles, logo, favicon, email sender name, feed titles,
 OpenAPI title, public URLs and the outgoing HTTP User-Agent (`Garrulus/<version> (+https://www.catalogueoflife.org)`).

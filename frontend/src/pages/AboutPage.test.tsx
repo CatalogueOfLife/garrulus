@@ -13,6 +13,6 @@ describe('AboutPage', () => {
     expect(screen.getByText(/Full text is kept and shown only for open-licensed papers/)).toBeInTheDocument();
     expect(await screen.findByText('COL26.10 XR')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'API description' })).toHaveAttribute('href', '/api/openapi.yaml');
-    expect(screen.getByRole('link', { name: 'Source code' })).toHaveAttribute('href', 'https://github.com/CatalogueOfLife/nametracker');
+    expect(screen.getByRole('link', { name: 'Source code' })).toHaveAttribute('href', 'https://github.com/CatalogueOfLife/garrulus');
   });
 });

@@ -13,7 +13,7 @@ queries and commands below (paths relative to the VM's run directory).
 
 - Jars from `main` at `10e2e85` (`mvn -B -DskipTests install`), copied to `data/run/`; the previous indexer jar is kept
   as `data/run/indexer-2026-11-19-pre-m6a.jar`, its log as `data/run/indexer-13.log`.
-- Indexer restarted as before (`-Xmx6g`, port 18081, `NAMETRACKER_HARVEST_ENABLED=true`, `FINDER_DICTIONARY` 316691);
+- Indexer restarted as before (`-Xmx6g`, port 18081, `GARRULUS_HARVEST_ENABLED=true`, `FINDER_DICTIONARY` 316691);
   web restarted on 18080 (it had been stopped; its jar was stale).
 - Flyway applied V16 (layered harvest), V17 (Crossref history) and V18 (layer contribution) in 22.5 s, the V16
   back-fill included. Started in 24.5 s.
@@ -69,9 +69,9 @@ on 22 Nov, for the nights of 22/23 and 23/24 Nov:
 
 ```
 kill $(cat data/run/indexer.pid)
-NAMETRACKER_INDEXER_PORT=18081 NAMETRACKER_HARVEST_ENABLED=true \
+GARRULUS_INDEXER_PORT=18081 GARRULUS_HARVEST_ENABLED=true \
   FINDER_DICTIONARY=$PWD/eval/work/dictionary-316691.bin \
-  NAMETRACKER_OPENALEX_BASE_URL=http://127.0.0.1:9 NAMETRACKER_OPENALEX_CONTENT_BASE_URL=http://127.0.0.1:9 \
+  GARRULUS_OPENALEX_BASE_URL=http://127.0.0.1:9 GARRULUS_OPENALEX_CONTENT_BASE_URL=http://127.0.0.1:9 \
   nohup java -Xmx6g -jar data/run/indexer.jar > data/run/indexer.log 2>&1 &
 echo $! > data/run/indexer.pid
 ```

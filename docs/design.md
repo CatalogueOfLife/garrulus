@@ -3,18 +3,15 @@
 > **Naming (decided 2026-11-14).** The public name is **Garrulus**, after the European jay, *Garrulus glandarius*.
 > It is used for the UI, logo, page titles, emails, feeds, public URLs and the outgoing User-Agent.
 >
-> The internal id stays `nametracker`:
-> - Java packages `org.catalogueoflife.nametracker.*`
-> - Maven artifactIds `nametracker-*`
-> - the database
-> - systemd units `col-nametracker-*`
-> - the repository
+> Since 2026-11-26 the code says `garrulus` too: Java packages `org.catalogueoflife.garrulus.*`, Maven artifactIds
+> `garrulus-*`, configuration `garrulus.*` / `GARRULUS_*`, the database and the repository `CatalogueOfLife/garrulus`. The
+> working title was `nametracker`.
 >
 > The brand (black and white with one red, Schibsted Grotesk, the jay-head mark) is in `docs/brand/README.md`.
 
 ## Context
 
-uBio's uBioRSS once followed journal feeds, found scientific names in new articles and let people subscribe to taxa. Nothing like it runs today. ChecklistBank has no free-text name finding at all (the backend has matching, parsing and a Crossref DOI resolver, but no text mining). **Garrulus** (internally `nametracker`) is a new, standalone CoL application that:
+uBio's uBioRSS once followed journal feeds, found scientific names in new articles and let people subscribe to taxa. Nothing like it runs today. ChecklistBank has no free-text name finding at all (the backend has matching, parsing and a Crossref DOI resolver, but no text mining). **Garrulus** is a new, standalone CoL application that:
 
 1. continuously follows the journals of biodiversity science,
 2. fetches article metadata and abstracts, and open-access full text where available,
@@ -68,7 +65,7 @@ This document is the approved design (2026-11-14). Later decisions go into `docs
 | Purpose | Alerts for researchers + public name–literature index |
 | Breadth | Biodiversity broadly, tiered (core taxonomy journals get the most full-text effort) |
 | Backfill | 2000→now; job re-runnable for earlier years |
-| Architecture | **A: standalone on Blixa's stack.** Spring Boot 4.1, Java 25, MyBatis, Flyway, Postgres 17, React + Mantine. gnfinder and GROBID run as helper services; matching via the ChecklistBank (CLB) API. |
+| Architecture | **A: standalone on Blixa's stack.** Spring Boot 4.1, Java 25, MyBatis, Flyway, Postgres 19, React + Mantine. gnfinder and GROBID run as helper services; matching via the ChecklistBank (CLB) API. |
 | App split | **Two Java apps sharing one database:** `web` (user-facing, mostly read, always on) and `indexer` (harvesting, analysis, matching; can be stopped separately and more often for maintenance) |
 | Finder | **gnfinder + own stages**, behind a clean abstraction so an alternative implementation can be developed and swapped in |
 | Search filters | From the start: nomenclatural code, taxonomic group (CLB `TaxGroup` vocabulary), journal categorisation (see §1, §5, §9) |
@@ -92,7 +89,7 @@ This document is the approved design (2026-11-14). Later decisions go into `docs
                                   │            abstract fallback                  │  default: PipelineNameFinder
                                   │                                               │  (gnfinder + dict + rules + acts + context + judge)
                                   ▼                                               ▼
-                     Postgres 17: works, mentions, name strings, contexts, matches, users, subscriptions, hits, tasks
+                     Postgres 19: works, mentions, name strings, contexts, matches, users, subscriptions, hits, tasks
                                   ▲                                               │
                      COL XR: release tracker + Matcher (CLB API / bulk job) ◄─────┘ placement → taxon_path[]
                                   │
@@ -110,7 +107,7 @@ The Java side is split into **two Spring Boot applications** that share one Post
 │ reprocessing · nightly stats (taxon_stats, name_ubiquity, journal categorisation) · task workers        │
 └───────────────────────────────┬────────────────────────────────────────────────────────────────────────┘
         writes index + hits,    │    consumes `task` rows
-                     Postgres 17  — one schema, defined once in the shared `store` module
+                     Postgres 19  — one schema, defined once in the shared `store` module
         reads index,            │    writes users, subscriptions, deliveries, enqueues `task` rows
 ┌───────────────────────────────┴────────────────────────────────────────────────────────────────────────┐
 │ web  (always on, mostly read): public REST API · Atom feeds · React UI · ORCID/magic-link login ·      │
@@ -312,7 +309,7 @@ public interface NameFinder {
   - **Unmatched names:** `TaxGroupAnalyzer` runs on the article's **verbatim classification context**. The code is taken from the group's codes when they are unambiguous.
   - **Other uses:** the code is passed to the matcher, and selects the finder's code-specific suffix rules.
 
-### 6. Index and storage (Postgres 17)
+### 6. Index and storage (Postgres 19)
 
 **Main tables:**
 
@@ -492,16 +489,16 @@ The taxon picker uses the CLB suggest API on the pinned XR key.
 | LLM judge | $0, off by default; opt-in with a budget cap |
 
 - **Deployment** follows Blixa (`deploy/blixa/`, Blixa's `Jenkinsfile`):
-  - Jenkins → two jars → two systemd units, `col-nametracker-web` and `col-nametracker-indexer`, on a GBIF VM. Each is deployed and restarted independently.
-  - Public URL: proposed `garrulus.catalogueoflife.org`, to be confirmed when deployment is set up in M2.
+  - Jenkins → two jars → two systemd units, `col-garrulus-web` and `col-garrulus-indexer`, on a GBIF VM. Each is deployed and restarted independently.
+  - Public URL: `https://garrulus.app` (decided 2026-11-26; deploy files and folders are named `garrulus`, the deploy repo's `garrulus/`).
   - Apache vhost serving the SPA and proxying `/api`, `/oauth2`, `/login`, `/feeds` to `web` only
-  - native Postgres 17
+  - native Postgres 19
   - gnfinder as a systemd-run Go binary; GROBID as a Docker or Java service
   - secrets in an EnvironmentFile kept in the deploy repo: OpenAlex key, Crossref mailto, CLB service account, SMTP, ORCID client
   - running inside GBIF infrastructure avoids Varnish blocking of cloud IP ranges
 - **Testing:**
   - unit tests
-  - `*IT` with a Testcontainers `postgres:17` singleton (Blixa's `AbstractPostgresIT`) and a gnfinder container
+  - `*IT` with a Testcontainers `postgres:19` singleton (Blixa's `AbstractPostgresIT`) and a gnfinder container
   - WireMock fixtures for OpenAlex, Crossref, Europe PMC and CLB
   - the eval harness as its own CI job
 
@@ -520,11 +517,11 @@ nametracker/                       (new repo github.com/CatalogueOfLife/nametrac
   web/                             Spring Boot app #2: public REST API, feeds, auth, subscriptions, digest delivery, admin endpoints
   eval/                            gold-set fetcher (Pensoft TaxPub), scorer, CLI, fixed held-out set
   frontend/                        Vite + React 18 + TypeScript + Mantine + TanStack Query (vitest + MSW)
-  docker-compose.yml               postgres:17 (port 5434), grobid; gnfinder runs natively (docker only in its IT)
+  docker-compose.yml               postgres:19 (port 5434), grobid; gnfinder runs natively (docker only in its IT)
   docs/design.md                   this document; docs/adr/ for later decisions
 ```
 
-Packages are `org.catalogueoflife.nametracker.*`. Configuration is through environment variables, migrations are Flyway `V<n>__*.sql`, and Java is JDK 25 (`.sdkmanrc` as in Blixa).
+Packages are `org.catalogueoflife.garrulus.*`. Configuration is through environment variables, migrations are Flyway `V<n>__*.sql`, and Java is JDK 25 (`.sdkmanrc` as in Blixa).
 
 **Code to reuse or copy:**
 - Blixa:
@@ -589,7 +586,7 @@ M1 and M2 can run in parallel after M0.
   - how many works the backfill really is (group-by count)
   - OpenAlex snapshot size and layout
 - **M3 calls** (plan `docs/superpowers/plans/2026-11-15-m3-match-and-index.md`, details in ADR-0005):
-  - Tuning moved out of M3: the salience weights and threshold ship as untuned defaults in `nametracker.salience.*` and
+  - Tuning moved out of M3: the salience weights and threshold ship as untuned defaults in `garrulus.salience.*` and
     are tuned on the curated main-subject labels in the final finder-tuning stage, with the finder itself and the
     `TeiConverter` tokenisation clean-up (Markus, 2026-11-15).
   - Closed full text waits in a transient spool (`data/spool`) until `FIND_NAMES` has run, for at most 14 days; it never

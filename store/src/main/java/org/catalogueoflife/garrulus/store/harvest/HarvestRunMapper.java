@@ -1,0 +1,42 @@
+package org.catalogueoflife.garrulus.store.harvest;
+
+import java.time.LocalDate;
+import java.util.List;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.jspecify.annotations.Nullable;
+
+@Mapper
+public interface HarvestRunMapper {
+
+  /** Starts a RUNNING run and returns its id. */
+  long start(@Param("adapter") String adapter, @Param("from") @Nullable LocalDate from,
+      @Param("to") @Nullable LocalDate to);
+
+  int finish(@Param("id") long id, @Param("state") String state, @Param("calls") int calls,
+      @Param("seen") int seen, @Param("created") int created, @Param("error") @Nullable String error);
+
+  /**
+   * Adds to the counters of a run that spans several tasks; a DEFERRED run is RUNNING again, and so is a FAILED one
+   * (the dispatcher's retry of the failed page got through).
+   */
+  int addProgress(@Param("id") long id, @Param("calls") int calls, @Param("seen") int seen,
+      @Param("created") int created);
+
+  /** Sets the state (an error of null keeps the stored one): finished is now for DONE and FAILED, null otherwise. */
+  int setState(@Param("id") long id, @Param("state") String state, @Param("error") @Nullable String error);
+
+  /** Records an error text unless the run already has one; the state is left alone. */
+  int noteError(@Param("id") long id, @Param("error") String error);
+
+  HarvestRun get(@Param("id") long id);
+
+  /** The latest {@code window_to} among the adapter's runs that did not fail; null when there is none. */
+  @Nullable LocalDate latestWindowTo(@Param("adapter") String adapter);
+
+  /** The latest {@code window_to} among the adapter's DONE runs; null when there is none. */
+  @Nullable LocalDate latestDoneWindowTo(@Param("adapter") String adapter);
+
+  /** Most recently started first. */
+  List<HarvestRun> recent(@Param("limit") int limit);
+}

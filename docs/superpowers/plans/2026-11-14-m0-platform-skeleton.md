@@ -20,7 +20,7 @@
 - **Public name:** "Garrulus" everywhere users see the app: UI, page titles, logo, favicon, OpenAPI title, emails,
   feed titles. The outgoing HTTP User-Agent is `Garrulus/<version> (+https://www.catalogueoflife.org)`. Colours and logo
   come only from `docs/brand/README.md` and `docs/brand/*.svg`.
-- **Internal id `nametracker`:** Maven groupId `org.catalogueoflife`, artifactIds `nametracker-parent`, `nametracker-finder-api`, `nametracker-finder-core`, `nametracker-finder-service`, `nametracker-store`, `nametracker-indexer`, `nametracker-web`, `nametracker-eval`; base package `org.catalogueoflife.nametracker`; local DB/user/password `nametracker`.
+- **Internal id `nametracker`:** Maven groupId `org.catalogueoflife`, artifactIds `nametracker-parent`, `nametracker-finder-api`, `nametracker-finder-core`, `nametracker-finder-service`, `nametracker-store`, `nametracker-indexer`, `nametracker-web`, `nametracker-eval`; base package `org.catalogueoflife.garrulus`; local DB/user/password `nametracker`.
 - JDK 25 everywhere; `.sdkmanrc` = `java=25.0.3-librca` (copy of Blixa's). `name-parser-rust` needs JDK 25 (FFM).
 - Parent: `spring-boot-starter-parent` **4.1.0**; property `clb.version` = **1.7.1-SNAPSHOT** (current `~/code/col/backend/bom/pom.xml`), imported as `org.catalogueoflife:clb-bom` (scope import). No other CoL parent POM.
 - GBIF repositories copied verbatim from `~/code/col/blixa/backend/pom.xml` (`gbif-releases`, `gbif-snapshot`). Add this repo to the "must change together" list in `~/.claude/CLAUDE.md`.
@@ -84,10 +84,10 @@
 
 **Files:**
 - Create: `store/src/main/resources/db/migration/V1__initial_schema.sql`
-- Create: `store/src/main/java/org/catalogueoflife/nametracker/store/task/{Task.java, TaskPriority.java, TaskState.java, TaskMapper.java, TaskQueue.java}`
-- Create: `store/src/main/resources/org/catalogueoflife/nametracker/store/task/TaskMapper.xml`
-- Create: `store/src/main/java/org/catalogueoflife/nametracker/store/source/{Source.java, SourceMapper.java}` + XML; `.../store/work/{Work.java, WorkMapper.java}` + XML (insert/get/update only; queries come with M2)
-- Test: `store/src/test/java/org/catalogueoflife/nametracker/store/{StoreTestApplication.java, AbstractPostgresIT.java, task/TaskQueueIT.java, SchemaIT.java}`
+- Create: `store/src/main/java/org/catalogueoflife/garrulus/store/task/{Task.java, TaskPriority.java, TaskState.java, TaskMapper.java, TaskQueue.java}`
+- Create: `store/src/main/resources/org/catalogueoflife/garrulus/store/task/TaskMapper.xml`
+- Create: `store/src/main/java/org/catalogueoflife/garrulus/store/source/{Source.java, SourceMapper.java}` + XML; `.../store/work/{Work.java, WorkMapper.java}` + XML (insert/get/update only; queries come with M2)
+- Test: `store/src/test/java/org/catalogueoflife/garrulus/store/{StoreTestApplication.java, AbstractPostgresIT.java, task/TaskQueueIT.java, SchemaIT.java}`
 
 **Interfaces:**
 - Produces:
@@ -174,7 +174,7 @@ CREATE TABLE shedlock (
 );
 ```
 
-- [ ] **Step 2: Write the failing ITs** — `StoreTestApplication` is a test-only `@SpringBootApplication` with `@MapperScan("org.catalogueoflife.nametracker.store")` and Flyway enabled; `AbstractPostgresIT` copies Blixa's singleton container.
+- [ ] **Step 2: Write the failing ITs** — `StoreTestApplication` is a test-only `@SpringBootApplication` with `@MapperScan("org.catalogueoflife.garrulus.store")` and Flyway enabled; `AbstractPostgresIT` copies Blixa's singleton container.
 
 ```java
 class TaskQueueIT extends AbstractPostgresIT {
@@ -208,16 +208,16 @@ class SchemaIT extends AbstractPostgresIT {
 ### Task 4: `indexer` app skeleton with task dispatcher
 
 **Files:**
-- Create: `indexer/src/main/java/org/catalogueoflife/nametracker/indexer/{IndexerApplication.java, IndexerConfig.java}`
-- Create: `indexer/src/main/java/org/catalogueoflife/nametracker/indexer/task/{TaskHandler.java, TaskDispatcher.java, PingTaskHandler.java}`
+- Create: `indexer/src/main/java/org/catalogueoflife/garrulus/indexer/{IndexerApplication.java, IndexerConfig.java}`
+- Create: `indexer/src/main/java/org/catalogueoflife/garrulus/indexer/task/{TaskHandler.java, TaskDispatcher.java, PingTaskHandler.java}`
 - Create: `indexer/src/main/resources/application.yml`
-- Test: `indexer/src/test/java/org/catalogueoflife/nametracker/indexer/{AbstractPostgresIT.java, task/TaskDispatcherIT.java}`
+- Test: `indexer/src/test/java/org/catalogueoflife/garrulus/indexer/{AbstractPostgresIT.java, task/TaskDispatcherIT.java}`
 
 **Interfaces:**
 - Consumes: `TaskQueue`, `Task`, `TaskPriority` (Task 3).
 - Produces:
   - `interface TaskHandler { String type(); void handle(Task task) throws Exception; }` — every indexer pipeline stage later implements this.
-  - `TaskDispatcher` polls every `nametracker.indexer.poll-interval` (default `2s`), claims up to the free worker slots (`nametracker.indexer.workers`, default `8`) for the types of all registered handlers, runs each on a virtual thread; on exception calls `fail(id, msg, nametracker.indexer.max-attempts (5), nametracker.indexer.backoff (1m))`.
+  - `TaskDispatcher` polls every `garrulus.indexer.poll-interval` (default `2s`), claims up to the free worker slots (`garrulus.indexer.workers`, default `8`) for the types of all registered handlers, runs each on a virtual thread; on exception calls `fail(id, msg, garrulus.indexer.max-attempts (5), garrulus.indexer.backoff (1m))`.
   - Startup: `requeueRunning(null)` before the first poll (single indexer instance). Periodically: `requeueRunning(1h)`. Shutdown: stop claiming, wait up to 30 s for in-flight handlers.
   - Config: Flyway **enabled** (the indexer migrates), locations `classpath:db/migration`; `server.port=8081`, `server.address=127.0.0.1`, actuator `health,info` only; ShedLock `JdbcTemplateLockProvider` bean for later scheduled jobs.
 
@@ -238,16 +238,16 @@ class TaskDispatcherIT extends AbstractPostgresIT {
 ### Task 5: `web` app skeleton — schema check, ping, admin enqueue
 
 **Files:**
-- Create: `web/src/main/java/org/catalogueoflife/nametracker/web/{WebApplication.java, WebConfig.java, SchemaCheck.java}`
-- Create: `web/src/main/java/org/catalogueoflife/nametracker/web/api/{PingController.java, AdminTaskController.java, AdminTokenFilter.java}`
+- Create: `web/src/main/java/org/catalogueoflife/garrulus/web/{WebApplication.java, WebConfig.java, SchemaCheck.java}`
+- Create: `web/src/main/java/org/catalogueoflife/garrulus/web/api/{PingController.java, AdminTaskController.java, AdminTokenFilter.java}`
 - Create: `web/src/main/resources/application.yml`
-- Test: `web/src/test/java/org/catalogueoflife/nametracker/web/{AbstractPostgresIT.java, SchemaCheckIT.java, api/AdminTaskControllerIT.java}`
+- Test: `web/src/test/java/org/catalogueoflife/garrulus/web/{AbstractPostgresIT.java, SchemaCheckIT.java, api/AdminTaskControllerIT.java}`
 
 **Interfaces:**
 - Consumes: `TaskQueue` (Task 3).
 - Produces:
   - `GET /api/ping` → `200 "pong"` (health path used by deploy scripts, as in Blixa).
-  - `POST /api/admin/tasks` body `{"type":"PING","payload":{},"priority":"LIVE","dedupKey":null}` → `202 {"id":<long>}`; requires header `X-Admin-Token` equal to `nametracker.admin.token` (env `ADMIN_TOKEN`). If the property is blank the endpoint returns `404`. Temporary until ORCID admin roles (M4).
+  - `POST /api/admin/tasks` body `{"type":"PING","payload":{},"priority":"LIVE","dedupKey":null}` → `202 {"id":<long>}`; requires header `X-Admin-Token` equal to `garrulus.admin.token` (env `ADMIN_TOKEN`). If the property is blank the endpoint returns `404`. Temporary until ORCID admin roles (M4).
   - `SchemaCheck` (`ApplicationRunner`): Flyway with `spring.flyway.enabled=false` for auto-migrate, and on startup `Flyway.configure().dataSource(ds).locations("classpath:db/migration").ignoreMigrationPatterns("*:future").load().validateWithResult()`; pending migrations → startup fails with message `"database schema is behind this web build; start the indexer first to migrate"`.
   - `server.port=8080`.
 

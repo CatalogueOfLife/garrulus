@@ -103,7 +103,7 @@ expand-only migrations: **V21 to V24**.
   the full backfill. Cost if wrong: such works wait for the sweep (at most `retry-per-day` a day).
 - **Attempts:** a miss is asked again after 30 days, then after 180 days, then never (Plazi and BHL add papers late); a
   hit is never asked again. A daily sweep enqueues the subjects with due rows of enabled lookups and listed works
-  (sources not CEASED), in id order, as `{"ids":[…]}` tasks of 5000, **up to `nametracker.links.retry-per-day`
+  (sources not CEASED), in id order, as `{"ids":[…]}` tasks of 5000, **up to `garrulus.links.retry-per-day`
   (100,000) per entity and day** (the rest waits for the next day: the misses of a 5M-work backfill come due together,
   and 5000 a day would lag by years), and deletes rows of deleted subjects; a due row a lookup no longer applies to is
   cleared, so skipped rows cannot starve the sweep.
@@ -121,7 +121,7 @@ expand-only migrations: **V21 to V24**.
   next page go on, and the sweep picks the put-off targets up. Only when no lookup could ask anything is the task
   deferred as a whole. Before, one lookup (Biodiversity PMC at its cap, the OpenAlex budget, a host down for days)
   stalled every later lookup and the whole paged back-fill, and capped tasks herded at 00:05 UTC.
-- **Lookups** (each `nametracker.links.<name>.enabled`): works: Crossref (batched `filter=doi:`), OpenAlex (through
+- **Lookups** (each `garrulus.links.<name>.enabled`): works: Crossref (batched `filter=doi:`), OpenAlex (through
   `OpenAlexBudget`), Europe PMC (PMID, PMCID), Biodiversity PMC, BLR (Zenodo), Plazi; journals: Wikidata (one SPARQL
   query per batch of ISSNs: QID, IPNI publication P2008, BPH P4569, BHL title P4327, DOAJ P5115), IPNI publication
   search by ISSN, Crossref journals. An id another work holds enqueues `MERGE_WORKS`; one another journal holds is
@@ -131,7 +131,7 @@ expand-only migrations: **V21 to V24**.
   URL-encoded, and a 400 on a batch re-asks one by one, so one SICI DOI cannot kill a batch.
 - **Cost gates.** Plazi and BLR are asked only for works with nomenclatural acts or from a Plazi/BLR journal. **Biodiversity
   PMC** answers about 860 KB per document and has no field filter: same gate, batches of 10, and a cap of
-  `nametracker.links.biodiversitypmc.max-requests-per-day` (200, about 1.7 GB) reserved atomically before each send
+  `garrulus.links.biodiversitypmc.max-requests-per-day` (200, about 1.7 GB) reserved atomically before each send
   (a batch reserves both its calls); a spent cap puts the lookup's targets off to 00:05 UTC. **The cap counts logical
   requests:** one reservation covers `PoliteHttp`'s own retries of that request, and a task retry after a failed send
   reserves again, so on a struggling day the documents actually downloaded can exceed the cap by a few (a logical
@@ -163,9 +163,9 @@ expand-only migrations: **V21 to V24**.
   by default the works whose `language_source` is null (legacy rows) or `UNDECIDED`; `"all":true` re-decides everything
   after a tuning change. Stale evidence is removed (an OpenAlex record without a language, a full text no longer kept).
 - **Detector: Lingua 1.2.2** (Apache-2.0, offline), 40 languages, **low-accuracy mode by default** (+52 MB heap against
-  +971 MB for high accuracy, next to the 1.4 GB dictionary build; `nametracker.language.high-accuracy` switches it).
+  +971 MB for high accuracy, next to the 1.4 GB dictionary build; `garrulus.language.high-accuracy` switches it).
   Lingua's confidence is **max-normalised** (the top language is always about 1.0), so `min-confidence` (0.80) does not
-  discriminate; the gate is the **margin** over the second language, `nametracker.language.min-margin` **0.10** (start
+  discriminate; the gate is the **margin** over the second language, `garrulus.language.min-margin` **0.10** (start
   value; measured margins of real titles 0.04 to 0.44; the planned 0.30 rejected almost all). DETECTED evidence stores
   the margin as its confidence. `min-title-words` (3) counts only words that are not binomial-shaped, author/year or
   numbers, so a title of Latin names stays undecided. Cost if wrong: wrong detections pass, or good ones are dropped
@@ -199,7 +199,7 @@ expand-only migrations: **V21 to V24**.
   refreshes `title_en`; never `work.title`.
 - **Start choice: LibreTranslate 1.9.6 with Argos models**, local on the VM like gnfinder, through its own JDK client
   (configured URL only, no redirects, a timeout, answers capped at 64 KB); not through `PoliteHttp`, whose public-host
-  rule refuses loopback by design (ADR-0009). Off unless `nametracker.translation.enabled` and the URL are set. If the
+  rule refuses loopback by design (ADR-0009). Off unless `garrulus.translation.enabled` and the URL are set. If the
   dev check finds more than 20 % of the titles misleading, OPUS-MT on CTranslate2 goes in behind `TitleTranslator`.
 - **Only after naming:** nothing is written for a work the finder has not named yet; the naming path enqueues it for a
   non-English work without `title_en`. **A translation that loses a name is dropped:** blank, an echo of the title, or
@@ -216,12 +216,12 @@ expand-only migrations: **V21 to V24**.
 - **OAI JATS** is the first full-text route (`OAI_JATS`) for a work with an OAI identifier and a VERIFIED or ACTIVE OAI
   route with prefix `jats` (JoTT): one `GetRecord` per work on the OAI channel, full text only with body paragraphs,
   licence from the record (kept only under an open licence; `OaiJatsRouteIT` checks a non-commercial and a missing
-  licence). It asks nothing while the OAI layer is off (`nametracker.layers.oai.enabled=false`, the way to silence a
+  licence). It asks nothing while the OAI layer is off (`garrulus.layers.oai.enabled=false`, the way to silence a
   misbehaving repository) or for a CEASED journal. The spec has the full text come "already" with the
   harvested record; the harvest keeps no record body, so the route asks again per work (spec deviation, one request a
   work at the OAI spacing).
 - **Abstract top-up** when a work has no abstract after its routes, in order: Europe PMC (keyless, on by default,
-  `nametracker.content.topup.europepmc.enabled`), Springer Nature Meta
+  `garrulus.content.topup.europepmc.enabled`), Springer Nature Meta
   (DOIs `10.1007/`, `10.1186/`, `10.1038/`; free key, off without it; 100 requests a day reserved before each send; a
   401 or 403 switches it off), SciELO ArticleMeta (a DOI-prefix map to collections, `10.1590/=scl`; the PID comes from the
   `alternative-id` of the DOI's Crossref record, because ArticleMeta's identifiers listing has no DOI; the article
@@ -239,12 +239,12 @@ expand-only migrations: **V21 to V24**.
 - **`abstract_source` `INSTITUTIONAL` is reserved and never written** (the spec lists it; the KU route stores no abstract).
 - **TEI re-check** (the M6a gap): when OpenAlex newly reports a TEI for a work already resolved without full text,
   `RESOLVE_CONTENT {"tei":true}` runs at `REPROCESS`, only when the TEI route would take the work (CORE source,
-  non-BACKFILL origin, OpenAlex id, API key), at most `nametracker.content.tei-recheck-per-day` (200) a day, the rest
+  non-BACKFILL origin, OpenAlex id, API key), at most `garrulus.content.tei-recheck-per-day` (200) a day, the rest
   the next day; a spent OpenAlex budget defers it to the reset.
 
 ### Institutional route (KU)
 
-- **Off** (`nametracker.content.institutional.enabled=false`, empty publisher allow-list). **It may be switched on only
+- **Off** (`garrulus.content.institutional.enabled=false`, empty publisher allow-list). **It may be switched on only
   after the KU library confirms in writing** which licences permit text and data mining for this use, and whether
   Garrulus counts as research under the EU TDM exception (DSM Art. 3). Markus obtains that; nothing assumes it.
 - **Publishers:** Elsevier TDM (`10.1016/`, XML, content kind `ELSEVIER_XML`, parser hardened: a DOCTYPE is refused) and

@@ -20,7 +20,7 @@
 ## Global Constraints
 
 - **Packages and ids:**
-  - Packages: `org.catalogueoflife.nametracker.store.*`, `org.catalogueoflife.nametracker.indexer.*`, `org.catalogueoflife.nametracker.web.*`.
+  - Packages: `org.catalogueoflife.garrulus.store.*`, `org.catalogueoflife.garrulus.indexer.*`, `org.catalogueoflife.garrulus.web.*`.
   - Every outgoing request sends `User-Agent: Garrulus/<version> (+https://www.catalogueoflife.org)`.
   - `<version>` is the jar's Implementation-Version, or `dev` when there is none.
 - **Who talks to whom:**
@@ -28,9 +28,9 @@
   - `web` writes only `source.tier` / `source.active` and inserts `task` rows.
   - The two apps never call each other.
 - **Free by default:**
-  - OpenAlex spend is capped per UTC day at `nametracker.openalex.max-daily-usd` (env `NAMETRACKER_OPENALEX_MAX_DAILY_USD`, default `1.00`) and never exceeds what the API reports as remaining (`X-RateLimit-Remaining`).
+  - OpenAlex spend is capped per UTC day at `garrulus.openalex.max-daily-usd` (env `GARRULUS_OPENALEX_MAX_DAILY_USD`, default `1.00`) and never exceeds what the API reports as remaining (`X-RateLimit-Remaining`).
   - Prices: singleton get $0, list/filter or group-by call $0.0001, content download $0.01. They are used only when the response carries no `X-RateLimit-Credits-Used` header.
-  - Content downloads (route 4) use only what is left above `nametracker.openalex.content.reserve-usd` (default `0.30`). They are switched by `nametracker.openalex.content.enabled` (env `NAMETRACKER_OPENALEX_CONTENT_ENABLED`, default `true`), apply only to CORE-tier sources, and never to `BACKFILL` works.
+  - Content downloads (route 4) use only what is left above `garrulus.openalex.content.reserve-usd` (default `0.30`). They are switched by `garrulus.openalex.content.enabled` (env `GARRULUS_OPENALEX_CONTENT_ENABLED`, default `true`), apply only to CORE-tier sources, and never to `BACKFILL` works.
   - When the cap is hit, the work is deferred to the next UTC day. It never fails into `DEAD`.
 - **Secrets and personal data:**
   - `OPENALEX_API_KEY` and `CROSSREF_MAILTO` come from the environment or a git-ignored `.env`. There are no defaults in the repo and no personal email anywhere.
@@ -54,7 +54,7 @@
 
   Local GROBID on publisher PDFs (design route 5) is **not** in M2. The roadmap names routes 1–4.
 - **Retention:**
-  - Blobs (raw and `Document` JSON) are kept only when the licence is open: `cc-by`, `cc-by-sa`, `cc0` or `public-domain`. The list is configurable as `nametracker.content.open-licences`.
+  - Blobs (raw and `Document` JSON) are kept only when the licence is open: `cc-by`, `cc-by-sa`, `cc0` or `public-domain`. The list is configurable as `garrulus.content.open-licences`.
   - Otherwise the `content` row keeps the hashes, URL and licence with `retained=false` and no blob; the text is re-fetched when names are found (M3).
 - **Documents:**
   - Built only with the finder-core converters: `JatsConverter`, `TeiConverter.convert(tei, docId, isKnownWord)`, `AbstractConverter.fromParts`.
@@ -64,7 +64,7 @@
 - **Tests:**
   - Every external HTTP call is tested with WireMock fixtures under `src/test/resources/<service>/`. `mvn -B verify` makes no live calls.
   - Live smoke checks run only by hand.
-- **Never touch local ports 8080/8081** (the user's own process). For manual runs, use `NAMETRACKER_INDEXER_PORT=18081` and `SERVER_PORT=18080`.
+- **Never touch local ports 8080/8081** (the user's own process). For manual runs, use `GARRULUS_INDEXER_PORT=18081` and `SERVER_PORT=18080`.
 - **Commits:** conventional style, no tool attribution lines, files staged explicitly by path.
 
 ## Review Focus
@@ -220,7 +220,7 @@ CREATE TABLE harvest_run (
     - throws `HttpProblem` (unchecked; holds uri, status, and whether it is retryable) once the retries are spent.
   - `static String userAgent()` returns `Garrulus/<version> (+https://www.catalogueoflife.org)`.
   - `HostLimiter`: one per host. `acquire()` blocks until `minInterval` has passed since the last start. It is thread-safe and shared by all worker threads.
-  - **Default intervals** (`nametracker.http.min-interval.<host>`):
+  - **Default intervals** (`garrulus.http.min-interval.<host>`):
 
     | Host | Interval |
     |---|---|
@@ -302,7 +302,7 @@ CREATE TABLE harvest_run (
 - Create: `indexer/.../source/SourceSeeder.java`, `SeedSourcesHandler.java`, `AddSourceHandler.java`, `indexer/.../HarvestConfig.java`
 - Test: `indexer/src/test/.../source/SourceSeederTest.java` (WireMock plus a fake mapper or the Postgres IT base), `SeedSourcesHandlerIT.java`
 
-**Seeding rules** (design §1; thresholds are configurable under `nametracker.seed.*`, defaults as given):
+**Seeding rules** (design §1; thresholds are configurable under `garrulus.seed.*`, defaults as given):
 - **Window:** `from_publication_date` = today − 3 years, plus `type:article`, `primary_location.source.type:journal`.
 - **Taxonomy counts:** `groupBy(filter + ",primary_topic.id:T14399|T11494|T12132|T12606|T11974|T12447|T13269|T12361|T12568|T14049|T11836|T11528|T12668|T11879|T11354|T10332|T12319", "primary_location.source.id")`.
 - **Broad counts:** the same with `primary_topic.subfield.id:1105|1109|1103|1104|1110|1911|2404|2405|2303`.
@@ -340,7 +340,7 @@ CREATE TABLE harvest_run (
   - `SeedSourcesHandlerIT.seedTwiceKeepsAdminTierAndEnqueuesOnboardingOnce`.
   - `addSourceSetsAdminTierAndOnboards`.
 - [ ] **Step 2:** Run the tests. Expected: FAIL.
-- [ ] **Step 3:** Implement it. `HarvestConfig` binds `nametracker.openalex.*`, `nametracker.seed.*`, `nametracker.http.*`, `nametracker.content.*` and `nametracker.crossref.*`, with env overrides in `indexer/src/main/resources/application.yml`. It also creates `PoliteHttp`, `OpenAlexBudget` and `OpenAlexClient`.
+- [ ] **Step 3:** Implement it. `HarvestConfig` binds `garrulus.openalex.*`, `garrulus.seed.*`, `garrulus.http.*`, `garrulus.content.*` and `garrulus.crossref.*`, with env overrides in `indexer/src/main/resources/application.yml`. It also creates `PoliteHttp`, `OpenAlexBudget` and `OpenAlexClient`.
 - [ ] **Step 4:** Run the tests. Expected: PASS.
 - [ ] **Step 5:** Commit `feat(indexer): seed the journal registry from OpenAlex topics and subfields`.
 
@@ -437,7 +437,7 @@ CREATE TABLE harvest_run (
     - `String put(byte[] bytes)` returns the lower-case hex SHA-256 of the uncompressed bytes;
     - `Optional<byte[]> get(String sha256)`;
     - `boolean exists(String sha256)`.
-  - `FileBlobStore(Path root)` writes `root/<sha[0:2]>/<sha[2:4]>/<sha>.gz` gzipped and atomically (temp file, then move). Writing an existing hash does nothing. Root: `nametracker.blobs.dir` (env `NAMETRACKER_BLOBS_DIR`, default `./data/blobs`; `data/` is git-ignored).
+  - `FileBlobStore(Path root)` writes `root/<sha[0:2]>/<sha[2:4]>/<sha>.gz` gzipped and atomically (temp file, then move). Writing an existing hash does nothing. Root: `garrulus.blobs.dir` (env `GARRULUS_BLOBS_DIR`, default `./data/blobs`; `data/` is git-ignored).
   - `interface ContentRoute`:
     - `String route()`: a `content.route` value;
     - `boolean applies(Work w, Source s)`;
@@ -524,7 +524,7 @@ CREATE TABLE harvest_run (
 
 **Rules:**
 - **Applies** only when all of these hold:
-  - `nametracker.openalex.content.enabled`;
+  - `garrulus.openalex.content.enabled`;
   - the source tier is `CORE`;
   - `work.origin` is not `BACKFILL`;
   - `work.openalexHasTei`;
@@ -569,13 +569,13 @@ CREATE TABLE harvest_run (
 
   | Task | Default cron (UTC) | Env override | Dedup key |
   |---|---|---|---|
-  | `HARVEST_OPENALEX` LIVE | `0 0 2 * * *` | `NAMETRACKER_HARVEST_OPENALEX_CRON` | `harvest:openalex:LIVE:<date>` |
-  | `HARVEST_OPENALEX` SWEEP | `0 0 4 * * SUN` | `NAMETRACKER_HARVEST_SWEEP_CRON` | (with the date) |
-  | `HARVEST_CROSSREF` | `0 0 3 * * *` | `NAMETRACKER_HARVEST_CROSSREF_CRON` | (with the date) |
+  | `HARVEST_OPENALEX` LIVE | `0 0 2 * * *` | `GARRULUS_HARVEST_OPENALEX_CRON` | `harvest:openalex:LIVE:<date>` |
+  | `HARVEST_OPENALEX` SWEEP | `0 0 4 * * SUN` | `GARRULUS_HARVEST_SWEEP_CRON` | (with the date) |
+  | `HARVEST_CROSSREF` | `0 0 3 * * *` | `GARRULUS_HARVEST_CROSSREF_CRON` | (with the date) |
   | `OPENALEX_RECHECK` | `0 30 3 * * *` | (none) | (with the date) |
   | `SEED_SOURCES` | `0 0 1 1 * *` (monthly) | (none) | `seed-sources:<yyyy-MM>` |
 
-  - Master switch: `nametracker.harvest.enabled` (env `NAMETRACKER_HARVEST_ENABLED`, **default `false`**). Off means the scheduler enqueues nothing; handlers still run for tasks enqueued by hand or by the admin.
+  - Master switch: `garrulus.harvest.enabled` (env `GARRULUS_HARVEST_ENABLED`, **default `false`**). Off means the scheduler enqueues nothing; handlers still run for tasks enqueued by hand or by the admin.
   - Register all new task types with the dispatcher.
 - **web** (behind the existing admin-token condition and header check):
   - `GET /api/admin/sources?tier=&active=&q=` lists sources (id, openalexId, title, tier, active, onboardedAt, lastHarvested, worksPerYear), paged with `limit` ≤ 500 and `offset`.
@@ -624,8 +624,8 @@ CREATE TABLE harvest_run (
 No new code unless the run exposes defects. Each fix gets its own failing test and commit.
 
 - [ ] **Step 1:** Run `docker compose up -d db`. Start the indexer with:
-  - `NAMETRACKER_INDEXER_PORT=18081`
-  - `NAMETRACKER_HARVEST_ENABLED=true`
+  - `GARRULUS_INDEXER_PORT=18081`
+  - `GARRULUS_HARVEST_ENABLED=true`
   - `FINDER_DICTIONARY=$PWD/eval/work/dictionary-316691.bin`
   - `OPENALEX_API_KEY` / `CROSSREF_MAILTO` only if they are set in `.env`
 

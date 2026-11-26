@@ -66,7 +66,7 @@ the seeding offer a candidate and never insert a `source` row themselves.
   pessimistic failure uses attempts like any error. The completion stops when its source was folded into a ceased
   journal (ceased journals get no calls).
 - **ISSN-L table off by default.** `REFRESH_ISSNL` streams the ISSN IC zip; its URL is the undocumented file the "on
-  demand" form serves. `nametracker.discovery.issnl.enabled` is **false** until Markus confirms the URL may be used.
+  demand" form serves. `garrulus.discovery.issnl.enabled` is **false** until Markus confirms the URL may be used.
 - **Free-text ISSN extraction** (`Issn.all`) accepts only the **hyphenated** form (hyphen or en dash) anywhere, and
   space, NBSP or glued forms only directly after an ISSN **label** (ISSN, ISSN-L, eISSN, pISSN, e-ISSN, p-ISSN, optional
   colon); never after `/` or `.` (DOI suffixes, page ranges, dates). Structured fields go through `Issn.normalise`.
@@ -123,7 +123,7 @@ deletes its signal.
 
 `POST /api/sources/register` needs a **sign-in** (session and XSRF), exactly one of ISSN, DOI (at most 300 characters)
 or URL, a note of at most 500, a body of at most 8 KB (413), **at most 20 a day** per user (429) and, fix wave, **at
-most 200 a day of all users together** (`nametracker.registration.daily-cap`, 429 "paused for today"): email accounts
+most 200 a day of all users together** (`garrulus.registration.daily-cap`, 429 "paused for today"): email accounts
 are free and each registration is a `LIVE` task with up to a 60 s page fetch ahead of the harvest. The global count is
 not locked, so parallel requests can pass it by a few. `web` makes no
 outbound call: it stores the row `IDENTIFYING`, enqueues `IDENTIFY_SOURCE {"registrationId"}` at `LIVE` and answers 202.
@@ -159,10 +159,10 @@ A user-supplied URL and the hosts of discovered routes are hostile input. Layers
   `LOOKUP_FAILED`), no backtracking regex on hostile input; the title is capped at 500 code points.
 - **`PoliteHttp`** follows redirects itself (`Redirect.NEVER` client; at most 5, never https to http) and checks the
   start URL and **every hop with `PublicHost`**. **Trusted authorities** (exempt from the check) are exactly the
-  scheme/host/port of the configured service URLs PoliteHttp fetches, plus the entries of `nametracker.http.trusted-hosts`;
-  **never `nametracker.public-url`**, gnfinder or a finder service. Trust applies **only while every hop so far was
+  scheme/host/port of the configured service URLs PoliteHttp fetches, plus the entries of `garrulus.http.trusted-hosts`;
+  **never `garrulus.public-url`**, gnfinder or a finder service. Trust applies **only while every hop so far was
   trusted**: a public site that redirects to `http://localhost:<port>/` is refused with no request sent. Production uses
-  `host:port` in `nametracker.http.trusted-hosts`; a bare host trusts every port.
+  `host:port` in `garrulus.http.trusted-hosts`; a bare host trusts every port.
 - **The route gate:** `VERIFY_ROUTE` is not enqueued for a route whose source is a CANDIDATE (origin `REGISTERED` or
   `DISCOVERED`), so a hostile route host is never contacted before an admin promotes the journal; a promotion (tier to
   CORE/BROAD) and a fold into a CORE/BROAD survivor enqueue `VERIFY_ROUTE` for the PENDING routes. The Europe PMC
@@ -174,7 +174,7 @@ A user-supplied URL and the hosts of discovered routes are hostile input. Layers
 
 ### Admins and notices
 
-- **Admin role only from an ORCID sign-in** of an iD in `NAMETRACKER_ADMIN_ORCIDS` (ADR-0006, amendment M6b), re-checked
+- **Admin role only from an ORCID sign-in** of an iD in `GARRULUS_ADMIN_ORCIDS` (ADR-0006, amendment M6b), re-checked
   on every request; the token (`X-Admin-Token`) or an `ADMIN` session with XSRF for writes opens `/api/admin/**`.
 - **`admin_notice` is the mail queue.** The indexer writes a row with a dedup key (layer failing, still
   failing after 7 days, recovered, OAI restart cap, registrations waiting); `web` claims unmailed rows (`mailed_at` set

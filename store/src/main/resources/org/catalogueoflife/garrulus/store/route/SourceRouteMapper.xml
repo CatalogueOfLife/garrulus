@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.garrulus.store.route.SourceRouteMapper">
+
+  <resultMap id="result" type="org.catalogueoflife.garrulus.store.route.SourceRoute">
+    <constructor>
+      <idArg column="id" javaType="_long"/>
+      <arg column="source_id" javaType="_long"/>
+      <arg column="layer" javaType="string"/>
+      <arg column="config" javaType="string" typeHandler="org.catalogueoflife.garrulus.store.type.JsonbStringTypeHandler"/>
+      <arg column="status" javaType="string"/>
+      <arg column="origin" javaType="string"/>
+      <arg column="verified_at" javaType="java.time.Instant"/>
+      <arg column="last_ok" javaType="java.time.Instant"/>
+      <arg column="last_error" javaType="string"/>
+      <arg column="onboarded_at" javaType="java.time.Instant"/>
+      <arg column="backfilled_at" javaType="java.time.Instant"/>
+      <arg column="created" javaType="java.time.Instant"/>
+    </constructor>
+  </resultMap>
+
+  <select id="insert" resultType="long" flushCache="true">
+    INSERT INTO source_route (source_id, layer, config, status, origin, verified_at, last_ok, last_error, onboarded_at, backfilled_at)
+    VALUES (#{o.sourceId}, #{o.layer}, #{o.config, typeHandler=org.catalogueoflife.garrulus.store.type.JsonbStringTypeHandler}, #{o.status}, #{o.origin}, #{o.verifiedAt}, #{o.lastOk}, #{o.lastError}, #{o.onboardedAt}, #{o.backfilledAt})
+    RETURNING id
+  </select>
+
+  <select id="insertIfAbsent" resultType="java.lang.Long" flushCache="true">
+    INSERT INTO source_route (source_id, layer, config, status, origin, verified_at, last_ok, last_error, onboarded_at, backfilled_at)
+    VALUES (#{o.sourceId}, #{o.layer}, #{o.config, typeHandler=org.catalogueoflife.garrulus.store.type.JsonbStringTypeHandler}, #{o.status}, #{o.origin}, #{o.verifiedAt}, #{o.lastOk}, #{o.lastError}, #{o.onboardedAt}, #{o.backfilledAt})
+    ON CONFLICT (source_id, layer, config) DO NOTHING
+    RETURNING id
+  </select>
+
+  <select id="get" resultMap="result">
+    SELECT * FROM source_route WHERE id = #{id}
+  </select>
+
+  <select id="forSource" resultMap="result">
+    SELECT * FROM source_route WHERE source_id = #{sourceId} ORDER BY id
+  </select>
+
+  <select id="listByStatus" resultMap="result">
+    SELECT * FROM source_route WHERE status = #{status}
+    <if test="layer != null">AND layer = #{layer}</if>
+    ORDER BY id LIMIT #{limit}
+  </select>
+
+  <select id="listRollout" resultMap="result">
+    SELECT r.* FROM source_route r JOIN source s ON s.id = r.source_id
+    WHERE r.status = 'VERIFIED' AND s.active AND s.tier IN ('CORE','BROAD') AND s.publication_status = 'ACTIVE'
+      AND NOT EXISTS (SELECT 1 FROM task t WHERE t.type = 'HARVEST_' || r.layer AND t.state IN ('QUEUED','RUNNING')
+                      AND t.payload->>'routeId' = r.id::text)
+      AND NOT EXISTS (SELECT 1 FROM task t WHERE t.type = 'HARVEST_' || r.layer AND t.state = 'DEAD'
+                      AND t.payload->>'routeId' = r.id::text AND t.payload->>'mode' = 'ONBOARDING'
+                      AND (r.verified_at IS NULL OR t.finished &gt; r.verified_at))
+    ORDER BY r.id LIMIT #{limit}
+  </select>
+
+  <update id="setStatus">
+    UPDATE source_route SET status = #{status}, last_error = #{error} WHERE id = #{id}
+  </update>
+
+  <update id="setError">
+    UPDATE source_route SET last_error = #{error} WHERE id = #{id}
+  </update>
+
+  <update id="setVerified">
+    UPDATE source_route SET verified_at = #{at} WHERE id = #{id}
+  </update>
+
+  <update id="markOk">
+    UPDATE source_route SET last_ok = #{at}, last_error = NULL WHERE id = #{id}
+  </update>
+
+  <update id="setOnboarded">
+    UPDATE source_route SET onboarded_at = #{at} WHERE id = #{id}
+  </update>
+
+  <update id="setBackfilled">
+    UPDATE source_route SET backfilled_at = #{at} WHERE id = #{id}
+  </update>
+
+  <select id="incrementLongRestarts" resultType="int" flushCache="true">
+    UPDATE source_route SET long_restarts = long_restarts + 1 WHERE id = #{id} RETURNING long_restarts
+  </select>
+
+  <update id="resetLongRestarts">
+    UPDATE source_route SET long_restarts = 0 WHERE id = #{id} AND long_restarts &lt;&gt; 0
+  </update>
+
+  <select id="countByLayerAndStatus" resultType="map">
+    SELECT layer, status, count(*)::bigint AS n FROM source_route GROUP BY layer, status
+  </select>
+
+
+  <update id="pauseAll" flushCache="true">
+    UPDATE source_route SET status = 'PAUSED', last_error = #{reason}
+    WHERE source_id = #{sourceId} AND status IN ('ACTIVE','VERIFIED','PENDING')
+  </update>
+
+  <select id="resumePaused" resultType="long" flushCache="true">
+    UPDATE source_route SET status = 'PENDING', last_error = NULL
+    WHERE source_id = #{sourceId} AND status = 'PAUSED' AND last_error = #{reason}
+    RETURNING id
+  </select>
+
+</mapper>

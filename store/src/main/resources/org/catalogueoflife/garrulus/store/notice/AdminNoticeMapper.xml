@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.garrulus.store.notice.AdminNoticeMapper">
+
+  <resultMap id="notice" type="org.catalogueoflife.garrulus.store.notice.AdminNotice">
+    <constructor>
+      <idArg column="id" javaType="_long"/>
+      <arg column="kind" javaType="string"/>
+      <arg column="dedup_key" javaType="string"/>
+      <arg column="subject" javaType="string"/>
+      <arg column="body" javaType="string"/>
+      <arg column="created" javaType="java.time.Instant"/>
+      <arg column="mailed_at" javaType="java.time.Instant"/>
+      <arg column="outcome" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <sql id="cols">id, kind, dedup_key, subject, body, created, mailed_at, outcome</sql>
+
+  <insert id="insert">
+    INSERT INTO admin_notice (kind, dedup_key, subject, body)
+    VALUES (#{kind}, #{dedupKey}, #{subject}, #{body})
+    ON CONFLICT (dedup_key) DO NOTHING
+  </insert>
+
+  <select id="claimUnmailed" resultMap="notice" flushCache="true">
+    UPDATE admin_notice SET mailed_at = now()
+    WHERE id IN (SELECT id FROM admin_notice
+                 WHERE mailed_at IS NULL OR (outcome IS NULL AND mailed_at &lt; #{staleBefore})
+                 ORDER BY id LIMIT #{limit} FOR UPDATE SKIP LOCKED)
+    RETURNING <include refid="cols"/>
+  </select>
+
+  <update id="setOutcome">UPDATE admin_notice SET outcome = #{outcome} WHERE id = #{id}</update>
+
+  <select id="latest" resultMap="notice">
+    SELECT <include refid="cols"/> FROM admin_notice
+    WHERE kind LIKE #{kindPrefix} || '%' AND dedup_key LIKE #{keyPrefix} || '%'
+    ORDER BY id DESC LIMIT 1
+  </select>
+
+  <select id="latestForLayer" resultMap="notice">
+    SELECT <include refid="cols"/> FROM admin_notice
+    WHERE dedup_key LIKE 'layer-%:' || #{layer} || ':%'
+    ORDER BY id DESC LIMIT 1
+  </select>
+
+</mapper>

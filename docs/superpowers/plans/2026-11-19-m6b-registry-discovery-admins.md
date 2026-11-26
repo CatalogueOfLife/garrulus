@@ -28,9 +28,9 @@ fallbacks, the University of Copenhagen route) follows in its own plan.
 
 ## Global Constraints
 
-- **Free only, no paid service.** Every external integration has a switch (`nametracker.discovery.<origin>.enabled`,
-  `nametracker.candidates.sampling.enabled`, `nametracker.discovery.issnl.enabled`, all default true) and all scheduled
-  ones also sit behind the master switch `nametracker.harvest.enabled`.
+- **Free only, no paid service.** Every external integration has a switch (`garrulus.discovery.<origin>.enabled`,
+  `garrulus.candidates.sampling.enabled`, `garrulus.discovery.issnl.enabled`, all default true) and all scheduled
+  ones also sit behind the master switch `garrulus.harvest.enabled`.
 - Every task handler is idempotent under at-least-once delivery; an outage defers (`ServiceOutageException` /
   `HarvestOutage`) and never uses an attempt. One page per task, continuation tasks as checkpoints (ADR-0004).
 - Flyway migrations are expand-only and start at `V19__…` (V18 is the latest); only the indexer migrates, `web`
@@ -42,8 +42,8 @@ fallbacks, the University of Copenhagen route) follows in its own plan.
   Admin mails are sent by `web` from rows the indexer wrote (the indexer has no mail support).
 - `/api/admin/**` accepts the `X-Admin-Token` header (scripts; no XSRF) **or** an `ADMIN` session (browser; XSRF
   required like every other session write). ADR-0006 gets an amendment saying so (Task 3).
-- Admins only through ORCID: an account signed in **through ORCID** whose iD is in `NAMETRACKER_ADMIN_ORCIDS`
-  (property `nametracker.admin.orcids`, comma-separated) gets `ROLE_ADMIN`; email sign-in never does. Read at start.
+- Admins only through ORCID: an account signed in **through ORCID** whose iD is in `GARRULUS_ADMIN_ORCIDS`
+  (property `garrulus.admin.orcids`, comma-separated) gets `ROLE_ADMIN`; email sign-in never does. Read at start.
 - Every new public GET under `/api` goes into `web/src/main/resources/static/api/openapi.yaml`
   (`OpenApiCoverageTest`); the new public POST `/api/sources/register` too.
 - Colours only from the brand tokens (`frontend/src/styles/tokens.css`: `--gr-paper`, `--gr-ink`, `--gr-grey`,
@@ -60,7 +60,7 @@ fallbacks, the University of Copenhagen route) follows in its own plan.
 
 ## Review Focus
 
-1. **An admin removed from `NAMETRACKER_ADMIN_ORCIDS`** still holds a 30-day JDBC session with `ROLE_ADMIN`: after the
+1. **An admin removed from `GARRULUS_ADMIN_ORCIDS`** still holds a 30-day JDBC session with `ROLE_ADMIN`: after the
    restart that drops the iD, the next `/api/admin/**` request must answer 403, not serve the page. → Task 3
    (`removedOrcidLosesAdminAfterRestart`).
 2. **A registered web address that points at a private or loopback host, or redirects there** (SSRF from the
@@ -83,8 +83,8 @@ fallbacks, the University of Copenhagen route) follows in its own plan.
 
 **Files:**
 - Create: `store/src/main/resources/db/migration/V19__registry_and_admins.sql`
-- Create: `store/src/main/java/org/catalogueoflife/nametracker/store/ident/Issn.java`
-- Create in `store/src/main/java/org/catalogueoflife/nametracker/store/registry/`: `SourceSignal.java`,
+- Create: `store/src/main/java/org/catalogueoflife/garrulus/store/ident/Issn.java`
+- Create in `store/src/main/java/org/catalogueoflife/garrulus/store/registry/`: `SourceSignal.java`,
   `SourceSignalMapper.java`, `IssnLinkMapper.java` (+ XML under `store/src/main/resources/.../store/registry/`)
 - Modify: `store/.../store/source/Source.java`, `SourceMapper.java`, `SourceMapper.xml`,
   `store/.../store/route/SourceRouteMapper.xml` (rollout query)
@@ -215,7 +215,7 @@ assertThat(Issn.all("ISSN 1175-5326 (print), 1175-5334 (online)")).containsExact
     code (filters JSON `subfield` replaced; `xr_note`, `xr_note_at = now()`).
   - `GET /api/vocab/discipline` → `[{code,label,parent,replacedBy,sortOrder}]`; `/api/works` accepts `discipline` as
     alias of `subfield` (400 when both are given and differ) and resolves either through `replaced_by`.
-  - `SeedProperties.taxonomyTopics` from `nametracker.seed.taxonomy-topics` (default: the 17 ids now in
+  - `SeedProperties.taxonomyTopics` from `garrulus.seed.taxonomy-topics` (default: the 17 ids now in
     `SourceSeeder.TAXONOMY_TOPICS`); the seeder writes raw `OPENALEX_SUBFIELD` (every subfield of the topics, share =
     topic-count share, rank by share) and `OPENALEX_TOPIC` (top 10 topics) rows and calls `DisciplineService.apply`;
     once per seeding run it asks `OpenAlexClient.topic(id)` for each configured id and logs
@@ -253,7 +253,7 @@ Crosswalk seed (start values, tunable by editing rows and running `CATEGORISE_SO
   `disciplineAliasFilters`, `retiredSubfieldStillFilters`, `conflictingSubfieldAndDisciplineIs400`.
 - [ ] **Step 2: Run** the unit tests and ITs → FAIL.
 - [ ] **Step 3: Implement**; add `/api/vocab/discipline` and the `discipline` parameter to `openapi.yaml`; document
-  `nametracker.seed.taxonomy-topics` in `CLAUDE.md` and `application.yml`.
+  `garrulus.seed.taxonomy-topics` in `CLAUDE.md` and `application.yml`.
 - [ ] **Step 4: Run** → PASS; `mvn -B -pl web -am verify -Dit.test=OpenApiCoverageTest*` passes.
 - [ ] **Step 5: Commit** `feat: disciplines on a Garrulus vocabulary with crosswalks from OpenAlex, DOAJ and taxonomic focus`
 
@@ -267,7 +267,7 @@ Crosswalk seed (start values, tunable by editing rows and running `CATEGORISE_SO
 - Modify: `web/.../auth/GarrulusPrincipal.java`, `CurrentUser.java`, `OrcidLoginSuccessHandler.java`,
   `SecurityConfig.java`, `CsrfCookieFilter.java` (`SPA_PATHS` += `/api/admin/**`), `MeController.java` (`Me.admin`),
   every `Admin*Controller` (header check → `AdminAccess`; `@Conditional(AdminAccessConfigured.class)`),
-  `web/src/main/resources/application.yml` (`nametracker.admin.orcids: ${NAMETRACKER_ADMIN_ORCIDS:}`),
+  `web/src/main/resources/application.yml` (`garrulus.admin.orcids: ${GARRULUS_ADMIN_ORCIDS:}`),
   `.env.example`, `docs/adr/0006-accounts-and-alerts.md` (amendment), `CLAUDE.md`
 - Delete: `web/.../api/AdminAuth.java` (replaced), `AdminTokenConfigured.java` (folded into `AdminAccessConfigured`;
   `AdminTokenConfiguredTest` becomes `AdminAccessConfiguredTest`)
@@ -283,7 +283,7 @@ Crosswalk seed (start values, tunable by editing rows and running `CATEGORISE_SO
     `CurrentUser.signIn(long userId, boolean admin, …)`; the email-link path passes `false`, ORCID passes
     `adminOrcids.contains(user.orcid())`.
   - `AdminAccess.check(@Nullable String tokenHeader)`: header present → constant-time compare with
-    `nametracker.admin.token` (401 on mismatch or when no token is configured; never falls back to the session);
+    `garrulus.admin.token` (401 on mismatch or when no token is configured; never falls back to the session);
     no header → authenticated `GarrulusPrincipal` with `ROLE_ADMIN` **and** the account's ORCID still in
     `AdminOrcids` (looked up per request) → ok; signed in otherwise → 403; not signed in → 401.
   - `AdminAccessConfigured`: token set or `AdminOrcids.any()`.
@@ -331,7 +331,7 @@ Crosswalk seed (start values, tunable by editing rows and running `CATEGORISE_SO
     dedupKey, String subject, String body)` (ON CONFLICT (dedup_key) DO NOTHING), `List<AdminNotice> claimUnmailed(int
     limit)` (`UPDATE … SET mailed_at = now() WHERE id IN (SELECT … FOR UPDATE SKIP LOCKED) RETURNING *`),
     `int setOutcome(long id, String outcome)`, `@Nullable AdminNotice latest(String kindPrefix, String keyPrefix)`.
-  - `AdminMailJob.run()` (`nametracker.admin.mail-cron`, default `0 */5 * * * *`, ShedLock `admin-mail`): claims up
+  - `AdminMailJob.run()` (`garrulus.admin.mail-cron`, default `0 */5 * * * *`, ShedLock `admin-mail`): claims up
     to 20 notices, sends each as one mail to every verified address of an account whose ORCID is in `AdminOrcids`;
     outcome `SENT`, `FAILED`, or `SUPPRESSED` (no mail host, or no admin address: logged "admin mail suppressed" with
     the notice id, never an address). At most once: a failed send is not retried (the weekly reminder repeats it).
@@ -341,8 +341,8 @@ Crosswalk seed (start values, tunable by editing rows and running `CATEGORISE_SO
     `LAYER_STILL_FAILING` (`layer-still:<LAYER>:<day>`) when FAILING and its latest `layer-` notice is 7 or more days
     old. Subject `Garrulus: layer <LAYER> is failing` / `… has recovered` / `… is still failing`; body: state, failed
     days, zero-yield days, 7-day yield, weekly median, miss share, and the link `<public URL>/admin/layers`
-    (`nametracker.public-url` is added to the indexer's config for this, default `http://localhost:5173`).
-  - Tuned rule (start values, properties under `nametracker.coverage.*`, tuned after a month):
+    (`garrulus.public-url` is added to the indexer's config for this, default `http://localhost:5173`).
+  - Tuned rule (start values, properties under `garrulus.coverage.*`, tuned after a month):
     `LayerHealthCalculator.Inputs` is unchanged, the calculator gains `zero-fail-days` and `yield-min-median`;
     `CoverageCheckHandler` counts a **zero-yield day** only on a day with a
     DONE run whose **expected yield** (median of the same weekday's daily sightings over the last 8 weeks) is at least
@@ -351,7 +351,7 @@ Crosswalk seed (start values, tunable by editing rows and running `CATEGORISE_SO
     `fail-days` = 2); the yield-ratio rule (`yield-ratio` 0.5) applies only when the weekly median is at least
     `yield-min-median` = 14.
   - Restart cap: in `HarvestOaiHandler`'s "lost again after a restart" branch for `ONBOARDING`/`BACKFILL`,
-    `incrementLongRestarts(routeId)`; when it exceeds `nametracker.layers.oai.max-long-restarts` (3) the route goes
+    `incrementLongRestarts(routeId)`; when it exceeds `garrulus.layers.oai.max-long-restarts` (3) the route goes
     `BROKEN` with "resumption tokens rejected in 4 long passes", nothing is re-enqueued, and a `ROUTE_RESTART_CAP`
     notice (`route-restart-cap:<routeId>:<day>`) names the route, source title and mode. The count resets on the
     route's last page and on a passing `VERIFY_ROUTE`.
@@ -386,12 +386,12 @@ Crosswalk seed (start values, tunable by editing rows and running `CATEGORISE_SO
 - Consumes: `Issn`, `SourceSignalMapper`, `SourceMapper.findByIssnL/insertCandidate/updateIdentity` (Task 1).
 - Produces:
   - `REFRESH_ISSNL` (`IssnlRefreshHandler.TYPE`, payload `{}`): streams
-    `nametracker.discovery.issnl.url` (default `https://www.issn.org/wp-content/uploads/2014/03/issnltables.zip`,
+    `garrulus.discovery.issnl.url` (default `https://www.issn.org/wp-content/uploads/2014/03/issnltables.zip`,
     27 MB, refreshed daily by the ISSN IC; checked 2026-11-19) and reads the entry whose name starts with
     `ISSN_ISSN-L_table` (tab-separated, header `ISSN	ISSN-L`), COPYs it into a temp table and upserts `issn_link` in
     one statement (`ON CONFLICT (issn) DO UPDATE … WHERE issn_l <> EXCLUDED.issn_l`). Connection failure, 5xx or a
     stalled read (5 min) → outage; a zip without that entry → WARN, task DONE, table kept. Off with
-    `nametracker.discovery.issnl.enabled=false`. (The ISSN IC page offers the table "on demand" through a form; the
+    `garrulus.discovery.issnl.enabled=false`. (The ISSN IC page offers the table "on demand" through a form; the
     URL is the file the form serves. If it stops answering, matching falls back to plain ISSNs.)
   - `record Candidate(String origin, String signalKey, List<String> issns, @Nullable String title, @Nullable String
     publisher, @Nullable String country, @Nullable String openalexId, String detailJson, List<RawClassification>
@@ -489,9 +489,9 @@ Crosswalk seed (start values, tunable by editing rows and running `CATEGORISE_SO
   - `interface DiscoverySource { String origin(); @Nullable String page(JsonNode payload) throws IOException; }` —
     returns the next payload (JSON) or null when done; `DISCOVER_SOURCES` (`{"origin":…}` plus the source's own
     position fields) dispatches by origin, enqueues the continuation at the task's priority with key
-    `discover:<origin>:<sha12 of the payload>`, and is off per origin with `nametracker.discovery.<origin lower
+    `discover:<origin>:<sha12 of the payload>`, and is off per origin with `garrulus.discovery.<origin lower
     case, underscores as hyphens>.enabled`.
-  - DOAJ (origin `DOAJ`): positions `{"code","page"}` over `nametracker.discovery.doaj.lcc-codes` (start:
+  - DOAJ (origin `DOAJ`): positions `{"code","page"}` over `garrulus.discovery.doaj.lcc-codes` (start:
     `QL1-991,QK1-989,QH1-278.5,QR1-502,QH540-549.5,QE701-760`, about 600 journals; Biology (General) QH301-705.5 has
     482 and is left out); each journal → `Candidate` with `DOAJ_LCC` raw rows, signal detail `{"doajId","lcc":[…]}`,
     signal key `''`.
@@ -501,12 +501,12 @@ Crosswalk seed (start values, tunable by editing rows and running `CATEGORISE_SO
     (`context_name, issn, oai_url, country, total_record_count, record_count_2025, set_spec, last_oai_response,
     unresponsive_endpoint, unresponsive_context`); `NA` is null; an ISSN cell splits on the two characters `\n` and
     on real newlines, each through `Issn.normalise`.
-  - PKP (origin `PKP_BEACON`, one task): downloads `nametracker.discovery.pkp.url` (default
+  - PKP (origin `PKP_BEACON`, one task): downloads `garrulus.discovery.pkp.url` (default
     `https://dataverse.harvard.edu/api/access/datafile/14084919`, `beacon.tab` of doi:10.7910/DVN/OCZNVY v7, CC0,
     32 MB, follows the redirect to S3), replaces `pkp_beacon` with every row that has an ISSN (one transaction), then
     offers the rows that pass the filter with route hint `OAI` `{"base":oai_url,"set":set_spec,"prefix":"oai_dc",
     "issns":[…]}` and signal detail `{"context","records2025","oaiUrl"}`.
-  - Filter (start values, tunable as lists `nametracker.discovery.pkp.include` / `.exclude`), on the accent-folded,
+  - Filter (start values, tunable as lists `garrulus.discovery.pkp.include` / `.exclude`), on the accent-folded,
     lower-cased `context_name`, each term matched at a word start: include `zoolog, taxonom, entomolog, botan,
     mycolog, fauna, flora, natural history, museum, herpetolog, ornitholog, ichthyolog, malacolog, arachnolog,
     acarolog, lichenolog, bryolog, phycolog, nematolog, parasitolog, biodivers, systematic, phytotax, zootax, historia
@@ -552,11 +552,11 @@ Crosswalk seed (start values, tunable by editing rows and running `CATEGORISE_SO
     row's; accepted → `resolved_issns` and an offer (origin of the row, detail from the row); else `resolved_at` only.
     Returns the last key, or null at the end. A Crossref outage defers the page.
   - Plazi (origin `PLAZI`): phase 1 (`{}`) reads the URL above for the current year and the two before
-    (`nametracker.discovery.plazi.base-url`, default `https://tb.plazi.org/GgServer/srsStats/stats`), sums
+    (`garrulus.discovery.plazi.base-url`, default `https://tb.plazi.org/GgServer/srsStats/stats`), sums
     `DocCount` (treatments) and `DocArticleUuid` (articles) per `BibSource` label, keeps labels with at least
     `min-articles` = 3 articles, upserts `discovery_title` (refs = articles, detail `{"treatments","articles","label"}`),
     then continues as phase 2 (`{"resolve":true,"after":…}`) through `TitleResolver`.
-  - COL references (origin `COL_REFERENCES`): phase 1 streams `nametracker.finder.xr-zip-url` (as
+  - COL references (origin `COL_REFERENCES`): phase 1 streams `garrulus.finder.xr-zip-url` (as
     `BuildDictionaryHandler` does, same outage rules), reads the entry named `Reference.tsv`/`.txt`/`.csv` (any
     directory, case-insensitive), headers with or without the `col:` prefix; groups by normalised `issn` when present,
     else by `JournalTitleKey(containerTitle)`; counts references and distinct `sourceID`; rows with neither are
@@ -566,7 +566,7 @@ Crosswalk seed (start values, tunable by editing rows and running `CATEGORISE_SO
   - BLR (origin `BLR`, one task): `LayerUnmatchedMapper.byIssn(Instant since /* 12 months */)` → rows (issn,
     container_title, distinct DOIs, last first_seen, an example DOI); ISSNs with at least 2 DOIs are offered (detail
     `{"dois","lastSeen","example"}`).
-  - `DiscoveryScheduler` (`nametracker.discovery.cron`, default `0 15 1 1 * *` UTC, behind the harvest switch):
+  - `DiscoveryScheduler` (`garrulus.discovery.cron`, default `0 15 1 1 * *` UTC, behind the harvest switch):
     `REFRESH_ISSNL` (key `issnl:<yyyy-mm>`) and one `DISCOVER_SOURCES {"origin":o}` per enabled origin of `DOAJ,
     PKP_BEACON, PLAZI, COL_REFERENCES, BLR` (key `discover:<o>:<yyyy-mm>`), all at `BACKFILL`. The OpenAlex seeding
     stays `SEED_SOURCES` on its own monthly cron and is the `SEED_TOPIC` origin.
@@ -634,11 +634,11 @@ Crosswalk seed (start values, tunable by editing rows and running `CATEGORISE_SO
     with origin `REGISTERED`, outcome `NEW_CANDIDATE`; `tier_at_identification` recorded; the completion of a new
     source runs as its own `IDENTIFY_SOURCE {"sourceId"}` at `LIVE`, so the user's answer is not held up by it.
     Failure to resolve → `NOT_IDENTIFIED` with the reason. An outage defers.
-  - `RegistrationMailJob` (`nametracker.registrations.mail-cron`, `0 */5 * * * *`, ShedLock): registrations whose
+  - `RegistrationMailJob` (`garrulus.registrations.mail-cron`, `0 */5 * * * *`, ShedLock): registrations whose
     `tier_at_identification` was `CANDIDATE` and whose source is now `CORE`/`BROAD` (ACCEPTED) or `EXCLUDED`
     (DECLINED) get `decision`, `decision_at` and one mail to a verified address ("Your registered journal … is now
     harvested" / "… will not be harvested"); without a verified address, logged as suppressed. Daily at
-    `nametracker.registrations.admin-note-cron` (`0 0 7 * * *` UTC) it inserts a `REGISTRATIONS_WAITING` notice
+    `garrulus.registrations.admin-note-cron` (`0 0 7 * * *` UTC) it inserts a `REGISTRATIONS_WAITING` notice
     (key `registrations:<date>`) when registrations were identified as candidates since the previous such notice:
     count and up to 20 lines (journal title, input, link `<public URL>/admin/journals/<id>`).
 
@@ -690,7 +690,7 @@ Crosswalk seed (start values, tunable by editing rows and running `CATEGORISE_SO
     `name_match`.
   - `CandidateScore.of(Signals sig, @Nullable SampleStats sample) -> float` with `record Signals(int origins, int
     plaziArticles, int colReferences, boolean registered)`, `record SampleStats(int articles, double namesPerArticle,
-    double actShare)`. Start formula (weights under `nametracker.candidates.score.*`, tuned once a few hundred are
+    double actShare)`. Start formula (weights under `garrulus.candidates.score.*`, tuned once a few hundred are
     sampled):
 ```
 sampleScore = 0.6 * min(namesPerArticle / 8, 1) + 0.4 * min(actShare / 0.25, 1)
@@ -699,8 +699,8 @@ signalScore = 0.4 * min(origins / 3, 1) + 0.3 * min(log10(1 + plaziArticles) / 2
 score       = sample with >= 5 articles ? 0.7 * sampleScore + 0.3 * signalScore : 0.5 * signalScore
 ```
   - `CandidateScorer.rescoreAll()` recomputes every candidate's score from its signals and latest sample.
-  - `SampleScheduler` (`nametracker.candidates.sample-cron`, `0 30 1 * * *` UTC, behind the harvest switch and
-    `nametracker.candidates.sampling.enabled`): `rescoreAll()`, then `SAMPLE_SOURCE` at `BACKFILL` (key
+  - `SampleScheduler` (`garrulus.candidates.sample-cron`, `0 30 1 * * *` UTC, behind the harvest switch and
+    `garrulus.candidates.sampling.enabled`): `rescoreAll()`, then `SAMPLE_SOURCE` at `BACKFILL` (key
     `sample:<id>:<yyyy-mm-dd>`) for up to `sample-per-night` = 200 active `CANDIDATE`s that are not CEASED and have
     no sample or one older than 365 days; registered ones first, then never sampled, then by score descending.
 
@@ -750,7 +750,7 @@ score       = sample with >= 5 articles ? 0.7 * sampleScore + 0.3 * signalScore 
   - `DormancyCheck.run(LocalDate day)` (called by `COVERAGE_CHECK` after the layers): for every ACTIVE-status source
     with works, `lastPub = max(coalesce(publication_date, make_date(year, 12, 31)))`, `usualGap = 1095 / max(1, works
     published in [lastPub − 3 years, lastPub])` days; dormant when `day − lastPub > max(365, 3 × usualGap)` (start
-    values `nametracker.dormancy.{min-days=365, gap-factor=3}`). Sets `dormant_since` (kept while it stays dormant;
+    values `garrulus.dormancy.{min-days=365, gap-factor=3}`). Sets `dormant_since` (kept while it stays dormant;
     null when not) and `dormant_evidence` `{"lastPublished","usualGapDays","brokenRoutes","doajDiscontinued",
     "successorIssns"}`. A dismissal hides the proposal for 365 days. A CEASED source with a signal whose `last_seen`
     is after `status_changed` is a revival proposal (computed in the admin read, Task 12).
@@ -805,7 +805,7 @@ score       = sample with >= 5 articles ? 0.7 * sampleScore + 0.3 * signalScore 
     `discipline_set_by` ADMIN and `discipline_source` ADMIN) and `releaseDisciplines` (true: back to DERIVED, then
     `DisciplineService` result on the next `CATEGORISE_SOURCES`). Accept and decline stay the tier change.
   - Name-density feedback for harvested journals, `proposal` computed at read time from `name_density` and `act_rate`
-    (written nightly by `CATEGORISE_SOURCES`; start values `nametracker.admin.proposals.*`, tuned later): `PROMOTE`
+    (written nightly by `CATEGORISE_SOURCES`; start values `garrulus.admin.proposals.*`, tuned later): `PROMOTE`
     for a BROAD journal with act rate ≥ 0.10 and at least 5 names per work; `DEMOTE` for a CORE journal with act rate
     < 0.02 and fewer than 1 name per work, and for a BROAD journal with fewer than 0.5; else null. Filter
     `proposal=true`. Shown, never applied.
@@ -936,7 +936,7 @@ score       = sample with >= 5 articles ? 0.7 * sampleScore + 0.3 * signalScore 
   Crossref-only promotion. Known limits: an undocumented ISSN-L URL; Beacon titles in many languages pass the
   English and Romance keyword filter only partly; COL references without container title or ISSN are skipped.
 - [ ] **Step 2: Local run** (laptop, what a local run can show): `mvn -B verify` and `cd frontend && npm test && npm
-  run build` green; start the dev-run indexer and web with `NAMETRACKER_ADMIN_ORCIDS` set to Markus' iD,
+  run build` green; start the dev-run indexer and web with `GARRULUS_ADMIN_ORCIDS` set to Markus' iD,
   `ADMIN_TOKEN` set and Mailpit; Flyway applies V19; then by hand: `REFRESH_ISSNL`, `DISCOVER_SOURCES` for `DOAJ`,
   `PKP_BEACON`, `PLAZI`, `BLR` (COL references only if the XR zip download is acceptable on the network), a
   registration by ISSN and one by article DOI through the SPA, a few `SAMPLE_SOURCE`, an ORCID sign-in that shows the

@@ -1,0 +1,42 @@
+package org.catalogueoflife.garrulus.finder.service;
+
+import org.catalogueoflife.garrulus.finder.api.NameFinder;
+import org.catalogueoflife.garrulus.finder.pipeline.PipelineConfig;
+import org.catalogueoflife.garrulus.finder.pipeline.PipelineFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+/**
+ * Assembles the pipeline finder. Environment: FINDER_DICTIONARY (required), GNFINDER_URL, FINDER_CONFIG (optional file
+ * with a JSON object of overrides, see {@link PipelineConfig}). Any problem fails startup with a message that says what to fix.
+ * The finder itself is assembled by {@link PipelineFactory}, as in the eval CLI.
+ */
+@Configuration
+public class FinderConfig {
+  static final String NO_DICTIONARY = "FINDER_DICTIONARY must point to a dictionary built by `eval build-dictionary`";
+
+  @Bean
+  NameFinder nameFinder(@Value("${finder.dictionary:}") String dictionary,
+                        @Value("${finder.gnfinder-url:}") String gnfinderUrl, // blank: PipelineFactory.DEFAULT_GNFINDER_URL
+                        @Value("${finder.config:}") String configFile) throws IOException {
+    if (dictionary == null || dictionary.isBlank()) throw new IllegalStateException(NO_DICTIONARY);
+    Path dict = Path.of(dictionary);
+    if (!Files.isRegularFile(dict)) {
+      throw new IllegalStateException("FINDER_DICTIONARY " + dict + " does not exist. " + NO_DICTIONARY);
+    }
+    String overrides = null;
+    if (configFile != null && !configFile.isBlank()) {
+      Path f = Path.of(configFile);
+      if (!Files.isRegularFile(f)) throw new IllegalStateException("FINDER_CONFIG " + f + " does not exist");
+      overrides = Files.readString(f, StandardCharsets.UTF_8);
+    }
+    // an old dictionary format fails here with the rebuild hint
+    return PipelineFactory.create(dict, gnfinderUrl, overrides);
+  }
+}

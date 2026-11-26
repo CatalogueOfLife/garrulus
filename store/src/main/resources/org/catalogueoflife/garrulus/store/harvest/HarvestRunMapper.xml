@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.garrulus.store.harvest.HarvestRunMapper">
+
+  <resultMap id="result" type="org.catalogueoflife.garrulus.store.harvest.HarvestRun">
+    <constructor>
+      <idArg column="id" javaType="long"/>
+      <arg column="adapter" javaType="string"/>
+      <arg column="window_from" javaType="java.time.LocalDate"/>
+      <arg column="window_to" javaType="java.time.LocalDate"/>
+      <arg column="started" javaType="java.time.Instant"/>
+      <arg column="finished" javaType="java.time.Instant"/>
+      <arg column="calls" javaType="int"/>
+      <arg column="works_seen" javaType="int"/>
+      <arg column="works_new" javaType="int"/>
+      <arg column="state" javaType="string"/>
+      <arg column="error" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <select id="start" resultType="long" flushCache="true">
+    INSERT INTO harvest_run (adapter, window_from, window_to) VALUES (#{adapter}, #{from}, #{to})
+    RETURNING id
+  </select>
+
+  <update id="finish">
+    UPDATE harvest_run SET state = #{state}, calls = #{calls}, works_seen = #{seen}, works_new = #{created},
+      error = #{error}, finished = now()
+    WHERE id = #{id}
+  </update>
+
+  <update id="addProgress">
+    UPDATE harvest_run SET calls = calls + #{calls}, works_seen = works_seen + #{seen},
+      works_new = works_new + #{created},
+      state = CASE WHEN state IN ('DEFERRED','FAILED') THEN 'RUNNING' ELSE state END,
+      finished = CASE WHEN state IN ('DEFERRED','FAILED') THEN NULL ELSE finished END
+    WHERE id = #{id}
+  </update>
+
+  <update id="setState">
+    UPDATE harvest_run SET state = #{state}, error = COALESCE(#{error}, error),
+      finished = CASE WHEN #{state}::text IN ('DONE','FAILED') THEN now() ELSE NULL END
+    WHERE id = #{id}
+  </update>
+
+  <update id="noteError">
+    UPDATE harvest_run SET error = COALESCE(error, #{error}) WHERE id = #{id}
+  </update>
+
+  <select id="get" resultMap="result">
+    SELECT * FROM harvest_run WHERE id = #{id}
+  </select>
+
+  <select id="latestWindowTo" resultType="java.time.LocalDate">
+    SELECT max(window_to) FROM harvest_run WHERE adapter = #{adapter} AND state &lt;&gt; 'FAILED'
+  </select>
+
+  <select id="latestDoneWindowTo" resultType="java.time.LocalDate">
+    SELECT max(window_to) FROM harvest_run WHERE adapter = #{adapter} AND state = 'DONE'
+  </select>
+
+  <select id="recent" resultMap="result">
+    SELECT * FROM harvest_run ORDER BY started DESC, id DESC LIMIT #{limit}
+  </select>
+</mapper>

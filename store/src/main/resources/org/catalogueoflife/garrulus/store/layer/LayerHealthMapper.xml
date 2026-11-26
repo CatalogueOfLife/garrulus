@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.garrulus.store.layer.LayerHealthMapper">
+
+  <resultMap id="result" type="org.catalogueoflife.garrulus.store.layer.LayerHealth">
+    <constructor>
+      <arg column="layer" javaType="string"/>
+      <arg column="day" javaType="java.time.LocalDate"/>
+      <arg column="state" javaType="string"/>
+      <arg column="failed_runs" javaType="_int"/>
+      <arg column="yield" javaType="_int"/>
+      <arg column="median" javaType="_double"/>
+      <arg column="miss_share" javaType="_double"/>
+    </constructor>
+  </resultMap>
+
+  <insert id="upsert">
+    INSERT INTO layer_health (layer, day, state, failed_runs, yield, median, miss_share)
+    VALUES (#{o.layer}, #{o.day}, #{o.state}, #{o.failedRuns}, #{o.yield}, #{o.median}, #{o.missShare})
+    ON CONFLICT (layer, day) DO UPDATE SET state = EXCLUDED.state, failed_runs = EXCLUDED.failed_runs,
+      yield = EXCLUDED.yield, median = EXCLUDED.median, miss_share = EXCLUDED.miss_share
+  </insert>
+
+  <select id="latest" resultMap="result">
+    SELECT * FROM layer_health WHERE day &gt; current_date - #{days}::int ORDER BY layer, day DESC
+  </select>
+
+  <insert id="upsertCoverage">
+    INSERT INTO source_layer_coverage (source_id, layer, sightings_28d, misses)
+    VALUES (#{sourceId}, #{layer}, #{sightings28d}, #{misses})
+    ON CONFLICT (source_id, layer) DO UPDATE SET sightings_28d = EXCLUDED.sightings_28d, misses = EXCLUDED.misses,
+      updated = now()
+  </insert>
+
+  <select id="get" resultMap="result">
+    SELECT * FROM layer_health WHERE layer = #{layer} AND day = #{day}
+  </select>
+
+  <select id="missBaseline" resultType="double">
+    SELECT coalesce(avg(miss_share), 0)::float8 FROM layer_health
+    WHERE layer = #{layer} AND day &gt;= #{day}::date - #{days}::int AND day &lt; #{day}::date
+  </select>
+
+  <select id="runDays" resultType="map">
+    SELECT (started AT TIME ZONE 'UTC')::date AS day,
+      count(*) FILTER (WHERE state = 'FAILED')::int AS failed,
+      count(*) FILTER (WHERE state = 'DEFERRED')::int AS deferred,
+      count(*) FILTER (WHERE state = 'DONE')::int AS done
+    FROM harvest_run
+    WHERE adapter = #{adapter}
+      AND started &gt;= (#{from}::date)::timestamp AT TIME ZONE 'UTC'
+      AND started &lt; ((#{to}::date) + 1)::timestamp AT TIME ZONE 'UTC'
+    GROUP BY 1 ORDER BY 1
+  </select>
+
+  <!-- sightings of LIVE-origin works only: the V16 seed of a backfilled work, snapshot backfills and onboarding
+       passes are no yield -->
+  <select id="sightingDays" resultType="map">
+    SELECT (ws.first_seen AT TIME ZONE 'UTC')::date AS day, count(*)::int AS n
+    FROM work_sighting ws JOIN work w ON w.id = ws.work_id
+    WHERE ws.layer = #{layer} AND w.origin = 'LIVE'
+      AND ws.first_seen &gt;= (#{from}::date)::timestamp AT TIME ZONE 'UTC'
+      AND ws.first_seen &lt; ((#{to}::date) + 1)::timestamp AT TIME ZONE 'UTC'
+    GROUP BY 1 ORDER BY 1
+  </select>
+
+  <select id="sightingsBySource" resultType="map">
+    SELECT w.source_id, count(*)::int AS n
+    FROM work_sighting ws JOIN work w ON w.id = ws.work_id
+    WHERE ws.layer = #{layer} AND w.source_id IS NOT NULL AND w.origin = 'LIVE'
+      AND ws.first_seen &gt;= (#{from}::date)::timestamp AT TIME ZONE 'UTC'
+      AND ws.first_seen &lt; ((#{to}::date) + 1)::timestamp AT TIME ZONE 'UTC'
+    GROUP BY w.source_id
+  </select>
+
+  <!-- The candidates: LIVE-origin works created in the window (work.first_seen_at) by another layer, i.e. with a
+       sighting of another layer written with the row (WorksPager writes the creating sighting in the same transaction,
+       so its first_seen equals first_seen_at) and none of this layer. A V16 seed sighting is younger than its row and
+       never a creating one; a work this layer found first is no candidate. -->
+  <select id="missesBySource" resultType="map">
+    WITH served AS (
+      <if test="routeLayer == null">
+        SELECT id AS source_id FROM source WHERE active AND tier IN ('CORE','BROAD') AND publication_status = 'ACTIVE' AND onboarded_at IS NOT NULL
+        <if test="layer == 'OPENALEX'">AND openalex_id IS NOT NULL</if>
+        <if test="layer == 'CROSSREF'">AND (issn_l IS NOT NULL OR cardinality(issns) &gt; 0)</if>
+      </if>
+      <if test="routeLayer != null">
+        SELECT DISTINCT r.source_id FROM source_route r JOIN source s ON s.id = r.source_id
+        WHERE r.layer = #{routeLayer} AND r.status = 'ACTIVE' AND s.publication_status = 'ACTIVE'
+      </if>
+    ), cand AS (
+      SELECT w.id AS work_id, w.source_id FROM work w
+      WHERE w.origin = 'LIVE'
+        AND w.first_seen_at &gt;= (#{from}::date)::timestamp AT TIME ZONE 'UTC'
+        AND w.first_seen_at &lt; ((#{to}::date) + 1)::timestamp AT TIME ZONE 'UTC'
+        AND EXISTS (SELECT 1 FROM work_sighting c WHERE c.work_id = w.id AND c.first_seen &lt;= w.first_seen_at
+          AND c.layer IN <foreach collection="others" item="l" open="(" separator="," close=")">#{l}</foreach>)
+        AND NOT EXISTS (SELECT 1 FROM work_sighting c WHERE c.work_id = w.id AND c.first_seen &lt;= w.first_seen_at
+          AND c.layer = #{layer})
+    )
+    SELECT c.source_id, count(*)::int AS total,
+      count(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM work_sighting m WHERE m.work_id = c.work_id AND m.layer = #{layer}))::int AS misses
+    FROM cand c
+    JOIN served s ON s.source_id = c.source_id
+    GROUP BY c.source_id
+  </select>
+
+  <select id="coverageRows" resultType="org.catalogueoflife.garrulus.store.layer.CoverageRow">
+    SELECT c.source_id AS sourceId, s.title, s.country, c.layer, c.sightings_28d AS sightings28d, c.misses
+    FROM source_layer_coverage c JOIN source s ON s.id = c.source_id
+    ORDER BY c.misses DESC, c.source_id, c.layer LIMIT #{limit}
+  </select>
+
+  <delete id="deleteCoverage">
+    DELETE FROM source_layer_coverage WHERE layer = #{layer}
+  </delete>
+
+  <delete id="deleteContribution">
+    DELETE FROM layer_contribution WHERE day = #{day}
+  </delete>
+
+  <insert id="insertContribution">
+    INSERT INTO layer_contribution (day, layer, country, first_found, only_found)
+    VALUES (#{day}, #{layer}, #{country}, #{first}, #{only})
+  </insert>
+
+  <select id="latestContribution" resultType="map">
+    SELECT layer, country, first_found, only_found FROM layer_contribution
+    WHERE day = (SELECT max(day) FROM layer_contribution)
+  </select>
+
+  <delete id="deleteContributionLanguage">
+    DELETE FROM layer_contribution_language WHERE day = #{day}
+  </delete>
+
+  <insert id="insertContributionLanguage">
+    INSERT INTO layer_contribution_language (day, layer, language, first_found, only_found)
+    VALUES (#{day}, #{layer}, #{language}, #{first}, #{only})
+  </insert>
+
+  <select id="latestContributionLanguage" resultType="map">
+    SELECT layer, language, first_found, only_found FROM layer_contribution_language
+    WHERE day = (SELECT max(day) FROM layer_contribution_language)
+  </select>
+
+</mapper>

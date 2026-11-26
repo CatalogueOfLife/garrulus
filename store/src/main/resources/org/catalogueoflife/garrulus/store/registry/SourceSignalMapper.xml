@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.garrulus.store.registry.SourceSignalMapper">
+
+  <resultMap id="result" type="org.catalogueoflife.garrulus.store.registry.SourceSignal">
+    <constructor>
+      <arg column="source_id" javaType="_long"/>
+      <arg column="origin" javaType="string"/>
+      <arg column="signal_key" javaType="string"/>
+      <arg column="first_seen" javaType="java.time.Instant"/>
+      <arg column="last_seen" javaType="java.time.Instant"/>
+      <arg column="detail" javaType="string" typeHandler="org.catalogueoflife.garrulus.store.type.JsonbStringTypeHandler"/>
+    </constructor>
+  </resultMap>
+
+  <update id="upsert" flushCache="true">
+    INSERT INTO source_signal (source_id, origin, signal_key, detail)
+    VALUES (#{sourceId}, #{origin}, #{signalKey}, #{detailJson, typeHandler=org.catalogueoflife.garrulus.store.type.JsonbStringTypeHandler})
+    ON CONFLICT (source_id, origin, signal_key) DO UPDATE SET last_seen = now(), detail = EXCLUDED.detail
+  </update>
+
+  <select id="forSource" resultMap="result">
+    SELECT * FROM source_signal WHERE source_id = #{sourceId} ORDER BY origin, signal_key
+  </select>
+
+  <delete id="delete" flushCache="true">
+    DELETE FROM source_signal WHERE source_id = #{sourceId} AND origin = #{origin} AND signal_key = #{signalKey}
+  </delete>
+
+  <select id="moveAll" resultType="int" flushCache="true">
+    WITH gone AS (DELETE FROM source_signal WHERE source_id = #{from} RETURNING *),
+    moved AS (
+      INSERT INTO source_signal (source_id, origin, signal_key, first_seen, last_seen, detail)
+      SELECT #{to}, origin, signal_key, first_seen, last_seen, detail FROM gone
+      ON CONFLICT (source_id, origin, signal_key) DO NOTHING
+      RETURNING 1)
+    SELECT count(*) FROM moved
+  </select>
+
+</mapper>

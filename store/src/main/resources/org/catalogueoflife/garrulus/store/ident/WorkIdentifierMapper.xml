@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.garrulus.store.ident.WorkIdentifierMapper">
+
+  <insert id="insertAll">
+    <choose>
+      <when test="ids != null and !ids.isEmpty()">
+        INSERT INTO work_identifier (work_id, scheme, value, first_layer) VALUES
+        <foreach collection="ids" item="i" separator=",">(#{workId}, #{i.scheme}, #{i.value}, #{layer})</foreach>
+        ON CONFLICT DO NOTHING
+      </when>
+      <otherwise>SELECT 0 WHERE false</otherwise>
+    </choose>
+  </insert>
+
+  <select id="findWorkIds" resultType="long">
+    <choose>
+      <when test="ids != null and !ids.isEmpty()">
+        SELECT DISTINCT work_id FROM work_identifier WHERE (scheme, value) IN
+        <foreach collection="ids" item="i" open="(" separator="," close=")">(#{i.scheme}, #{i.value})</foreach>
+        ORDER BY work_id
+      </when>
+      <otherwise>SELECT 0::bigint WHERE false</otherwise>
+    </choose>
+  </select>
+
+  <select id="list" resultType="org.catalogueoflife.garrulus.store.ident.Identifier">
+    SELECT scheme, value FROM work_identifier WHERE work_id = #{workId} ORDER BY scheme, value
+  </select>
+
+  <update id="moveAll">
+    UPDATE work_identifier SET work_id = #{toWork} WHERE work_id = #{fromWork}
+  </update>
+
+</mapper>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.garrulus.store.index.FinderRolloutMapper">
+
+  <update id="lock">
+    LOCK TABLE finder_rollout IN SHARE ROW EXCLUSIVE MODE
+  </update>
+
+  <select id="any" resultType="boolean">
+    SELECT EXISTS (SELECT 1 FROM finder_rollout)
+  </select>
+
+  <select id="insert" resultType="boolean" flushCache="true">
+    WITH ins AS (
+      INSERT INTO finder_rollout (config_hash, baseline) VALUES (#{configHash}, #{baseline})
+      ON CONFLICT (config_hash) DO NOTHING RETURNING 1)
+    SELECT EXISTS (SELECT 1 FROM ins)
+  </select>
+
+  <update id="markEnqueued">
+    UPDATE finder_rollout SET enqueued_at = now() WHERE config_hash = #{configHash} AND enqueued_at IS NULL
+  </update>
+
+  <select id="list" resultType="org.catalogueoflife.garrulus.store.index.FinderRollout">
+    SELECT config_hash AS configHash, started, enqueued_at AS enqueuedAt, baseline
+    FROM finder_rollout ORDER BY started DESC, config_hash LIMIT #{limit}
+  </select>
+</mapper>

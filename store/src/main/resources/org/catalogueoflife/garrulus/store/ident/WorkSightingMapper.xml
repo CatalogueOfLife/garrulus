@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.garrulus.store.ident.WorkSightingMapper">
+
+  <insert id="sight">
+    INSERT INTO work_sighting (work_id, layer, source_id) VALUES (#{workId}, #{layer}, #{sourceId})
+    ON CONFLICT DO NOTHING
+  </insert>
+
+  <select id="moveAll" resultType="int" flushCache="true">
+    WITH moved AS (
+      INSERT INTO work_sighting (work_id, layer, source_id, first_seen)
+      SELECT #{toWork}, layer, source_id, first_seen FROM work_sighting WHERE work_id = #{fromWork}
+      ON CONFLICT DO NOTHING
+      RETURNING 1
+    ), dropped AS (
+      DELETE FROM work_sighting WHERE work_id = #{fromWork}
+    )
+    SELECT count(*)::int FROM moved
+  </select>
+
+  <sql id="contributionOf">
+    SELECT x.dim, x.layer,
+      count(*) FILTER (WHERE x.is_first)::bigint AS first_found, count(*) FILTER (WHERE x.is_only)::bigint AS only_found
+    FROM (
+      SELECT ${col} AS dim, ws.layer,
+        NOT EXISTS (SELECT 1 FROM work_sighting o WHERE o.work_id = ws.work_id
+          AND (o.first_seen &lt; ws.first_seen OR (o.first_seen = ws.first_seen AND o.layer &lt; ws.layer))) AS is_first,
+        NOT EXISTS (SELECT 1 FROM work_sighting o WHERE o.work_id = ws.work_id AND o.layer &lt;&gt; ws.layer) AS is_only
+      FROM work_sighting ws
+      JOIN work w ON w.id = ws.work_id
+      LEFT JOIN source s ON s.id = w.source_id
+      WHERE ws.layer IN <foreach collection="layers" item="l" open="(" separator="," close=")">#{l}</foreach>
+        AND w.origin = 'LIVE'
+        AND w.first_seen_at &gt;= (#{from}::date)::timestamp AT TIME ZONE 'UTC'
+        AND w.first_seen_at &lt; ((#{to}::date) + 1)::timestamp AT TIME ZONE 'UTC'
+        AND ws.first_seen &gt;= (#{from}::date)::timestamp AT TIME ZONE 'UTC'
+    ) x
+    GROUP BY x.dim, x.layer
+  </sql>
+
+  <select id="contribution" resultType="map">
+    SELECT dim AS country, layer, first_found, only_found FROM (
+    <include refid="contributionOf"><property name="col" value="s.country"/></include>
+    ) c
+  </select>
+
+  <select id="contributionByLanguage" resultType="map">
+    SELECT dim AS language, layer, first_found, only_found FROM (
+    <include refid="contributionOf"><property name="col" value="w.language"/></include>
+    ) c
+  </select>
+
+</mapper>

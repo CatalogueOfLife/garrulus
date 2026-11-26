@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.garrulus.store.discipline.ClassificationRawMapper">
+
+  <resultMap id="result" type="org.catalogueoflife.garrulus.store.discipline.RawClassification">
+    <constructor>
+      <arg column="scheme" javaType="string"/>
+      <arg column="code" javaType="string"/>
+      <arg column="label" javaType="string"/>
+      <arg column="share" javaType="float"/>
+      <arg column="rank" javaType="_int"/>
+    </constructor>
+  </resultMap>
+
+  <delete id="delete" flushCache="true">
+    DELETE FROM source_classification_raw WHERE source_id = #{sourceId} AND scheme = #{scheme}
+  </delete>
+
+  <insert id="insert" flushCache="true">
+    INSERT INTO source_classification_raw (source_id, scheme, code, label, share, rank)
+    VALUES (#{sourceId}, #{o.scheme}, #{o.code}, #{o.label}, #{o.share}, #{o.rank})
+    ON CONFLICT (source_id, scheme, code) DO UPDATE SET label = EXCLUDED.label, share = EXCLUDED.share,
+      rank = EXCLUDED.rank, fetched = now()
+  </insert>
+
+  <select id="forSource" resultMap="result">
+    SELECT scheme, code, label, share, rank FROM source_classification_raw WHERE source_id = #{sourceId}
+    ORDER BY scheme, rank, code
+  </select>
+
+</mapper>

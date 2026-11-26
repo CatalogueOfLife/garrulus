@@ -1,0 +1,170 @@
+package org.catalogueoflife.garrulus.indexer.layer.magtech;
+
+import java.net.URI;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import org.catalogueoflife.garrulus.finder.api.FinderJson;
+import org.catalogueoflife.garrulus.indexer.http.HttpProblem;
+import org.catalogueoflife.garrulus.indexer.http.PoliteHttp;
+import org.catalogueoflife.garrulus.indexer.layer.HarvestLayer;
+import org.catalogueoflife.garrulus.indexer.layer.HarvestedWork;
+import org.catalogueoflife.garrulus.indexer.layer.LayerJob;
+import org.catalogueoflife.garrulus.indexer.layer.LayerPage;
+import org.catalogueoflife.garrulus.indexer.layer.TextIn;
+import org.catalogueoflife.garrulus.store.ident.IdScheme;
+import org.catalogueoflife.garrulus.store.ident.Identifier;
+import org.catalogueoflife.garrulus.store.ident.WorkIdentifierMapper;
+import org.catalogueoflife.garrulus.store.lang.LanguageCodes;
+import org.catalogueoflife.garrulus.store.route.SourceRoute;
+import org.catalogueoflife.garrulus.store.route.SourceRouteMapper;
+import org.catalogueoflife.garrulus.store.work.Layer;
+import org.catalogueoflife.garrulus.store.work.TitleText;
+import org.catalogueoflife.garrulus.store.work.Work;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+import tools.jackson.databind.JsonNode;
+
+/**
+ * The Magtech RSS layer: one route per job, one feed per page. The route config is
+ * {@code {"site":"https://www.biodiversity-science.net","issn":"1005-0094"}}; the feeds are
+ * {@code <site>/EN/rss_dqml_<issn>.xml} (position null) and {@code <site>/EN/rss_first_<issn>.xml} (position
+ * {@code first}, optional: a 404 there is an empty feed). An item whose MAGTECH identifier is not stored yet costs one
+ * request for its article page (DOI, date, language); known items cost none and are not written again. The page URL is
+ * the item's path on the route's site.
+ */
+@Component
+public class MagtechLayer implements HarvestLayer {
+
+  private static final Logger LOG = LoggerFactory.getLogger(MagtechLayer.class);
+
+  static final String FIRST = "first";
+
+  private final MagtechClient client;
+  private final SourceRouteMapper routes;
+  private final WorkIdentifierMapper identifiers;
+
+  public MagtechLayer(PoliteHttp http, SourceRouteMapper routes, WorkIdentifierMapper identifiers) {
+    this.client = new MagtechClient(http);
+    this.routes = routes;
+    this.identifiers = identifiers;
+  }
+
+  @Override
+  public Layer layer() {
+    return Layer.MAGTECH;
+  }
+
+  @Override
+  public LayerPage page(LayerJob job, @Nullable String position) {
+    if (job.routeId() == null) throw new IllegalArgumentException("A Magtech harvest needs a route");
+    SourceRoute route = routes.get(job.routeId());
+    if (route == null) throw new IllegalArgumentException("Unknown route " + job.routeId());
+    JsonNode cfg = FinderJson.mapper().readTree(route.config());
+    String site = text(cfg, "site");
+    String issn = text(cfg, "issn");
+    if (site == null || issn == null) throw new IllegalArgumentException("Magtech route " + route.id() + " needs site and issn");
+    String base = base(site);
+    boolean first = FIRST.equals(position);
+    URI feed = feed(site, issn, first);
+    List<MagtechClient.MagtechItem> items;
+    try {
+      items = client.feed(feed);
+    } catch (HttpProblem e) {
+      if (first && e.status() == 404) return new LayerPage(List.of(), null, 1, 0);
+      throw e;
+    } catch (NotAFeedException e) { // only the main feed decides BROKEN; the optional one is just absent
+      if (first) {
+        LOG.info("Magtech route {} has no rss_first feed: {}", route.id(), e.getMessage());
+        return new LayerPage(List.of(), null, 1, 0);
+      }
+      throw e;
+    }
+    int calls = 1;
+    int skipped = 0;
+    List<HarvestedWork> works = new ArrayList<>();
+    for (MagtechClient.MagtechItem item : items) {
+      Identifier magtech = IdScheme.id(IdScheme.MAGTECH, item.link().toString());
+      if (magtech == null) {
+        skipped++;
+        continue;
+      }
+      if (!identifiers.findWorkIds(List.of(magtech)).isEmpty()) continue; // known: no page request
+      MagtechClient.ArticleMeta meta = articleMeta(base, item.link());
+      calls++;
+      works.add(toHarvested(item, meta, magtech, route.sourceId()));
+    }
+    return new LayerPage(works, first ? null : FIRST, calls, skipped);
+  }
+
+  /** The current-issue feed ({@code rss_dqml}) or the online-first feed ({@code rss_first}) of a journal. */
+  public static URI feed(String site, String issn, boolean first) {
+    return URI.create(base(site) + "/EN/" + (first ? "rss_first_" : "rss_dqml_") + issn + ".xml");
+  }
+
+  private static String base(String site) {
+    return site.endsWith("/") ? site.substring(0, site.length() - 1) : site;
+  }
+
+  private MagtechClient.ArticleMeta articleMeta(String base, URI link) {
+    URI page = URI.create(base + link.getRawPath() + (link.getRawQuery() == null ? "" : "?" + link.getRawQuery()));
+    try {
+      return client.articleMeta(page);
+    } catch (HttpProblem e) {
+      if (e.retryable()) throw e;
+      LOG.warn("Magtech article page {} unreadable ({}); the item is stored from the feed alone", page, e.getMessage());
+      return new MagtechClient.ArticleMeta(null, null, null, null);
+    }
+  }
+
+  static HarvestedWork toHarvested(MagtechClient.MagtechItem item, MagtechClient.ArticleMeta meta, Identifier magtech,
+      long sourceId) {
+    List<Identifier> ids = new ArrayList<>();
+    Identifier doi = IdScheme.id(IdScheme.DOI, meta.doi());
+    if (doi != null) ids.add(doi);
+    ids.add(magtech);
+    LocalDate feedDate = pubDate(item.pubDate());
+    LocalDate date = feedDate;
+    if (meta.date() != null && (feedDate == null || meta.date().isAfter(feedDate))) date = meta.date();
+    Short year = date == null ? null : (short) date.getYear();
+    String title = TitleText.clean(item.title());
+    String authors = authors(item.authors());
+    String abs = item.descriptionHtml().isBlank() ? null : MagtechAbstracts.toJats(item.descriptionHtml());
+    if (abs != null && abs.isEmpty()) abs = null;
+    Work w = new Work(null, null, doi == null ? null : doi.value(), sourceId, title, date, year, null, null, null,
+        authors, "article", LanguageCodes.normalise(meta.language()), null, null, null, null, null, null, null, null, null, null, null, null,
+        null, abs, null, null, null, null, abs == null ? null : "MAGTECH", null);
+    // the English page's own title, abstract and citation_language are the English parallel: only the language of a
+    // non-English citation_title says what the article is written in
+    // the feed's title and abstract are the English parallel: title_lang and abstract_lang say so, so language
+    // detection skips them; the page's non-English citation_title is the source's original, stored ORIGINAL
+    List<TextIn> texts = meta.originalTitle() == null || meta.titleLanguage() == null ? List.of()
+        : List.of(new TextIn("TITLE", meta.titleLanguage(), "ORIGINAL", meta.originalTitle()));
+    return new HarvestedWork(w, Layer.MAGTECH, ids, meta.titleLanguage(), texts, "en", abs == null ? null : "en");
+  }
+
+  /** The feed's comma separated author names as the JSON the work stores: {@code [{"name":…},…]}. */
+  private static String authors(String list) {
+    List<Map<String, String>> out = new ArrayList<>();
+    for (String a : list.split("[,;，；]")) {
+      String name = a.strip();
+      if (!name.isEmpty()) out.add(Map.of("name", name));
+    }
+    return FinderJson.mapper().writeValueAsString(out);
+  }
+
+  /** The feed's {@code 2023-03-20 00:00:00.0}: its date part. */
+  private static @Nullable LocalDate pubDate(@Nullable String s) {
+    return MagtechClient.date(s);
+  }
+
+  private static @Nullable String text(JsonNode n, String field) {
+    JsonNode v = n.path(field);
+    if (v.isMissingNode() || v.isNull()) return null;
+    String s = v.asString().strip();
+    return s.isEmpty() ? null : s;
+  }
+}

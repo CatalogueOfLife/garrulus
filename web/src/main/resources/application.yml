@@ -2,9 +2,9 @@ spring:
   application:
     name: garrulus-web
   datasource:
-    url: ${NAMETRACKER_DB_URL:jdbc:postgresql://localhost:5434/nametracker}
-    username: ${NAMETRACKER_DB_USER:nametracker}
-    password: ${NAMETRACKER_DB_PASSWORD:nametracker}
+    url: ${GARRULUS_DB_URL:jdbc:postgresql://localhost:5434/garrulus}
+    username: ${GARRULUS_DB_USER:garrulus}
+    password: ${GARRULUS_DB_PASSWORD:garrulus}
   config:
     # local .env (see .env.example); the second entry covers running from a module directory (spring-boot:run)
     import: optional:file:.env[.properties],optional:file:../.env[.properties]
@@ -32,7 +32,10 @@ mybatis:
 server:
   port: 8080
   # loopback only, like the indexer; 0.0.0.0 to serve other hosts (behind a proxy)
-  address: ${NAMETRACKER_WEB_ADDRESS:127.0.0.1}
+  address: ${GARRULUS_WEB_ADDRESS:127.0.0.1}
+  # Behind Apache: X-Forwarded-Proto/-For from a local proxy are honoured, so the ORCID redirect URI ({baseUrl}) is
+  # https and the sign-in limits see the client's address instead of the proxy's
+  forward-headers-strategy: native
   servlet:
     session:
       timeout: 30d
@@ -42,7 +45,7 @@ server:
         # about 30 days, so a session survives a browser restart
         max-age: 30d
         # true behind HTTPS (production); also applies to the XSRF-TOKEN cookie
-        secure: ${NAMETRACKER_COOKIE_SECURE:false}
+        secure: ${GARRULUS_COOKIE_SECURE:false}
 
 management:
   endpoints:
@@ -50,20 +53,20 @@ management:
       exposure:
         include: health,info
 
-nametracker:
+garrulus:
   # base URL of the SPA, for links in emails and feeds
-  public-url: ${NAMETRACKER_PUBLIC_URL:http://localhost:5173}
+  public-url: ${GARRULUS_PUBLIC_URL:http://localhost:5173}
   mail:
     # outgoing mail needs spring.mail.host (and port, credentials); without it mails are logged as suppressed
-    from: ${NAMETRACKER_MAIL_FROM:Garrulus <noreply@localhost>}
+    from: ${GARRULUS_MAIL_FROM:Garrulus <noreply@localhost>}
   # signs unsubscribe links; blank = a random key per start (one WARN), so links stop working after a restart
-  signing-key: ${NAMETRACKER_SIGNING_KEY:}
+  signing-key: ${GARRULUS_SIGNING_KEY:}
   digest:
     # hourly email digests (UTC, six fields); "-" switches them off
-    cron: ${NAMETRACKER_DIGEST_CRON:0 5 * * * *}
+    cron: ${GARRULUS_DIGEST_CRON:0 5 * * * *}
   feeds:
     # public feeds list papers published in the last window-days days (shared with the indexer's alert window)
-    window-days: ${NAMETRACKER_HIT_WINDOW_DAYS:90}
+    window-days: ${GARRULUS_HIT_WINDOW_DAYS:90}
   orcid:
     # ORCID sign-in is offered only when a client id is set
     client-id: ${ORCID_CLIENT_ID:}
@@ -74,17 +77,17 @@ nametracker:
     token: ${ADMIN_TOKEN:}
     # ORCID iDs (comma-separated) whose ORCID sign-in makes an admin; read at start. Without token and iDs the admin
     # endpoints do not exist (404).
-    orcids: ${NAMETRACKER_ADMIN_ORCIDS:}
+    orcids: ${GARRULUS_ADMIN_ORCIDS:}
     # mails the admin notices of the indexer (layer failing/recovered, route restart cap) to the admins' verified
     # addresses (UTC, six fields); "-" switches it off
-    mail-cron: ${NAMETRACKER_ADMIN_MAIL_CRON:0 */5 * * * *}
+    mail-cron: ${GARRULUS_ADMIN_MAIL_CRON:0 */5 * * * *}
   registrations:
     # the users' mails about accepted or declined registered journals (UTC, six fields); "-" switches them off
-    mail-cron: ${NAMETRACKER_REGISTRATIONS_MAIL_CRON:0 */5 * * * *}
+    mail-cron: ${GARRULUS_REGISTRATIONS_MAIL_CRON:0 */5 * * * *}
     # the daily admin notice when registered journals wait for a decision (UTC); "-" switches it off
-    admin-note-cron: ${NAMETRACKER_REGISTRATIONS_ADMIN_NOTE_CRON:0 0 7 * * *}
+    admin-note-cron: ${GARRULUS_REGISTRATIONS_ADMIN_NOTE_CRON:0 0 7 * * *}
   blobs:
-    dir: ${NAMETRACKER_BLOBS_DIR:./data/blobs}
+    dir: ${GARRULUS_BLOBS_DIR:./data/blobs}
   web:
     # origins allowed to call /api/taxa/** from a browser (comma-separated)
-    cors-origins: ${NAMETRACKER_WEB_CORS_ORIGINS:https://www.catalogueoflife.org,https://dev.catalogueoflife.org,https://preview.catalogueoflife.org}
+    cors-origins: ${GARRULUS_WEB_CORS_ORIGINS:https://www.catalogueoflife.org,https://dev.catalogueoflife.org,https://preview.catalogueoflife.org}

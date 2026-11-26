@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.garrulus.store.registry.SourceSampleMapper">
+
+  <resultMap id="result" type="org.catalogueoflife.garrulus.store.registry.SourceSample">
+    <constructor>
+      <arg column="id" javaType="_long"/>
+      <arg column="source_id" javaType="_long"/>
+      <arg column="sampled_at" javaType="java.time.Instant"/>
+      <arg column="route" javaType="string"/>
+      <arg column="articles" javaType="_int"/>
+      <arg column="with_abstract" javaType="_int"/>
+      <arg column="names_per_article" javaType="java.lang.Float"/>
+      <arg column="act_share" javaType="java.lang.Float"/>
+      <arg column="taxgroups" javaType="string" typeHandler="org.catalogueoflife.garrulus.store.type.JsonbStringTypeHandler"/>
+      <arg column="error" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <resultMap id="candidateRow" type="org.catalogueoflife.garrulus.store.registry.CandidateRow">
+    <constructor>
+      <arg column="id" javaType="_long"/>
+      <arg column="registered" javaType="_boolean"/>
+    </constructor>
+  </resultMap>
+
+  <sql id="isRegistered">
+    (s.origin = 'REGISTERED'
+     OR EXISTS (SELECT 1 FROM source_registration r WHERE r.source_id = s.id AND r.state &lt;&gt; 'WITHDRAWN'))
+  </sql>
+
+  <sql id="sampleable">
+    s.tier = 'CANDIDATE' AND s.active AND s.publication_status &lt;&gt; 'CEASED'
+  </sql>
+
+  <select id="insert" resultType="long" flushCache="true">
+    INSERT INTO source_sample (source_id, route, articles, with_abstract, names_per_article, act_share, taxgroups, error)
+    VALUES (#{o.sourceId}, #{o.route}, #{o.articles}, #{o.withAbstract}, #{o.namesPerArticle}, #{o.actShare},
+            #{o.taxgroups, typeHandler=org.catalogueoflife.garrulus.store.type.JsonbStringTypeHandler}, #{o.error})
+    RETURNING id
+  </select>
+
+  <select id="latestFor" resultMap="result">
+    SELECT DISTINCT ON (source_id) * FROM source_sample
+    WHERE source_id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+    ORDER BY source_id, sampled_at DESC, id DESC
+  </select>
+
+  <select id="recent" resultMap="result">
+    SELECT * FROM source_sample WHERE source_id = #{sourceId} ORDER BY sampled_at DESC, id DESC LIMIT #{limit}
+  </select>
+
+  <select id="latest" resultMap="result">
+    SELECT * FROM source_sample WHERE source_id = #{sourceId} ORDER BY sampled_at DESC, id DESC LIMIT 1
+  </select>
+
+  <select id="registered" resultType="boolean">
+    SELECT COALESCE((SELECT <include refid="isRegistered"/> FROM source s WHERE s.id = #{sourceId}), false)
+  </select>
+
+  <select id="candidateRows" resultMap="candidateRow">
+    SELECT s.id, <include refid="isRegistered"/> AS registered FROM source s WHERE <include refid="sampleable"/> ORDER BY s.id
+  </select>
+
+  <select id="dueForSampling" resultType="long">
+    SELECT s.id FROM source s
+    WHERE <include refid="sampleable"/>
+      AND NOT EXISTS (SELECT 1 FROM source_sample x WHERE x.source_id = s.id AND x.sampled_at &gt; #{sampledBefore})
+      AND NOT EXISTS (SELECT 1 FROM task t WHERE t.type = 'SAMPLE_SOURCE' AND t.state IN ('QUEUED', 'RUNNING')
+                      AND t.payload ->> 'sourceId' = s.id::text)
+    ORDER BY <include refid="isRegistered"/> DESC,
+             NOT EXISTS (SELECT 1 FROM source_sample x2 WHERE x2.source_id = s.id) DESC,
+             s.candidate_score DESC NULLS LAST, s.id
+    LIMIT #{limit}
+  </select>
+
+</mapper>

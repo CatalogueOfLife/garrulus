@@ -37,11 +37,11 @@ Background: `docs/design.md` §7–§9, ADR-0005, CLAUDE.md.
   - No paid service.
 - **No secrets in the repo.** Read these from the environment:
   - `ORCID_CLIENT_ID`, `ORCID_CLIENT_SECRET`, `ORCID_BASE_URL` (default `https://orcid.org`);
-  - `NAMETRACKER_PUBLIC_URL` (default `http://localhost:5173`);
-  - `NAMETRACKER_MAIL_FROM` (default `Garrulus <noreply@localhost>`), plus `spring.mail.*`;
-  - `NAMETRACKER_SIGNING_KEY` (blank means a random key per start, with a WARN);
-  - `NAMETRACKER_DIGEST_CRON` (default `0 5 * * * *`);
-  - `NAMETRACKER_HIT_WINDOW_DAYS` (default 90).
+  - `GARRULUS_PUBLIC_URL` (default `http://localhost:5173`);
+  - `GARRULUS_MAIL_FROM` (default `Garrulus <noreply@localhost>`), plus `spring.mail.*`;
+  - `GARRULUS_SIGNING_KEY` (blank means a random key per start, with a WARN);
+  - `GARRULUS_DIGEST_CRON` (default `0 5 * * * *`);
+  - `GARRULUS_HIT_WINDOW_DAYS` (default 90).
 - **No email address** in logs, feeds, URLs or public API responses. Log the user id.
 - **Public name "Garrulus"** in mails, pages and feeds. Colours come from `docs/brand/`.
 - **Values from the spec:**
@@ -87,7 +87,7 @@ Background: `docs/design.md` §7–§9, ADR-0005, CLAUDE.md.
 
 **Files:**
 - Create: `store/src/main/resources/db/migration/V7__accounts_and_alerts.sql`
-- Create, in package `org.catalogueoflife.nametracker.store.account`:
+- Create, in package `org.catalogueoflife.garrulus.store.account`:
   - mappers `AccountMapper`, `SubscriptionMapper`, `HitMapper`, `DigestMapper`, `EmailTokenMapper`, with XML next to
     the existing ones;
   - records `AppUser`, `Subscription`, `Hit`, `Digest`, `EmailToken`.
@@ -163,7 +163,7 @@ Background: `docs/design.md` §7–§9, ADR-0005, CLAUDE.md.
 - Create, in `indexer/src/main/java/.../indexer/hits/`:
   - `HitWindow.java`
   - `SubscriptionMatcher.java`
-  - `HitProperties.java` (`nametracker.hits.window-days`, default 90; `future-days`, 7)
+  - `HitProperties.java` (`garrulus.hits.window-days`, default 90; `future-days`, 7)
 - Test: `indexer/src/test/.../hits/HitWindowTest.java`, `SubscriptionMatcherTest.java`
 
 **Interfaces (produces):**
@@ -276,7 +276,7 @@ Background: `docs/design.md` §7–§9, ADR-0005, CLAUDE.md.
   id, never the address.
 - Modify: `web/src/main/resources/application.yml`. Add:
   - the session timeout (30d), with `spring.session.jdbc.initialize-schema: never`;
-  - `nametracker.public-url`, `nametracker.mail.from` and `nametracker.signing-key`;
+  - `garrulus.public-url`, `garrulus.mail.from` and `garrulus.signing-key`;
   - the cookie settings.
 - Modify: `docker-compose.yml` (service `mailpit`, profile `mail`, image `axllent/mailpit` at a pinned existing tag,
   ports `127.0.0.1:1025:1025` and `127.0.0.1:8025:8025`) and `.env.example`.
@@ -297,7 +297,7 @@ Background: `docs/design.md` §7–§9, ADR-0005, CLAUDE.md.
 - **The sign-in link:**
   1. `POST /api/auth/link {"email":…}` always answers `202 {}`, rate limit or not, account or not.
   2. If the limiter allows it, the server generates a token with Spring's `JdbcOneTimeTokenService` (15 minutes) and
-     mails `NAMETRACKER_PUBLIC_URL/signin/verify?token=…`.
+     mails `GARRULUS_PUBLIC_URL/signin/verify?token=…`.
   3. The SPA posts the token to `POST /login/ott`. On success, the account is found or created with the email
      verified (setting `digest_since` on the first verification). The answer is `200 {"userId":…}`, not a redirect;
      failure is a 401.
@@ -350,7 +350,7 @@ Background: `docs/design.md` §7–§9, ADR-0005, CLAUDE.md.
     - issuer `ORCID_BASE_URL`, scope `openid`, user-name attribute `sub`.
     - `oauth2Login` is enabled only then.
   - `OrcidLoginSuccessHandler.java`. It finds or creates the account by ORCID iD, takes `display_name` from the ID
-    token's name claims, swaps in `GarrulusPrincipal`, then redirects to `NAMETRACKER_PUBLIC_URL/` (or to
+    token's name claims, swaps in `GarrulusPrincipal`, then redirects to `GARRULUS_PUBLIC_URL/` (or to
     `/account?addEmail=1` when the account has no email).
   - `EmailVerificationService.java`
   - `AccountMerger.java`
@@ -487,7 +487,7 @@ Background: `docs/design.md` §7–§9, ADR-0005, CLAUDE.md.
 - Create, in `web/.../digest/`:
   - `DigestSchedule.java` (pure: is a user due)
   - `DigestComposer.java` (pure: text and HTML)
-  - `DigestJob.java` (`@Scheduled(cron = "${nametracker.digest.cron:0 5 * * * *}")` with ShedLock; configure the
+  - `DigestJob.java` (`@Scheduled(cron = "${garrulus.digest.cron:0 5 * * * *}")` with ShedLock; configure the
     ShedLock JDBC provider in web like the indexer's)
   - `UnsubscribeController.java`
   - `UnsubscribeTokens.java` (HMAC-SHA256)
@@ -644,7 +644,7 @@ Background: `docs/design.md` §7–§9, ADR-0005, CLAUDE.md.
   1. Run `mvn -B -DskipTests clean install`, then `npm run build`.
   2. Copy the jars to `data/run/`.
   3. Start Mailpit (`docker compose --profile mail up -d mailpit`).
-  4. Restart the indexer (V7 migrates), then `web` on 18080 with `NAMETRACKER_PUBLIC_URL=http://localhost:5173`,
+  4. Restart the indexer (V7 migrates), then `web` on 18080 with `GARRULUS_PUBLIC_URL=http://localhost:5173`,
      `SPRING_MAIL_HOST=localhost`, `SPRING_MAIL_PORT=1025`, and ORCID from `.env`.
   5. Run Vite from a scratch config that proxies to 18080 on port 5173.
 - [ ] **Sign in and follow.** Sign in by email link with a test address (Mailpit catches it). Follow:

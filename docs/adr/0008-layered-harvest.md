@@ -30,7 +30,7 @@ Constraints that bind everything below:
 
 Six values of `Layer` (store module): `OPENALEX`, `CROSSREF`, `OAI`, `MAGTECH`, `EUROPEPMC`, `BLR`. Each harvest run has
 its own `harvest_run.adapter` (`OPENALEX_LIVE` is kept for OpenAlex), its dedup key prefix and its switch
-`nametracker.layers.<layer>.enabled` (default true). A false switch stops the layer's handler; its tasks wait instead
+`garrulus.layers.<layer>.enabled` (default true). A false switch stops the layer's handler; its tasks wait instead
 of failing. The layer schedulers (OAI 04:30, Magtech 04:45, Europe PMC 05:00, BLR 05:15 UTC) enqueue only for ACTIVE
 routes of harvestable sources, one `LIVE` job per route, and sit behind the master harvest switch.
 
@@ -162,7 +162,7 @@ Crossref need no row. Admin endpoints and the seed (`routes-seed.tsv`, `SEED_ROU
 
 ### Coverage monitor (V16, V18)
 
-`COVERAGE_CHECK` runs daily at 06:30 UTC (`nametracker.layers.coverage-cron`), on yesterday (UTC), key
+`COVERAGE_CHECK` runs daily at 06:30 UTC (`garrulus.layers.coverage-cron`), on yesterday (UTC), key
 `coverage-check:<day>`. It is analysis, so it is **not** behind the harvest switch (like `REBUILD_STATS`). Per layer it
 writes `layer_health` (state OK / DEGRADED / FAILING, failed runs, yield against the 8-week median, miss share) and per
 journal `source_layer_coverage`, in one transaction. `GET /api/admin/status` shows `layers`.

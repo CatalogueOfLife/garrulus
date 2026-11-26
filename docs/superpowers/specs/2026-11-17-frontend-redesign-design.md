@@ -262,7 +262,7 @@ the token switch.
 - `npm run build` clean (TypeScript).
 - Visual check with Playwright screenshots of every page in light and dark at 1440, 1024, 768 and 390 px against the
   dev data (Vite on 5174 with the dev-run proxy to 18080), plus the `/design` page. If this branch changes `web`, its
-  own `web` runs on 28080 against the same dev database with `NAMETRACKER_DIGEST_CRON=-` (so it never sends digests
+  own `web` runs on 28080 against the same dev database with `GARRULUS_DIGEST_CRON=-` (so it never sends digests
   twice) and no `ADMIN_TOKEN`, and Vite on 5174 proxies there instead. Main's dev run on 18080/18081 is never touched.
 - Keyboard pass: tab through the search page, a menu, a modal and the taxon picker; the focus ring is visible
   everywhere.

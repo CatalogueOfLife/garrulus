@@ -10,7 +10,7 @@ Paths are relative to the run directory; `data/run/psql.sh -c "..."` is the psql
 **Results.** Deployed at 10:08 UTC from `main` (indexer/web jars of `e1363b8`; frontend `b5dc021` served by Vite on
 127.0.0.1:5173). `mvn -B verify` and the frontend tests were green in the fix wave.
 - Flyway applied V19 and V20 on the dev DB (about 104k works, 313 sources before) in under 0.2 s.
-- Web started with `NAMETRACKER_ADMIN_ORCIDS` = the dev DB's one ORCID account, Mailpit on 1025/8025, the public URL
+- Web started with `GARRULUS_ADMIN_ORCIDS` = the dev DB's one ORCID account, Mailpit on 1025/8025, the public URL
   127.0.0.1:5173. `REFRESH_ISSNL` not run (switch off).
 - `DISCOVER_SOURCES` by hand for DOAJ, PKP_BEACON, PLAZI and BLR (COL references skipped: the XR zip over a travel
   connection): 15 tasks incl. continuations, all DONE.
@@ -38,10 +38,10 @@ are for the controller or Markus at the terminal; the browser steps (B1 to B5) a
 
 1. Build and test: `mvn -B verify`, then `cd frontend && npm test && npm run build`, both green.
 2. Install and start the dev-run apps from `main` (jars into `data/run/`, the previous ones kept under a dated name),
-   with `NAMETRACKER_ADMIN_ORCIDS` set to Markus' iD, `ADMIN_TOKEN` set, Mailpit
+   with `GARRULUS_ADMIN_ORCIDS` set to Markus' iD, `ADMIN_TOKEN` set, Mailpit
    (`docker compose --profile mail up -d mailpit`, `spring.mail.host=localhost`, `spring.mail.port=1025` in `.env`),
-   `NAMETRACKER_PUBLIC_URL=http://127.0.0.1:5173` and the usual ports (`SERVER_PORT=18080`,
-   `NAMETRACKER_INDEXER_PORT=18081`). **`NAMETRACKER_DISCOVERY_ISSNL_ENABLED` stays false** (no `REFRESH_ISSNL`) until
+   `GARRULUS_PUBLIC_URL=http://127.0.0.1:5173` and the usual ports (`SERVER_PORT=18080`,
+   `GARRULUS_INDEXER_PORT=18081`). **`GARRULUS_DISCOVERY_ISSNL_ENABLED` stays false** (no `REFRESH_ISSNL`) until
    Markus confirms that the ISSN IC download URL may be used.
 3. Flyway applied V19 and V20: `data/run/psql.sh -c "select version, success from flyway_schema_history order by installed_rank desc limit 2"`.
    V20 back-fills stored ISSNs into the upper-case hyphenated form; it changes only rows that differ.
@@ -84,7 +84,7 @@ are for the controller or Markus at the terminal; the browser steps (B1 to B5) a
    data/run/psql.sh -c "insert into admin_notice (kind, dedup_key, subject, body) values ('LAYER_FAILING','manual:test:1','Garrulus test notice','Hand-made notice from the M6b dev check.')"
    ```
 
-   Within five minutes (`NAMETRACKER_ADMIN_MAIL_CRON`) the mail is in http://localhost:8025 and the row has `mailed_at`
+   Within five minutes (`GARRULUS_ADMIN_MAIL_CRON`) the mail is in http://localhost:8025 and the row has `mailed_at`
    and `outcome`.
 
 Browser steps (**Markus**, SPA at `http://127.0.0.1:5173` against the manual run, ORCID sign-in as in CLAUDE.md "Dev
@@ -119,17 +119,15 @@ data/run/psql.sh -c "select state, outcome, reason, count(*) from source_registr
 
 Run after the M6b deployment on the always-on installation, in this order. Deployment checks first:
 
-- Flyway applied V19 and V20 (`select version, success from flyway_schema_history order by installed_rank desc limit
-  2`); the GBIF database starts empty at V18, so both are quick.
-- V21 (M6c) must be applied before the full backfill: its `work.fts` `SET EXPRESSION` rewrites the whole `work` table
-  under ACCESS EXCLUSIVE in one transaction (instant on the empty database, blocks the web on a populated one).
+- Flyway applied the single baseline V1 (`select version, success from flyway_schema_history`; the migrations of the
+  local builds were squashed into it on 2026-11-26, before the first deploy).
 - Before the first Beacon run: `select issn, count(*) from pkp_beacon, unnest(issns) issn group by 1 having count(*) > 1
   order by 2 desc` (after the load) shows the ISSN cells shared by several OJS rows; since the fix wave they only add
   signals to a known journal.
-- `NAMETRACKER_ADMIN_ORCIDS`, `ADMIN_TOKEN`, `spring.mail.host`, `NAMETRACKER_PUBLIC_URL` (the public https URL) and
-  `NAMETRACKER_COOKIE_SECURE=true` are set; `nametracker.http.trusted-hosts` lists `host:port` of local services only
+- `GARRULUS_ADMIN_ORCIDS`, `ADMIN_TOKEN`, `spring.mail.host`, `GARRULUS_PUBLIC_URL` (the public https URL) and
+  `GARRULUS_COOKIE_SECURE=true` are set; `garrulus.http.trusted-hosts` lists `host:port` of local services only
   (CLB match bundle, if any), nothing else.
-- `NAMETRACKER_DISCOVERY_ISSNL_ENABLED` stays **false** until Markus confirms the ISSN IC URL may be used; then run
+- `GARRULUS_DISCOVERY_ISSNL_ENABLED` stays **false** until Markus confirms the ISSN IC URL may be used; then run
   `REFRESH_ISSNL` once by hand:
   `curl -X POST .../api/admin/tasks ... -d '{"type":"REFRESH_ISSNL","payload":{},"priority":"BACKFILL","dedupKey":"issnl:manual"}'`
   and check `select count(*) from issn_link` (about 2 million rows).
@@ -238,7 +236,7 @@ listed), none `DEAD`, the same count `INDEXED` at the end.
 
 ### 8. Candidate sampling: 200 a night and the score distribution
 
-With the master switch on and `nametracker.candidates.sampling.enabled` true, the nightly run (01:30 UTC) rescoring
+With the master switch on and `garrulus.candidates.sampling.enabled` true, the nightly run (01:30 UTC) rescoring
 all candidates and sampling up to 200:
 
 ```
@@ -265,10 +263,10 @@ grep -ci 'budget exhausted\|402\|payment' data/run/indexer.log
 grep -o 'https\?://[^/ "]*' data/run/indexer.log | sort | uniq -c | sort -rn | head -40
 ```
 
-Expected: `usd` within the daily OpenAlex allowance (`NAMETRACKER_OPENALEX_MAX_DAILY_USD`), every host in the list one
+Expected: `usd` within the daily OpenAlex allowance (`GARRULUS_OPENALEX_MAX_DAILY_USD`), every host in the list one
 of the known free services (OpenAlex, Crossref, Europe PMC, DOAJ, Zenodo, Plazi, ISSN IC if enabled, PKP Beacon,
 CLB, the journals' own OAI and Magtech hosts), no other service. Switches that stop each integration:
-`NAMETRACKER_DISCOVERY_*_ENABLED`, `NAMETRACKER_CANDIDATES_SAMPLING_ENABLED`, `NAMETRACKER_LAYERS_*_ENABLED`.
+`GARRULUS_DISCOVERY_*_ENABLED`, `GARRULUS_CANDIDATES_SAMPLING_ENABLED`, `GARRULUS_LAYERS_*_ENABLED`.
 
 ### Mail and registration smoke test on the VM
 

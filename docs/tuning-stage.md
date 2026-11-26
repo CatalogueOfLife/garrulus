@@ -95,7 +95,7 @@ mvn -q -pl eval exec:java -Dexec.args="tune --corpus eval/corpus/pensoft --split
 
 Mode B needs GROBID and the PDF cache (CLAUDE.md, "Mode B"). Tune on dev only, never test. Decide which corpus (or
 combination) drives the choice; the grid is `--grid`, `--thresholds`, `--top`. Copy the printed overrides into
-`finder-core/src/main/resources/org/catalogueoflife/nametracker/finder/pipeline/pipeline-defaults.json`. This changes
+`finder-core/src/main/resources/org/catalogueoflife/garrulus/finder/pipeline/pipeline-defaults.json`. This changes
 the finder `configHash`, i.e. a new finder version. Only works found after the next deploy get the tuned finder: a
 repeat `FIND_NAMES` on an unchanged document is a no-op even under a new finder version (ADR-0005, design.md), so
 re-finding existing works needs M5's reprocessing (the force flag). Re-run section 3
@@ -103,7 +103,7 @@ for the pipeline (dev and test), commit the reports, and quote the **test** numb
 
 ## 5. Salience tuning
 
-The baseline is the `nametracker.salience` block of `indexer/src/main/resources/application.yml` (`--config` to point
+The baseline is the `garrulus.salience` block of `indexer/src/main/resources/application.yml` (`--config` to point
 elsewhere; the built-in defaults if it cannot be read; the run prints which one it used). Tune on dev, then evaluate
 exactly the dev values on test without searching:
 
@@ -112,7 +112,7 @@ mvn -q -pl eval exec:java -Dexec.args="tune-salience --corpus eval/corpus/curate
 mvn -q -pl eval exec:java -Dexec.args="tune-salience --corpus eval/corpus/curated --split test --eval-only --set title=0.4,abstract=0.2,act=0.35,heading=0.15,share=0.25,repeat=0.15,threshold=0.35"
 ```
 
-`--set` takes `nametracker.salience.*` keys without the prefix (title, abstract, act, heading, share, repeat, ubiquity,
+`--set` takes `garrulus.salience.*` keys without the prefix (title, abstract, act, heading, share, repeat, ubiquity,
 ubiquity-full-share, threshold) on top of the baseline and prints P/R/F1 of those values. The printed overrides carry
 full precision, so what you copy is what was evaluated. Copy them into the `salience:` block of
 `indexer/src/main/resources/application.yml`. Then rescore the dev run.
@@ -123,11 +123,11 @@ first (indexer 18081, web 18080; never 8080/8081):
 1. `mvn -B -DskipTests clean install`.
 2. Keep the old log: `mv data/run/indexer.log data/run/indexer-N.log` with the next free N.
 3. Stop only the pid in `data/run/indexer.pid` (`kill $(cat data/run/indexer.pid)`), nothing else.
-4. `cp indexer/target/nametracker-indexer-0.1.0-SNAPSHOT.jar data/run/indexer.jar` (likewise the web jar to
+4. `cp indexer/target/garrulus-indexer-0.1.0-SNAPSHOT.jar data/run/indexer.jar` (likewise the web jar to
    `data/run/web.jar` if web changed; web then needs its own restart).
-5. Restart with the same env as `docs/m2-dev-run.md` (`NAMETRACKER_INDEXER_PORT=18081`, ...). The weights come from the
-   `application.yml` inside the jar, or from env overrides by Spring's relaxed binding of `nametracker.salience.*`:
-   `NAMETRACKER_SALIENCE_TITLE`, `_ABSTRACT`, `_ACT`, `_HEADING`, `_SHARE`, `_REPEAT`, `_UBIQUITY`,
+5. Restart with the same env as `docs/m2-dev-run.md` (`GARRULUS_INDEXER_PORT=18081`, ...). The weights come from the
+   `application.yml` inside the jar, or from env overrides by Spring's relaxed binding of `garrulus.salience.*`:
+   `GARRULUS_SALIENCE_TITLE`, `_ABSTRACT`, `_ACT`, `_HEADING`, `_SHARE`, `_REPEAT`, `_UBIQUITY`,
    `_UBIQUITY_FULL_SHARE`, `_THRESHOLD` (`application.yml` has no placeholders for them).
 
 Warning: on the first deploy of V6 every `scored_share` is null, so the first nightly `REBUILD_STATS` enqueues a
@@ -154,7 +154,7 @@ b. Finder false positives seen in the dev run (*Colfax*, *Microbiota*, *Karnatak
 c. Re-running `curated-add-acts` would change the text of 4 ACTS documents, because the converter changed since; the
    manifest text hashes would then no longer match the annotated tasks. Keep the current picks.
 d. The `clb 1.7.1-SNAPSHOT` pin must be replaced by a release before any deploy.
-e. A local CLB bundle for 316691 (set `NAMETRACKER_CLB_MATCH_BASE_URL`) for matching without the remote API.
+e. A local CLB bundle for 316691 (set `GARRULUS_CLB_MATCH_BASE_URL`) for matching without the remote API.
 
 ## 7. Provisional wiring results (NOT results)
 

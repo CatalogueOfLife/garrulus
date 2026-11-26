@@ -17,10 +17,10 @@ verified against the live CLB API on 2026-11-15.
 
 - Full text that is not open-licensed is never written to the blob store (design: keep full text only for open-licensed
   works). The finder still has to read it once.
-- `RESOLVE_CONTENT` writes the chosen document of a closed full text to the spool (`nametracker.content.spool-dir`,
+- `RESOLVE_CONTENT` writes the chosen document of a closed full text to the spool (`garrulus.content.spool-dir`,
   default `./data/spool`) as `<workId>-<docSha>.json.gz`, and only when it enqueues `FIND_NAMES`. `FIND_NAMES` reads it,
   commits the mentions, enqueues `MATCH_NAMES` and then deletes the file.
-- Anything left behind (a task that never ran, a crash) is purged after 14 days (`nametracker.content.spool-max-age`),
+- Anything left behind (a task that never ran, a crash) is purged after 14 days (`garrulus.content.spool-max-age`),
   daily at 05:30 UTC (`Spool` itself; `REBUILD_STATS` no longer purges, so there is one purge with one configured age).
 - If the spool file is gone, `FIND_NAMES` falls back to the rebuilt abstract and records `{"fallback":"abstract"}` in
   `work.finder_diagnostics`. A repeat `FIND_NAMES` for a document already named (same `names_doc_sha`) is a no-op, so a
@@ -79,11 +79,11 @@ migration of one table; nothing outside `IndexMapper` depends on its layout.
 
 ### Local bundle matching
 
-- `NAMETRACKER_CLB_MATCH_BASE_URL` (`nametracker.clb.match-base-url`, default empty = `nametracker.clb.base-url`)
+- `GARRULUS_CLB_MATCH_BASE_URL` (`garrulus.clb.match-base-url`, default empty = `garrulus.clb.base-url`)
   points all match calls and the N1 probe at a local CLB release bundle (backend `docs/BUNDLE.md`), which serves the
   same keyed API: `/dataset/{releaseKey}/match/nameusage`. Everything else stays on `base-url`. The bundle is not
   throttled (`localhost`, `127.0.0.1`, `::1` and the host of the match URL have no interval, unless configured under
-  `nametracker.http.min-interval`); retries and the Garrulus User-Agent stay.
+  `garrulus.http.min-interval`); retries and the Garrulus User-Agent stay.
 - The release key comes from the bundle: `GET {match-base-url}/dataset` is rewritten by the bundle to its one release
   (`key`, `alias`). With no release pinned yet, `XR_CHECK` (or the first `MATCH_NAMES`) pins that key. With a release
   pinned and a different bundle key, matching is refused: `MATCH_NAMES` is deferred 30 minutes without using an attempt
@@ -138,7 +138,7 @@ s = title*inTitle + abstract*inAbstract + act*hasAct + heading*inHeading
 salience = clamp(s, 0, 1); main_subject = salience >= threshold
 ```
 
-- Defaults in `nametracker.salience.*`: `title=0.40`, `abstract=0.20`, `act=0.35`, `heading=0.15`, `share=0.25`,
+- Defaults in `garrulus.salience.*`: `title=0.40`, `abstract=0.20`, `act=0.35`, `heading=0.15`, `share=0.25`,
   `repeat=0.15`, `ubiquity=0.50`, `ubiquity-full-share=0.02`, `threshold=0.35`. They are **not tuned**. The design wanted
   the threshold tuned on curated main-subject labels in M3; Markus moved all tuning (finder, salience) to a final
   finder-tuning stage after M3, once the curated set is annotated.
@@ -193,7 +193,7 @@ the file must be a mapped GET. Parameters and schemas are not checked.
 `GET https://api.checklistbank.org/dataset/{xrKey}/nameusage/suggest`, and the taxon page header (name, rank,
 classification) uses `/dataset/{xrKey}/taxon/{id}` and its classification, with the pinned key from `GET /api/xr`. CLB
 already serves these with CORS, and doing them server-side would add a CLB dependency and a cache to the always-on
-`web`. `/api/taxa/**` itself sends CORS headers for the portal origins only (`nametracker.web.cors-origins`), GET only,
+`web`. `/api/taxa/**` itself sends CORS headers for the portal origins only (`garrulus.web.cors-origins`), GET only,
 for the planned portal literature widget.
 
 ### Smaller calls
@@ -211,7 +211,7 @@ for the planned portal literature widget.
   every queued `FIND_NAMES` of a large backlog running before the first `MATCH_NAMES` (which made the index look empty
   for days in the M3 dev run). Peers enqueued in one transaction share a `run_after`; among them the id decides, so a
   follow-up still waits behind those few.
-- `REBUILD_STATS` runs at `LIVE` priority (`0 30 4 * * *` UTC, `nametracker.stats.cron`, ShedLock `stats`),
+- `REBUILD_STATS` runs at `LIVE` priority (`0 30 4 * * *` UTC, `garrulus.stats.cron`, ShedLock `stats`),
   regardless of the harvest switch, so a `REPROCESS` backlog cannot hold up the nightly stats.
 - The taxon filter and taxon pages ignore reference-only names; the name filter keeps them, because the name–literature
   index should list every place a name appears. `WorkSummary.mainNames` lists main-subject names only.

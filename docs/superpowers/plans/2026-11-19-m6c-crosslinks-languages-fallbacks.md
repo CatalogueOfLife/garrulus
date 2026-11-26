@@ -32,14 +32,14 @@ disciplines, ceased journals, the admin Layers page) are not planned again.
 - **Free only, no paid service.** Every integration has a switch; keyed services are off until their key is set
   (`SPRINGER_API_KEY`, `CINII_APPID`, the KU tokens). OpenAlex calls go through `OpenAlexBudget` (free allowance).
 - **The translation service is local and self-hosted** (LibreTranslate on the VM, like gnfinder); off unless
-  `nametracker.translation.enabled=true` **and** `NAMETRACKER_TRANSLATION_URL` is set. Only **titles** are translated on
+  `garrulus.translation.enabled=true` **and** `GARRULUS_TRANSLATION_URL` is set. Only **titles** are translated on
   the server; abstracts never are (storing translations of copyrighted abstracts is avoided).
 - **Never present a machine translation as the original.** `work.title` and the abstract columns stay what the finder
   read; every other version lives in `work_text` with its `kind` (ORIGINAL, PARALLEL, MACHINE), and the API and UI label
   MACHINE as "Machine translation". Translated text is never given to the finder.
 - **Never store a name that does not point at an exact span of source text**: the finder reads only `work.title`, the
   abstract columns and content documents, as today; `work_text` is never a finder input.
-- **The UCPH route is off by default** (`nametracker.content.institutional.enabled=false`, empty publisher allow-list)
+- **The UCPH route is off by default** (`garrulus.content.institutional.enabled=false`, empty publisher allow-list)
   and never used for redistribution: its text is closed (spool, finder, purge; only mentions, offsets, ≤ 200-character
   snippets, hashes and the URL are kept), its abstracts are never written to `work`, every fetch is audited.
 - Every task handler is idempotent under at-least-once delivery; an outage defers (`ServiceOutageException` /
@@ -56,7 +56,7 @@ disciplines, ceased journals, the admin Layers page) are not planned again.
   (`OpenApiCoverageTest`).
 - Colours only from the brand tokens (`frontend/src/styles/tokens.css`: `--gr-paper`, `--gr-ink`, `--gr-grey`,
   `--gr-rule-soft`, `--gr-red`); never a new colour.
-- Scheduled crons are UTC and sit behind `nametracker.harvest.enabled`; `DETECT_LANGUAGE` and `TRANSLATE_TITLE` are
+- Scheduled crons are UTC and sit behind `garrulus.harvest.enabled`; `DETECT_LANGUAGE` and `TRANSLATE_TITLE` are
   enqueued by events or by hand, not by cron.
 - Work and commit directly on `main`. Commit messages never mention Claude or AI and carry no attribution trailer.
 - Commands: `JAVA_HOME=~/.sdkman/candidates/java/25.0.3-librca`; one IT: `mvn -B -pl <module> -am verify
@@ -117,10 +117,10 @@ entry plus one lookup once verified (that is exactly the extension path Task 3 t
 
 **Files:**
 - Create: `store/src/main/resources/db/migration/V20__crosslinks_languages_fallbacks.sql`
-- Create in `store/src/main/java/org/catalogueoflife/nametracker/store/`: `ident/SourceIdentifierMapper.java`,
+- Create in `store/src/main/java/org/catalogueoflife/garrulus/store/`: `ident/SourceIdentifierMapper.java`,
   `ident/LinkAttemptMapper.java`, `lang/WorkText.java`, `lang/WorkTextMapper.java`, `lang/LanguageEvidence.java`,
   `lang/LanguageEvidenceMapper.java`, `content/TextLookupMapper.java`, `content/InstitutionalFetchMapper.java` (+ XML
-  under `store/src/main/resources/org/catalogueoflife/nametracker/store/…`)
+  under `store/src/main/resources/org/catalogueoflife/garrulus/store/…`)
 - Modify: `store/.../work/Work.java`, `WorkMapper.xml` (result map: new columns read-only), `store/.../account/
   Subscription.java`, `SubscriptionMapper.xml`
 - Test: `store/src/test/java/.../store/lang/LanguageMappersIT.java`, `.../store/ident/SourceIdentifierMapperIT.java`
@@ -201,7 +201,7 @@ entry plus one lookup once verified (that is exactly the extension path Task 3 t
 ### Task 2: the identifier scheme registry
 
 **Files:**
-- Modify: `store/src/main/java/org/catalogueoflife/nametracker/store/ident/IdScheme.java`
+- Modify: `store/src/main/java/org/catalogueoflife/garrulus/store/ident/IdScheme.java`
 - Create: `store/.../ident/IdentifierRegistry.java`, `store/.../ident/IdentifierLink.java`
 - Test: `store/src/test/java/.../store/ident/IdSchemeTest.java` (extend), `.../ident/IdentifierRegistryTest.java`
 
@@ -259,7 +259,7 @@ assertThat(reg.parse("NOPE:1")).isNull();
 ### Task 3: `LINK_WORK` and `LINK_SOURCE` with the lookup SPI
 
 **Files:**
-- Create in `indexer/src/main/java/org/catalogueoflife/nametracker/indexer/link/`: `IdentifierLookup.java`,
+- Create in `indexer/src/main/java/org/catalogueoflife/garrulus/indexer/link/`: `IdentifierLookup.java`,
   `LinkTarget.java`, `LinkWorkHandler.java`, `LinkSourceHandler.java`, `LinkScheduler.java`, `LinkProperties.java`,
   `BhlDoiLookup.java`
 - Modify: `indexer/.../match/MatchNamesHandler.java` (enqueue on first indexing), `indexer/.../registry/
@@ -292,11 +292,11 @@ assertThat(reg.parse("NOPE:1")).isNull();
   - Enqueuing: `MatchNamesHandler` reads `first_indexed_at` before `indexing.index` and, when it was null and the
     result is `INDEXED`, enqueues `LINK_WORK {"workId"}` at `BACKFILL`, key `link:w<id>` (a re-index never does, so a
     reprocess does not re-query). `IdentifySourceHandler` enqueues `LINK_SOURCE {"sourceId"}` at `BACKFILL`, key
-    `link:s<id>:<yyyy-mm>`. `LinkScheduler`: monthly `nametracker.links.source-cron` (`0 45 1 2 * *`) enqueues
-    `LINK_SOURCE {"afterId":0}` (key `link-sources:<yyyy-mm>`); daily `nametracker.links.retry-cron` (`0 15 6 * * *`)
+    `link:s<id>:<yyyy-mm>`. `LinkScheduler`: monthly `garrulus.links.source-cron` (`0 45 1 2 * *`) enqueues
+    `LINK_SOURCE {"afterId":0}` (key `link-sources:<yyyy-mm>`); daily `garrulus.links.retry-cron` (`0 15 6 * * *`)
     enqueues one batched task per entity for up to 5000 due `link_attempt` rows and deletes rows whose subject is gone.
-    Both behind the harvest switch; every lookup off with `nametracker.links.<name>.enabled` (default true), all off
-    with `nametracker.links.enabled`.
+    Both behind the harvest switch; every lookup off with `garrulus.links.<name>.enabled` (default true), all off
+    with `garrulus.links.enabled`.
   - `BhlDoiLookup` (no network, order 10): a DOI `10.5962/bhl.part.<n>` gives `BHL_PART` `<n>`.
 
 - [ ] **Step 1: Write the tests.** `LinkWorkHandlerIT` (WireMock where a lookup calls out; test lookups as
@@ -307,7 +307,7 @@ assertThat(reg.parse("NOPE:1")).isNull();
   `outageDefersWithoutAttempt`, `idOfAnotherWorkEnqueuesMerge`, `bhlPartFromBhlDoi`, `batchContinues`.
   `LinkSourceHandlerIT`: `mirrorsColumns`, `ceasedSourceSkipped`, `identifyEnqueuesLinkSource`.
 - [ ] **Step 2: Run** `mvn -B -pl indexer -am verify -Dit.test='LinkWorkHandlerIT,LinkSourceHandlerIT'` → FAIL.
-- [ ] **Step 3: Implement** handlers, scheduler, properties (`nametracker.links.*` in `application.yml`).
+- [ ] **Step 3: Implement** handlers, scheduler, properties (`garrulus.links.*` in `application.yml`).
 - [ ] **Step 4: Run** → PASS.
 - [ ] **Step 5: Commit** `feat(indexer): LINK_WORK and LINK_SOURCE run identifier lookups with retries`
 
@@ -416,7 +416,7 @@ assertThat(reg.parse("NOPE:1")).isNull();
     JA, KO, RU, UK, BG, SR, ES, PT, FR, DE, IT, NL, PL, CS, SK, HU, RO, HR, SL, TR, FA, AR, HE, EL, TH, VI, ID, MS, HI,
     BN, TA, SV, NB, DA, FI, ET, LT, CA), high accuracy, lazily built once. `Detection detect(@Nullable String text)`;
     `record Detection(@Nullable String lang, float confidence)`. Start values (tunable, properties
-    `nametracker.language.*`): `min-confidence` 0.80; a title counts with at least `min-title-words` 3 words, or 8
+    `garrulus.language.*`): `min-confidence` 0.80; a title counts with at least `min-title-words` 3 words, or 8
     letters of a CJK/Hangul/Kana/Thai script; an abstract or body with at least `min-text-letters` 100 letters. Text is
     stripped of markup; names are not removed (they are a small share of a title or abstract).
   - `LanguageDetector.titleAndAbstract(@Nullable String title, @Nullable String abstractText, List<String>
@@ -556,7 +556,7 @@ assertThat(reg.parse("NOPE:1")).isNull();
     a systemd unit on the VM like gnfinder, `libretranslate --host 127.0.0.1 --port 5055 --load-only
     zh,ja,ko,ru,uk,ar,fa,th,vi,tr,es,pt,fr,de,it,id,pl,cs,en`): `GET /languages` once (cached 1 h) for `sources()`,
     `POST /translate` `{"q","source","target":"en","format":"text"}` → `translatedText`. Properties:
-    `nametracker.translation.enabled` (false), `.url` (`NAMETRACKER_TRANSLATION_URL`, blank), `.model` (label stored with
+    `garrulus.translation.enabled` (false), `.url` (`GARRULUS_TRANSLATION_URL`, blank), `.model` (label stored with
     each row, default `libretranslate-1.9.6/argos`), `.timeout` (30 s). Connection refused, 5xx or a timeout →
     `ServiceOutageException` (30 minutes).
   - `TRANSLATE_TITLE` (`TranslateTitleHandler.TYPE`): `{"workId":n}` or `{"all":true,"afterId":0,"batch":500,
@@ -614,9 +614,9 @@ assertThat(reg.parse("NOPE:1")).isNull();
     `text_lookup`; an outage of a top-up defers the task only on a `reprocess` run, otherwise it is logged and skipped.
   - Services (start values, tunable): Europe PMC (`EXT_ID:<pmid> AND SRC:MED`, else `DOI:"…"`, `resultType=core`,
     `abstractText`), always on; Springer Nature Meta (`https://api.springernature.com/meta/v2/json?q=doi:<doi>&api_key=`,
-    DOIs `10.1007/`, `10.1186/`, `10.1038/`; `SPRINGER_API_KEY` blank = off; `nametracker.content.topup.springer.daily-cap`
+    DOIs `10.1007/`, `10.1186/`, `10.1038/`; `SPRINGER_API_KEY` blank = off; `garrulus.content.topup.springer.daily-cap`
     100, counted in `api_usage` service `SPRINGER_META`; a 401 disables it until restart with one WARN); SciELO
-    ArticleMeta (`nametracker.content.topup.scielo.collections`, start `10.1590=scl`: lists
+    ArticleMeta (`garrulus.content.topup.scielo.collections`, start `10.1590=scl`: lists
     `/api/v1/article/identifiers/?collection=<c>&issn=<issn>&from=<pub date − 30 d>&until=<pub date + 365 d>` up to 3
     pages of 100, matches the DOI, then `/api/v1/article/?code=<pid>&collection=<c>` → `v83` abstracts and `v12`
     titles by language (PARALLEL), `v40` → DECLARED `SCIELO`); CiNii Research (`https://cir.nii.ac.jp/opensearch/
@@ -653,8 +653,8 @@ assertThat(reg.parse("NOPE:1")).isNull();
 - Consumes: `ContentRoute`, `Spool` (via `RESOLVE_CONTENT`), `InstitutionalFetchMapper` (Task 1), `TeiConverter`.
 - Produces:
   - `InstitutionalRoute` (`@Order(100)`, route `INSTITUTIONAL`, last, so it runs only when no open route had full text):
-    applies when `nametracker.content.institutional.enabled` is true, the work has a DOI, its licence is not open
-    (`LicencePolicy`), and a `PublisherTdm` in the allow-list `nametracker.content.institutional.publishers` (empty by
+    applies when `garrulus.content.institutional.enabled` is true, the work has a DOI, its licence is not open
+    (`LicencePolicy`), and a `PublisherTdm` in the allow-list `garrulus.content.institutional.publishers` (empty by
     default) claims the DOI. Below the per-publisher daily cap (`…<publisher>.daily-cap`, 500) it fetches, writes one
     `institutional_fetch` row per call (also on errors), and returns `FetchedContent(…, license = null, fulltext =
     body present)`: closed, so `RESOLVE_CONTENT` spools it and `FIND_NAMES` purges it as for every closed text.
@@ -668,7 +668,7 @@ assertThat(reg.parse("NOPE:1")).isNull();
     PARAGRAPH, `ce:caption` CAPTION, `ce:bib-reference` REFERENCE, `ce:italic` as italic style spans).
     `WileyTdm` (prefixes `10.1002/`, `10.1111/`; `GET https://api.wiley.com/onlinelibrary/tdm/v1/articles/{urlencoded
     doi}` with `Wiley-TDM-Client-Token`; it answers with a PDF, sent to GROBID at
-    `nametracker.content.institutional.grobid-url` and read with `TeiConverter`; without that URL Wiley is not loaded,
+    `garrulus.content.institutional.grobid-url` and read with `TeiConverter`; without that URL Wiley is not loaded,
     one WARN at start). Springer Nature subscription content is left out: its subscriber path is a PDF download, which
     the spec excludes from M6.
   - A 401/403 is a non-retryable failure of the route (logged, audited); 429/5xx/connect errors are retryable.
@@ -856,9 +856,9 @@ assertThat(reg.parse("NOPE:1")).isNull();
 
 **Files:**
 - Create: `docs/adr/0010-crosslinks-languages-fallbacks.md`, `docs/m6c-dev-check.md`
-- Modify: `CLAUDE.md` (status line; Configuration: `nametracker.links.*`, `nametracker.language.*`,
-  `nametracker.translation.*` / `NAMETRACKER_TRANSLATION_URL`, `SPRINGER_API_KEY`, `CINII_APPID`,
-  `nametracker.content.topup.*`, `nametracker.content.institutional.*`; task types `LINK_WORK`, `LINK_SOURCE`,
+- Modify: `CLAUDE.md` (status line; Configuration: `garrulus.links.*`, `garrulus.language.*`,
+  `garrulus.translation.*` / `GARRULUS_TRANSLATION_URL`, `SPRINGER_API_KEY`, `CINII_APPID`,
+  `garrulus.content.topup.*`, `garrulus.content.institutional.*`; task types `LINK_WORK`, `LINK_SOURCE`,
   `DETECT_LANGUAGE`, `TRANSLATE_TITLE`; public API `identifier`, `language`, `mentionedIn`, `/api/stats/languages`; a
   "LibreTranslate" section next to "gnfinder": install, `--load-only`, started by hand locally, systemd on the VM,
   port 5055 closed to other hosts), `.env.example`

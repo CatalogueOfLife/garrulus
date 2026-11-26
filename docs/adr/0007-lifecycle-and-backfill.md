@@ -20,7 +20,7 @@ full backfill runs later on the GBIF VM.
 ### Matching is unthrottled; a bundle of another release defers
 
 - `api.checklistbank.org` has no request interval any more (ADR-0005 said at most 10 requests a second). Retries and the
-  Garrulus User-Agent stay. `nametracker.clb.match-parallelism` (env `NAMETRACKER_CLB_MATCH_PARALLELISM`, 8) is the
+  Garrulus User-Agent stay. `garrulus.clb.match-parallelism` (env `GARRULUS_CLB_MATCH_PARALLELISM`, 8) is the
   number of parallel match calls inside one `XR_PREMATCH` task.
 - `MatchCache.match(id, query, releaseKey)` takes the release key; `WorkPlacer.place(workId, releaseKey)` is the one
   placement code for MATCH_NAMES, the pre-match and XR_REPLACE. `MatchQuery.fromHintKey` rebuilds a query from a stored
@@ -96,7 +96,7 @@ nothing from an unchanged re-index; it gets a hit only when the re-index newly m
   (`ApplicationReadyEvent`) `FinderRollout` locks `finder_rollout` (V9) and: no row at all means this hash is recorded as
   the baseline; a new hash is recorded and enqueues `REPROCESS_NAMES {"all":true,"rollout":hash}` (dedup `rollout:<hash>`);
   a known hash does nothing. The dictionary key is not part of the comparison. Switch:
-  `nametracker.finder.rollout-on-start` (true; the ITs set it to false). A finder not yet ready (empty dictionary
+  `garrulus.finder.rollout-on-start` (true; the ITs set it to false). A finder not yet ready (empty dictionary
   directory) skips the check.
 
 ### XR switch
@@ -117,7 +117,7 @@ pre-match and `MATCH_NAMES` are not held up by a step.
   stored; so is a key that cannot be asked (a bad stored hint key) or whose answer cannot be read (WARN with the key),
   so one bad key cannot stop the pre-match and leave the switch PREPARING. The last batch sets PREPARING to PREPARED (conditional on the generation) and enqueues `XR_GATE`.
 - **Gate.** Counts the current release's keys with no match in k (or unmatchable) among rows with `matched_at` before
-  `switch_started` (keys matched during the pre-match are not lost). Over `nametracker.xr.max-lost-share` (0.05): the
+  `switch_started` (keys matched during the pre-match are not lost). Over `garrulus.xr.max-lost-share` (0.05): the
   release is REFUSED (note `refusedBy:"gate"`, ERROR with both numbers) unless the switch was started with `force`.
   `keys_total` and `keys_lost` are stored.
 - **Flip.** In one transaction the old release becomes RETIRED (or REFUSED with `refusedBy:"rollback"` when the switch
@@ -159,12 +159,12 @@ pre-match and `MATCH_NAMES` are not held up by a step.
     already CURRENT release only prunes.
   - **R1.** `REBUILD_STATS` may chain `RESCORE_SALIENCE` and `EVALUATE_HITS` through the existing ubiquity mechanism. That
     is independent of placements, and the `created` before `indexed_at` rule still applies. The switch itself creates no hit.
-- **Dictionary per release.** `BUILD_DICTIONARY {"key":k}` downloads `nametracker.finder.xr-zip-url`, reads the zip as a
+- **Dictionary per release.** `BUILD_DICTIONARY {"key":k}` downloads `garrulus.finder.xr-zip-url`, reads the zip as a
   stream, checks that its release key is k (otherwise WARN, nothing written), writes `dictionary-<k>.bin` atomically to
-  `nametracker.finder.dictionary-dir` and swaps the in-process finder (`ReloadableNameFinder`) if k is current. An existing
+  `garrulus.finder.dictionary-dir` and swaps the in-process finder (`ReloadableNameFinder`) if k is current. An existing
   file is swapped in without a download. Only a failed connection, a broken download stream and 5xx/429 are outages;
   any other failure keeps the current dictionary (WARN). The zip is read through `HttpURLConnection` (`StreamingGet`,
-  shared with the snapshot client) with a read timeout (`nametracker.finder.xr-zip-read-timeout`, 5m): a download that
+  shared with the snapshot client) with a read timeout (`garrulus.finder.xr-zip-read-timeout`, 5m): a download that
   stalls is a broken stream, so an outage, instead of a task kept RUNNING for ever by its heartbeats. The build runs in
   the indexer's heap: check `-Xmx` against the dictionary build's peak before the GBIF deploy. Without a directory, or with a remote finder service, it is a
   no-op. At start the finder uses `dictionary-<currentKey>.bin`, else `FINDER_DICTIONARY`, else the newest file.
@@ -177,7 +177,7 @@ pre-match and `MATCH_NAMES` are not held up by a step.
 - **Snapshot.** `SnapshotClient` reads the manifest at `<snapshot.base-url>/data/jsonl/manifest.json`, maps `s3://openalex/`
   file urls to the base url and streams each works file as gzip JSON lines.
 - **Streaming with read timeout.** The body is read through `HttpURLConnection` with a read timeout
-  (`nametracker.snapshot.read-timeout`, 5m). A stall mid-body is the same broken-off failure as a truncated gzip: the
+  (`garrulus.snapshot.read-timeout`, 5m). A stall mid-body is the same broken-off failure as a truncated gzip: the
   task fails, uses an attempt and reads the file again. A stalled response header is a retryable outage; the
   connection is closed on every failure.
 - **`BACKFILL`** payload `{"fromYear":2000,"toYear":<this year>,"files":null,"fromFile":0}`. It inserts a `backfill_run`

@@ -89,7 +89,7 @@ work to the key services of the field, and a way for people to register journals
   (`HarvestOutage`).
 - Free by default: every integration has a switch; a service that needs a key (Springer Nature, CiNii, BHL, KU
   text-mining tokens) is off until its key is configured.
-- Full text is kept only for open licences (`nametracker.content.open-licences`); closed text lives in the spool until
+- Full text is kept only for open licences (`garrulus.content.open-licences`); closed text lives in the spool until
   `FIND_NAMES` and is then purged (ADR-0004, ADR-0005).
 
 ## Facts found while designing
@@ -165,7 +165,7 @@ new services need no migration, and the same rows serve matching.
   `firstPage(sourceBatch, window)` and `nextPage(position)`, each page returning `WorkRecord`s with their identifiers.
   The existing OpenAlex and Crossref handlers are wrapped, not rewritten. Each layer has its own `harvest_run.adapter`
   value (`OAI`, `MAGTECH`, `EUROPEPMC`, `BLR` join `OPENALEX_LIVE`, `OPENALEX_SWEEP`, `CROSSREF`), its own dedup key prefix and
-  its own switch `nametracker.layers.<layer>.enabled` (all on by default, except keyed services without a key).
+  its own switch `garrulus.layers.<layer>.enabled` (all on by default, except keyed services without a key).
 - **Windows.** L3 harvests with `from` = last successful run minus 3 days; endpoints whose datestamps are unreliable
   (flag on the route, e.g. AJOL, DergiPark, MNHN) are read in full weekly instead of daily and deduplicated by
   identifier. L4 uses a 14-day window daily. Overlap heals missed days, as for L1.
@@ -317,7 +317,7 @@ M6 decouples it (my call, explained to Markus on 2026-11-19):
   order OpenAlex, DOAJ, taxonomic-focus fallback, and writes them with `discipline_source`. A change of a crosswalk or of
   the vocabulary is applied by a recompute over the stored raw data; nothing is re-fetched.
 - **When OpenAlex changes** a topic or subfield, only crosswalk rows and the seed topic list change; the vocabulary and
-  the user-facing filters stay. The seed topics move from code into configuration (`nametracker.seed.taxonomy-topics`),
+  the user-facing filters stay. The seed topics move from code into configuration (`garrulus.seed.taxonomy-topics`),
   and the seeding logs a WARN for a configured topic id OpenAlex no longer knows.
 - **To deviate later** (a "Mycology" discipline, which ASJC lacks; splitting systematics from ecology inside 1105), add
   or split entries in our vocabulary, adjust the crosswalks and recompute. A retired code keeps resolving through
@@ -445,7 +445,7 @@ titles only, translate abstracts in the browser. Paid translation services stay 
     SPI; the default implementation calls a self-hosted open machine-translation service with open models (for
     example LibreTranslate with Argos models, or OPUS-MT on CTranslate2), running natively on the VM like gnfinder.
     Engine and model version are stored; a model upgrade can re-translate with `{"all":true}`. Off
-    (`nametracker.translation.enabled=false`) until the service is installed; then non-Latin scripts first (Chinese,
+    (`garrulus.translation.enabled=false`) until the service is installed; then non-Latin scripts first (Chinese,
     Japanese, Korean, Cyrillic, Arabic, Persian, Thai …), Latin-script languages after.
   - Abstracts are never machine-translated on the server: storing translations of copyrighted abstracts is avoided.
 - **Display.** Lists, digests, feeds and the API show the original title plus the English one when it differs, labelled
@@ -492,7 +492,7 @@ route, off by default:
   ≤ 200-character snippets, hashes and the URL are kept, as for every closed text. Abstracts obtained this way are
   stored and shown only if the licence allows display; otherwise they are used for name finding only.
 - Every fetch is logged with work, publisher API and date (an audit table), so usage can be reported to KU.
-- **Switch** `nametracker.content.institutional.enabled=false` plus a per-publisher allow-list. It may be switched on
+- **Switch** `garrulus.content.institutional.enabled=false` plus a per-publisher allow-list. It may be switched on
   only after the KU library confirms in writing which licences permit text and data mining for this use, and whether
   Garrulus counts as research by a research organisation under the EU text-and-data-mining exception (DSM Directive
   Art. 3, implemented in Danish copyright law). That confirmation is Markus' to obtain; the design does not assume it.
@@ -509,7 +509,7 @@ New task types (all idempotent, continuation pages, outage deferral as in ADR-00
 
 ### Admins and admin pages (Markus, 2026-11-19: 1a)
 
-- **Admins are named by ORCID** in `NAMETRACKER_ADMIN_ORCIDS` (comma-separated iDs), as design.md §8 and Blixa do. An
+- **Admins are named by ORCID** in `GARRULUS_ADMIN_ORCIDS` (comma-separated iDs), as design.md §8 and Blixa do. An
   account signed in through ORCID whose iD is listed gets the role `ADMIN` in its session; e-mail sign-in alone never
   makes an admin. The list is read at start, so a change needs a restart.
 - `/api/admin/**` accepts either the `X-Admin-Token` header (scripts, as today; still exempt from the XSRF check) or an
@@ -576,7 +576,7 @@ tail's history (expected to be small next to the OpenAlex snapshot backfill; mea
 - A test adds a scheme and its lookup without a migration, and its links appear on the pages after the back-fill.
 - Discovery adds candidates from DOAJ, PKP Beacon, Plazi and COL references, each with its signal; candidates are
   sampled and sorted by their score on the admin journal page, and no sample paper appears in `work`.
-- An account whose ORCID is in `NAMETRACKER_ADMIN_ORCIDS` sees the admin pages, accepts a registered journal from
+- An account whose ORCID is in `GARRULUS_ADMIN_ORCIDS` sees the admin pages, accepts a registered journal from
   there, and receives the layer mail of the OpenAlex block test; other accounts get 403 on `/api/admin/**`.
 - A promoted journal without an OpenAlex id gets its history back to 2000 through its routes, at `BACKFILL`, with no
   hits; records before 2000 are skipped and counted.

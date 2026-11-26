@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.garrulus.store.account.DigestMapper">
+
+  <select id="insert" resultType="long" flushCache="true">
+    INSERT INTO digest (user_id, hits, status, error) VALUES (#{o.userId}, #{o.hits}, #{o.status}, #{o.error})
+    RETURNING id
+  </select>
+
+  <update id="setStatus">UPDATE digest SET status = #{status}, error = #{error} WHERE id = #{id}</update>
+
+  <select id="lastSent" resultType="java.time.Instant">
+    SELECT max(sent_at) FROM digest WHERE user_id = #{userId} AND status = 'SENT'
+  </select>
+
+  <resultMap id="digest" type="org.catalogueoflife.garrulus.store.account.Digest">
+    <constructor>
+      <idArg column="id" javaType="long"/>
+      <arg column="user_id" javaType="_long"/>
+      <arg column="sent_at" javaType="java.time.Instant"/>
+      <arg column="hits" javaType="_int"/>
+      <arg column="status" javaType="string"/>
+      <arg column="error" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <select id="listByUser" resultMap="digest">
+    SELECT id, user_id, sent_at, hits, status, error FROM digest WHERE user_id = #{userId} ORDER BY sent_at DESC, id DESC
+  </select>
+
+  <update id="reassign">UPDATE digest SET user_id = #{toUserId} WHERE user_id = #{fromUserId}</update>
+</mapper>

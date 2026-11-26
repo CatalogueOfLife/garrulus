@@ -1,0 +1,290 @@
+package org.catalogueoflife.garrulus.indexer.content;
+
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
+import org.catalogueoflife.garrulus.finder.api.FinderJson;
+import org.catalogueoflife.garrulus.indexer.finder.DocumentLoader;
+import org.catalogueoflife.garrulus.indexer.finder.FindNamesHandler;
+import org.catalogueoflife.garrulus.indexer.finder.Spool;
+import org.catalogueoflife.garrulus.store.index.IndexMapper;
+import org.catalogueoflife.garrulus.indexer.content.route.AbstractRoute;
+import org.catalogueoflife.garrulus.indexer.content.topup.AbstractTopUps;
+import org.catalogueoflife.garrulus.indexer.cost.BudgetExhaustedException;
+import org.catalogueoflife.garrulus.indexer.harvest.HarvestOutage;
+import org.catalogueoflife.garrulus.indexer.task.ServiceOutageException;
+import org.catalogueoflife.garrulus.indexer.task.TaskHandler;
+import org.catalogueoflife.garrulus.store.content.Content;
+import org.catalogueoflife.garrulus.store.blob.BlobStore;
+import org.catalogueoflife.garrulus.store.content.ContentMapper;
+import org.catalogueoflife.garrulus.store.source.Source;
+import org.catalogueoflife.garrulus.store.source.SourceMapper;
+import org.catalogueoflife.garrulus.store.task.Task;
+import org.catalogueoflife.garrulus.store.task.TaskQueue;
+import org.catalogueoflife.garrulus.store.work.Work;
+import org.catalogueoflife.garrulus.store.work.WorkMapper;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.databind.JsonNode;
+
+/**
+ * {@code RESOLVE_CONTENT}, payload {@code {"workId":n}} (plus {@code "recheck":k} on a re-check). Tries the full-text
+ * routes in order, the first fulltext result wins; the abstract is always stored when there is a title or abstract.
+ * Raw and Document blobs are written only for open licences; a closed full text document goes to the transient
+ * {@link Spool} instead. When the document the finder should read differs from the one it last saw (the one of the
+ * work's pending index, if it has one), FIND_NAMES is enqueued at this task's priority and run_after. A DISCOVERED work
+ * ends in CONTENT_RESOLVED with its text level; a later state, INDEXED above all, is kept and only the text level
+ * changes, so a listed work stays listed while its full text is named.
+ * A work that is only an abstract, from a CORE or BROAD source, not of origin BACKFILL and published within the last 90
+ * days (or undated), is looked at again 7, 30 and 90 days after it was first seen (dedup key
+ * {@code content:<workId>:recheck:<k>}). The rules are checked again after each re-check, so a work that no longer
+ * qualifies is resolved once more and then left alone.
+ *
+ * <p>With {@code "freeOnly":true} the paid routes ({@link ContentRoute#paid()}) are skipped; the institutional route
+ * costs nothing per call and is not skipped (it guards against repeated fetches itself, see
+ * {@link ContentRoute#applies(Work, Source, boolean)}). A route of last resort ({@link ContentRoute#lastResort()},
+ * the institutional route) is skipped when an earlier route was down or waited for its budget in this run; when it is
+ * down, busy or at its daily cap itself and no full text was found, the task is deferred to when it may ask again
+ * (without using an attempt, nothing written). {@code "reprocess":true}
+ * comes from a forced FIND_NAMES whose full text is gone: a full text found is stored as usual and a forced FIND_NAMES
+ * ({@code "refetched":true}) follows even when the document is unchanged; when none is found, nothing is written and
+ * nothing follows, so the work keeps its content, text level and names (counted in an INFO line). If a route is down
+ * (it threw a retryable problem, {@link HarvestOutage#retryable}) and none had the text, the task is deferred by 30
+ * minutes as an outage instead, without using an attempt and without writing anything. A route that failed for good
+ * (a 4xx, an unreadable answer) counts as having no text: deferring would repeat the same failure for ever.
+ *
+ * <p>After the routes the abstract top-up ({@link AbstractTopUps}) fills a missing abstract, and the work is read again
+ * so the ABSTRACT row and the finder see it. {@code "tei":true} comes from an OpenAlex record that newly has TEI: when
+ * the TEI route found nothing because the OpenAlex budget is spent, the task is deferred to the budget's reset.
+ */
+@Component
+public class ResolveContentHandler implements TaskHandler {
+
+  public static final String TYPE = "RESOLVE_CONTENT";
+  static final int[] RECHECK_DAYS = {7, 30, 90};
+  static final int RECHECK_MAX_AGE_DAYS = 90;
+  /** How long a re-fetch for reprocessing waits after a full text route failed. */
+  static final Duration OUTAGE_DELAY = Duration.ofMinutes(30);
+  private static final Logger LOG = LoggerFactory.getLogger(ResolveContentHandler.class);
+  /** Works since start that kept their names because their full text was no longer free to get. */
+  private final AtomicLong kept = new AtomicLong();
+
+  private final List<ContentRoute> routes;
+  private final WorkMapper works;
+  private final SourceMapper sources;
+  private final ContentMapper contents;
+  private final BlobStore blobs;
+  private final LicencePolicy policy;
+  private final Spool spool;
+  private final IndexMapper index;
+  private final TaskQueue queue;
+  private final TransactionTemplate tx;
+  private final Clock clock;
+  private final @Nullable AbstractTopUps topUps;
+
+  /** The full-text routes in the order given, no abstract top-up. */
+  public ResolveContentHandler(List<ContentRoute> routes, WorkMapper works, SourceMapper sources,
+      ContentMapper contents, BlobStore blobs, LicencePolicy policy, Spool spool, IndexMapper index, TaskQueue queue,
+      TransactionTemplate tx, Clock clock) {
+    this(routes, works, sources, contents, blobs, policy, spool, index, queue, tx, clock, null);
+  }
+
+  /** The full-text routes in the order given and the abstract top-up chain run after them (null: none). */
+  public ResolveContentHandler(List<ContentRoute> routes, WorkMapper works, SourceMapper sources,
+      ContentMapper contents, BlobStore blobs, LicencePolicy policy, Spool spool, IndexMapper index, TaskQueue queue,
+      TransactionTemplate tx, Clock clock, @Nullable AbstractTopUps topUps) {
+    this.topUps = topUps;
+    this.routes = List.copyOf(routes);
+    this.works = works;
+    this.sources = sources;
+    this.contents = contents;
+    this.blobs = blobs;
+    this.policy = policy;
+    this.spool = spool;
+    this.index = index;
+    this.queue = queue;
+    this.tx = tx;
+    this.clock = clock;
+  }
+
+  /** Spring: the routes are the beans ordered by {@code @Order}, possibly none. */
+  @Autowired
+  public ResolveContentHandler(ObjectProvider<ContentRoute> routes, WorkMapper works, SourceMapper sources,
+      ContentMapper contents, BlobStore blobs, LicencePolicy policy, Spool spool, IndexMapper index, TaskQueue queue,
+      TransactionTemplate tx, Clock clock, AbstractTopUps topUps) {
+    this(routes.orderedStream().toList(), works, sources, contents, blobs, policy, spool, index, queue, tx, clock,
+        topUps);
+  }
+
+  @Override
+  public String type() {
+    return TYPE;
+  }
+
+  @Override
+  public void handle(Task task) throws Exception {
+    JsonNode payload = FinderJson.mapper().readTree(task.payload());
+    long workId = payload.path("workId").asLong();
+    boolean freeOnly = payload.path("freeOnly").asBoolean(false);
+    boolean reprocess = payload.path("reprocess").asBoolean(false);
+    boolean tei = payload.path("tei").asBoolean(false);
+    Work work = works.get(workId);
+    if (work == null) {
+      LOG.warn("RESOLVE_CONTENT for unknown work {}", workId);
+      return;
+    }
+    if (tei && "FULLTEXT".equals(work.textLevel())) return; // the full text came another way meanwhile
+    Source source = work.sourceId() == null ? null : sources.get(work.sourceId());
+
+    List<FetchedContent> results = new ArrayList<>();
+    FullText found = fullText(work, source, freeOnly, reprocess);
+    FetchedContent full = found.content();
+    if (full == null && found.lastResortRetry() != null) {
+      // the institutional route is down, busy or at its daily cap: ask again then rather than store less
+      throw new ServiceOutageException("institutional route", found.lastResortRetry());
+    }
+    if (reprocess && full == null && found.routeDown()) {
+      // a route that is down may have the text: try again later rather than keep the old names
+      throw new ServiceOutageException("full text routes", clock.instant().plus(OUTAGE_DELAY));
+    }
+    if (reprocess && full == null) {
+      LOG.info("Work {} keeps its names: its full text is no longer free to get ({} works kept since start)", workId,
+          kept.incrementAndGet());
+      return;
+    }
+    if (tei && full == null && found.budgetRetry() != null) {
+      // the TEI download this run was queued for waits for the OpenAlex budget; nothing else changed since
+      throw new ServiceOutageException("OpenAlex budget", found.budgetRetry());
+    }
+    if (full != null) results.add(full);
+    boolean topUpUnasked = false;
+    if (topUps != null) {
+      AbstractTopUps.Result top = topUps.run(work, source, reprocess);
+      topUpUnasked = top.unasked();
+      if (top.changed()) {
+        work = works.get(workId); // the abstract the top-up stored is what the ABSTRACT row and the finder read
+      }
+    }
+    if (AbstractRoute.present(work)) results.add(AbstractRoute.fetch(work));
+
+    String level = full != null ? "FULLTEXT" : AbstractRoute.present(work) ? "ABSTRACT_ONLY" : "NO_TEXT";
+    // never downgrade: an earlier full text (a non-ABSTRACT row, or the stored level) outlives a flaky route
+    if (!"FULLTEXT".equals(level) && ("FULLTEXT".equals(work.textLevel())
+        || contents.listByWork(workId).stream().anyMatch(c -> !AbstractRoute.ROUTE.equals(c.route())))) {
+      level = "FULLTEXT";
+    }
+    String finalLevel = level;
+
+    // Blobs are content-addressed and written only for open licences; they may precede the transaction.
+    List<Content> rows = new ArrayList<>();
+    Map<String, byte[]> closed = new HashMap<>(); // closed full text documents by sha, for the spool
+    for (FetchedContent f : results) {
+      boolean retained = policy.isOpen(f.license());
+      byte[] doc = FinderJson.mapper().writeValueAsBytes(f.document());
+      String rawSha;
+      String docSha;
+      if (retained) {
+        rawSha = blobs.put(f.raw());
+        docSha = blobs.put(doc);
+      } else {
+        rawSha = BlobStore.sha256(f.raw());
+        docSha = BlobStore.sha256(doc);
+        if (f.fulltext()) closed.put(docSha, doc);
+      }
+      rows.add(new Content(null, workId, f.route(), f.kind(), f.license(), retained, rawSha, docSha, f.sourceUrl(),
+          null));
+    }
+    tx.executeWithoutResult(status -> {
+      rows.forEach(contents::upsert);
+      works.resolveContent(workId, finalLevel);
+    });
+
+    List<Content> stored = contents.listByWork(workId);
+    String chosen = DocumentLoader.chosenSha(work, finalLevel, stored);
+    String pendingSha = index.pendingDocSha(workId);
+    if (reprocess || !chosen.equals(pendingSha != null ? pendingSha : index.namesDocSha(workId))) {
+      // closed full text waits in the transient spool until FIND_NAMES has run; only when that task follows
+      if (closed.containsKey(chosen)) spool.put(workId, chosen, closed.get(chosen));
+      // the follow-up takes this task's place in the queue (priority and run_after): depth first
+      if (reprocess) {
+        queue.enqueue(FindNamesHandler.TYPE, "{\"workId\":" + workId + ",\"force\":true,\"refetched\":true}",
+            task.priority(), "find:" + workId + ":force:refetched:" + chosen.substring(0, 12), task.runAfter());
+      } else {
+        queue.enqueue(FindNamesHandler.TYPE, "{\"workId\":" + workId + "}", task.priority(),
+            "names:" + workId + ":" + chosen.substring(0, 12), task.runAfter());
+      }
+    }
+
+    // a work with no text at all is looked at again too when a top-up service was down or at its daily cap (it may
+    // have the abstract)
+    if ("ABSTRACT_ONLY".equals(finalLevel) || "NO_TEXT".equals(finalLevel) && topUpUnasked) {
+      scheduleRecheck(task, work, source);
+    }
+  }
+
+  /**
+   * The first full text of the routes, or null; {@code routeDown} when a route threw a retryable problem on the way,
+   * {@code lastResortRetry} when a route of last resort was down, busy or capped (when to ask again).
+   */
+  private record FullText(@Nullable FetchedContent content, boolean routeDown, @Nullable Instant budgetRetry,
+      @Nullable Instant lastResortRetry) {}
+
+  private FullText fullText(Work work, Source source, boolean freeOnly, boolean reprocess) {
+    boolean down = false;
+    Instant budgetRetry = null;
+    Instant lastResortRetry = null;
+    for (ContentRoute r : routes) {
+      try {
+        if (freeOnly && r.paid()) continue;
+        // a route of last resort only when every earlier route answered: one that is down may have the open text
+        if (r.lastResort() && (down || budgetRetry != null)) continue;
+        if (!r.applies(work, source, reprocess)) continue;
+        Optional<FetchedContent> got = r.fetch(work, source);
+        if (got.isPresent() && got.get().fulltext()) return new FullText(got.get(), down, null, null);
+      } catch (BudgetExhaustedException e) {
+        LOG.info("Route {} skipped for work {}: budget spent until {}", r.route(), work.id(), e.retryAt());
+        if (r.lastResort()) lastResortRetry = e.retryAt();
+        else budgetRetry = e.retryAt();
+      } catch (ServiceOutageException e) {
+        LOG.warn("Route {} failed for work {}: {}", r.route(), work.id(), e.toString());
+        if (r.lastResort()) lastResortRetry = e.retryAt();
+        else down = true;
+      } catch (RuntimeException e) {
+        if (HarvestOutage.retryable(e) != null) down = true;
+        LOG.warn("Route {} failed for work {}: {}", r.route(), work.id(), e.toString());
+      }
+    }
+    return new FullText(null, down, budgetRetry, lastResortRetry);
+  }
+
+  private void scheduleRecheck(Task task, Work work, Source source) {
+    if (source == null || !("CORE".equals(source.tier()) || "BROAD".equals(source.tier()))) return;
+    if (work.firstSeenAt() == null || "BACKFILL".equals(work.origin())) return;
+    LocalDate today = LocalDate.now(clock.withZone(ZoneOffset.UTC));
+    if (work.publicationDate() != null && work.publicationDate().isBefore(today.minusDays(RECHECK_MAX_AGE_DAYS))) {
+      return; // an older publication will not gain a full text route any more
+    }
+    Instant now = clock.instant();
+    for (int k = 1; k <= RECHECK_DAYS.length; k++) {
+      Instant at = work.firstSeenAt().plus(Duration.ofDays(RECHECK_DAYS[k - 1]));
+      if (at.isAfter(now)) {
+        queue.enqueue(TYPE, "{\"workId\":" + work.id() + ",\"recheck\":" + k + "}", task.priority(),
+            "content:" + work.id() + ":recheck:" + k, at);
+        return;
+      }
+    }
+  }
+}

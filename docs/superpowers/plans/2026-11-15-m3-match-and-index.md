@@ -27,14 +27,14 @@
 ## Global Constraints
 
 - **Packages and ids:**
-  - Packages are `org.catalogueoflife.nametracker.{store,indexer,web}.*`.
+  - Packages are `org.catalogueoflife.garrulus.{store,indexer,web}.*`.
   - Outgoing requests carry `User-Agent: Garrulus/<version> (+https://www.catalogueoflife.org)`, through `PoliteHttp`.
 - **Who calls what:**
   - Only the `indexer` calls external services (CLB, gnfinder, OpenAlex, Crossref).
   - `web` only reads index tables, the blob store and `taxon_stats`. It writes nothing new in M3.
   - The browser calls the CLB API directly for the taxon picker and the taxon header.
 - **CLB:**
-  - Base `https://api.checklistbank.org` (`NAMETRACKER_CLB_BASE_URL`).
+  - Base `https://api.checklistbank.org` (`GARRULUS_CLB_BASE_URL`).
   - At most 10 requests a second (`HostLimiter`).
   - Matching uses `GET /dataset/{key}/match/nameusage` with `mode=RELAXED`.
   - The XR key comes from `GET /dataset/3LXR`. On 2026-11-15 that was key 316691, alias "COL26.10 XR".
@@ -54,7 +54,7 @@
   - All external HTTP goes through WireMock fixtures under `src/test/resources/<service>/`.
   - CLB fixtures are captured once, by hand, from the live API with the commands given in Task 5.
   - `mvn -B verify` makes no live calls.
-- **Never touch local ports 8080/8081.** Manual runs use `SERVER_PORT=18080` and `NAMETRACKER_INDEXER_PORT=18081`.
+- **Never touch local ports 8080/8081.** Manual runs use `SERVER_PORT=18080` and `GARRULUS_INDEXER_PORT=18081`.
 - **Commits:** conventional style, files staged by explicit path, and no tool attribution lines (Markus' global rule).
 
 ## Review Focus
@@ -149,7 +149,7 @@
 - Produces:
   - `OpenAlexBudget(ApiUsageMapper, BigDecimal maxDailyUsd, BigDecimal reserveUsd, Clock, @Nullable String apiKey)`
   - `TaskQueue.purgeDone(Duration olderThan): int`
-  - `PoliteHttp` property `nametracker.http.max-response-bytes` (default `52428800`)
+  - `PoliteHttp` property `garrulus.http.max-response-bytes` (default `52428800`)
   - `WorkUpsert` reports `abstractJatsAdded`
 
 - [ ] **Step 1: Write V3:**
@@ -247,7 +247,7 @@
   - `deleteWorkIndexRemovesOnlyThatWork`
   - `onlyOneCurrentRelease`: a second `current=true` fails.
   - `matchRoundTrip`: a `text[]` path and a jsonb classification survive the round trip.
-- [ ] **Step 3: Implement the records and the mapper. Move the blob store, with the indexer importing `store.blob`.** `web` gets a `FileBlobStore` bean for reading, on `nametracker.blobs.dir` (`NAMETRACKER_BLOBS_DIR`, default `./data/blobs`), as in the indexer.
+- [ ] **Step 3: Implement the records and the mapper. Move the blob store, with the indexer importing `store.blob`.** `web` gets a `FileBlobStore` bean for reading, on `garrulus.blobs.dir` (`GARRULUS_BLOBS_DIR`, default `./data/blobs`), as in the indexer.
 - [ ] **Step 4: Run `mvn -B -pl store,indexer,web -am verify`, then commit**
   The web `SchemaCheckIT` still passes.
   `git commit -m "feat(store): schema V4 for mentions, names, matches and work names; blob store in store"`
@@ -274,7 +274,7 @@
   - On success it enqueues `MATCH_NAMES` with payload `{"workId":n}` and dedup key `match:<workId>:<finderRunId>:<docSha first 12>`.
   - Task type `FIND_PENDING`, payload `{"limit":n}`, an admin task: it enqueues `FIND_NAMES` for up to n works in `CONTENT_RESOLVED` with `names_doc_sha IS NULL`, newest first.
   - `ServiceOutageException(String service, Instant retryAt)`.
-  - `Spool.put(String sha, byte[] docJson)`, `Optional<byte[]> get(String sha)`, `delete(String sha)`, `purgeOlderThan(Duration): int`. The directory is `nametracker.content.spool-dir` (`NAMETRACKER_SPOOL_DIR`, default `./data/spool`), and files are named `<sha>.json.gz`.
+  - `Spool.put(String sha, byte[] docJson)`, `Optional<byte[]> get(String sha)`, `delete(String sha)`, `purgeOlderThan(Duration): int`. The directory is `garrulus.content.spool-dir` (`GARRULUS_SPOOL_DIR`, default `./data/spool`), and files are named `<sha>.json.gz`.
   - `DocumentLoader.load(Work): Loaded(Document doc, String docSha, Map<String,String> diagnostics)`.
 
 - [ ] **Step 1: Write failing tests**
@@ -292,8 +292,8 @@
   `mvn -B -pl indexer -am verify -Dit.test=FindNamesHandlerIT -Dtest=DocumentLoaderTest`
 - [ ] **Step 3: Implement**
   - **Choosing the finder in `FinderConfig`:**
-    - If `nametracker.finder.url` (`NAMETRACKER_FINDER_URL`) is set, use `RemoteNameFinder`.
-    - Otherwise, if `nametracker.finder.dictionary` (`FINDER_DICTIONARY`) is set, use `PipelineFactory.create(dictionary, GNFINDER_URL, FINDER_CONFIG)`.
+    - If `garrulus.finder.url` (`GARRULUS_FINDER_URL`) is set, use `RemoteNameFinder`.
+    - Otherwise, if `garrulus.finder.dictionary` (`FINDER_DICTIONARY`) is set, use `PipelineFactory.create(dictionary, GNFINDER_URL, FINDER_CONFIG)`.
     - Otherwise register no `FIND_NAMES` handler and log one WARN. The tasks then wait in the queue.
   - **Choosing the document:**
     - For `FULLTEXT`, use the doc of the non-`ABSTRACT` content row: the blob if retained, else the spool.
@@ -351,7 +351,7 @@
   - `cacheHitMakesNoCall`: WireMock verifies a single request for two lookups.
   - `firstXrCheckPinsRelease` and `laterNewKeyIsRecordedButNotCurrent`: XR switching is M5.
   - `clbDownThrowsServiceOutage`: a 503 after `PoliteHttp`'s retries, or `UnknownHostException`, throws `ServiceOutageException`.
-- [ ] **Step 3: Implement** on `PoliteHttp`, with a host limit of 10 requests a second for `api.checklistbank.org` and the base URL from `nametracker.clb.base-url`. Parse with Jackson 3. `type` is stored lower-case as CLB sends it.
+- [ ] **Step 3: Implement** on `PoliteHttp`, with a host limit of 10 requests a second for `api.checklistbank.org` and the base URL from `garrulus.clb.base-url`. Parse with Jackson 3. `type` is stored lower-case as CLB sends it.
 - [ ] **Step 4: Run the tests, then commit**
   `mvn -B -pl indexer -am verify` → green.
   `git commit -m "feat(indexer): pinned COL XR release and cached CLB name matching"`
@@ -405,7 +405,7 @@
 
 **Interfaces:**
 - Produces:
-  - `SalienceProperties` (`nametracker.salience.*`), with defaults `title=0.40`, `abstract=0.20`, `act=0.35`, `heading=0.15`, `share=0.25`, `repeat=0.15`, `ubiquity=0.50`, `ubiquity-full-share=0.02` and `threshold=0.35`.
+  - `SalienceProperties` (`garrulus.salience.*`), with defaults `title=0.40`, `abstract=0.20`, `act=0.35`, `heading=0.15`, `share=0.25`, `repeat=0.15`, `ubiquity=0.50`, `ubiquity-full-share=0.02` and `threshold=0.35`.
   - `Salience.score(Inputs i): double`, where `Inputs(boolean inTitle, boolean inAbstract, boolean hasAct, boolean inHeading, int bodyCount, int maxBodyCountInWork, double ubiquityShare)`.
   - `WorkIndexer.index(long workId, Map<Long, Placement> byNameStringId)`: in one transaction it replaces `work_name`, calls `setIndexed` and sets `state=INDEXED` and `indexed_at=now()`.
 - [ ] **Step 1: Write the salience formula as given:**
@@ -442,7 +442,7 @@
 
 **Interfaces:**
 - Produces:
-  - Task type `REBUILD_STATS` (dedup key `stats:<date>`), enqueued at `0 30 4 * * *` UTC (`nametracker.stats.cron`, ShedLock name `stats`), regardless of the harvest switch.
+  - Task type `REBUILD_STATS` (dedup key `stats:<date>`), enqueued at `0 30 4 * * *` UTC (`garrulus.stats.cron`, ShedLock name `stats`), regardless of the harvest switch.
   - `StatsMapper.rebuildUbiquity(int fromYear): int`
   - `StatsMapper.rebuildTaxonStats(): int`
 
@@ -540,7 +540,7 @@
   - `GET /api/sources/{id}` returns the categorisation fields plus `recentWorks` (10).
   - `GET /api/xr` returns `{key, alias}`, or 404 before the first `XR_CHECK`.
   - `GET /api/vocab/taxgroup` returns `[{name, parents:[…], codes:[…], icon}]`, with `icon` = `https://api.checklistbank.org/vocab/taxgroup/{name}/icon.svg`.
-  - CORS applies to `/api/taxa/**` only. The origins come from `nametracker.web.cors-origins` (default `https://www.catalogueoflife.org,https://dev.catalogueoflife.org,https://preview.catalogueoflife.org`), and only `GET` is allowed.
+  - CORS applies to `/api/taxa/**` only. The origins come from `garrulus.web.cors-origins` (default `https://www.catalogueoflife.org,https://dev.catalogueoflife.org,https://preview.catalogueoflife.org`), and only `GET` is allowed.
   - The OpenAPI file is served at `/api/openapi.yaml`.
 - [ ] **Step 1: Write failing tests**
   - `nameSearchNeedsTwoChars`

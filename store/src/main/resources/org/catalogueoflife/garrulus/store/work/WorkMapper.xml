@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.garrulus.store.work.WorkMapper">
+
+  <resultMap id="result" type="org.catalogueoflife.garrulus.store.work.Work">
+    <constructor>
+      <idArg column="id" javaType="long"/>
+      <arg column="openalex_id" javaType="string"/>
+      <arg column="doi" javaType="string"/>
+      <arg column="source_id" javaType="long"/>
+      <arg column="title" javaType="string"/>
+      <arg column="publication_date" javaType="java.time.LocalDate"/>
+      <arg column="year" javaType="short"/>
+      <arg column="volume" javaType="string"/>
+      <arg column="issue" javaType="string"/>
+      <arg column="pages" javaType="string"/>
+      <arg column="authors" javaType="string" typeHandler="org.catalogueoflife.garrulus.store.type.JsonbStringTypeHandler"/>
+      <arg column="type" javaType="string"/>
+      <arg column="language" javaType="string"/>
+      <arg column="oa_status" javaType="string"/>
+      <arg column="license" javaType="string"/>
+      <arg column="best_oa_url" javaType="string"/>
+      <arg column="abstract" javaType="string"/>
+      <arg column="abstract_source" javaType="string"/>
+      <arg column="origin" javaType="string"/>
+      <arg column="state" javaType="string"/>
+      <arg column="text_level" javaType="string"/>
+      <arg column="codes" javaType="java.util.List" typeHandler="org.catalogueoflife.garrulus.store.type.StringArrayTypeHandler"/>
+      <arg column="taxgroups" javaType="java.util.List" typeHandler="org.catalogueoflife.garrulus.store.type.StringArrayTypeHandler"/>
+      <arg column="has_acts" javaType="boolean"/>
+      <arg column="first_seen_at" javaType="java.time.Instant"/>
+      <arg column="modified" javaType="java.time.Instant"/>
+      <arg column="abstract_jats" javaType="string"/>
+      <arg column="pmcid" javaType="string"/>
+      <arg column="openalex_has_tei" javaType="boolean"/>
+      <arg column="openalex_checked_at" javaType="java.time.Instant"/>
+      <arg column="meta_layer" javaType="string"/>
+      <arg column="abstract_jats_source" javaType="string"/>
+      <arg column="access_layer" javaType="string"/>
+      <arg column="language_source" javaType="string"/>
+      <arg column="title_lang" javaType="string"/>
+      <arg column="abstract_lang" javaType="string"/>
+      <arg column="title_en" javaType="string"/>
+      <arg column="title_en_kind" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <select id="insert" resultType="long" flushCache="true">
+    INSERT INTO work (openalex_id, doi, source_id, title, publication_date, year, volume, issue, pages, authors, type, language, oa_status, license, best_oa_url, abstract, abstract_source, origin, state, text_level, codes, taxgroups, has_acts, abstract_jats, pmcid, openalex_has_tei, openalex_checked_at, meta_layer, abstract_jats_source, access_layer)
+    VALUES (#{o.openalexId}, #{o.doi}, #{o.sourceId}, #{o.title}, #{o.publicationDate}, #{o.year}, #{o.volume}, #{o.issue}, #{o.pages}, #{o.authors, typeHandler=org.catalogueoflife.garrulus.store.type.JsonbStringTypeHandler}, #{o.type}, #{o.language}, #{o.oaStatus}, #{o.license}, #{o.bestOaUrl}, #{o.abstractText}, #{o.abstractSource}, #{o.origin}, #{o.state}, #{o.textLevel}, #{o.codes, typeHandler=org.catalogueoflife.garrulus.store.type.StringArrayTypeHandler}, #{o.taxgroups, typeHandler=org.catalogueoflife.garrulus.store.type.StringArrayTypeHandler}, #{o.hasActs}, #{o.abstractJats}, #{o.pmcid}, COALESCE(#{o.openalexHasTei}, false), #{o.openalexCheckedAt}, #{o.metaLayer}, #{o.abstractJatsSource}, #{o.accessLayer})
+    RETURNING id
+  </select>
+
+  <select id="get" resultMap="result">
+    SELECT * FROM work WHERE id = #{id}
+  </select>
+
+  <update id="update">
+    UPDATE work SET
+      openalex_id = #{o.openalexId},
+      doi = #{o.doi},
+      source_id = #{o.sourceId},
+      title = #{o.title},
+      publication_date = #{o.publicationDate},
+      year = #{o.year},
+      volume = #{o.volume},
+      issue = #{o.issue},
+      pages = #{o.pages},
+      authors = #{o.authors, typeHandler=org.catalogueoflife.garrulus.store.type.JsonbStringTypeHandler},
+      type = #{o.type},
+      oa_status = #{o.oaStatus},
+      license = #{o.license},
+      best_oa_url = #{o.bestOaUrl},
+      abstract = #{o.abstractText},
+      abstract_source = #{o.abstractSource},
+      origin = #{o.origin},
+      state = #{o.state},
+      text_level = #{o.textLevel},
+      codes = #{o.codes, typeHandler=org.catalogueoflife.garrulus.store.type.StringArrayTypeHandler},
+      taxgroups = #{o.taxgroups, typeHandler=org.catalogueoflife.garrulus.store.type.StringArrayTypeHandler},
+      has_acts = #{o.hasActs},
+      abstract_jats = #{o.abstractJats},
+      pmcid = #{o.pmcid},
+      openalex_has_tei = COALESCE(#{o.openalexHasTei}, false),
+      openalex_checked_at = #{o.openalexCheckedAt},
+      meta_layer = COALESCE(#{o.metaLayer}::text, meta_layer),
+      access_layer = COALESCE(#{o.accessLayer}::text, access_layer),
+      abstract_jats_source = COALESCE(#{o.abstractJatsSource}::text, abstract_jats_source),
+      modified = now()
+    WHERE id = #{o.id}
+  </update>
+
+  <select id="findByDoi" resultMap="result">
+    SELECT * FROM work WHERE doi = #{doi}
+  </select>
+
+  <select id="findByOpenalexId" resultMap="result">
+    SELECT * FROM work WHERE openalex_id = #{id}
+  </select>
+
+  <update id="setState">
+    UPDATE work SET state = #{state}, text_level = #{textLevel}, modified = now() WHERE id = #{id}
+  </update>
+
+  <update id="resolveContent">
+    UPDATE work SET state = CASE WHEN state = 'DISCOVERED' THEN 'CONTENT_RESOLVED' ELSE state END,
+      text_level = #{textLevel}, modified = now() WHERE id = #{id}
+  </update>
+
+  <select id="listCrossrefOnly" resultMap="result">
+    SELECT * FROM work
+    WHERE openalex_id IS NULL AND (openalex_checked_at IS NULL OR openalex_checked_at &lt; now() - interval '7 days')
+    ORDER BY id
+    LIMIT #{limit}
+  </select>
+
+  <update id="setOpenalexChecked">
+    UPDATE work SET openalex_checked_at = #{at}, modified = now() WHERE id = #{id}
+  </update>
+
+  <update id="setPmcid">
+    UPDATE work SET pmcid = #{pmcid}, modified = now() WHERE id = #{id} AND pmcid IS NULL
+  </update>
+
+  <select id="insertIfAbsent" resultType="long" flushCache="true">
+    INSERT INTO work (openalex_id, doi, source_id, title, publication_date, year, volume, issue, pages, authors, type, oa_status, license, best_oa_url, abstract, abstract_source, origin, state, text_level, codes, taxgroups, has_acts, abstract_jats, pmcid, openalex_has_tei, openalex_checked_at, meta_layer, abstract_jats_source, access_layer)
+    VALUES (#{o.openalexId}, #{o.doi}, #{o.sourceId}, #{o.title}, #{o.publicationDate}, #{o.year}, #{o.volume}, #{o.issue}, #{o.pages}, COALESCE(#{o.authors, typeHandler=org.catalogueoflife.garrulus.store.type.JsonbStringTypeHandler}, '[]'::jsonb), #{o.type}, #{o.oaStatus}, #{o.license}, #{o.bestOaUrl}, #{o.abstractText}, #{o.abstractSource}, #{o.origin}, COALESCE(#{o.state}, 'DISCOVERED'), #{o.textLevel}, COALESCE(#{o.codes, typeHandler=org.catalogueoflife.garrulus.store.type.StringArrayTypeHandler}, '{}'::text[]), COALESCE(#{o.taxgroups, typeHandler=org.catalogueoflife.garrulus.store.type.StringArrayTypeHandler}, '{}'::text[]), COALESCE(#{o.hasActs}, false), #{o.abstractJats}, #{o.pmcid}, COALESCE(#{o.openalexHasTei}, false), #{o.openalexCheckedAt}, #{o.metaLayer}, #{o.abstractJatsSource}, #{o.accessLayer})
+    ON CONFLICT DO NOTHING
+    RETURNING id
+  </select>
+
+  <update id="merge">
+    UPDATE work SET
+      openalex_id = CASE WHEN openalex_id IS NULL AND #{o.openalexId}::text IS NOT NULL
+                          AND NOT EXISTS (SELECT 1 FROM work w2 WHERE w2.openalex_id = #{o.openalexId}::text)
+                         THEN #{o.openalexId}::text ELSE openalex_id END,
+      doi = CASE WHEN doi IS NULL AND #{o.doi}::text IS NOT NULL
+                  AND NOT EXISTS (SELECT 1 FROM work w2 WHERE w2.doi = #{o.doi}::text)
+                 THEN #{o.doi}::text ELSE doi END,
+      source_id = COALESCE(source_id, #{o.sourceId}),
+      title = COALESCE(#{o.title}, title),
+      publication_date = COALESCE(#{o.publicationDate}, publication_date),
+      year = COALESCE(#{o.year}, year),
+      volume = COALESCE(#{o.volume}, volume),
+      issue = COALESCE(#{o.issue}, issue),
+      pages = COALESCE(#{o.pages}, pages),
+      authors = COALESCE(#{o.authors, typeHandler=org.catalogueoflife.garrulus.store.type.JsonbStringTypeHandler}, authors),
+      type = COALESCE(type, #{o.type}),
+      oa_status = COALESCE(#{o.oaStatus}, oa_status),
+      license = COALESCE(#{o.license}, license),
+      best_oa_url = COALESCE(#{o.bestOaUrl}, best_oa_url),
+      abstract = COALESCE(abstract, #{o.abstractText}),
+      abstract_source = CASE WHEN abstract IS NULL AND #{o.abstractText}::text IS NOT NULL
+                             THEN #{o.abstractSource}::text ELSE COALESCE(abstract_source, #{o.abstractSource}::text) END,
+      abstract_jats = COALESCE(#{o.abstractJats}, abstract_jats),
+      pmcid = COALESCE(pmcid, #{o.pmcid}),
+      openalex_has_tei = COALESCE(#{o.openalexHasTei}, openalex_has_tei),
+      openalex_checked_at = COALESCE(openalex_checked_at, #{o.openalexCheckedAt}),
+      meta_layer = COALESCE(meta_layer, #{o.metaLayer}::text),
+      access_layer = COALESCE(access_layer, #{o.accessLayer}::text),
+      abstract_jats_source = CASE WHEN #{o.abstractJats}::text IS NOT NULL
+                                  THEN COALESCE(#{o.abstractJatsSource}::text, abstract_jats_source)
+                                  ELSE abstract_jats_source END,
+      modified = now()
+    WHERE id = #{id}
+  </update>
+
+  <select id="findForUpdate" resultMap="result" flushCache="true" useCache="false">
+    SELECT * FROM work WHERE id = #{id} FOR UPDATE
+  </select>
+
+  <update id="updateMerged">
+    UPDATE work SET
+      openalex_id = CASE WHEN #{o.openalexId}::text IS NULL
+                          OR EXISTS (SELECT 1 FROM work w2 WHERE w2.openalex_id = #{o.openalexId}::text AND w2.id &lt;&gt; #{o.id})
+                         THEN openalex_id ELSE #{o.openalexId}::text END,
+      doi = CASE WHEN #{o.doi}::text IS NULL
+                  OR EXISTS (SELECT 1 FROM work w2 WHERE w2.doi = #{o.doi}::text AND w2.id &lt;&gt; #{o.id})
+                 THEN doi ELSE #{o.doi}::text END,
+      source_id = #{o.sourceId},
+      title = #{o.title},
+      publication_date = #{o.publicationDate},
+      year = #{o.year},
+      volume = #{o.volume},
+      issue = #{o.issue},
+      pages = #{o.pages},
+      authors = COALESCE(#{o.authors, typeHandler=org.catalogueoflife.garrulus.store.type.JsonbStringTypeHandler}, '[]'::jsonb),
+      type = #{o.type},
+      oa_status = #{o.oaStatus},
+      license = #{o.license},
+      best_oa_url = #{o.bestOaUrl},
+      abstract = #{o.abstractText},
+      abstract_source = #{o.abstractSource},
+      abstract_jats = #{o.abstractJats},
+      abstract_jats_source = #{o.abstractJatsSource},
+      pmcid = #{o.pmcid},
+      openalex_has_tei = COALESCE(#{o.openalexHasTei}, false),
+      openalex_checked_at = #{o.openalexCheckedAt},
+      meta_layer = #{o.metaLayer},
+      access_layer = #{o.accessLayer},
+      modified = now()
+    WHERE id = #{o.id}
+  </update>
+
+  <resultMap id="titleCandidate" type="org.catalogueoflife.garrulus.store.work.WorkMapper$TitleCandidate">
+    <constructor>
+      <idArg column="id" javaType="_long"/>
+      <arg column="doi" javaType="string"/>
+      <arg column="title" javaType="string"/>
+      <arg column="authors" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <select id="findByTitleMatch" resultMap="titleCandidate">
+    SELECT id, doi, title, authors::text AS authors FROM work
+    WHERE source_id = #{sourceId} AND year = #{year} AND title IS NOT NULL
+      AND strpos(lower(title), #{word}) &gt; 0
+      <if test="doiLessOnly">AND doi IS NULL</if>
+    ORDER BY id
+  </select>
+
+  <select id="lockTitle" resultType="int" flushCache="true" useCache="false">
+    SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtextextended(#{key}, 0))) l
+  </select>
+
+  <select id="listAfter" resultMap="result">
+    SELECT * FROM work WHERE id &gt; #{afterId} ORDER BY id LIMIT #{limit}
+  </select>
+
+  <select id="listUndecidedAfter" resultMap="result">
+    SELECT * FROM work WHERE id &gt; #{afterId} AND (language_source IS NULL OR language_source = 'UNDECIDED')
+    ORDER BY id LIMIT #{limit}
+  </select>
+
+  <update id="setTitle">
+    UPDATE work SET title = #{title}, modified = now() WHERE id = #{id}
+  </update>
+
+  <update id="setTextLangs">
+    UPDATE work SET title_lang = COALESCE(#{titleLang}::text, title_lang),
+                    abstract_lang = COALESCE(#{abstractLang}::text, abstract_lang)
+    WHERE id = #{id}
+      AND (title_lang, abstract_lang) IS DISTINCT FROM
+          (COALESCE(#{titleLang}::text, title_lang), COALESCE(#{abstractLang}::text, abstract_lang))
+  </update>
+
+  <update id="fillAbstract">
+    UPDATE work SET abstract = #{text}::text, abstract_jats = #{jats}::text,
+      abstract_source = CASE WHEN #{text}::text IS NOT NULL THEN #{source}::text END,
+      abstract_jats_source = CASE WHEN #{jats}::text IS NOT NULL THEN #{source}::text END,
+      modified = now()
+    WHERE id = #{id} AND abstract IS NULL AND abstract_jats IS NULL
+      AND (#{text}::text IS NOT NULL OR #{jats}::text IS NOT NULL)
+  </update>
+
+  <select id="countByStateAndTextLevel" resultType="map">
+    SELECT state, text_level, count(*) AS n FROM work GROUP BY state, text_level ORDER BY state, text_level
+  </select>
+
+
+  <delete id="deleteWork">DELETE FROM work WHERE id = #{id}</delete>
+</mapper>

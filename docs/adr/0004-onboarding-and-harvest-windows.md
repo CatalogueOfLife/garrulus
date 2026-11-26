@@ -37,7 +37,7 @@ records what we decided while building it and the facts we verified against the 
   - A deferral at the same position adds `:d<retryAt epoch seconds>`, because the running task already holds the key
     of its own position.
   - An outage (a retryable HTTP failure that outlasted the HTTP layer's retries) re-enqueues the same page after
-    `nametracker.harvest.outage-delay` (30 minutes) under `<position key>:r<epoch minute>`, with the run `DEFERRED`;
+    `garrulus.harvest.outage-delay` (30 minutes) under `<position key>:r<epoch minute>`, with the run `DEFERRED`;
     any other failure marks the run `FAILED` before the task is retried or goes `DEAD`. A name that does not resolve
     counts as an outage only for the fixed API hosts (`api.openalex.org`, `content.openalex.org`, `api.crossref.org`,
     `api.checklistbank.org`); for any other host it stays non-retryable.
@@ -62,7 +62,7 @@ records what we decided while building it and the facts we verified against the 
   `X-RateLimit-Cost-USD` and `X-RateLimit-Remaining-USD`. Our own price table (singleton $0, list or group-by
   $0.0001, content download $0.01) is used only when a response carries no credits header.
 - `api_usage` stores the spend per service and UTC day, and the last remaining USD. A call is refused before it is
-  sent when the day's cap (`nametracker.openalex.max-daily-usd`) or the reported remainder would be exceeded; content
+  sent when the day's cap (`garrulus.openalex.max-daily-usd`) or the reported remainder would be exceeded; content
   downloads additionally keep the `content.reserve-usd` free.
 - A **spent day** defers the task to the next **00:05 UTC**. A **final 429** (after the HTTP layer's retries) defers
   it by **15 minutes**, without marking the day spent. Work is deferred, never failed into `DEAD`.
@@ -105,7 +105,7 @@ Measured on the keyless pool (2026-11-15):
 ### Licences and retention
 
 - Blobs (raw and `Document` JSON) are kept only for open licences: `cc-by`, `cc-by-sa`, `cc0`, `public-domain`
-  (`nametracker.content.open-licences`). Otherwise the `content` row keeps hashes, URL and licence with
+  (`garrulus.content.open-licences`). Otherwise the `content` row keeps hashes, URL and licence with
   `retained=false`, and the text is re-fetched when names are found (M3).
 - The PMC open data bucket is laid out as `PMC<id>.<v>/` holding `.xml`, `.json`, `.txt` and `.pdf`. The licence is the
   `license_code` in the JSON; we read it before fetching the XML.
@@ -123,7 +123,7 @@ Design route 5 (GROBID on `best_oa_location.pdf_url`) is left out:
 
 ## Consequences
 
-- Nothing is scheduled unless `nametracker.harvest.enabled` (env `NAMETRACKER_HARVEST_ENABLED`) is true; it defaults to
+- Nothing is scheduled unless `garrulus.harvest.enabled` (env `GARRULUS_HARVEST_ENABLED`) is true; it defaults to
   false. Handlers run for tasks enqueued by hand, so the pipeline can be driven step by step through
   `POST /api/admin/tasks`.
 - Curating the registry (`GET`/`PATCH`/`POST /api/admin/sources`) is the only way a source enters the harvest after the

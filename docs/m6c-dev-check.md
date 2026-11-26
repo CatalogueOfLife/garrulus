@@ -67,7 +67,7 @@ Runs once, after the final review's fix wave, so the dev run gets the final code
    applied to (seen, never retried).
 5. **LibreTranslate** (see CLAUDE.md "LibreTranslate"), started by hand:
    `libretranslate --host 127.0.0.1 --port 5055 --load-only zh,ja,ru,en`, then the indexer restarted with
-   `NAMETRACKER_TRANSLATION_ENABLED=true` and `NAMETRACKER_TRANSLATION_URL=http://127.0.0.1:5055`. Note its resident
+   `GARRULUS_TRANSLATION_ENABLED=true` and `GARRULUS_TRANSLATION_URL=http://127.0.0.1:5055`. Note its resident
    memory (`ps -o rss= -p <pid>`) and record the codes it names (`curl -s 127.0.0.1:5055/languages | jq -c
    '[.[].code]'`): the client normalises them (`zh-Hans` and `zh-Hant` to `zh`, `nb` to `no`) and sends the service's
    own code back, so a Chinese title is translated whether the service says `zh` or `zh-Hans`. Translate 50 named works
@@ -160,11 +160,8 @@ models are several GB over a travel connection: run it on the GBIF VM); step 7 i
 
 Run after the M6c deployment on the always-on installation. Deployment checks first:
 
-- **V21 to V24 apply together, before the full backfill.** V21's `work.fts` `SET EXPRESSION` rewrites all of
-  `work` under ACCESS EXCLUSIVE in one transaction: instant on the empty database, blocking `web` for the whole rewrite
-  on a populated one. Check: `select version, success, execution_time from flyway_schema_history order by installed_rank desc limit 4`.
-- **Queue `DETECT_LANGUAGE {}` after the deploy** (on a database that held works before V21), so legacy rows are decided:
-  `task '{"type":"DETECT_LANGUAGE","payload":{},"priority":"REPROCESS","dedupKey":"detect-language:deploy"}'`.
+- The GBIF database starts empty with the single baseline V1 (2026-11-26), so there are no legacy language rows to
+  decide and no migration rewrites a populated `work` table.
 - **The `LINK_WORK` back-fill of existing works** (optional speed-up: the daily sweep also reaches every listed work no
   lookup has seen, at most `retry-per-day` a day; this pages through all of them at once and recovers a work whose
   enqueue was lost):
@@ -175,7 +172,7 @@ Run after the M6c deployment on the always-on installation. Deployment checks fi
   backfills, the Crossref history and any layer's records older than the live window (one task per work would turn the
   batched lookups into about 5M single Crossref and 5M single Europe PMC calls). **The daily link sweep catches them
   up**, with works indexed while linking was off: listed works without any `link_attempt` row, walked by id from
-  `job_cursor` `link-untried:W`, at most `nametracker.links.retry-per-day` (100,000, shared with the due retries) a
+  `job_cursor` `link-untried:W`, at most `garrulus.links.retry-per-day` (100,000, shared with the due retries) a
   day. Record how many days it takes after the full backfill:
   `select position, updated from job_cursor where name = 'link-untried:W'` and
   `select count(*) from work w where w.state in ('INDEXED','NOTIFIED') and not exists (select 1 from link_attempt a where a.entity = 'W' and a.subject_id = w.id)`.
@@ -184,11 +181,11 @@ Run after the M6c deployment on the always-on installation. Deployment checks fi
   `task '{"type":"LINK_WORK","payload":{"afterId":0},"priority":"BACKFILL","dedupKey":"link-works:after-backfill"}'`.
   The misses come due together after 30 days, under the same daily limit.
 - Keys and switches: `SPRINGER_API_KEY` and `CINII_APPID` (free) set or knowingly blank;
-  `NAMETRACKER_INSTITUTIONAL_ENABLED` **false** and `NAMETRACKER_INSTITUTIONAL_PUBLISHERS` empty;
-  `NAMETRACKER_TRANSLATION_*` set only once LibreTranslate runs as a service; port 5055 (like gnfinder's 8778) closed to
+  `GARRULUS_INSTITUTIONAL_ENABLED` **false** and `GARRULUS_INSTITUTIONAL_PUBLISHERS` empty;
+  `GARRULUS_TRANSLATION_*` set only once LibreTranslate runs as a service; port 5055 (like gnfinder's 8778) closed to
   other hosts by the firewall.
 - Indexer heap: Lingua adds about 52 MB (low accuracy); record the heap with and without
-  `nametracker.language.high-accuracy=true` (about +970 MB) before deciding to switch it.
+  `garrulus.language.high-accuracy=true` (about +970 MB) before deciding to switch it.
 
 ### 1. Done-when lines of M6c
 
@@ -300,7 +297,7 @@ OAI and Magtech hosts); no `api.elsevier.com` or `api.wiley.com` while the route
 
   Then a hand check of 50 DETECTED decisions per top-5 non-English language
   (`select id, title, language from work where language_source = 'DETECTED' and language = '<l>' order by random() limit 50`).
-  **Tune `nametracker.language.min-margin`** (start 0.10; Lingua's confidence is max-normalised, the margin is the
+  **Tune `garrulus.language.min-margin`** (start 0.10; Lingua's confidence is max-normalised, the margin is the
   gate) and `min-title-words` (3); after a change `DETECT_LANGUAGE {"all":true}`.
 - **The `REBUILD_STATS` run time with the language statistics at 5M works** (`taxon_language_stats`, `language_stats`
   rebuilt in one transaction with `taxon_stats`):

@@ -28,7 +28,7 @@ candidate generators (gnfinder, COL dictionary, rank-suffix rules, italics/marku
 ## Global Constraints
 
 - **Naming:**
-  - Packages go under `org.catalogueoflife.nametracker.finder.*` and `org.catalogueoflife.nametracker.eval`.
+  - Packages go under `org.catalogueoflife.garrulus.finder.*` and `org.catalogueoflife.garrulus.eval`.
   - The public name **Garrulus** is used in the finder-service OpenAPI title and in every outgoing HTTP User-Agent:
     - `Garrulus/<version> (+https://www.catalogueoflife.org)`
     - `Garrulus-eval/0.1 (...)` for the eval fetchers
@@ -79,7 +79,7 @@ candidate generators (gnfinder, COL dictionary, rank-suffix rules, italics/marku
 ### Task 1: `finder-api` — document model, result model, SPI, JSON contract
 
 **Files:**
-- Create: `finder-api/src/main/java/org/catalogueoflife/nametracker/finder/api/` — `Document.java, Block.java, BlockType.java, StyleSpan.java, Style.java, NameFinder.java, FinderInfo.java, FinderOptions.java, FinderResult.java, Mention.java, NameKind.java, Evidence.java, Generator.java, JudgeVerdict.java, Act.java, ActType.java, ClassificationContext.java, RankedName.java, ContextScope.java, CodePoints.java, FinderJson.java`
+- Create: `finder-api/src/main/java/org/catalogueoflife/garrulus/finder/api/` — `Document.java, Block.java, BlockType.java, StyleSpan.java, Style.java, NameFinder.java, FinderInfo.java, FinderOptions.java, FinderResult.java, Mention.java, NameKind.java, Evidence.java, Generator.java, JudgeVerdict.java, Act.java, ActType.java, ClassificationContext.java, RankedName.java, ContextScope.java, CodePoints.java, FinderJson.java`
 - Create: `finder-api/src/main/resources/finder-api.yaml` (OpenAPI 3.1: `POST /v1/find`, `GET /v1/info`, schemas = the records below)
 - Test: `finder-api/src/test/java/.../finder/api/{ContractJsonTest.java, CodePointsTest.java}`, `finder-api/src/test/resources/contract/find-response.json`
 
@@ -143,7 +143,7 @@ class CodePointsTest {
 ### Task 2: Text normalisation and the JATS/TaxPub converter
 
 **Files:**
-- Create: `finder-core/src/main/java/org/catalogueoflife/nametracker/finder/doc/{TextNormalizer.java, JatsConverter.java, JatsOptions.java, Conversion.java, TaxonMarkup.java, NamePart.java, StatusMarkup.java}`
+- Create: `finder-core/src/main/java/org/catalogueoflife/garrulus/finder/doc/{TextNormalizer.java, JatsConverter.java, JatsOptions.java, Conversion.java, TaxonMarkup.java, NamePart.java, StatusMarkup.java}`
 - Test: `finder-core/src/test/java/.../finder/doc/{TextNormalizerTest.java, JatsConverterTest.java}`, fixture `finder-core/src/test/resources/jats/zookeys-218447-excerpt.xml`. This is a trimmed copy of the real article (CC-BY) containing:
   - the DOCTYPE
   - the title and abstract
@@ -247,7 +247,7 @@ class CodePointsTest {
 ### Task 5: Eval corpus model, TaxPub gold extractor and Pensoft fetcher
 
 **Files:**
-- Create: `eval/src/main/java/org/catalogueoflife/nametracker/eval/corpus/{GoldDocument.java, GoldName.java, GoldAct.java, GoldContext.java, CorpusManifest.java, CorpusStore.java, TaxPubGoldExtractor.java, PensoftFetcher.java, OpenAlexClient.java}`
+- Create: `eval/src/main/java/org/catalogueoflife/garrulus/eval/corpus/{GoldDocument.java, GoldName.java, GoldAct.java, GoldContext.java, CorpusManifest.java, CorpusStore.java, TaxPubGoldExtractor.java, PensoftFetcher.java, OpenAlexClient.java}`
 - Create: `eval/corpus/pensoft/manifest.tsv`, `eval/corpus/pensoft/gold.jsonl.gz` (generated in Step 6)
 - Test: `eval/src/test/java/.../eval/corpus/{TaxPubGoldExtractorTest.java, PensoftFetcherTest.java, CorpusStoreTest.java}`
 
@@ -451,7 +451,7 @@ class GnfinderGeneratorTest {   // WireMock stub with the recorded JSON
 
 **Files:**
 - Create: `finder-core/src/main/java/.../finder/dict/{ColDictionary.java, ColDictionaryBuilder.java, ColDictionaryIO.java, CommonWords.java, DictHit.java}`
-- Create: `finder-core/src/main/resources/org/catalogueoflife/nametracker/finder/dict/common-words-{en,de,fr,es,pt}.txt`, plus `NOTICE` (source and licence of the word lists)
+- Create: `finder-core/src/main/resources/org/catalogueoflife/garrulus/finder/dict/common-words-{en,de,fr,es,pt}.txt`, plus `NOTICE` (source and licence of the word lists)
 - Test: `.../finder/dict/{ColDictionaryBuilderTest.java, ColDictionaryIOTest.java}`, fixture `dict/NameUsage-sample.tsv` (the verified header + ~15 rows: genus Carabus, family Carabidae, order Coleoptera, species *Carabus nigrus*, a genus "Major", a subspecies, a synonym, a botanical family "Rosaceae")
 
 **Interfaces:**
@@ -702,7 +702,7 @@ class GnfinderGeneratorTest {   // WireMock stub with the recorded JSON
 
 **Files:**
 - Create: `finder-core/src/main/java/.../finder/pipeline/{CandidateFeatures.java, FeatureExtractor.java, CandidateJudge.java, ThresholdJudge.java, PipelineConfig.java, PipelineNameFinder.java}`
-- Create: `finder-core/src/main/resources/org/catalogueoflife/nametracker/finder/pipeline/pipeline-defaults.json`
+- Create: `finder-core/src/main/resources/org/catalogueoflife/garrulus/finder/pipeline/pipeline-defaults.json`
 - Test: `.../finder/pipeline/{FeatureExtractorTest.java, ThresholdJudgeTest.java, PipelineNameFinderTest.java}`; recorded gnfinder JSON fixtures under `finder-core/src/test/resources/gnfinder/`
 
 **Interfaces:**
@@ -747,7 +747,7 @@ class PipelineNameFinderTest {   // fake GnfinderClient returning recorded JSON;
 ### Task 17: `finder-service` and `RemoteNameFinder`
 
 **Files:**
-- Create: `finder-service/src/main/java/org/catalogueoflife/nametracker/finder/service/{FinderServiceApplication.java, FinderConfig.java, FindController.java, FindRequest.java}`, `finder-service/src/main/resources/application.yml`
+- Create: `finder-service/src/main/java/org/catalogueoflife/garrulus/finder/service/{FinderServiceApplication.java, FinderConfig.java, FindController.java, FindRequest.java}`, `finder-service/src/main/resources/application.yml`
 - Create: `finder-core/src/main/java/.../finder/remote/RemoteNameFinder.java`
 - Test: `finder-service/src/test/java/.../finder/service/{FindControllerTest.java, RemoteNameFinderIT.java}`
 

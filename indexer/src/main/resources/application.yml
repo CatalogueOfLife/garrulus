@@ -2,13 +2,13 @@ spring:
   application:
     name: garrulus-indexer
   datasource:
-    url: ${NAMETRACKER_DB_URL:jdbc:postgresql://localhost:5434/nametracker}
-    username: ${NAMETRACKER_DB_USER:nametracker}
-    password: ${NAMETRACKER_DB_PASSWORD:nametracker}
+    url: ${GARRULUS_DB_URL:jdbc:postgresql://localhost:5434/garrulus}
+    username: ${GARRULUS_DB_USER:garrulus}
+    password: ${GARRULUS_DB_PASSWORD:garrulus}
   config:
     # local .env (see .env.example); the second entry covers running from a module directory (spring-boot:run).
-    # nametracker.dotenv replaces the list; the ITs set it to a file that never exists, so they never read a .env
-    import: ${nametracker.dotenv:optional:file:.env[.properties],optional:file:../.env[.properties]}
+    # garrulus.dotenv replaces the list; the ITs set it to a file that never exists, so they never read a .env
+    import: ${garrulus.dotenv:optional:file:.env[.properties],optional:file:../.env[.properties]}
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -18,7 +18,7 @@ mybatis:
     map-underscore-to-camel-case: true
 
 server:
-  port: ${NAMETRACKER_INDEXER_PORT:8081}
+  port: ${GARRULUS_INDEXER_PORT:8081}
   address: 127.0.0.1
 
 management:
@@ -27,61 +27,61 @@ management:
       exposure:
         include: health,info
 
-nametracker:
+garrulus:
   indexer:
-    workers: ${NAMETRACKER_INDEXER_WORKERS:8}
-    poll-interval: ${NAMETRACKER_INDEXER_POLL_INTERVAL:2s}
-    max-attempts: ${NAMETRACKER_INDEXER_MAX_ATTEMPTS:5}
-    backoff: ${NAMETRACKER_INDEXER_BACKOFF:1m}
+    workers: ${GARRULUS_INDEXER_WORKERS:8}
+    poll-interval: ${GARRULUS_INDEXER_POLL_INTERVAL:2s}
+    max-attempts: ${GARRULUS_INDEXER_MAX_ATTEMPTS:5}
+    backoff: ${GARRULUS_INDEXER_BACKOFF:1m}
     # a RUNNING task whose lock is older than stale-after is requeued; the heartbeat keeps live tasks fresh
-    stale-after: ${NAMETRACKER_INDEXER_STALE_AFTER:1h}
-    requeue-interval: ${NAMETRACKER_INDEXER_REQUEUE_INTERVAL:10m}
-    heartbeat-interval: ${NAMETRACKER_INDEXER_HEARTBEAT_INTERVAL:2m}
+    stale-after: ${GARRULUS_INDEXER_STALE_AFTER:1h}
+    requeue-interval: ${GARRULUS_INDEXER_REQUEUE_INTERVAL:10m}
+    heartbeat-interval: ${GARRULUS_INDEXER_HEARTBEAT_INTERVAL:2m}
 
   stats:
     # nightly REBUILD_STATS (name ubiquity, taxon stats; LIVE priority); UTC, six fields; not behind the harvest switch
-    cron: ${NAMETRACKER_STATS_CRON:0 30 4 * * *}
+    cron: ${GARRULUS_STATS_CRON:0 30 4 * * *}
 
   harvest:
     # master switch of the scheduled harvests; off means nothing is enqueued on a schedule (handlers still run for
     # tasks enqueued by hand). Crons are UTC, six fields.
-    enabled: ${NAMETRACKER_HARVEST_ENABLED:false}
-    openalex-cron: ${NAMETRACKER_HARVEST_OPENALEX_CRON:0 0 2 * * *}
-    sweep-cron: ${NAMETRACKER_HARVEST_SWEEP_CRON:0 0 4 * * SUN}
-    crossref-cron: ${NAMETRACKER_HARVEST_CROSSREF_CRON:0 0 3 * * *}
+    enabled: ${GARRULUS_HARVEST_ENABLED:false}
+    openalex-cron: ${GARRULUS_HARVEST_OPENALEX_CRON:0 0 2 * * *}
+    sweep-cron: ${GARRULUS_HARVEST_SWEEP_CRON:0 0 4 * * SUN}
+    crossref-cron: ${GARRULUS_HARVEST_CROSSREF_CRON:0 0 3 * * *}
     # a harvest or onboarding page that meets an outage (a retryable HTTP failure) is enqueued again after this delay
-    outage-delay: ${NAMETRACKER_HARVEST_OUTAGE_DELAY:30m}
+    outage-delay: ${GARRULUS_HARVEST_OUTAGE_DELAY:30m}
 
   translation:
     # machine translation of titles into English through a local LibreTranslate (like gnfinder, not an external service);
     # off unless enabled and the url is set; TRANSLATE_TITLE is enqueued by events or by hand, never by cron
-    enabled: ${NAMETRACKER_TRANSLATION_ENABLED:false}
-    url: ${NAMETRACKER_TRANSLATION_URL:}
+    enabled: ${GARRULUS_TRANSLATION_ENABLED:false}
+    url: ${GARRULUS_TRANSLATION_URL:}
     # label stored with each translation; a changed label means a translation of another model (forced runs redo it)
-    model: ${NAMETRACKER_TRANSLATION_MODEL:libretranslate-1.9.6/argos}
-    timeout: ${NAMETRACKER_TRANSLATION_TIMEOUT:30s}
+    model: ${GARRULUS_TRANSLATION_MODEL:libretranslate-1.9.6/argos}
+    timeout: ${GARRULUS_TRANSLATION_TIMEOUT:30s}
 
   layers:
     # nightly route rollout: onboarding passes of VERIFIED routes, a few a night (behind the harvest switch)
-    rollout-cron: ${NAMETRACKER_LAYERS_ROLLOUT_CRON:0 30 0 * * *}
-    rollout-per-night: ${NAMETRACKER_LAYERS_ROLLOUT_PER_NIGHT:20}
+    rollout-cron: ${GARRULUS_LAYERS_ROLLOUT_CRON:0 30 0 * * *}
+    rollout-per-night: ${GARRULUS_LAYERS_ROLLOUT_PER_NIGHT:20}
     # daily live harvests per layer, behind the harvest switch and the layer's own switch (default on); UTC
-    oai-cron: ${NAMETRACKER_LAYERS_OAI_CRON:0 30 4 * * *}
-    magtech-cron: ${NAMETRACKER_LAYERS_MAGTECH_CRON:0 45 4 * * *}
-    europepmc-cron: ${NAMETRACKER_LAYERS_EUROPEPMC_CRON:0 0 5 * * *}
-    blr-cron: ${NAMETRACKER_LAYERS_BLR_CRON:0 15 5 * * *}
+    oai-cron: ${GARRULUS_LAYERS_OAI_CRON:0 30 4 * * *}
+    magtech-cron: ${GARRULUS_LAYERS_MAGTECH_CRON:0 45 4 * * *}
+    europepmc-cron: ${GARRULUS_LAYERS_EUROPEPMC_CRON:0 0 5 * * *}
+    blr-cron: ${GARRULUS_LAYERS_BLR_CRON:0 15 5 * * *}
     # nightly COVERAGE_CHECK of yesterday (layer health, coverage); analysis, not behind the harvest switch
-    coverage-cron: ${NAMETRACKER_LAYERS_COVERAGE_CRON:0 30 6 * * *}
-    oai.enabled: ${NAMETRACKER_LAYERS_OAI_ENABLED:true}
+    coverage-cron: ${GARRULUS_LAYERS_COVERAGE_CRON:0 30 6 * * *}
+    oai.enabled: ${GARRULUS_LAYERS_OAI_ENABLED:true}
     # an ONBOARDING/BACKFILL OAI pass that loses its resumption token again restarts a day later at most this many
     # times; the next loss makes the route BROKEN and writes an admin notice
-    oai.max-long-restarts: ${NAMETRACKER_LAYERS_OAI_MAX_LONG_RESTARTS:3}
-    magtech.enabled: ${NAMETRACKER_LAYERS_MAGTECH_ENABLED:true}
-    europepmc.enabled: ${NAMETRACKER_LAYERS_EUROPEPMC_ENABLED:true}
-    blr.enabled: ${NAMETRACKER_LAYERS_BLR_ENABLED:true}
+    oai.max-long-restarts: ${GARRULUS_LAYERS_OAI_MAX_LONG_RESTARTS:3}
+    magtech.enabled: ${GARRULUS_LAYERS_MAGTECH_ENABLED:true}
+    europepmc.enabled: ${GARRULUS_LAYERS_EUROPEPMC_ENABLED:true}
+    blr.enabled: ${GARRULUS_LAYERS_BLR_ENABLED:true}
 
   # base URL of the SPA, for the links in admin notices
-  public-url: ${NAMETRACKER_PUBLIC_URL:http://localhost:5173}
+  public-url: ${GARRULUS_PUBLIC_URL:http://localhost:5173}
 
   coverage:
     # layer health: FAILING at this many failed or zero-yield days in a row; DEGRADED under yield-ratio of the weekly
@@ -89,113 +89,113 @@ nametracker:
     # (failed run days: fail-days; zero-yield days: zero-fail-days, counted only on days with a DONE run whose expected
     # yield, the median of that weekday over 8 weeks, is at least zero-yield-min-expected); the yield-ratio rule
     # applies only from a weekly median of yield-min-median. Start values, tuned after a month.
-    fail-days: ${NAMETRACKER_COVERAGE_FAIL_DAYS:2}
-    zero-fail-days: ${NAMETRACKER_COVERAGE_ZERO_FAIL_DAYS:3}
-    zero-yield-min-expected: ${NAMETRACKER_COVERAGE_ZERO_YIELD_MIN_EXPECTED:3.0}
-    yield-min-median: ${NAMETRACKER_COVERAGE_YIELD_MIN_MEDIAN:14}
-    yield-ratio: ${NAMETRACKER_COVERAGE_YIELD_RATIO:0.5}
-    miss-share: ${NAMETRACKER_COVERAGE_MISS_SHARE:0.30}
-    miss-baseline: ${NAMETRACKER_COVERAGE_MISS_BASELINE:0.10}
+    fail-days: ${GARRULUS_COVERAGE_FAIL_DAYS:2}
+    zero-fail-days: ${GARRULUS_COVERAGE_ZERO_FAIL_DAYS:3}
+    zero-yield-min-expected: ${GARRULUS_COVERAGE_ZERO_YIELD_MIN_EXPECTED:3.0}
+    yield-min-median: ${GARRULUS_COVERAGE_YIELD_MIN_MEDIAN:14}
+    yield-ratio: ${GARRULUS_COVERAGE_YIELD_RATIO:0.5}
+    miss-share: ${GARRULUS_COVERAGE_MISS_SHARE:0.30}
+    miss-baseline: ${GARRULUS_COVERAGE_MISS_BASELINE:0.10}
 
   openalex:
-    base-url: ${NAMETRACKER_OPENALEX_BASE_URL:https://api.openalex.org}
+    base-url: ${GARRULUS_OPENALEX_BASE_URL:https://api.openalex.org}
     # from the environment or the git-ignored .env; blank means no key (keyless page paging)
     api-key: ${OPENALEX_API_KEY:}
-    max-daily-usd: ${NAMETRACKER_OPENALEX_MAX_DAILY_USD:1.00}
+    max-daily-usd: ${GARRULUS_OPENALEX_MAX_DAILY_USD:1.00}
     content:
       # content.openalex.org, GROBID TEI at $0.01 per download; needs the API key
-      base-url: ${NAMETRACKER_OPENALEX_CONTENT_BASE_URL:https://content.openalex.org}
-      enabled: ${NAMETRACKER_OPENALEX_CONTENT_ENABLED:true}
-      reserve-usd: ${NAMETRACKER_OPENALEX_CONTENT_RESERVE_USD:0.30}
+      base-url: ${GARRULUS_OPENALEX_CONTENT_BASE_URL:https://content.openalex.org}
+      enabled: ${GARRULUS_OPENALEX_CONTENT_ENABLED:true}
+      reserve-usd: ${GARRULUS_OPENALEX_CONTENT_RESERVE_USD:0.30}
   snapshot:
     # the free OpenAlex snapshot (BACKFILL, BACKFILL_FILE): manifest at <base-url>/data/jsonl/manifest.json, its
     # s3://openalex/<path> file urls read as <base-url>/<path>
-    base-url: ${NAMETRACKER_SNAPSHOT_BASE_URL:https://openalex.s3.amazonaws.com}
+    base-url: ${GARRULUS_SNAPSHOT_BASE_URL:https://openalex.s3.amazonaws.com}
     # a works file that delivers no byte for this long counts as broken off (the task fails and reads it again)
-    read-timeout: ${NAMETRACKER_SNAPSHOT_READ_TIMEOUT:5m}
-  # per-host request spacing overrides: nametracker.http.min-interval.<host>=<duration>, e.g. api.crossref.org=500ms
+    read-timeout: ${GARRULUS_SNAPSHOT_READ_TIMEOUT:5m}
+  # per-host request spacing overrides: garrulus.http.min-interval.<host>=<duration>, e.g. api.crossref.org=500ms
   seed:
-    core-min-works: ${NAMETRACKER_SEED_CORE_MIN_WORKS:20}
-    core-min-share: ${NAMETRACKER_SEED_CORE_MIN_SHARE:0.30}
-    broad-min-works: ${NAMETRACKER_SEED_BROAD_MIN_WORKS:30}
-    broad-min-share: ${NAMETRACKER_SEED_BROAD_MIN_SHARE:0.50}
-    candidate-min-works: ${NAMETRACKER_SEED_CANDIDATE_MIN_WORKS:10}
+    core-min-works: ${GARRULUS_SEED_CORE_MIN_WORKS:20}
+    core-min-share: ${GARRULUS_SEED_CORE_MIN_SHARE:0.30}
+    broad-min-works: ${GARRULUS_SEED_BROAD_MIN_WORKS:30}
+    broad-min-share: ${GARRULUS_SEED_BROAD_MIN_SHARE:0.50}
+    candidate-min-works: ${GARRULUS_SEED_CANDIDATE_MIN_WORKS:10}
     # OpenAlex topic ids (comma-separated) whose works make a journal taxonomic; blank = the 17 built-in ones
-    taxonomy-topics: ${NAMETRACKER_SEED_TAXONOMY_TOPICS:T14399,T11494,T12132,T12606,T11974,T12447,T13269,T12361,T12568,T14049,T11836,T11528,T12668,T11879,T11354,T10332,T12319}
+    taxonomy-topics: ${GARRULUS_SEED_TAXONOMY_TOPICS:T14399,T11494,T12132,T12606,T11974,T12447,T13269,T12361,T12568,T14049,T11836,T11528,T12668,T11879,T11354,T10332,T12319}
   discovery:
     issnl:
       # REFRESH_ISSNL: the ISSN to ISSN-L table of the ISSN International Centre. Off by default until the (undocumented)
       # zip URL is cleared for use; the candidate registry then matches by plain ISSN only.
-      enabled: ${NAMETRACKER_DISCOVERY_ISSNL_ENABLED:false}
-      url: ${NAMETRACKER_DISCOVERY_ISSNL_URL:https://www.issn.org/wp-content/uploads/2014/03/issnltables.zip}
-      read-timeout: ${NAMETRACKER_DISCOVERY_ISSNL_READ_TIMEOUT:5m}
+      enabled: ${GARRULUS_DISCOVERY_ISSNL_ENABLED:false}
+      url: ${GARRULUS_DISCOVERY_ISSNL_URL:https://www.issn.org/wp-content/uploads/2014/03/issnltables.zip}
+      read-timeout: ${GARRULUS_DISCOVERY_ISSNL_READ_TIMEOUT:5m}
     doaj:
       # DOAJ lookups (IDENTIFY_SOURCE completes a candidate's DOAJ membership, LCC subjects, discontinued date)
-      enabled: ${NAMETRACKER_DISCOVERY_DOAJ_ENABLED:true}
+      enabled: ${GARRULUS_DISCOVERY_DOAJ_ENABLED:true}
       # DISCOVER_SOURCES: LCC subject classes listed as candidates (comma-separated; blank = QL1-991, QK1-989,
       # QH1-278.5, QR1-502, QH540-549.5, QE701-760)
-      lcc-codes: ${NAMETRACKER_DISCOVERY_DOAJ_LCC_CODES:}
+      lcc-codes: ${GARRULUS_DISCOVERY_DOAJ_LCC_CODES:}
     pkp-beacon:
       # DISCOVER_SOURCES: the PKP Beacon table (CC0, 32 MB, streamed) loaded into pkp_beacon; journals whose name passes
       # include/exclude (comma-separated word-start terms, accent-folded; blank = built-in lists) and that are active
       # are offered as candidates with an OAI route hint
-      enabled: ${NAMETRACKER_DISCOVERY_PKP_BEACON_ENABLED:true}
-      url: ${NAMETRACKER_DISCOVERY_PKP_BEACON_URL:https://dataverse.harvard.edu/api/access/datafile/14084919}
-      read-timeout: ${NAMETRACKER_DISCOVERY_PKP_BEACON_READ_TIMEOUT:5m}
-      include: ${NAMETRACKER_DISCOVERY_PKP_BEACON_INCLUDE:}
-      exclude: ${NAMETRACKER_DISCOVERY_PKP_BEACON_EXCLUDE:}
+      enabled: ${GARRULUS_DISCOVERY_PKP_BEACON_ENABLED:true}
+      url: ${GARRULUS_DISCOVERY_PKP_BEACON_URL:https://dataverse.harvard.edu/api/access/datafile/14084919}
+      read-timeout: ${GARRULUS_DISCOVERY_PKP_BEACON_READ_TIMEOUT:5m}
+      include: ${GARRULUS_DISCOVERY_PKP_BEACON_INCLUDE:}
+      exclude: ${GARRULUS_DISCOVERY_PKP_BEACON_EXCLUDE:}
   candidates:
     # SAMPLE_SOURCE: the newest articles of a candidate journal (Crossref, OAI, Europe PMC, OpenAlex; free routes only)
     # are read through the name finder; only the aggregate is kept (source_sample), nothing goes to work. The nightly
-    # run (behind nametracker.harvest.enabled) rescores all candidates, then samples up to sample-per-night of them
+    # run (behind garrulus.harvest.enabled) rescores all candidates, then samples up to sample-per-night of them
     # (registered first, then never sampled, then by score), none sampled within 365 days.
-    sample-cron: ${NAMETRACKER_CANDIDATES_SAMPLE_CRON:0 30 1 * * *}
-    sample-per-night: ${NAMETRACKER_CANDIDATES_SAMPLE_PER_NIGHT:200}
+    sample-cron: ${GARRULUS_CANDIDATES_SAMPLE_CRON:0 30 1 * * *}
+    sample-per-night: ${GARRULUS_CANDIDATES_SAMPLE_PER_NIGHT:200}
     sampling:
-      enabled: ${NAMETRACKER_CANDIDATES_SAMPLING_ENABLED:true}
-    # the candidate score weights are properties only (nametracker.candidates.score.{names=0.6, acts=0.4, names-cap=8,
+      enabled: ${GARRULUS_CANDIDATES_SAMPLING_ENABLED:true}
+    # the candidate score weights are properties only (garrulus.candidates.score.{names=0.6, acts=0.4, names-cap=8,
     # acts-cap=0.25, sample=0.7, origins=0.4, origins-cap=3, plazi=0.3, plazi-log-cap=2, col=0.2, col-log-cap=3,
     # registered=0.1, no-sample=0.5, min-articles=5}); see CandidateScore
   doaj:
     # the DOAJ search API v4, free, 2 requests a second (doaj.org is spaced 600 ms)
-    base-url: ${NAMETRACKER_DOAJ_BASE_URL:https://doaj.org/api/v4}
+    base-url: ${GARRULUS_DOAJ_BASE_URL:https://doaj.org/api/v4}
   finder:
     # the name finder of FIND_NAMES: a finder service at url, else the in-process pipeline built from the COL dictionary
     # (eval build-dictionary output; also used to de-hyphenate TEI text), else none and FIND_NAMES tasks wait
-    url: ${NAMETRACKER_FINDER_URL:}
+    url: ${GARRULUS_FINDER_URL:}
     dictionary: ${FINDER_DICTIONARY:}
     # directory of dictionary-<xrKey>.bin files: BUILD_DICTIONARY (after an XR switch) builds the new one there from
     # xr-zip-url and the in-process finder reloads it; blank = no per-release dictionaries
-    dictionary-dir: ${NAMETRACKER_DICTIONARY_DIR:}
-    xr-zip-url: ${NAMETRACKER_XR_ZIP_URL:https://download.checklistbank.org/col/xr_latest_coldp.zip}
+    dictionary-dir: ${GARRULUS_DICTIONARY_DIR:}
+    xr-zip-url: ${GARRULUS_XR_ZIP_URL:https://download.checklistbank.org/col/xr_latest_coldp.zip}
     # a zip download that delivers no byte for this long is broken off: BUILD_DICTIONARY is deferred as an outage
-    xr-zip-read-timeout: ${NAMETRACKER_XR_ZIP_READ_TIMEOUT:5m}
+    xr-zip-read-timeout: ${GARRULUS_XR_ZIP_READ_TIMEOUT:5m}
     gnfinder-url: ${GNFINDER_URL:}
     # optional file with a JSON object of pipeline overrides
     config: ${FINDER_CONFIG:}
   blobs:
-    dir: ${NAMETRACKER_BLOBS_DIR:./data/blobs}
+    dir: ${GARRULUS_BLOBS_DIR:./data/blobs}
   content:
     # transient store of full text that may not be kept, until FIND_NAMES has run; purged after spool-max-age
-    spool-dir: ${NAMETRACKER_SPOOL_DIR:./data/spool}
-    spool-max-age: ${NAMETRACKER_SPOOL_MAX_AGE:14d}
-    open-licences: ${NAMETRACKER_CONTENT_OPEN_LICENCES:cc-by,cc-by-sa,cc0,public-domain}
+    spool-dir: ${GARRULUS_SPOOL_DIR:./data/spool}
+    spool-max-age: ${GARRULUS_SPOOL_MAX_AGE:14d}
+    open-licences: ${GARRULUS_CONTENT_OPEN_LICENCES:cc-by,cc-by-sa,cc0,public-domain}
     # abstract top-up after the full-text routes: Europe PMC (keyless, on by default), Springer Nature Meta, SciELO,
     # CiNii Research
     # RESOLVE_CONTENT re-resolves per UTC day for works whose OpenAlex TEI just appeared (REPROCESS priority); the rest
     # waits for later days (api_usage service TEI_RECHECK)
-    tei-recheck-per-day: ${NAMETRACKER_CONTENT_TEI_RECHECK_PER_DAY:200}
+    tei-recheck-per-day: ${GARRULUS_CONTENT_TEI_RECHECK_PER_DAY:200}
     topup:
       europepmc:
         # one resultType=core search per resolved work without an abstract, on the host of the Europe PMC layer
-        enabled: ${NAMETRACKER_TOPUP_EUROPEPMC_ENABLED:true}
+        enabled: ${GARRULUS_TOPUP_EUROPEPMC_ENABLED:true}
       springer:
         # free key from dev.springernature.com; blank = off. Requests a UTC day, counted in api_usage (SPRINGER_META)
         api-key: ${SPRINGER_API_KEY:}
-        daily-cap: ${NAMETRACKER_TOPUP_SPRINGER_DAILY_CAP:100}
+        daily-cap: ${GARRULUS_TOPUP_SPRINGER_DAILY_CAP:100}
       scielo:
         # "<doi prefix>=<collection>", comma-separated
-        collections: ${NAMETRACKER_TOPUP_SCIELO_COLLECTIONS:10.1590/=scl}
+        collections: ${GARRULUS_TOPUP_SCIELO_COLLECTIONS:10.1590/=scl}
       cinii:
         # free application id; blank = off. Only abstracts whose abstractLicenseFlag is allow are taken
         app-id: ${CINII_APPID:}
@@ -204,11 +204,11 @@ nametracker:
       # it may be switched on ONLY after the KU library has confirmed in writing which licences permit text and data
       # mining for this use (and whether Garrulus counts as research under the EU TDM exception, DSM Art. 3).
       # Closed text: spooled, named, purged; abstracts never stored; every fetch audited in institutional_fetch.
-      enabled: ${NAMETRACKER_INSTITUTIONAL_ENABLED:false}
+      enabled: ${GARRULUS_INSTITUTIONAL_ENABLED:false}
       # allow-list, comma-separated: ELSEVIER, WILEY; empty = none
-      publishers: ${NAMETRACKER_INSTITUTIONAL_PUBLISHERS:}
+      publishers: ${GARRULUS_INSTITUTIONAL_PUBLISHERS:}
       # local GROBID that reads Wiley's PDFs; blank leaves Wiley out (one WARN at start)
-      grobid-url: ${NAMETRACKER_INSTITUTIONAL_GROBID_URL:}
+      grobid-url: ${GARRULUS_INSTITUTIONAL_GROBID_URL:}
       # a work a publisher answered (OK, 4xx, unusable) is not asked again for this long, except to reprocess
       refetch-after: 365d
       # this many 403s of one publisher in a row mean the token is refused: the publisher is off until restart
@@ -218,30 +218,30 @@ nametracker:
         api-key: ${ELSEVIER_API_KEY:}
         # optional inside the KU IP range
         insttoken: ${ELSEVIER_INSTTOKEN:}
-        daily-cap: ${NAMETRACKER_INSTITUTIONAL_ELSEVIER_DAILY_CAP:500}
+        daily-cap: ${GARRULUS_INSTITUTIONAL_ELSEVIER_DAILY_CAP:500}
       wiley:
         base-url: https://api.wiley.com
         token: ${WILEY_TDM_TOKEN:}
-        daily-cap: ${NAMETRACKER_INSTITUTIONAL_WILEY_DAILY_CAP:500}
+        daily-cap: ${GARRULUS_INSTITUTIONAL_WILEY_DAILY_CAP:500}
   crossref:
-    base-url: ${NAMETRACKER_CROSSREF_BASE_URL:https://api.crossref.org}
+    base-url: ${GARRULUS_CROSSREF_BASE_URL:https://api.crossref.org}
     # blank means the public pool
     mailto: ${CROSSREF_MAILTO:}
   clb:
     # ChecklistBank API: the pinned XR (dataset 3LXR) and name matching, not throttled
-    base-url: ${NAMETRACKER_CLB_BASE_URL:https://api.checklistbank.org}
+    base-url: ${GARRULUS_CLB_BASE_URL:https://api.checklistbank.org}
     # parallel CLB match calls of one XR_PREMATCH task
-    match-parallelism: ${NAMETRACKER_CLB_MATCH_PARALLELISM:8}
+    match-parallelism: ${GARRULUS_CLB_MATCH_PARALLELISM:8}
     # a local CLB release bundle (http://localhost:18100): serves all match calls and the N1 probe, and tells the release
     # key to pin; not rate limited. Empty means base-url.
-    match-base-url: ${NAMETRACKER_CLB_MATCH_BASE_URL:}
+    match-base-url: ${GARRULUS_CLB_MATCH_BASE_URL:}
   xr:
     # the XR switch gate: a new release that loses more than this share of the keys matched in the current one
     # (no match, or CLB cannot match the name) is REFUSED instead of becoming current
     max-lost-share: 0.05
   hits:
     # alert window of a follow: papers published at most window-days ago (inclusive), at most future-days ahead
-    window-days: ${NAMETRACKER_HIT_WINDOW_DAYS:90}
+    window-days: ${GARRULUS_HIT_WINDOW_DAYS:90}
     future-days: 7
   salience:
     # work_name salience (see Salience): weights of the title, abstract, act, heading, share-of-body-mentions and
@@ -257,10 +257,10 @@ nametracker:
     threshold: 0.35
 
   links:
-    # identifier lookups of works and journals (LINK_WORK, LINK_SOURCE); every lookup has nametracker.links.<name>.enabled
+    # identifier lookups of works and journals (LINK_WORK, LINK_SOURCE); every lookup has garrulus.links.<name>.enabled
     # (default true), all are off with enabled=false. Schedules are UTC, six fields, behind the harvest switch.
-    enabled: ${NAMETRACKER_LINKS_ENABLED:true}
-    source-cron: ${NAMETRACKER_LINKS_SOURCE_CRON:0 45 1 2 * *}
-    retry-cron: ${NAMETRACKER_LINKS_RETRY_CRON:0 15 6 * * *}
+    enabled: ${GARRULUS_LINKS_ENABLED:true}
+    source-cron: ${GARRULUS_LINKS_SOURCE_CRON:0 45 1 2 * *}
+    retry-cron: ${GARRULUS_LINKS_RETRY_CRON:0 15 6 * * *}
     # the daily retry sweep queues at most this many due works (and as many journals), in tasks of 5000 ids
-    retry-per-day: ${NAMETRACKER_LINKS_RETRY_PER_DAY:100000}
+    retry-per-day: ${GARRULUS_LINKS_RETRY_PER_DAY:100000}

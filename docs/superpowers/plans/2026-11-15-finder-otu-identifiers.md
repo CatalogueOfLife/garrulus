@@ -58,7 +58,7 @@
 
 **Files:**
 - Modify:
-  - `finder-api/src/main/java/org/catalogueoflife/nametracker/finder/api/NameKind.java`
+  - `finder-api/src/main/java/org/catalogueoflife/garrulus/finder/api/NameKind.java`
   - `finder-api/src/main/resources/finder-api.yaml`
   - `finder-core/.../pipeline/{PipelineNameFinder.java, PipelineConfig.java (if the generator set is an enum or a list), CandidateMerger.java (only if needed)}`
   - `finder-core/src/main/resources/.../pipeline/pipeline-defaults.json`

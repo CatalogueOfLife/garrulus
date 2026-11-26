@@ -33,8 +33,8 @@ plans.
   and its per-host `HostLimiter`; OAI hosts default to one request every 2 s.
 - Every task handler is idempotent under at-least-once delivery; an outage defers (`HarvestOutage` / 
   `ServiceOutageException`) and never uses an attempt.
-- All new crons are UTC, gated by `nametracker.harvest.enabled` like the existing ones; each layer also has
-  `nametracker.layers.<code>.enabled` (default true).
+- All new crons are UTC, gated by `garrulus.harvest.enabled` like the existing ones; each layer also has
+  `garrulus.layers.<code>.enabled` (default true).
 - Priorities: daily layers `LIVE`, onboarding passes `REPROCESS`, route backfill `BACKFILL`.
 - Alerts follow ADR-0006 unchanged (the 90-day window decides, not the origin); a record published before 2000 is
   skipped by every layer and counted.
@@ -60,14 +60,14 @@ plans.
 
 **Files:**
 - Create: `store/src/main/resources/db/migration/V16__layered_harvest.sql`
-- Create: `store/src/main/java/org/catalogueoflife/nametracker/store/ident/{Identifier,WorkIdentifierMapper,WorkSightingMapper}.java`,
-  `store/src/main/resources/org/catalogueoflife/nametracker/store/ident/{WorkIdentifierMapper,WorkSightingMapper}.xml`
-- Create: `store/src/main/java/org/catalogueoflife/nametracker/store/route/{SourceRoute,SourceRouteMapper}.java` + XML
-- Create: `store/src/main/java/org/catalogueoflife/nametracker/store/layer/{LayerHealth,LayerHealthMapper,LayerUnmatchedMapper}.java` + XML
-- Modify: `store/src/main/java/org/catalogueoflife/nametracker/store/work/Work.java` (add `metaLayer`, `abstractJatsSource`),
-  `store/src/main/resources/org/catalogueoflife/nametracker/store/work/WorkMapper.xml` (result map and insert)
-- Test: `store/src/test/java/org/catalogueoflife/nametracker/store/ident/IdentityMappersIT.java`,
-  `store/src/test/java/org/catalogueoflife/nametracker/store/route/SourceRouteMapperIT.java`
+- Create: `store/src/main/java/org/catalogueoflife/garrulus/store/ident/{Identifier,WorkIdentifierMapper,WorkSightingMapper}.java`,
+  `store/src/main/resources/org/catalogueoflife/garrulus/store/ident/{WorkIdentifierMapper,WorkSightingMapper}.xml`
+- Create: `store/src/main/java/org/catalogueoflife/garrulus/store/route/{SourceRoute,SourceRouteMapper}.java` + XML
+- Create: `store/src/main/java/org/catalogueoflife/garrulus/store/layer/{LayerHealth,LayerHealthMapper,LayerUnmatchedMapper}.java` + XML
+- Modify: `store/src/main/java/org/catalogueoflife/garrulus/store/work/Work.java` (add `metaLayer`, `abstractJatsSource`),
+  `store/src/main/resources/org/catalogueoflife/garrulus/store/work/WorkMapper.xml` (result map and insert)
+- Test: `store/src/test/java/org/catalogueoflife/garrulus/store/ident/IdentityMappersIT.java`,
+  `store/src/test/java/org/catalogueoflife/garrulus/store/route/SourceRouteMapperIT.java`
 
 **Interfaces:**
 - Produces:
@@ -130,9 +130,9 @@ plans.
 ### Task 2: identifier schemes and the `Layer` enum
 
 **Files:**
-- Create: `store/src/main/java/org/catalogueoflife/nametracker/store/ident/IdScheme.java`
-- Create: `store/src/main/java/org/catalogueoflife/nametracker/store/work/Layer.java`
-- Test: `store/src/test/java/org/catalogueoflife/nametracker/store/ident/IdSchemeTest.java`, `.../work/LayerTest.java`
+- Create: `store/src/main/java/org/catalogueoflife/garrulus/store/ident/IdScheme.java`
+- Create: `store/src/main/java/org/catalogueoflife/garrulus/store/work/Layer.java`
+- Test: `store/src/test/java/org/catalogueoflife/garrulus/store/ident/IdSchemeTest.java`, `.../work/LayerTest.java`
 
 **Interfaces:**
 - Produces:
@@ -143,7 +143,7 @@ plans.
   - `enum Layer { CROSSREF, OPENALEX, EUROPEPMC, OAI, MAGTECH, BLR }` with `int biblioRank()` (0 best: CROSSREF 0,
     OPENALEX 1, EUROPEPMC 2, OAI 3, MAGTECH 3, BLR 4), `int accessRank()` (OPENALEX 0, CROSSREF 1, OAI 2, MAGTECH 2,
     EUROPEPMC 3, BLR 4), `String adapter()` (harvest_run value: `OPENALEX_LIVE` is kept for L1, others = name),
-    `String enabledProperty()` (`nametracker.layers.<lower-case name>.enabled`).
+    `String enabledProperty()` (`garrulus.layers.<lower-case name>.enabled`).
 
 - [ ] **Step 1: Write `IdSchemeTest`**:
 ```java
@@ -171,8 +171,8 @@ assertThat(IdScheme.OAI.normalise(" oai:zookeys.pensoft.net:12345 ")).isEqualTo(
 ### Task 3: `WorkMerger`, the per-field precedence
 
 **Files:**
-- Create: `store/src/main/java/org/catalogueoflife/nametracker/store/work/WorkMerger.java`
-- Test: `store/src/test/java/org/catalogueoflife/nametracker/store/work/WorkMergerTest.java`
+- Create: `store/src/main/java/org/catalogueoflife/garrulus/store/work/WorkMerger.java`
+- Test: `store/src/test/java/org/catalogueoflife/garrulus/store/work/WorkMergerTest.java`
 
 **Interfaces:**
 - Consumes: `Layer` (Task 2), `Work` with `metaLayer`, `abstractJatsSource` (Task 1).
@@ -205,11 +205,11 @@ Rules (spec "Merge rule, per field by layer precedence"):
 ### Task 4: `WorkUpsert` on identifiers, title match and sightings
 
 **Files:**
-- Modify: `store/src/main/java/org/catalogueoflife/nametracker/store/work/WorkUpsert.java`
-- Modify: `store/src/main/resources/org/catalogueoflife/nametracker/store/work/WorkMapper.xml` (add `findForUpdate`,
+- Modify: `store/src/main/java/org/catalogueoflife/garrulus/store/work/WorkUpsert.java`
+- Modify: `store/src/main/resources/org/catalogueoflife/garrulus/store/work/WorkMapper.xml` (add `findForUpdate`,
   `updateMerged`, `findByTitleMatch`)
-- Create: `store/src/main/java/org/catalogueoflife/nametracker/store/work/TitleKey.java`
-- Test: `store/src/test/java/org/catalogueoflife/nametracker/store/work/WorkUpsertIT.java` (extend),
+- Create: `store/src/main/java/org/catalogueoflife/garrulus/store/work/TitleKey.java`
+- Test: `store/src/test/java/org/catalogueoflife/garrulus/store/work/WorkUpsertIT.java` (extend),
   `.../TitleKeyTest.java`
 
 **Interfaces:**
@@ -385,7 +385,7 @@ cascade); if the survivor's document source changed (it had no content row of th
   `OAI` id.
 - `fullReadWeekly` routes (unreliable datestamps: MNHN, AJOL, DergiPark) ignore `from` and run only on Sundays.
 - Politeness: `OaiLayer` registers 2 s for the route's host via `PoliteHttp.setMinInterval` unless a property
-  `nametracker.http.min-interval.<host>` sets another value.
+  `garrulus.http.min-interval.<host>` sets another value.
 
 - [ ] **Step 1: Write the tests.** `OaiPmhClientTest` (WireMock): `followsResumptionToken`,
   `badResumptionTokenThrowsTyped` (Review Focus 3), `identifyParses`. `OaiRecordMapperTest`: `pensoftOaiDcHasDoiAbstractAuthors`,
@@ -508,8 +508,8 @@ cascade); if the survivor's document source changed (it had no content row of th
     (`zookeys`, `phytokeys`, `mycokeys`, `bdj`, `arthropod-systematics`, `checklist`, `dez`, `jhr`, `nl` and the rest of
     the 103 sets that match registered ISSNs), Zootaxa, Phytotaxa, EJT, JoTT (`jats`), MNHN Zoosystema/Adansonia/
     Geodiversitas (`fullReadWeekly`), Biodiversity Science (Magtech).
-  - `RouteRolloutScheduler` (`${nametracker.layers.rollout-cron:0 30 0 * * *}`, gated): takes up to
-    `nametracker.layers.rollout-per-night` (20) `VERIFIED` routes and enqueues their layer task with mode
+  - `RouteRolloutScheduler` (`${garrulus.layers.rollout-cron:0 30 0 * * *}`, gated): takes up to
+    `garrulus.layers.rollout-per-night` (20) `VERIFIED` routes and enqueues their layer task with mode
     `ONBOARDING`, `from = today − 120 d`, priority `REPROCESS`, key `onboard-route:<routeId>`.
   - `RouteLifecycle.lastPage(job)`: `ONBOARDING` → route `ACTIVE`, `onboarded_at`, and, when the source has no
     OpenAlex id, `RouteBackfill.enqueue(sourceId)`; `BACKFILL` → `backfilled_at`.
@@ -538,20 +538,20 @@ cascade); if the survivor's document source changed (it had no content row of th
 - Test: `indexer/src/test/java/.../layer/LayerSchedulerTest.java`
 
 **Interfaces:**
-- Produces: daily crons, all gated by `nametracker.harvest.enabled` and the layer switch:
-  - `nametracker.layers.oai-cron` `0 30 4 * * *` → one `HARVEST_OAI` (mode LIVE) per `ACTIVE` OAI route,
+- Produces: daily crons, all gated by `garrulus.harvest.enabled` and the layer switch:
+  - `garrulus.layers.oai-cron` `0 30 4 * * *` → one `HARVEST_OAI` (mode LIVE) per `ACTIVE` OAI route,
     `from = route.lastOk − 3 d` (or today − 120 d), key `harvest:OAI:r<id>:LIVE:<from>:start`;
-  - `nametracker.layers.magtech-cron` `0 45 4 * * *` → `HARVEST_MAGTECH` per `ACTIVE` Magtech route;
-  - `nametracker.layers.europepmc-cron` `0 0 5 * * *` → `HARVEST_EUROPEPMC` per route, 14-day window;
-  - `nametracker.layers.blr-cron` `0 15 5 * * *` → one `HARVEST_BLR` since the last DONE run (or 2 days);
-  - `nametracker.layers.coverage-cron` `0 30 6 * * *` → `COVERAGE_CHECK` (Task 14);
+  - `garrulus.layers.magtech-cron` `0 45 4 * * *` → `HARVEST_MAGTECH` per `ACTIVE` Magtech route;
+  - `garrulus.layers.europepmc-cron` `0 0 5 * * *` → `HARVEST_EUROPEPMC` per route, 14-day window;
+  - `garrulus.layers.blr-cron` `0 15 5 * * *` → one `HARVEST_BLR` since the last DONE run (or 2 days);
+  - `garrulus.layers.coverage-cron` `0 30 6 * * *` → `COVERAGE_CHECK` (Task 14);
   - monthly `PROBE_EUROPEPMC {}` with the seeding (`0 0 1 1 * *`).
   All keys carry the date, so a re-fire adds nothing.
 
 - [ ] **Step 1: Test** with `Clock.fixed` and `MockEnvironment` like `HarvestSchedulerTest`: `enqueuesOnePerActiveRoute`,
   `skipsWhenHarvestDisabled`, `skipsDisabledLayer`.
 - [ ] **Step 2: Run** → FAIL. **Step 3: Implement**; document every property in `CLAUDE.md` (Configuration, indexer
-  harvest) and `.env.example` (`NAMETRACKER_LAYERS_*`). **Step 4: Run** → PASS.
+  harvest) and `.env.example` (`GARRULUS_LAYERS_*`). **Step 4: Run** → PASS.
 - [ ] **Step 5: Commit** `feat(indexer): nightly schedules for the OAI, Magtech, Europe PMC and BLR layers`
 
 ---
@@ -572,7 +572,7 @@ cascade); if the survivor's document source changed (it had no content row of th
     boolean deferredRecovered)`; rules: `FAILING` when failed or zero-yield days ≥ 2 (zero yield only counts when the
     median > 0); `DEGRADED` when either ≥ 1, `yield7d < 0.5 × median`, or `missShare > 0.30` with baseline `< 0.10`;
     a `DEFERRED` run completed the next day is not a failure; else `OK`. Thresholds from
-    `nametracker.coverage.{fail-days=2, yield-ratio=0.5, miss-share=0.30, miss-baseline=0.10}`.
+    `garrulus.coverage.{fail-days=2, yield-ratio=0.5, miss-share=0.30, miss-baseline=0.10}`.
   - `COVERAGE_CHECK {"day":"yyyy-mm-dd"}`: computes the inputs from `harvest_run`, `work_sighting` (misses: works first
     sighted 3–17 days ago by another layer, for sources the layer serves, never sighted by this layer) and writes
     `layer_health` and `source_layer_coverage`; logs a WARN when a layer turns `FAILING` (mails come with M6b).
@@ -603,7 +603,7 @@ cascade); if the survivor's document source changed (it had no content row of th
 - [ ] **Step 2:** After two nights record per layer: runs, works sighted, works first found, routes by status, merges,
   pre-2000 skips; check that no work was duplicated (`SELECT scheme, value, count(*) FROM work_identifier GROUP BY
   1,2 HAVING count(*) > 1` is empty by construction; also check title-key duplicates per source and year).
-- [ ] **Step 3:** Block OpenAlex for two nights (`NAMETRACKER_OPENALEX_BASE_URL=http://127.0.0.1:9` on the dev-run
+- [ ] **Step 3:** Block OpenAlex for two nights (`GARRULUS_OPENALEX_BASE_URL=http://127.0.0.1:9` on the dev-run
   indexer), confirm new works still arrive through the other layers, `layer_health` shows OPENALEX `DEGRADED` then
   `FAILING`, then unblock and confirm `OK` and no new hits for works others brought.
 - [ ] **Step 4:** Write `docs/m6a-dev-check.md` with the numbers and the ADR; update `CLAUDE.md`.

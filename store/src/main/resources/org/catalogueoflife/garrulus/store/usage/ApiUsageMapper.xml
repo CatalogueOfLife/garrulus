@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.garrulus.store.usage.ApiUsageMapper">
+
+  <insert id="add">
+    INSERT INTO api_usage (service, day, calls, usd, remaining_usd, key_fingerprint)
+    VALUES (#{service}, #{day}, #{calls}, #{usd}, #{remainingUsd}, #{keyFingerprint})
+    ON CONFLICT (service, day) DO UPDATE SET
+      calls = api_usage.calls + EXCLUDED.calls,
+      usd = api_usage.usd + EXCLUDED.usd,
+      remaining_usd = CASE WHEN api_usage.key_fingerprint IS NOT DISTINCT FROM EXCLUDED.key_fingerprint
+                           THEN COALESCE(EXCLUDED.remaining_usd, api_usage.remaining_usd)
+                           ELSE EXCLUDED.remaining_usd END,
+      key_fingerprint = EXCLUDED.key_fingerprint
+  </insert>
+
+  <select id="reserve" resultType="int">
+    INSERT INTO api_usage (service, day, calls, usd, remaining_usd, key_fingerprint)
+    VALUES (#{service}, #{day}, GREATEST(#{delta}, 0), 0, NULL, 'none')
+    ON CONFLICT (service, day) DO UPDATE SET calls = GREATEST(api_usage.calls + #{delta}, 0)
+    RETURNING calls
+  </select>
+
+  <select id="get" resultType="map">
+    SELECT service, day, calls, usd, remaining_usd, key_fingerprint FROM api_usage WHERE service = #{service} AND day = #{day}
+  </select>
+
+  <select id="listDay" resultType="map">
+    SELECT service, day, calls, usd, remaining_usd, key_fingerprint FROM api_usage WHERE day = #{day} ORDER BY service
+  </select>
+
+</mapper>

@@ -6,11 +6,11 @@
 
   <parent>
     <groupId>org.catalogueoflife</groupId>
-    <artifactId>nametracker-parent</artifactId>
+    <artifactId>garrulus-parent</artifactId>
     <version>0.1.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>nametracker-store</artifactId>
+  <artifactId>garrulus-store</artifactId>
 
   <dependencies>
     <!-- TaxGroup: a group's members for the per-name group test of mentionedIn -->

@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.garrulus.store.task.TaskMapper">
+
+  <resultMap id="taskResult" type="org.catalogueoflife.garrulus.store.task.Task">
+    <constructor>
+      <idArg column="id" javaType="_long"/>
+      <arg column="type" javaType="string"/>
+      <arg column="payload" javaType="string" typeHandler="org.catalogueoflife.garrulus.store.type.JsonbStringTypeHandler"/>
+      <arg column="priority" javaType="org.catalogueoflife.garrulus.store.task.TaskPriority"
+           typeHandler="org.catalogueoflife.garrulus.store.task.TaskPriorityTypeHandler"/>
+      <arg column="state" javaType="org.catalogueoflife.garrulus.store.task.TaskState"/>
+      <arg column="attempts" javaType="_int"/>
+      <arg column="run_after" javaType="java.time.Instant"/>
+      <arg column="locked_by" javaType="string"/>
+      <arg column="locked_at" javaType="java.time.Instant"/>
+      <arg column="last_error" javaType="string"/>
+      <arg column="dedup_key" javaType="string"/>
+      <arg column="created" javaType="java.time.Instant"/>
+    </constructor>
+  </resultMap>
+
+  <!-- A select so that RETURNING works; null when the dedup key is already held by a live task. -->
+  <select id="insert" resultType="java.lang.Long" flushCache="true">
+    INSERT INTO task (type, payload, priority, dedup_key, run_after)
+    VALUES (#{type}, #{payload, typeHandler=org.catalogueoflife.garrulus.store.type.JsonbStringTypeHandler},
+            #{priority, typeHandler=org.catalogueoflife.garrulus.store.task.TaskPriorityTypeHandler}, #{dedupKey},
+            COALESCE(#{runAfter, jdbcType=TIMESTAMP_WITH_TIMEZONE}, now()))
+    ON CONFLICT (dedup_key) WHERE state IN ('QUEUED','RUNNING') DO NOTHING
+    RETURNING id
+  </select>
+
+  <select id="findLiveIdByDedupKey" resultType="java.lang.Long">
+    SELECT id FROM task WHERE dedup_key = #{dedupKey} AND state IN ('QUEUED','RUNNING')
+  </select>
+
+  <select id="get" resultMap="taskResult">
+    SELECT * FROM task WHERE id = #{id}
+  </select>
+
+  <!-- The picked ids are a MATERIALIZED CTE: as an IN (subquery) the planner may rescan the LIMIT ... SKIP LOCKED
+       subquery per row (a semi-join), and the UPDATE then claims more than #{limit} tasks. -->
+  <select id="claim" resultMap="taskResult" flushCache="true">
+    WITH picked AS MATERIALIZED (
+      SELECT id FROM task
+      WHERE state = 'QUEUED' AND run_after &lt;= now()
+        AND type IN <foreach collection="types" item="t" open="(" separator="," close=")">#{t}</foreach>
+      ORDER BY priority, run_after, id
+      LIMIT #{limit}
+      FOR UPDATE SKIP LOCKED)
+    UPDATE task SET state = 'RUNNING', locked_by = #{workerId}, locked_at = now(), started = now(), attempts = attempts + 1
+    FROM picked WHERE task.id = picked.id
+    RETURNING task.*
+  </select>
+
+  <update id="complete">
+    UPDATE task SET state = 'DONE', finished = now(), locked_by = NULL, locked_at = NULL
+    WHERE id = #{id} AND state = 'RUNNING' AND attempts = #{attempt}
+  </update>
+
+  <update id="fail">
+    UPDATE task SET
+      last_error = #{error},
+      locked_by = NULL,
+      locked_at = NULL,
+      state = CASE WHEN attempts &lt; #{maxAttempts} THEN 'QUEUED' ELSE 'DEAD' END,
+      finished = CASE WHEN attempts &lt; #{maxAttempts} THEN NULL ELSE now() END,
+      run_after = CASE WHEN attempts &lt; #{maxAttempts}
+                       THEN now() + make_interval(secs => #{backoffSeconds} * power(2, LEAST(attempts - 1, 16)))
+                       ELSE run_after END
+    WHERE id = #{id} AND state = 'RUNNING' AND attempts = #{attempt}
+  </update>
+
+  <!-- Not a failure: back to QUEUED at runAfter, giving back the attempt the claim took. Fenced like complete/fail. -->
+  <update id="defer">
+    UPDATE task SET state = 'QUEUED', run_after = #{runAfter, jdbcType=TIMESTAMP_WITH_TIMEZONE},
+      attempts = attempts - 1, locked_by = NULL, locked_at = NULL
+    WHERE id = #{id} AND state = 'RUNNING' AND attempts = #{attempt}
+  </update>
+
+  <update id="heartbeat">
+    UPDATE task SET locked_at = now()
+    WHERE state = 'RUNNING' AND id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+  </update>
+
+  <!-- A task already at maxAttempts that is still RUNNING took its worker down: dead, not endlessly retried. -->
+  <update id="requeueRunning">
+    UPDATE task SET
+      state = CASE WHEN attempts &gt;= #{maxAttempts} THEN 'DEAD' ELSE 'QUEUED' END,
+      last_error = CASE WHEN attempts &gt;= #{maxAttempts} THEN 'worker died during attempt ' || attempts ELSE last_error END,
+      finished = CASE WHEN attempts &gt;= #{maxAttempts} THEN now() ELSE finished END,
+      locked_by = NULL, locked_at = NULL
+    WHERE state = 'RUNNING'
+    <if test="lockedLongerThanSeconds != null">
+      AND locked_at &lt; now() - make_interval(secs => #{lockedLongerThanSeconds})
+    </if>
+  </update>
+
+  <select id="countByState" resultType="map">
+    SELECT state, count(*) AS n FROM task GROUP BY state
+  </select>
+
+  <select id="countLive" resultType="long">
+    SELECT count(*) FROM task WHERE type = #{type} AND state IN ('QUEUED','RUNNING')
+    <if test="window != null">AND payload->>'window' = #{window}</if>
+  </select>
+
+  <select id="countLiveJob" resultType="long">
+    SELECT count(*) FROM task WHERE type = #{type} AND state IN ('QUEUED','RUNNING')
+      AND payload->>'scope' = #{scope} AND payload->>'mode' = #{mode}
+  </select>
+
+  <select id="countByTypeAndState" resultType="map">
+    SELECT type, state, count(*) AS n FROM task GROUP BY type, state ORDER BY type, state
+  </select>
+
+  <delete id="purgeDone">
+    DELETE FROM task WHERE state = 'DONE' AND finished &lt; now() - make_interval(secs => #{olderThanSeconds})
+  </delete>
+
+</mapper>

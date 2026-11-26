@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.garrulus.store.lang.LanguageEvidenceMapper">
+
+  <resultMap id="evidence" type="org.catalogueoflife.garrulus.store.lang.LanguageEvidence">
+    <constructor>
+      <arg column="work_id" javaType="_long"/>
+      <arg column="kind" javaType="string"/>
+      <arg column="source" javaType="string"/>
+      <arg column="lang" javaType="string"/>
+      <arg column="confidence" javaType="float"/>
+      <arg column="raw" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <insert id="upsert" flushCache="true">
+    INSERT INTO work_language_evidence (work_id, kind, source, lang, confidence, raw)
+    VALUES (#{e.workId}, #{e.kind}, #{e.source}, #{e.lang}, #{e.confidence}, #{e.raw})
+    ON CONFLICT (work_id, kind, source) DO UPDATE
+      SET lang = EXCLUDED.lang, confidence = EXCLUDED.confidence, raw = EXCLUDED.raw
+  </insert>
+
+  <delete id="delete" flushCache="true">
+    DELETE FROM work_language_evidence WHERE work_id = #{workId} AND kind = #{kind} AND source = #{source}
+  </delete>
+
+  <select id="forWork" resultMap="evidence">
+    SELECT work_id, kind, source, lang, confidence, raw FROM work_language_evidence
+    WHERE work_id = #{workId} ORDER BY kind, source
+  </select>
+
+  <update id="setDecision" flushCache="true">
+    UPDATE work SET language = #{lang}, language_source = #{source}, language_decided_at = now() WHERE id = #{workId}
+  </update>
+
+  <update id="moveAll" flushCache="true">
+    UPDATE work_language_evidence f SET work_id = #{to} WHERE f.work_id = #{from}
+      AND NOT EXISTS (SELECT 1 FROM work_language_evidence o WHERE o.work_id = #{to} AND o.kind = f.kind
+                      AND o.source = f.source)
+  </update>
+
+</mapper>

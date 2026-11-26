@@ -1,4 +1,4 @@
-Garrulus (internal id nametracker)
+Garrulus
 Copyright 2026 Catalogue of Life
 
 The code is licensed under the Apache License, Version 2.0 (see LICENSE).
@@ -6,7 +6,7 @@ The code is licensed under the Apache License, Version 2.0 (see LICENSE).
 This repository contains third-party data files under their own licences. They stay separable from the code.
 
 1. Common word lists (finder-core)
-   Files:   finder-core/src/main/resources/org/catalogueoflife/nametracker/finder/dict/common-words-{en,de,fr,es,pt}.txt
+   Files:   finder-core/src/main/resources/org/catalogueoflife/garrulus/finder/dict/common-words-{en,de,fr,es,pt}.txt
    Source:  hermitdave/FrequencyWords, https://github.com/hermitdave/FrequencyWords (from OpenSubtitles)
    Licence: Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0), https://creativecommons.org/licenses/by-sa/4.0/
    Changes: counts dropped, filtered and truncated; see the NOTICE file next to the lists.

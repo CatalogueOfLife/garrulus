@@ -71,7 +71,7 @@ later on the GBIF VM (deployment is the last stage, "keep it all local until the
   (`name_string_id`, `hint_key`, `release_key`), so a second release's matches can sit next to the current ones.
   `work_name` holds the placement (`usage_id`, `taxon_path`, `code`, `taxgroup`) of one release; `work` aggregates
   `codes[]`, `taxgroups[]`.
-- **Local bundle** (ADR-0005, development only from M5 on): with `NAMETRACKER_CLB_MATCH_BASE_URL`, the bundle tells the release, and a bundle of
+- **Local bundle** (ADR-0005, development only from M5 on): with `GARRULUS_CLB_MATCH_BASE_URL`, the bundle tells the release, and a bundle of
   another release than the pinned one makes `MATCH_NAMES` fail. CLB publishes a bundle artifact per release.
 - **The re-index gap:** `FIND_NAMES` deletes the work's index and sets it back to `NAMES_FOUND` before `MATCH_NAMES`
   runs; the public API lists `INDEXED` works only, so the work vanishes for that time (about a minute in the dev run,
@@ -113,7 +113,7 @@ later on the GBIF VM (deployment is the last stage, "keep it all local until the
 
 - CLB match calls (base URL and local bundle) have no minimum interval. Other hosts keep theirs. The XR and taxon calls
   to `api.checklistbank.org` are rare and need none either; the CLB host is simply unthrottled.
-- Throughput comes from concurrency: matching a work's names runs in parallel (bounded, `NAMETRACKER_CLB_MATCH_PARALLELISM`,
+- Throughput comes from concurrency: matching a work's names runs in parallel (bounded, `GARRULUS_CLB_MATCH_PARALLELISM`,
   default 8, builder may tune), plus the indexer's worker count. Retry, outage and probe rules of ADR-0005 stay.
 - ADR-0005, `application.yml` and `CLAUDE.md` drop "at most 10 requests a second".
 
@@ -122,7 +122,7 @@ later on the GBIF VM (deployment is the last stage, "keep it all local until the
 **Matching goes to the public CLB API in production** (Markus, 2026-11-17: "Go with the API. Once the app is locally
 deployed in the gbif network overhead is minimal. Just for developments a local bundle helps"). The API serves every
 release by key, so the new release is pre-matched while live matching stays on the current one. The local bundle
-(`NAMETRACKER_CLB_MATCH_BASE_URL`) stays a development option: with a bundle configured, `XR_CHECK` only logs a new
+(`GARRULUS_CLB_MATCH_BASE_URL`) stays a development option: with a bundle configured, `XR_CHECK` only logs a new
 release and does not switch on its own; the developer swaps the bundle and starts the switch with the admin command.
 A bundle serving another release than the pinned one then defers `MATCH_NAMES` (30 minutes, no attempt used) instead
 of failing it `DEAD`, so live tasks wait out a switch.
@@ -134,18 +134,18 @@ States of a release in `xr_release` (new column `state`): `SEEN`, `PREPARING`, `
    higher: the XR alias moving back is followed too. One switch at a time: a new key seen during a switch waits until it ends. A key in state `REFUSED` is never switched to
    automatically (see Admin).
 2. **Dictionary.** `BUILD_DICTIONARY` downloads `xr_latest_coldp.zip` (free), checks that it belongs to the new key,
-   and writes `dictionary-<key>.bin` into `NAMETRACKER_DICTIONARY_DIR`. The dictionary is **not a gate** (my call): when
+   and writes `dictionary-<key>.bin` into `GARRULUS_DICTIONARY_DIR`. The dictionary is **not a gate** (my call): when
    the zip belongs to another release (only the latest XR is published under a stable URL, so a switch to an older
    release cannot get its own) or the build fails, the finder keeps its current dictionary, a WARN says so, and the
    switch goes on; names are matched against the new release either way. The in-process finder picks up the newest
    dictionary for the current release after the flip (builder's call how: reload on flip or on restart, logged). A
    dictionary change is recorded on finder runs but is **not** a finder upgrade and triggers no reprocessing (design.md
-   open items). When `NAMETRACKER_FINDER_URL` points at a remote finder, Garrulus builds nothing and logs that the
+   open items). When `GARRULUS_FINDER_URL` points at a remote finder, Garrulus builds nothing and logs that the
    remote finder needs its own dictionary.
 3. **Pre-match.** `XR_PREMATCH` walks the distinct (`name_string_id`, `hint_key`) keys of the current release's
    `name_match` in batches and matches each against the new release into `name_match`. Nothing visible changes.
 4. **Gate.** When all keys are matched, compare: of the keys that matched on the current release (not `NONE`), how many
-   are `NONE` on the new one. Above `nametracker.xr.max-lost-share` (default 0.05, builder's call) the release becomes
+   are `NONE` on the new one. Above `garrulus.xr.max-lost-share` (default 0.05, builder's call) the release becomes
    `REFUSED`: no flip, an ERROR in the log with the numbers. An admin can force or skip it (below).
 5. **Flip.** In one transaction: the new release becomes current (state `SWITCHING`), the old one `RETIRED`. From now on
    `MATCH_NAMES` of new works uses the new release (its cache is warm). `GET /api/xr` answers the new key.

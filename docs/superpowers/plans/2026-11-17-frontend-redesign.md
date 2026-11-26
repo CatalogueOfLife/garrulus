@@ -41,12 +41,12 @@ MyBatis, Postgres 17 (Testcontainers ITs) for the API part.
 ### Task 1: API — names, rank and acts, volume and pages in work summaries
 
 **Files:**
-- Modify: `store/src/main/java/org/catalogueoflife/nametracker/store/search/MainNameRow.java`, `.../store/search/WorkHit.java`
-- Modify: `store/src/main/resources/org/catalogueoflife/nametracker/store/search/SearchMapper.xml` (resultMaps `hit`, `mainName`; selects `search`, `byIds`, `mainNames`)
-- Modify: `web/src/main/java/org/catalogueoflife/nametracker/web/api/public_/dto/NameRef.java`, `.../dto/WorkSummary.java`, `.../WorkController.java` (`summarise`, `summary`)
+- Modify: `store/src/main/java/org/catalogueoflife/garrulus/store/search/MainNameRow.java`, `.../store/search/WorkHit.java`
+- Modify: `store/src/main/resources/org/catalogueoflife/garrulus/store/search/SearchMapper.xml` (resultMaps `hit`, `mainName`; selects `search`, `byIds`, `mainNames`)
+- Modify: `web/src/main/java/org/catalogueoflife/garrulus/web/api/public_/dto/NameRef.java`, `.../dto/WorkSummary.java`, `.../WorkController.java` (`summarise`, `summary`)
 - Modify: `web/src/main/resources/static/api/openapi.yaml` (schemas `NameRef`, `WorkSummary`)
-- Modify: `web/src/test/java/org/catalogueoflife/nametracker/web/digest/DigestComposerTest.java` (two `new WorkSummary(` calls)
-- Test: `web/src/test/java/org/catalogueoflife/nametracker/web/api/public_/WorkControllerIT.java`
+- Modify: `web/src/test/java/org/catalogueoflife/garrulus/web/digest/DigestComposerTest.java` (two `new WorkSummary(` calls)
+- Test: `web/src/test/java/org/catalogueoflife/garrulus/web/api/public_/WorkControllerIT.java`
 
 **Interfaces:**
 - Produces (Java): `MainNameRow(long workId, long nameStringId, String name, String placementMethod, @Nullable String usageId, @Nullable String kind, @Nullable String rank, @Nullable String usageRank, List<String> actTypes)`; `WorkHit(..., boolean hasActs, @Nullable String volume, @Nullable String issue, @Nullable String pages)`.
@@ -61,11 +61,11 @@ MyBatis, Postgres 17 (Testcontainers ITs) for the API part.
 ### Task 2: API — `titleMentions` on summaries and details
 
 **Files:**
-- Create: `store/src/main/java/org/catalogueoflife/nametracker/store/search/TitleMentionRow.java`
+- Create: `store/src/main/java/org/catalogueoflife/garrulus/store/search/TitleMentionRow.java`
 - Modify: `.../store/search/SearchMapper.java` + `SearchMapper.xml` (new select `titleMentions`)
-- Create: `web/src/main/java/org/catalogueoflife/nametracker/web/api/public_/TitleSpans.java`
+- Create: `web/src/main/java/org/catalogueoflife/garrulus/web/api/public_/TitleSpans.java`
 - Modify: `.../dto/WorkSummary.java`, `.../dto/WorkDetail.java`, `.../WorkController.java`, `openapi.yaml`, `DigestComposerTest.java`
-- Test: `web/src/test/java/org/catalogueoflife/nametracker/web/api/public_/TitleSpansTest.java`, `WorkControllerIT.java`
+- Test: `web/src/test/java/org/catalogueoflife/garrulus/web/api/public_/TitleSpansTest.java`, `WorkControllerIT.java`
 
 **Interfaces:**
 - Consumes: Task 1's `WorkSummary`.
@@ -90,9 +90,9 @@ MyBatis, Postgres 17 (Testcontainers ITs) for the API part.
 ### Task 3: Digest mail in the new brand
 
 **Files:**
-- Create: `web/src/main/java/org/catalogueoflife/nametracker/web/digest/SciNames.java`
-- Modify: `web/src/main/java/org/catalogueoflife/nametracker/web/digest/DigestComposer.java`
-- Test: `web/src/test/java/org/catalogueoflife/nametracker/web/digest/SciNamesTest.java`, `DigestComposerTest.java`
+- Create: `web/src/main/java/org/catalogueoflife/garrulus/web/digest/SciNames.java`
+- Modify: `web/src/main/java/org/catalogueoflife/garrulus/web/digest/DigestComposer.java`
+- Test: `web/src/test/java/org/catalogueoflife/garrulus/web/digest/SciNamesTest.java`, `DigestComposerTest.java`
 
 **Interfaces:**
 - Produces: `static boolean SciNames.italicByShape(String name)` — true for binomials and trinomials (`^[A-Z][a-z-]+( \([A-Z][a-z-]+\))? [a-z-]+( [a-z-]+)?$` after trimming; an infraspecific marker like `subsp.`/`var.` between epithets is allowed), false for uninomials and everything else.
@@ -260,7 +260,7 @@ MyBatis, Postgres 17 (Testcontainers ITs) for the API part.
 
 **Files:** none planned; fixes go into the files they concern.
 
-- [ ] **Step 1: Run this branch's web** on 28080 against the dev DB: `mvn -B -DskipTests install` then `SERVER_PORT=28080 NAMETRACKER_DIGEST_CRON=- ADMIN_TOKEN= mvn -pl web spring-boot:run` (background). Point a copy of `frontend/vite.devrun.config.ts` (port 5174) at `http://localhost:28080` and start Vite with it.
+- [ ] **Step 1: Run this branch's web** on 28080 against the dev DB: `mvn -B -DskipTests install` then `SERVER_PORT=28080 GARRULUS_DIGEST_CRON=- ADMIN_TOKEN= mvn -pl web spring-boot:run` (background). Point a copy of `frontend/vite.devrun.config.ts` (port 5174) at `http://localhost:28080` and start Vite with it.
 - [ ] **Step 2: Screenshot** with Playwright every page — `/`, `/?taxgroup=Animals`, a taxon, a name with acts, a retained work (e.g. 40580), a closed work (e.g. 42931), a journal, `/journals`, `/about`, `/signin`, `/hits` and `/following` signed out, a 404, `/design` — at 1440, 1024, 768 and 390 px, light and dark (`page.emulateMedia({ colorScheme })`). Check against the spec: no horizontal scroll at 390 px, no colour outside the tokens, names italic by rule, red only in its four uses, no Mantine blue anywhere.
 - [ ] **Step 3: Keyboard pass**: tab through the search page (search field, nav, filters, results, pagination), open and close the account menu and the filters pill, use the taxon picker; the red focus ring is visible on each stop.
 - [ ] **Step 4: Run** `npm test`, `npm run build`, and `mvn -B -pl web -am verify -Dit.test='WorkControllerIT,Digest*' -Dtest='TitleSpansTest,SciNamesTest,DigestComposerTest,OpenApiCoverageTest'` — all PASS. Stop the 28080 web and the 5174 Vite.

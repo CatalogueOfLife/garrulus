@@ -55,7 +55,7 @@ export function AboutPage() {
       <ul>
         <li><a href="/api/openapi.yaml">API description</a></li>
         <li><a href="https://www.catalogueoflife.org">catalogueoflife.org</a></li>
-        <li><a href="https://github.com/CatalogueOfLife/nametracker">Source code</a></li>
+        <li><a href="https://github.com/CatalogueOfLife/garrulus">Source code</a></li>
       </ul>
       <div className={styles.aboutMark}><Mark size={120} /></div>
     </div>

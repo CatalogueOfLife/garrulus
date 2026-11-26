@@ -11,8 +11,8 @@ no follow gets the same paper twice (the "no backfill hits" of the roadmap was r
 - `mvn -B -DskipTests clean install`, jars copied to `data/run/`, old logs kept as `indexer-9.log` and `web-6.log`.
 - Mailpit: `docker compose --profile mail up -d mailpit` (SMTP 1025, UI 8025).
 - **Indexer** restarted with the same environment as before. Flyway applied V6 and V7 (accounts and alerts) in 5 s.
-- **Web** restarted on 18080 with `NAMETRACKER_PUBLIC_URL=http://localhost:5173`, `SPRING_MAIL_HOST=localhost`,
-  `SPRING_MAIL_PORT=1025`. ORCID is not configured yet, and `NAMETRACKER_SIGNING_KEY` is blank: web logged the
+- **Web** restarted on 18080 with `GARRULUS_PUBLIC_URL=http://localhost:5173`, `SPRING_MAIL_HOST=localhost`,
+  `SPRING_MAIL_PORT=1025`. ORCID is not configured yet, and `GARRULUS_SIGNING_KEY` is blank: web logged the
   expected WARN and uses a random key per start.
 - **SPA**: Vite from a scratch config (`frontend/vite.devrun.config.ts`, not committed) on 5173, proxying `/api`,
   `/oauth2`, `/login` and `/feeds` to 18080.
@@ -89,7 +89,7 @@ A second admin run answered `{"sent":false,"hits":0}`, and no mail was sent.
   `http://127.0.0.1:5173/login/oauth2/code/orcid`; production ORCID rejected `http://localhost`, and ORCID allows one
   public client per person). Vite's string proxy shorthand rewrote the `Host` header to `localhost:18080`, so the
   redirect URI pointed at web; the proxy now uses `changeOrigin: false` and Vite listens on 127.0.0.1. Web restarted at
-  13:00 UTC with `NAMETRACKER_PUBLIC_URL=http://127.0.0.1:5173`; `/oauth2/authorization/orcid` now redirects to
+  13:00 UTC with `GARRULUS_PUBLIC_URL=http://127.0.0.1:5173`; `/oauth2/authorization/orcid` now redirects to
   orcid.org with `redirect_uri=http://127.0.0.1:5173/login/oauth2/code/orcid`. **Checked 2026-11-17:** Markus signed in
   with ORCID at `http://127.0.0.1:5173/signin`; it works.
 - **The scheduled digest**: the test account now has a daily digest at 07:00 Europe/Berlin. The first scheduled mail,

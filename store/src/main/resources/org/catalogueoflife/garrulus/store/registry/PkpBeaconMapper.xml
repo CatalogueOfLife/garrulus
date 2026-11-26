@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.garrulus.store.registry.PkpBeaconMapper">
+
+  <resultMap id="result" type="org.catalogueoflife.garrulus.store.registry.PkpBeaconRow">
+    <constructor>
+      <idArg column="id" javaType="_long"/>
+      <arg column="context_name" javaType="string"/>
+      <arg column="issns" javaType="java.util.List" typeHandler="org.catalogueoflife.garrulus.store.type.StringArrayTypeHandler"/>
+      <arg column="oai_url" javaType="string"/>
+      <arg column="set_spec" javaType="string"/>
+      <arg column="country" javaType="string"/>
+      <arg column="total_records" javaType="int"/>
+      <arg column="records_2025" javaType="int"/>
+      <arg column="last_oai_response" javaType="java.time.Instant"/>
+      <arg column="unresponsive" javaType="_boolean"/>
+      <arg column="loaded" javaType="java.time.Instant"/>
+    </constructor>
+  </resultMap>
+
+  <select id="byIssns" resultMap="result">
+    SELECT * FROM pkp_beacon
+    WHERE issns &amp;&amp; #{issns, typeHandler=org.catalogueoflife.garrulus.store.type.StringArrayTypeHandler}
+    ORDER BY id
+  </select>
+
+  <delete id="deleteAll">DELETE FROM pkp_beacon</delete>
+
+</mapper>

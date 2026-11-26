@@ -10,7 +10,7 @@
 - a salience tuning command in eval.
 
 **Architecture:**
-- **Salience moves to finder-core.** The pure salience scoring, and the aggregation of a name's mentions into salience inputs, move from `indexer` to `finder-core` (package `org.catalogueoflife.nametracker.finder.salience`). The indexer and eval then share one implementation.
+- **Salience moves to finder-core.** The pure salience scoring, and the aggregation of a name's mentions into salience inputs, move from `indexer` to `finder-core` (package `org.catalogueoflife.garrulus.finder.salience`). The indexer and eval then share one implementation.
 - **The provisional gold lives only in `eval/work/`** and is never committed.
 
 **Tech Stack:** Java 25, Maven, Spring Boot 4.1 (indexer), picocli (eval), JUnit 5, Testcontainers.

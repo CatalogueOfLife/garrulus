@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.catalogueoflife.garrulus.store.stats.StatsMapper">
+
+  <!-- One statement each, so the swap commits atomically: a reader sees the old rows or the new ones. A data-modifying
+       CTE cannot delete and re-insert one key, so stale rows are deleted and the rest upserted from one computed set. -->
+  <update id="rebuildUbiquity">
+    WITH recent AS (SELECT id FROM work WHERE state IN ('INDEXED','NOTIFIED') AND year >= #{fromYear}),
+    total AS (SELECT count(*) AS n FROM recent),
+    fresh AS MATERIALIZED (
+      SELECT wn.name_string_id, count(DISTINCT wn.work_id)::int AS works,
+             (count(DISTINCT wn.work_id)::double precision / total.n)::real AS share
+      FROM work_name wn JOIN recent r ON r.id = wn.work_id, total
+      WHERE NOT wn.only_reference
+      GROUP BY wn.name_string_id, total.n),
+    del AS (DELETE FROM name_ubiquity u WHERE NOT EXISTS (SELECT 1 FROM fresh f WHERE f.name_string_id = u.name_string_id)
+            AND coalesce(u.scored_share, 0) = 0),
+    zero AS (UPDATE name_ubiquity u SET works = 0, share = 0, computed_at = now()
+             WHERE NOT EXISTS (SELECT 1 FROM fresh f WHERE f.name_string_id = u.name_string_id)
+               AND coalesce(u.scored_share, 0) > 0)
+    INSERT INTO name_ubiquity (name_string_id, works, share, computed_at)
+    SELECT name_string_id, works, share, now() FROM fresh
+    ON CONFLICT (name_string_id) DO UPDATE SET works = excluded.works, share = excluded.share,
+      computed_at = excluded.computed_at
+  </update>
+
+  <update id="rebuildTaxonStats">
+    WITH fresh AS MATERIALIZED (
+      SELECT t.taxon_id, w.year, count(DISTINCT wn.work_id)::int AS works,
+             (count(DISTINCT wn.work_id) FILTER (WHERE wn.main_subject))::int AS main_subject_works
+      FROM work_name wn
+      JOIN work w ON w.id = wn.work_id AND w.state IN ('INDEXED','NOTIFIED') AND w.year IS NOT NULL
+      CROSS JOIN LATERAL unnest(wn.taxon_path) AS t(taxon_id)
+      WHERE NOT wn.only_reference
+      GROUP BY t.taxon_id, w.year),
+    del AS (DELETE FROM taxon_stats s WHERE NOT EXISTS
+      (SELECT 1 FROM fresh f WHERE f.taxon_id = s.taxon_id AND f.year = s.year))
+    INSERT INTO taxon_stats (taxon_id, year, works, main_subject_works)
+    SELECT taxon_id, year, works, main_subject_works FROM fresh
+    ON CONFLICT (taxon_id, year) DO UPDATE SET works = excluded.works, main_subject_works = excluded.main_subject_works
+  </update>
+
+  <resultMap id="languageYear" type="org.catalogueoflife.garrulus.store.lang.LanguageYear">
+    <constructor>
+      <arg column="language" javaType="string"/>
+      <arg column="year" javaType="_int"/>
+      <arg column="works" javaType="_long"/>
+    </constructor>
+  </resultMap>
+
+  <update id="rebuildTaxonLanguageStats">
+    WITH fresh AS MATERIALIZED (
+      SELECT t.taxon_id, coalesce(w.language, '') AS language, w.year, count(DISTINCT wn.work_id)::int AS works
+      FROM work_name wn
+      JOIN work w ON w.id = wn.work_id AND w.state IN ('INDEXED','NOTIFIED') AND w.year IS NOT NULL
+      CROSS JOIN LATERAL unnest(wn.taxon_path) AS t(taxon_id)
+      WHERE NOT wn.only_reference
+      GROUP BY t.taxon_id, coalesce(w.language, ''), w.year),
+    del AS (DELETE FROM taxon_language_stats s WHERE NOT EXISTS
+      (SELECT 1 FROM fresh f WHERE f.taxon_id = s.taxon_id AND f.language = s.language AND f.year = s.year))
+    INSERT INTO taxon_language_stats (taxon_id, language, year, works)
+    SELECT taxon_id, language, year, works FROM fresh
+    ON CONFLICT (taxon_id, language, year) DO UPDATE SET works = excluded.works
+  </update>
+
+  <!-- one row per dimension value: the whole set, each group, each code, the journal's country -->
+  <update id="rebuildLanguageStats">
+    WITH fresh AS MATERIALIZED (
+      SELECT d.dim, d.value, coalesce(w.language, '') AS language, w.year, count(*)::bigint AS works
+      FROM work w
+      LEFT JOIN source s ON s.id = w.source_id
+      CROSS JOIN LATERAL (
+        SELECT 'none' AS dim, '' AS value
+        UNION ALL SELECT 'taxgroup', g FROM unnest(w.taxgroups) AS g
+        UNION ALL SELECT 'code', c FROM unnest(w.codes) AS c
+        UNION ALL SELECT 'country', s.country WHERE coalesce(s.country, '') &lt;&gt; '') AS d
+      WHERE w.state IN ('INDEXED','NOTIFIED') AND w.year IS NOT NULL
+      GROUP BY d.dim, d.value, coalesce(w.language, ''), w.year),
+    del AS (DELETE FROM language_stats s WHERE NOT EXISTS
+      (SELECT 1 FROM fresh f WHERE f.dim = s.dim AND f.value = s.value AND f.language = s.language AND f.year = s.year))
+    INSERT INTO language_stats (dim, value, language, year, works)
+    SELECT dim, value, language, year, works FROM fresh
+    ON CONFLICT (dim, value, language, year) DO UPDATE SET works = excluded.works
+  </update>
+
+  <select id="languages" resultMap="languageYear">
+    SELECT language, year, works FROM language_stats WHERE dim = #{dim} AND value = #{value}
+    <if test="yearFrom != null"> AND year &gt;= #{yearFrom}</if>
+    <if test="yearTo != null"> AND year &lt;= #{yearTo}</if>
+    ORDER BY year, works DESC, language
+  </select>
+
+  <select id="taxonLanguages" resultMap="languageYear">
+    SELECT language, year, works FROM taxon_language_stats WHERE taxon_id = #{taxonId} ORDER BY year, works DESC, language
+  </select>
+
+  <select id="sourceLanguages" resultMap="languageYear">
+    SELECT coalesce(language, '') AS language, year, count(*) AS works FROM work
+    WHERE source_id = #{sourceId} AND state IN ('INDEXED','NOTIFIED') AND year IS NOT NULL
+    GROUP BY coalesce(language, ''), year ORDER BY year, works DESC, language
+  </select>
+
+  <sql id="changed">abs(least(1.0, u.share / #{full}) - least(1.0, coalesce(u.scored_share, 0) / #{full})) > #{threshold}</sql>
+
+  <select id="changedUbiquityCount" resultType="int">
+    SELECT count(*) FROM name_ubiquity u WHERE <include refid="changed"/>
+  </select>
+
+  <update id="setScoredShare">
+    UPDATE name_ubiquity u SET scored_share = u.share
+    WHERE <if test="!all"><include refid="changed"/></if><if test="all">true</if>
+  </update>
+
+  <delete id="deleteScoredZero">DELETE FROM name_ubiquity WHERE share = 0 AND scored_share = 0</delete>
+</mapper>

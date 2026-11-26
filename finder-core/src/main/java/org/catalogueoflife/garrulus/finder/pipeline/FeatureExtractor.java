@@ -1,0 +1,137 @@
+package org.catalogueoflife.garrulus.finder.pipeline;
+
+import org.catalogueoflife.garrulus.finder.api.Block;
+import org.catalogueoflife.garrulus.finder.api.Document;
+import org.catalogueoflife.garrulus.finder.api.Generator;
+import org.catalogueoflife.garrulus.finder.dict.DictHit;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * Computes the {@link CandidateFeatures} of parsed candidates. An instance holds what is shared by all candidates of one
+ * document (block lookup, the code points of each block, name density), so the cost per candidate does not grow with the
+ * block length; it is immutable, so create one per document and call.
+ *
+ * <p>Feature definitions:
+ * <ul>
+ *   <li>{@code italic}: the whole span is italic: the ITALIC generator proposed exactly this span, or every letter of the
+ *       span lies inside an ITALIC style span of the block. The second rule keeps the feature when the markup generator is
+ *       disabled or the span is not name shaped. A span that only starts in italics ("*Ophiocordyceps* fungi") is not
+ *       italic.</li>
+ *   <li>{@code taxonMarkup}: the TAXON_MARKUP generator proposed exactly this span (publisher tagged).</li>
+ *   <li>{@code rankWordBefore}: the word right before the span, separated from it by whitespace only, is a rank word of
+ *       {@link RankWords} ("genus Carabus", "Familie Carabidae"; "families Rosaceae" is not).</li>
+ *   <li>{@code gnfinderOdds}: the {@code oddsLog10} candidate feature (the maximum when several gnfinder names merged).</li>
+ *   <li>{@code dictHit}: the {@code dictHit} candidate feature of the dictionary generator, NONE when it did not
+ *       contribute. For a merged span it is the hit of the longest dictionary candidate inside it.</li>
+ *   <li>{@code suffixRule}: the SUFFIX generator saw the span.</li>
+ *   <li>{@code ambiguousWord}: the {@code ambiguousWord} candidate feature: the dictionary genus or uninomial the span
+ *       starts with is also an ordinary word ("Major", "The", also "Ophelia"). It applies to multi-word spans too, because
+ *       the dictionary accepts many ordinary words as epithets ("The baculum"); only independent evidence (strong gnfinder
+ *       odds) lets such a span bypass the judge.</li>
+ *   <li>{@code docNameDensity}: names per 100 word tokens of the whole document. "Names" is the {@code namesInDoc} the
+ *       caller passes; the pipeline passes the number of parsed candidates, because the accepted names are not known
+ *       before judging. Tokens are those of {@link Tokenizer} over all blocks (letter runs; numbers and punctuation do not
+ *       count). 0 for a document without tokens.</li>
+ *   <li>{@code blockType}: the type of the candidate's block.</li>
+ *   <li>{@code sentenceInitial}: before the span there is only whitespace and opening brackets or quotes back to either
+ *       the block start or a '.', '!' or '?' that is followed by at least one whitespace. So "x. Carabus" and
+ *       "x. (Carabus" are sentence initial, "i.e.Carabus" is not. Abbreviation dots ("sp. nov. Carabus") count as a sentence
+ *       end too; telling them apart is left to the weights.</li>
+ *   <li>{@code authorshipFollows}: the authorship attacher found an authorship after the span.</li>
+ *   <li>{@code generatorCount}: the number of distinct generators that saw the span or part of it; the markup generator
+ *       counts once per kind (ITALIC, TAXON_MARKUP).</li>
+ *   <li>{@code partialSupport}: how many of them saw only a part of the span ({@link MergedCandidate#partialSupport()}),
+ *       not counting the dictionary when it saw just the leading genus, as it does for every new species.
+ *       {@code gnfinderOdds}, {@code dictHit} and {@code suffixRule} may come from such a part.</li>
+ * </ul>
+ */
+public final class FeatureExtractor {
+  private static final Set<Integer> OPENERS = Set.of((int) '(', (int) '[', (int) '{', (int) '"', (int) '\'', (int) '“',
+      (int) '‘', (int) '«', (int) '„');
+
+  private final Map<String, Block> blocks;
+  private final Map<String, int[]> codePoints;
+  private final double density;
+
+  /** @param namesInDoc the number of names in the document, used for {@code docNameDensity} */
+  public FeatureExtractor(Document doc, int namesInDoc) {
+    Map<String, Block> byId = new HashMap<>();
+    Map<String, int[]> cps = new HashMap<>();
+    long tokens = 0;
+    for (Block b : doc.blocks()) {
+      // once per block: the features of every candidate of the block look at these code points
+      int[] c = b.text().codePoints().toArray();
+      if (byId.putIfAbsent(b.id(), b) == null) cps.put(b.id(), c);
+      tokens += Tokenizer.tokens(c).size();
+    }
+    this.blocks = byId;
+    this.codePoints = cps;
+    this.density = tokens == 0 ? 0 : 100.0 * namesInDoc / tokens;
+  }
+
+  /** The features of one candidate; convenient for single calls, the pipeline uses one instance per document. */
+  public static CandidateFeatures features(ParsedCandidate c, Document doc, int namesInDoc) {
+    return new FeatureExtractor(doc, namesInDoc).features(c);
+  }
+
+  /** @throws IllegalArgumentException if the candidate's block is not part of the document */
+  public CandidateFeatures features(ParsedCandidate p) {
+    MergedCandidate c = p.c();
+    Block b = blocks.get(c.blockId());
+    if (b == null) throw new IllegalArgumentException("Candidate refers to unknown block " + c.blockId());
+    int[] cps = codePoints.get(b.id());
+    Map<String, Object> f = c.features();
+    Set<Generator> gens = c.generators();
+    Double odds = f.get("oddsLog10") instanceof Number n ? n.doubleValue() : null;
+    DictHit hit = f.get("dictHit") instanceof DictHit h ? h : DictHit.NONE;
+    return new CandidateFeatures(
+        c.exactGenerators().contains(Generator.ITALIC) || NameShape.allItalic(b, cps, c.start(), c.end()),
+        c.exactGenerators().contains(Generator.TAXON_MARKUP),
+        rankWordBefore(cps, c.start()),
+        odds,
+        hit,
+        gens.contains(Generator.SUFFIX),
+        Boolean.TRUE.equals(f.get("ambiguousWord")),
+        density,
+        b.type(),
+        sentenceInitial(cps, c.start()),
+        c.authorship() != null,
+        gens.size(),
+        c.partialSupport());
+  }
+
+
+  static boolean rankWordBefore(int[] cps, int start) {
+    int i = Math.min(start, cps.length) - 1;
+    int ws = 0;
+    while (i >= 0 && isSpace(cps[i])) {
+      i--;
+      ws++;
+    }
+    if (ws == 0 || i < 0 || !Character.isLetter(cps[i])) return false;
+    int end = i + 1;
+    while (i >= 0 && (Character.isLetter(cps[i]) || cps[i] == '-')) i--;
+    return RankWords.rank(new String(cps, i + 1, end - i - 1)).isPresent();
+  }
+
+  static boolean sentenceInitial(int[] cps, int start) {
+    int i = Math.min(start, cps.length) - 1;
+    boolean space = false;
+    while (i >= 0) {
+      int c = cps[i];
+      if (isSpace(c)) space = true;
+      else if (!OPENERS.contains(c)) break;
+      i--;
+    }
+    if (i < 0) return true;
+    int c = cps[i];
+    return space && (c == '.' || c == '!' || c == '?');
+  }
+
+  private static boolean isSpace(int c) {
+    return Character.isWhitespace(c) || Character.isSpaceChar(c);
+  }
+}
