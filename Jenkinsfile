@@ -68,7 +68,7 @@ pipeline {
 
           echo "== Refresh the deploy checkout (units, garrulus.env, vhost) =="
           $SSH 'sudo -u col git -C /home/col/bin pull --ff-only'
-          if $SSH "grep -n CHANGE_ME $APP_DIR/garrulus.env"; then
+          if $SSH "sudo -u col grep -n CHANGE_ME $APP_DIR/garrulus.env"; then
             echo "ERROR: placeholders left in garrulus.env -- refusing to deploy"; exit 1
           fi
 
