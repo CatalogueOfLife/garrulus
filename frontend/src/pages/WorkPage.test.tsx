@@ -204,6 +204,13 @@ describe('WorkPage', () => {
     expect(await screen.findByRole('link', { name: 'PubMed 9' })).toHaveAttribute('href', 'https://europepmc.org/article/MED/9');
   });
 
+  it('showsTheDoiOnceAmongTheIdentifiers', async () => {
+    mount({ ...base, doi: '10.1/x', licence: 'cc-by', identifiers: [{ scheme: 'DOI', label: 'DOI', value: '10.1/x', url: 'https://doi.org/10.1/x' }] });
+    expect(await screen.findByRole('link', { name: 'DOI 10.1/x' })).toHaveAttribute('href', 'https://doi.org/10.1/x');
+    expect(screen.getAllByRole('link').filter((a) => a.getAttribute('href') === 'https://doi.org/10.1/x')).toHaveLength(1);
+    expect(screen.getByText('cc-by')).toBeInTheDocument();
+  });
+
   it('mentionedWhere', async () => {
     mount({ ...base, names: [nm(1, 'Carabus auratus', { inTitle: true, inAbstract: true, bodyCount: 2 }), nm(2, 'Carabus novus', { inAbstract: true })] });
     const col = await screen.findByRole('region', { name: 'Placed in COL' });
