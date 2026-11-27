@@ -106,13 +106,8 @@ export function WorkPage() {
         authors={authors} authorCount={authors.length} source={w.source} volume={w.volume} issue={w.issue}
         pages={w.pages} date={w.publicationDate} year={w.year} textLevel={w.textLevel as WorkSummary['textLevel']}
       />
-      {w.doi || w.licence ? (
-        <p className={`${classes.links} gr-wrap`}>
-          {w.doi ? <a href={`https://doi.org/${w.doi}`}>doi:{w.doi}</a> : null}
-          {w.doi && w.licence ? ' ' : null}
-          {w.licence ?? null}
-        </p>
-      ) : null}
+      {/* the DOI is one of the identifier links below */}
+      {w.licence ? <p className={`${classes.links} gr-wrap`}>{w.licence}</p> : null}
       <IdentifierLinks identifiers={w.identifiers} />
 
       <div className={`${list.page} ${classes.body}`}>
