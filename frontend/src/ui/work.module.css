@@ -3,20 +3,6 @@
   margin-bottom: var(--gr-space-2);
 }
 
-.links {
-  margin-top: var(--gr-space-1);
-  font-size: var(--gr-type-meta-size);
-  line-height: var(--gr-type-meta-line);
-  color: var(--gr-grey);
-}
-
-.links a {
-  color: inherit;
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
-}
-
 .body {
   padding-top: var(--gr-space-5);
 }

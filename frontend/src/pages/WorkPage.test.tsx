@@ -206,7 +206,8 @@ describe('WorkPage', () => {
     mount({ ...base, doi: '10.1/x', licence: 'cc-by', identifiers: [{ scheme: 'DOI', label: 'DOI', value: '10.1/x', url: 'https://doi.org/10.1/x' }] });
     expect(await screen.findByRole('link', { name: 'DOI 10.1/x' })).toHaveAttribute('href', 'https://doi.org/10.1/x');
     expect(screen.getAllByRole('link').filter((a) => a.getAttribute('href') === 'https://doi.org/10.1/x')).toHaveLength(1);
-    expect(screen.getByText('cc-by')).toBeInTheDocument();
+    expect(screen.getByText('CC BY')).toBeInTheDocument(); // last in the citation line
+    expect(screen.getByText('CC BY').closest('p')!.textContent).toMatch(/CC BY$/);
   });
 
   it('marksMainSubjectsWithALegend', async () => {

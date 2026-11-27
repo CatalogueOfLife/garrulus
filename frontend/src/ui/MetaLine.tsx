@@ -1,6 +1,7 @@
 import { Fragment, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { SourceRef, WorkSummary } from '../api';
+import { licenceLabel } from './licence';
 import styles from './frame.module.css';
 
 export interface MetaLineProps {
@@ -14,6 +15,8 @@ export interface MetaLineProps {
   date?: string | null;
   year?: number | null;
   textLevel?: WorkSummary['textLevel'];
+  /** The work's licence (a code such as cc-by), last. */
+  licence?: string | null;
 }
 
 const TEXT_LEVEL: Record<string, string> = { FULLTEXT: 'Full text', ABSTRACT_ONLY: 'Abstract' };
@@ -25,8 +28,8 @@ export function formatDate(date: string): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 }
 
-/** Authors, journal with volume, issue and pages, date and text level in grey, empty parts dropped. */
-export function MetaLine({ authors, authorCount, source, volume, issue, pages, date, year, textLevel }: MetaLineProps) {
+/** Authors, journal with volume, issue and pages, date, text level and licence in grey, empty parts dropped. */
+export function MetaLine({ authors, authorCount, source, volume, issue, pages, date, year, textLevel, licence }: MetaLineProps) {
   const parts: ReactNode[] = [];
   if (authors.length) parts.push(authors.join(', ') + (authorCount > authors.length ? ' et al.' : ''));
   const where = `${volume ?? ''}${issue ? `(${issue})` : ''}${pages ? `${volume || issue ? ': ' : ''}${pages.replace(/-/g, '–')}` : ''}`;
@@ -43,6 +46,7 @@ export function MetaLine({ authors, authorCount, source, volume, issue, pages, d
   if (when) parts.push(when);
   const level = textLevel ? TEXT_LEVEL[textLevel] : undefined;
   if (level) parts.push(level);
+  if (licence?.trim()) parts.push(licenceLabel(licence));
   return (
     <p className={styles.meta}>
       {parts.map((p, i) => (
