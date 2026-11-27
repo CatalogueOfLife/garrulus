@@ -159,18 +159,18 @@ export function WorkPage() {
           ) : null}
         </div>
         <SideColumn>
-          {placed.length ? <Section title="Names in COL"><NameTree names={placed} /></Section> : null}
-          {none.length ? (
-            <Section title="Not placed">
-              <ul className={classes.names}>{none.map((n) => <NameRow key={n.id} n={n} />)}</ul>
-              {none.some((n) => n.mainSubject) ? <MainSubjectLegend /> : null}
-            </Section>
-          ) : null}
           {w.contexts.length ? (
             <Section title="Verbatim classification in the article">
               <ul className={classes.names}>
                 {w.contexts.map((c) => <li key={c.localId}>{c.verbatim}</li>)}
               </ul>
+            </Section>
+          ) : null}
+          {placed.length ? <Section title="Names in COL"><NameTree names={placed} /></Section> : null}
+          {none.length ? (
+            <Section title="Not placed">
+              <ul className={classes.names}>{none.map((n) => <NameRow key={n.id} n={n} />)}</ul>
+              {none.some((n) => n.mainSubject) ? <MainSubjectLegend /> : null}
             </Section>
           ) : null}
         </SideColumn>
