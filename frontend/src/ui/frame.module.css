@@ -134,11 +134,6 @@
   line-height: var(--gr-type-meta-line);
 }
 
-/* The gap trails each part, so a part that wraps to a new line starts flush left. */
-.metaPart:not(:last-child) {
-  margin-right: var(--gr-space-2);
-}
-
 .meta a {
   color: inherit;
   text-decoration: underline;

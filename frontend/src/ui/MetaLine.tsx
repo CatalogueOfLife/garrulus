@@ -28,7 +28,7 @@ export function formatDate(date: string): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 }
 
-/** Authors, journal with volume, issue and pages, date, text level and licence in grey, empty parts dropped. */
+/** Authors, journal with volume, issue and pages, date, text level and licence in grey, joined by dots, empty parts dropped. */
 export function MetaLine({ authors, authorCount, source, volume, issue, pages, date, year, textLevel, licence }: MetaLineProps) {
   const parts: ReactNode[] = [];
   if (authors.length) parts.push(authors.join(', ') + (authorCount > authors.length ? ' et al.' : ''));
@@ -49,10 +49,11 @@ export function MetaLine({ authors, authorCount, source, volume, issue, pages, d
   if (licence?.trim()) parts.push(licenceLabel(licence));
   return (
     <p className={styles.meta}>
+      {/* the dot trails each part, so a part that wraps to a new line starts flush left */}
       {parts.map((p, i) => (
         <Fragment key={i}>
-          {i > 0 && ' '}
-          <span className={styles.metaPart}>{p}</span>
+          <span>{p}</span>
+          {i < parts.length - 1 ? ' · ' : null}
         </Fragment>
       ))}
     </p>
