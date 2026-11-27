@@ -10,7 +10,7 @@ const RANKS = [
   'superfamily', 'family', 'subfamily', 'tribe', 'subtribe', 'genus', 'subgenus', 'section', 'series',
   'species', 'subspecies', 'variety', 'form',
 ];
-const rankIndex = (r?: string | null) => (r ? RANKS.indexOf(r.trim().toLowerCase().replace(/[\s_-]+/g, '')) : -1);
+export const rankIndex = (r?: string | null) => (r ? RANKS.indexOf(r.trim().toLowerCase().replace(/[\s_-]+/g, '')) : -1);
 
 /**
  * Items root first (top → bottom). With at least two known ranks the direction follows the ranks (first known rank

@@ -3,7 +3,7 @@ import { Alert, Loader } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { getWork, type NameDetail, type Snippet, type TextBlock, type TextVersion, type WorkSummary } from '../api';
-import { ClassificationPath } from '../components/ClassificationPath';
+import { NameTree } from '../components/NameTree';
 import { HighlightedText } from '../components/HighlightedText';
 import { IdentifierLinks } from '../components/IdentifierLinks';
 import { TranslateButton } from '../components/TranslateButton';
@@ -15,7 +15,6 @@ import { paragraphs } from '../ui/paragraphs';
 import { SciName } from '../ui/SciName';
 import { SciTitle } from '../ui/SciTitle';
 import { SideColumn } from '../ui/SideColumn';
-import { words } from '../ui/sentence';
 import type { NameInfo } from '../ui/nameStyle';
 import list from '../ui/list.module.css';
 import classes from '../ui/work.module.css';
@@ -41,35 +40,18 @@ function gatherCells(blocks: TextBlock[]): (TextBlock | TextBlock[])[] {
 const snippetBlock = (s: Snippet): TextBlock =>
   ({ id: `s${s.nameId}`, type: s.blockType, level: 0, sectionPath: [], text: s.text, mentions: s.mentions, acts: s.acts });
 
-/** Where a name occurs, in words. */
-function where(n: NameDetail): string {
-  const parts: string[] = [];
-  if (n.inTitle) parts.push('title');
-  if (n.inAbstract) parts.push('abstract');
-  if (n.inHeading || (n.bodyCount ?? 0) > 0) parts.push('full text');
-  return parts.join(', ');
-}
-
 /** The label of a stored version of a title, never presenting a machine translation as the article's own. */
 function versionLabel(v: TextVersion): string {
   if (v.kind === 'MACHINE') return 'Machine translation';
   return isEnglish(v.lang) ? 'English title' : `Parallel title (${languageName(v.lang)})`;
 }
 
-function NameRow({ n, withTaxon }: { n: NameDetail; withTaxon: boolean }) {
+/** A name without a placement: no taxon to show. */
+function NameRow({ n }: { n: NameDetail }) {
   return (
     <li>
       <SciName name={n.name} rank={n.rank} usageRank={n.usageRank} kind={n.kind} to={`/name/${n.id}`} acts={n.actTypes} />
-      {withTaxon && n.usageId ? (
-        <>
-          {' → '}
-          <SciName name={n.usageName || n.usageId} rank={n.usageRank} to={`/taxon/${n.usageId}`} />
-          {n.usageRank ? <span className={classes.note}> ({words(n.usageRank)})</span> : null}
-        </>
-      ) : null}
       {n.mainSubject ? <span className={classes.note}> main subject</span> : null}
-      {where(n) ? <span className={classes.note}> ({where(n)})</span> : null}
-      {n.classification.length ? <ClassificationPath items={n.classification} /> : null}
     </li>
   );
 }
@@ -87,14 +69,10 @@ export function WorkPage() {
   if (!w) return <Loader />;
 
   const info = new Map<number, NameInfo>(w.names.map((n) => [n.id, { rank: n.rank, usageRank: n.usageRank, kind: n.kind }]));
-  const placed = w.names.filter((n) => n.placementMethod === 'MATCH' || n.placementMethod === 'GENUS');
-  const verb = w.names.filter((n) => n.placementMethod === 'VERBATIM_CONTEXT');
-  const none = w.names.filter((n) => n.placementMethod === 'NONE');
-  const names = (ns: NameDetail[], withTaxon: boolean) => (
-    <ul className={classes.names}>
-      {ns.map((n) => <NameRow key={n.id} n={n} withTaxon={withTaxon} />)}
-    </ul>
-  );
+  // the tree needs a taxon or a classification; a name without either is listed as not placed
+  const inTree = (n: NameDetail) => n.placementMethod !== 'NONE' && !!(n.usageId || n.usageName || n.classification.some((c) => c.name));
+  const placed = w.names.filter(inTree);
+  const none = w.names.filter((n) => !inTree(n));
   const showText = w.retained && w.text && w.text.length > 0;
   // bits of the body text only: title and abstract are on the page already, with their names marked
   const snippets = w.snippets ?? [];
@@ -181,9 +159,12 @@ export function WorkPage() {
           ) : null}
         </div>
         <SideColumn>
-          {placed.length ? <Section title="Placed in COL">{names(placed, true)}</Section> : null}
-          {verb.length ? <Section title="Placed by the verbatim classification">{names(verb, true)}</Section> : null}
-          {none.length ? <Section title="Not placed">{names(none, false)}</Section> : null}
+          {placed.length ? <Section title="Names in COL"><NameTree names={placed} /></Section> : null}
+          {none.length ? (
+            <Section title="Not placed">
+              <ul className={classes.names}>{none.map((n) => <NameRow key={n.id} n={n} />)}</ul>
+            </Section>
+          ) : null}
           {w.contexts.length ? (
             <Section title="Verbatim classification in the article">
               <ul className={classes.names}>

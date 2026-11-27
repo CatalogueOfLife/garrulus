@@ -81,6 +81,35 @@
   color: var(--gr-grey);
 }
 
+/* a work's names in one COL tree (NameTree): each level indented, taxa without a name of the work in grey */
+.tree {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--gr-type-ui-size);
+  line-height: var(--gr-type-ui-line);
+}
+
+.tree .tree {
+  padding-left: var(--gr-space-3);
+}
+
+.tree > li {
+  padding: 2px 0 0;
+}
+
+.treeTaxon {
+  color: var(--gr-grey);
+}
+
+.treeTaxon a {
+  color: inherit;
+}
+
+.treeName {
+  color: var(--gr-ink);
+}
+
 .path {
   display: flex;
   flex-wrap: wrap;
