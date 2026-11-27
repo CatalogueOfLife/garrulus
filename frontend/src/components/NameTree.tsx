@@ -75,9 +75,30 @@ export function MainSubjectMark() {
   );
 }
 
-/** The legend of the mark, under a list that uses it. */
-export function MainSubjectLegend() {
-  return <p className={classes.treeLegend}><span aria-hidden>* </span>Main subject of the paper</p>;
+/**
+ * The mark of a name not found in COL itself and placed by the article's verbatim classification (VERBATIM_CONTEXT):
+ * it hangs below the lowest taxon of that classification COL knows.
+ */
+export function VerbatimMark() {
+  return (
+    <>
+      <span className={classes.mainMark} aria-hidden title="Placed by the article's classification">°</span>
+      <span className={list.srOnly}> (placed by the article's classification)</span>
+    </>
+  );
+}
+
+/** The legend of the marks used in a list, under it; nothing when none is used. */
+export function MarkLegend({ names }: { names: NameDetail[] }) {
+  const main = names.some((n) => n.mainSubject);
+  const verbatim = names.some((n) => n.placementMethod === 'VERBATIM_CONTEXT');
+  if (!main && !verbatim) return null;
+  return (
+    <div className={classes.treeLegend}>
+      {main ? <p><span aria-hidden>* </span>Main subject of the paper</p> : null}
+      {verbatim ? <p><span aria-hidden>° </span>Not found in COL; placed by the article's own classification</p> : null}
+    </div>
+  );
 }
 
 function Found({ n }: { n: NameDetail }) {
@@ -85,7 +106,7 @@ function Found({ n }: { n: NameDetail }) {
     <span className={classes.treeName}>
       <SciName name={n.name} rank={n.rank} usageRank={n.usageRank} kind={n.kind} to={`/name/${n.id}`} acts={n.actTypes} />
       {n.mainSubject ? <MainSubjectMark /> : null}
-      {n.placementMethod === 'VERBATIM_CONTEXT' ? <span className={classes.note}> (by the verbatim classification)</span> : null}
+      {n.placementMethod === 'VERBATIM_CONTEXT' ? <VerbatimMark /> : null}
     </span>
   );
 }
@@ -131,7 +152,7 @@ export function NameTree({ names }: { names: NameDetail[] }) {
   return (
     <div data-testid="name-tree">
       <Branch nodes={root.children} root />
-      {names.some((n) => n.mainSubject) ? <MainSubjectLegend /> : null}
+      <MarkLegend names={names} />
     </div>
   );
 }

@@ -105,6 +105,10 @@
 
 .treeLegend {
   margin: var(--gr-space-2) 0 0;
+}
+
+.treeLegend p {
+  margin: 0;
   color: var(--gr-grey);
   font-size: var(--gr-type-meta-size);
   line-height: var(--gr-type-meta-line);

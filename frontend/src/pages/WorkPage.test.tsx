@@ -42,7 +42,8 @@ describe('WorkPage', () => {
     // a verbatim placement is in the same tree, labelled
     expect(within(col).getByRole('link', { name: 'Foo bar' })).toHaveAttribute('href', '/name/3');
     expect(within(col).getByRole('link', { name: 'Foidae' })).toHaveAttribute('href', '/taxon/T9');
-    expect(within(col).getByText('(by the verbatim classification)')).toBeInTheDocument();
+    expect(within(col).getByRole('link', { name: 'Foo bar' }).parentElement!.textContent).toContain('°');
+    expect(within(col).getByText("Not found in COL; placed by the article's own classification")).toBeInTheDocument();
     const none = screen.getByRole('region', { name: 'Not placed' });
     expect(within(none).getByRole('link', { name: 'Lost name' })).toHaveAttribute('href', '/name/4');
     expect(document.title).toBe('Garrulus — Carabid notes');

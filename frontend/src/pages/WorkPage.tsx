@@ -3,7 +3,7 @@ import { Alert, Loader } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { getWork, type NameDetail, type Snippet, type TextBlock, type TextVersion, type WorkSummary } from '../api';
-import { MainSubjectLegend, MainSubjectMark, NameTree } from '../components/NameTree';
+import { MainSubjectMark, MarkLegend, NameTree } from '../components/NameTree';
 import { HighlightedText } from '../components/HighlightedText';
 import { IdentifierLinks } from '../components/IdentifierLinks';
 import { TranslateButton } from '../components/TranslateButton';
@@ -157,7 +157,7 @@ export function WorkPage() {
           {none.length ? (
             <Section title="Not placed">
               <ul className={classes.names}>{none.map((n) => <NameRow key={n.id} n={n} />)}</ul>
-              {none.some((n) => n.mainSubject) ? <MainSubjectLegend /> : null}
+              <MarkLegend names={none} />
             </Section>
           ) : null}
           {w.contexts.length ? (
