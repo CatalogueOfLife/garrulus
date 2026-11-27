@@ -16,7 +16,7 @@ const base: WorkDetail = {
   codes: [], taxgroups: [], contexts: [], text: null,
   names: [
     nm(1, 'Carabus auratus', { usageId: 'T1', usageName: 'Carabus auratus L.', classification: [{ id: 'G', name: 'Carabus', rank: 'genus' }, { id: 'F', name: 'Carabidae', rank: 'family' }], bestSnippet: 'SNIPPET-ONE' }),
-    nm(2, 'Carabus novus', { placementMethod: 'GENUS', usageId: 'G', usageName: 'Carabus' }),
+    nm(2, 'Carabus novus', { placementMethod: 'GENUS', usageId: 'G', usageName: 'Carabus', classification: [{ id: 'F', name: 'Carabidae', rank: 'family' }] }),
     nm(3, 'Foo bar', { placementMethod: 'VERBATIM_CONTEXT', usageId: 'T9', usageName: 'Foidae' }),
     nm(4, 'Lost name', { placementMethod: 'NONE' }),
   ],
@@ -28,16 +28,21 @@ function mount(w: WorkDetail) {
 }
 
 describe('WorkPage', () => {
-  it('workPageGroupsNamesByPlacement', async () => {
+  it('workPagePlacesNamesInOneColTree', async () => {
     mount(base);
-    const col = await screen.findByRole('region', { name: 'Placed in COL' });
-    expect(within(col).getByRole('link', { name: 'Carabus auratus' })).toHaveAttribute('href', '/name/1');
-    expect(within(col).getByRole('link', { name: 'Carabus novus' })).toHaveAttribute('href', '/name/2');
-    expect(within(col).getByRole('link', { name: 'Carabus auratus' }).closest('li')!
-      .querySelector('a[href="/taxon/T1"]')).not.toBeNull();
-    const verb = screen.getByRole('region', { name: 'Placed by the verbatim classification' });
-    expect(within(verb).getByRole('link', { name: 'Foo bar' })).toHaveAttribute('href', '/name/3');
-    expect(within(verb).getByRole('link', { name: 'Foidae' })).toHaveAttribute('href', '/taxon/T9');
+    const col = await screen.findByRole('region', { name: 'Names in COL' });
+    // the shared root on one line, the taxon of a matched name is that name's own row, a genus placement hangs below
+    const genus = within(col).getByRole('link', { name: 'Carabus' });
+    expect(genus).toHaveAttribute('href', '/taxon/G');
+    expect(genus.closest('li')!.firstElementChild!.textContent).toBe('Carabidae › Carabus');
+    const below = within(genus.closest('li')!.querySelector('ul')!);
+    expect(below.getByRole('link', { name: 'Carabus auratus' })).toHaveAttribute('href', '/name/1');
+    expect(below.getByRole('link', { name: 'Carabus novus' })).toHaveAttribute('href', '/name/2');
+    expect(col.querySelector('a[href="/taxon/T1"]')).toBeNull();
+    // a verbatim placement is in the same tree, labelled
+    expect(within(col).getByRole('link', { name: 'Foo bar' })).toHaveAttribute('href', '/name/3');
+    expect(within(col).getByRole('link', { name: 'Foidae' })).toHaveAttribute('href', '/taxon/T9');
+    expect(within(col).getByText('(by the verbatim classification)')).toBeInTheDocument();
     const none = screen.getByRole('region', { name: 'Not placed' });
     expect(within(none).getByRole('link', { name: 'Lost name' })).toHaveAttribute('href', '/name/4');
     expect(document.title).toBe('Garrulus — Carabid notes');
@@ -65,15 +70,8 @@ describe('WorkPage', () => {
     mount({ ...base, contexts: [{ localId: 'c1', verbatim: 'Coleoptera: Carabidae: Carabus', ranks: [{ rank: 'ORDER', name: 'Coleoptera' }], scope: 'DOCUMENT', blockId: 'b1' }] });
     const verbatim = await screen.findByRole('region', { name: 'Verbatim classification in the article' });
     expect(within(verbatim).getByText('Coleoptera: Carabidae: Carabus')).toBeInTheDocument();
-    const col = screen.getByRole('region', { name: 'Placed in COL' });
-    const path = within(col).getByTestId('classification-path');
-    expect(path.textContent).toBe('Carabidae›Carabus'); // root first
-  });
-
-  it('showsTheUsageRankAsWords', async () => {
-    mount({ ...base, names: [nm(1, 'Abies', { usageId: 'T1', usageName: 'Abies', usageRank: 'section_botany' })] });
-    const col = await screen.findByRole('region', { name: 'Placed in COL' });
-    expect(within(col).getByText(/\(section botany\)/)).toBeInTheDocument();
+    const col = screen.getByRole('region', { name: 'Names in COL' });
+    expect(within(col).getByTestId('name-tree').querySelector('li > span')!.textContent).toBe('Carabidae › Carabus'); // root first
   });
 
   it('closedWorkShowsNoTextOnlyBodySnippetsWithTheNameLinked', async () => {
@@ -211,11 +209,20 @@ describe('WorkPage', () => {
     expect(screen.getByText('cc-by')).toBeInTheDocument();
   });
 
-  it('mentionedWhere', async () => {
-    mount({ ...base, names: [nm(1, 'Carabus auratus', { inTitle: true, inAbstract: true, bodyCount: 2 }), nm(2, 'Carabus novus', { inAbstract: true })] });
-    const col = await screen.findByRole('region', { name: 'Placed in COL' });
-    expect(within(col).getByText('(title, abstract, full text)')).toBeInTheDocument();
-    expect(within(col).getByText('(abstract)')).toBeInTheDocument();
+  it('marksMainSubjectsWithALegend', async () => {
+    mount({ ...base, names: [nm(1, 'Carabus auratus', { usageId: 'T1', usageName: 'Carabus auratus', mainSubject: true }), nm(2, 'Carabus novus', { usageId: 'T2', usageName: 'Carabus novus' })] });
+    const col = await screen.findByRole('region', { name: 'Names in COL' });
+    expect(within(col).getByRole('link', { name: 'Carabus auratus' }).parentElement!.textContent).toContain('*');
+    expect(within(col).getByRole('link', { name: 'Carabus novus' }).parentElement!.textContent).not.toContain('*');
+    expect(within(col).getByText('Main subject of the paper')).toBeInTheDocument();
+    expect(within(col).queryByText(/^\s*main subject$/)).toBeNull();
+  });
+
+  it('saysNotWhereANameOccurs', async () => {
+    mount({ ...base, names: [nm(1, 'Carabus auratus', { usageId: 'T1', usageName: 'Carabus auratus', inTitle: true, inAbstract: true, bodyCount: 2 })] });
+    const col = await screen.findByRole('region', { name: 'Names in COL' });
+    expect(within(col).getByRole('link', { name: 'Carabus auratus' })).toBeInTheDocument();
+    expect(within(col).queryByText(/title|abstract|full text/)).toBeNull();
   });
 
   it('parallelNonEnglishTitleNamed', async () => {
