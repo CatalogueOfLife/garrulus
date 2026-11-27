@@ -202,6 +202,15 @@ describe('WorkPage', () => {
     expect(await screen.findByRole('link', { name: 'PubMed 9' })).toHaveAttribute('href', 'https://europepmc.org/article/MED/9');
   });
 
+  it('marksMainSubjectsWithALegend', async () => {
+    mount({ ...base, names: [nm(1, 'Carabus auratus', { usageId: 'T1', usageName: 'Carabus auratus', mainSubject: true }), nm(2, 'Carabus novus', { usageId: 'T2', usageName: 'Carabus novus' })] });
+    const col = await screen.findByRole('region', { name: 'Names in COL' });
+    expect(within(col).getByRole('link', { name: 'Carabus auratus' }).parentElement!.textContent).toContain('*');
+    expect(within(col).getByRole('link', { name: 'Carabus novus' }).parentElement!.textContent).not.toContain('*');
+    expect(within(col).getByText('Main subject of the paper')).toBeInTheDocument();
+    expect(within(col).queryByText(/^\s*main subject$/)).toBeNull();
+  });
+
   it('saysNotWhereANameOccurs', async () => {
     mount({ ...base, names: [nm(1, 'Carabus auratus', { usageId: 'T1', usageName: 'Carabus auratus', inTitle: true, inAbstract: true, bodyCount: 2 })] });
     const col = await screen.findByRole('region', { name: 'Names in COL' });

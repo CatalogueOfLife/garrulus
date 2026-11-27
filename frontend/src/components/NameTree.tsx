@@ -2,6 +2,7 @@ import type { NameDetail } from '../api';
 import { SciName } from '../ui/SciName';
 import { rankIndex, rootFirst } from './ClassificationPath';
 import classes from '../ui/work.module.css';
+import list from '../ui/list.module.css';
 
 /** A taxon of the tree (from a classification or a placement) and the names of the work placed exactly on it. */
 export interface TreeNode {
@@ -64,11 +65,26 @@ function chainFrom(node: TreeNode): TreeNode[] {
   return chain;
 }
 
+/** The mark of a main subject of the work: an asterisk, read out as words. */
+export function MainSubjectMark() {
+  return (
+    <>
+      <span className={classes.mainMark} aria-hidden title="Main subject">*</span>
+      <span className={list.srOnly}> (main subject)</span>
+    </>
+  );
+}
+
+/** The legend of the mark, under a list that uses it. */
+export function MainSubjectLegend() {
+  return <p className={classes.treeLegend}><span aria-hidden>* </span>Main subject of the paper</p>;
+}
+
 function Found({ n }: { n: NameDetail }) {
   return (
     <span className={classes.treeName}>
       <SciName name={n.name} rank={n.rank} usageRank={n.usageRank} kind={n.kind} to={`/name/${n.id}`} acts={n.actTypes} />
-      {n.mainSubject ? <span className={classes.note}> main subject</span> : null}
+      {n.mainSubject ? <MainSubjectMark /> : null}
       {n.placementMethod === 'VERBATIM_CONTEXT' ? <span className={classes.note}> (by the verbatim classification)</span> : null}
     </span>
   );
@@ -111,5 +127,10 @@ function Branch({ nodes }: { nodes: TreeNode[] }) {
 export function NameTree({ names }: { names: NameDetail[] }) {
   const root = buildNameTree(names);
   if (!root.children.length) return null;
-  return <div data-testid="name-tree"><Branch nodes={root.children} /></div>;
+  return (
+    <div data-testid="name-tree">
+      <Branch nodes={root.children} />
+      {names.some((n) => n.mainSubject) ? <MainSubjectLegend /> : null}
+    </div>
+  );
 }

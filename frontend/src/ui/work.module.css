@@ -110,6 +110,20 @@
   color: var(--gr-ink);
 }
 
+/* a main subject: an asterisk right after the name (and its act markers) */
+.mainMark {
+  margin-left: 1px;
+  color: var(--gr-ink);
+  font-weight: 600;
+}
+
+.treeLegend {
+  margin: var(--gr-space-2) 0 0;
+  color: var(--gr-grey);
+  font-size: var(--gr-type-meta-size);
+  line-height: var(--gr-type-meta-line);
+}
+
 .path {
   display: flex;
   flex-wrap: wrap;
