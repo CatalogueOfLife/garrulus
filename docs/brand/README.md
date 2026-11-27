@@ -25,6 +25,8 @@ from the bill. Black on white, white on black; never in red or grey, never outli
 | `garrulus-mark-white.svg` | White, for black or dark backgrounds. |
 | `garrulus-lockup.svg` | Mark and wordmark, both as outlines (no font needed), in `currentColor`, for use outside the app: other sites, slides, print. |
 | `frontend/public/favicon.svg` | Black mark that turns white when the browser is in dark mode (`prefers-color-scheme` inside the SVG); cropped closer to the mark. |
+| `frontend/public/og-image.png` | The link preview of every page (1200×630, Open Graph and X/Twitter tags in `frontend/index.html`): the lockup in black, centred on white. |
+| `frontend/public/apple-touch-icon.png`, `icon-512.png` | The black mark on white as PNG (180 and 512 px) for home screens and previews that take no SVG. |
 | `frontend/src/ui/Mark.tsx` | The mark in the app: `<Mark size={38} title="Garrulus" />` in `currentColor`; without a `title` it is hidden from screen readers. |
 
 **Geometry:** a 100-unit square (`viewBox="0 0 100 100"`). The head is one outline from the bill tip at (97, 52); the
