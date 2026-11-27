@@ -1,5 +1,7 @@
+import { screen } from '@testing-library/react';
 import type { NameDetail } from '../api';
-import { buildNameTree } from './NameTree';
+import { renderApp } from '../test/render';
+import { NameTree, buildNameTree } from './NameTree';
 
 const nm = (id: number, name: string, over: Partial<NameDetail> = {}): NameDetail => ({
   id, name, kind: 'SCIENTIFIC', placementMethod: 'MATCH', usageId: null, usageName: null, salience: 0.5,
@@ -25,5 +27,16 @@ describe('buildNameTree', () => {
     const paraleuctra = leuctridae.children[0];
     expect(paraleuctra.names).toEqual([]);
     expect(paraleuctra.children.map((c) => c.names[0].id)).toEqual([3]); // placed on its genus: a leaf below it
+  });
+
+  it('joinsTaxaToOneLineOnlyAtTheRoot', () => {
+    // lowest first: Animalia > Insecta > Plecoptera > Leuctridae, the root line ends at the first name of the work
+    const up = [{ id: 'P', name: 'Plecoptera', rank: 'order' }, { id: 'I', name: 'Insecta', rank: 'class' }, { id: 'A', name: 'Animalia', rank: 'kingdom' }];
+    renderApp(<NameTree names={[
+      nm(1, 'Insecta', { usageId: 'I', usageName: 'Insecta', usageRank: 'class', classification: [{ id: 'A', name: 'Animalia', rank: 'kingdom' }] }),
+      nm(2, 'Leuctridae', { usageId: 'L', usageName: 'Leuctridae', usageRank: 'family', classification: up }),
+    ]} />);
+    const rows = [...screen.getByTestId('name-tree').querySelectorAll('li > span')].map((r) => r.textContent);
+    expect(rows).toEqual(['Animalia › Insecta', 'Plecoptera', 'Leuctridae']);
   });
 });

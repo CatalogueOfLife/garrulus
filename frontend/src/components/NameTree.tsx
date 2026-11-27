@@ -54,7 +54,7 @@ const order = (a: TreeNode, b: TreeNode) => {
   return (a.taxon?.name ?? a.names[0]?.name ?? '').localeCompare(b.taxon?.name ?? b.names[0]?.name ?? '');
 };
 
-/** A run of nodes shown on one line: taxa without names of the work and with one child are joined to the next. */
+/** The shared root on one line: taxa without names of the work and with one child are joined to the next. */
 function chainFrom(node: TreeNode): TreeNode[] {
   const chain = [node];
   let last = node;
@@ -102,11 +102,12 @@ function NodeLabel({ node }: { node: TreeNode }) {
   );
 }
 
-function Branch({ nodes }: { nodes: TreeNode[] }) {
+/** Below the root line every taxon has its own row, one level deeper than its parent. */
+function Branch({ nodes, root = false }: { nodes: TreeNode[]; root?: boolean }) {
   return (
     <ul className={classes.tree}>
       {[...nodes].sort(order).map((node) => {
-        const chain = chainFrom(node);
+        const chain = root ? chainFrom(node) : [node];
         const last = chain[chain.length - 1];
         return (
           <li key={node.key}>
@@ -123,13 +124,13 @@ function Branch({ nodes }: { nodes: TreeNode[] }) {
   );
 }
 
-/** The work's placed names in one COL tree: the shared root on one line, then the branches indented. */
+/** The work's placed names in one COL tree: the shared root on one line, then every taxon on its own row, indented. */
 export function NameTree({ names }: { names: NameDetail[] }) {
   const root = buildNameTree(names);
   if (!root.children.length) return null;
   return (
     <div data-testid="name-tree">
-      <Branch nodes={root.children} />
+      <Branch nodes={root.children} root />
       {names.some((n) => n.mainSubject) ? <MainSubjectLegend /> : null}
     </div>
   );
