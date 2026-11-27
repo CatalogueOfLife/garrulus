@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { getXr } from '../api';
 import { Mark } from '../ui/Mark';
 import styles from '../ui/pages.module.css';
@@ -25,9 +25,16 @@ export function AboutPage() {
 
       <h2>How it works</h2>
       <ul>
-        <li>Journals and papers come from OpenAlex and Crossref metadata.</li>
-        <li>Full text comes from Pensoft, Europe PMC and PubMed Central where a paper is open.</li>
+        <li>
+          Journals and papers come from OpenAlex and Crossref, from the journals' own archives (OAI-PMH), Europe PMC and
+          the Biodiversity Literature Repository.
+        </li>
+        <li>
+          Full text comes from the journal, Pensoft, Europe PMC, PubMed Central or OpenAlex where a paper is open. Missing
+          abstracts are filled in from open services such as Europe PMC and SciELO.
+        </li>
         <li>Names are found with gnfinder plus Garrulus' own rules, and each name points at an exact span of the text.</li>
+        <li>New names and other nomenclatural acts, such as <i>sp. nov.</i> or <i>comb. nov.</i>, are marked.</li>
         <li>
           Names are matched to the Catalogue of Life eXtended Release
           {xr.data ? <>, currently <b>{xr.data.alias}</b></> : null}.
@@ -35,6 +42,9 @@ export function AboutPage() {
         <li>A name is a main subject of a paper when it matters to the paper; otherwise it is only mentioned.</li>
         <li>Names that occur only in the reference list are left out.</li>
       </ul>
+      <p>
+        A journal is missing? Signed-in users can suggest it on the <Link to="/journals">journals page</Link>.
+      </p>
 
       <h2>Name pages and taxon pages</h2>
       <p id="names">
@@ -48,7 +58,8 @@ export function AboutPage() {
         and misspellings that COL resolves to it. Following a taxon follows all of that.
       </p>
       <p>
-        Full text is kept and shown only for open-licensed papers; for other papers Garrulus keeps only the names it found.
+        Full text is kept and shown only for open-licensed papers; for other papers Garrulus keeps only the names it found
+        and shows a short snippet around each.
       </p>
 
       <h2>Links</h2>
