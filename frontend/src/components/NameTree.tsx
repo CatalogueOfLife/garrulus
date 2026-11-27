@@ -54,11 +54,14 @@ const order = (a: TreeNode, b: TreeNode) => {
   return (a.taxon?.name ?? a.names[0]?.name ?? '').localeCompare(b.taxon?.name ?? b.names[0]?.name ?? '');
 };
 
-/** The shared root on one line: taxa without names of the work and with one child are joined to the next. */
+/**
+ * The shared root on one line: taxa without names of the work, each with one child, joined while the next one has no
+ * name of the work either. The first taxon with a name of the work starts its own row below.
+ */
 function chainFrom(node: TreeNode): TreeNode[] {
   const chain = [node];
   let last = node;
-  while (!last.names.length && last.children.length === 1) {
+  while (!last.names.length && last.children.length === 1 && !last.children[0].names.length) {
     last = last.children[0];
     chain.push(last);
   }

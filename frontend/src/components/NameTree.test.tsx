@@ -37,6 +37,6 @@ describe('buildNameTree', () => {
       nm(2, 'Leuctridae', { usageId: 'L', usageName: 'Leuctridae', usageRank: 'family', classification: up }),
     ]} />);
     const rows = [...screen.getByTestId('name-tree').querySelectorAll('li > span')].map((r) => r.textContent);
-    expect(rows).toEqual(['Animalia › Insecta', 'Plecoptera', 'Leuctridae']);
+    expect(rows).toEqual(['Animalia', 'Insecta', 'Plecoptera', 'Leuctridae']); // the first name of the work on its own row
   });
 });
