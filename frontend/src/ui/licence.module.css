@@ -1,0 +1,12 @@
+/* the Creative Commons icons of a licence, about the cap height of the meta line, in its grey */
+.icons {
+  display: inline-flex;
+  gap: 2px;
+  vertical-align: -0.2em;
+}
+
+.icons svg {
+  width: 1.15em;
+  height: 1.15em;
+  fill: currentColor;
+}

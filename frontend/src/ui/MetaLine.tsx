@@ -1,7 +1,7 @@
 import { Fragment, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { SourceRef, WorkSummary } from '../api';
-import { licenceLabel } from './licence';
+import { LicenceMark } from './LicenceMark';
 import styles from './frame.module.css';
 
 export interface MetaLineProps {
@@ -46,7 +46,7 @@ export function MetaLine({ authors, authorCount, source, volume, issue, pages, d
   if (when) parts.push(when);
   const level = textLevel ? TEXT_LEVEL[textLevel] : undefined;
   if (level) parts.push(level);
-  if (licence?.trim()) parts.push(licenceLabel(licence));
+  if (licence?.trim()) parts.push(<LicenceMark licence={licence} />);
   return (
     <p className={styles.meta}>
       {/* the dot trails each part, so a part that wraps to a new line starts flush left */}
