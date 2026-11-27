@@ -268,6 +268,10 @@ expand-only migrations: **V21 to V24**.
 
 - `mentionedIn` (repeatable `TITLE`, `ABSTRACT`, `BODY`; any of them suffices; empty = anywhere) on `/api/works`, the
   taxon works, the public feeds and follows (`subscription.mentioned_in`). `BODY` is `body_count > 0` or `in_heading`.
+  **Amended 2026-11-27:** `work_name.body_count` counts mentions in body text only (not in title, abstract, headings or
+  references; none at all in a work whose names come from an abstract only). Before, it counted every mention outside the
+  references, so `BODY` matched works without full text; migration `V2` recounts the stored rows from `mention`.
+  `only_reference` and the main-subject rule still use the count outside the references.
   A reference-only name never counts, also for a follow with `includeReferences`.
 - With a taxon or name filter it applies to the names that filter selects. **With a taxgroup and `mentionedIn` the
   group (and its descendants), `mainSubjectOnly` and the part are tested on the same `work_name` row** (the work-level

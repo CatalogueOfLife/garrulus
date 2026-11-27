@@ -187,7 +187,8 @@ public class WorkIndexer implements WorkIndexing {
     Set<String> groups = new LinkedHashSet<>();
     for (Map.Entry<Long, List<MentionRow>> e : byName.entrySet()) {
       List<MentionRow> ms = e.getValue();
-      int body = bodyCount(ms);
+      int outsideRefs = outsideReferences(ms);
+      int body = abstractOnly ? 0 : bodyCount(ms); // an abstract-only work has no body text, whatever its blocks
       Salience.Inputs in = inputs.get(String.valueOf(e.getKey()));
       boolean inTitle = in.inTitle(), inAbstract = in.inAbstract(), inHeading = in.inHeading();
       Set<String> acts = new LinkedHashSet<>();
@@ -201,14 +202,14 @@ public class WorkIndexer implements WorkIndexing {
       }
       MentionRow best = title != null ? title : abs != null ? abs : firstBody != null ? firstBody : ms.get(0);
       double s = salience.score(in);
-      boolean main = body > 0 && salience.isMainSubject(s);
+      boolean main = outsideRefs > 0 && salience.isMainSubject(s);
       Placement p = placements.get(e.getKey());
       if (p == null) p = new Placement(Placement.NONE, null, List.of(), null, null);
       if (main) {
         if (p.code() != null) codes.add(p.code());
         if (p.taxgroup() != null) TaxGroups.addWithAncestors(p.taxgroup(), groups);
       }
-      rows.add(new WorkName(workId, e.getKey(), ms.size(), body, inTitle, inAbstract, inHeading, body == 0,
+      rows.add(new WorkName(workId, e.getKey(), ms.size(), body, inTitle, inAbstract, inHeading, outsideRefs == 0,
           new ArrayList<>(acts), best.snippet(), p.method(), p.usageId(), p.taxonPath(), p.code(), p.taxgroup(),
           (float) s, main));
     }
@@ -216,9 +217,20 @@ public class WorkIndexer implements WorkIndexing {
         groups.stream().sorted().toArray(String[]::new), hasActs);
   }
 
-  private static int bodyCount(List<MentionRow> ms) {
+  /** Mentions outside the references: none means the name is cited only (only_reference, never a main subject). */
+  private static int outsideReferences(List<MentionRow> ms) {
     int n = 0;
     for (MentionRow m : ms) if (!"REFERENCE".equals(m.blockType())) n++;
+    return n;
+  }
+
+  /** The block types that are not body text: the mentioned-in filter's BODY is body_count &gt; 0 or in_heading. */
+  static final Set<String> NOT_BODY = Set.of("TITLE", "ABSTRACT", "HEADING", "REFERENCE");
+
+  /** Mentions in the body text (paragraphs, captions, table cells, footnotes): not title, abstract, headings, references. */
+  static int bodyCount(List<MentionRow> ms) {
+    int n = 0;
+    for (MentionRow m : ms) if (!NOT_BODY.contains(m.blockType())) n++;
     return n;
   }
 }

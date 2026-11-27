@@ -121,6 +121,37 @@ class WorkIndexerIT extends AbstractPostgresIT {
   }
 
   @Test
+  void bodyCountIsBodyTextOnly() {
+    long w = work("FULLTEXT");
+    long a = mention(w, "Carabus auratus", "TITLE", 0, "ttl", null);
+    mention(w, "Carabus auratus", "ABSTRACT", 20, "abs", null);
+    mention(w, "Carabus auratus", "HEADING", 40, "head", null);
+    mention(w, "Carabus auratus", "REFERENCE", 60, "ref", null);
+    long b = mention(w, "Bembidion lampros", "PARAGRAPH", 80, "par", null);
+    mention(w, "Bembidion lampros", "CAPTION", 100, "cap", null);
+    mention(w, "Bembidion lampros", "ABSTRACT", 120, "abs2", null);
+    indexer.index(w, new PlacedWork(index.indexRows(w), Map.of()), 1);
+    Map<Long, WorkName> byName = new java.util.HashMap<>();
+    for (WorkName n : index.workNames(w)) byName.put(n.nameStringId(), n);
+    // title, abstract, heading and references are no body text; the name is not cited only
+    assertThat(byName.get(a).bodyCount()).isZero();
+    assertThat(byName.get(a).onlyReference()).isFalse();
+    assertThat(byName.get(b).bodyCount()).isEqualTo(2);
+  }
+
+  @Test
+  void abstractOnlyWorkHasNoBodyMentionsAndCanHaveAMainSubject() {
+    long w = work("ABSTRACT_ONLY");
+    long a = mention(w, "Carabus auratus", "TITLE", 0, "ttl", null);
+    mention(w, "Carabus auratus", "PARAGRAPH", 20, "p", "sp. nov.");
+    indexer.index(w, new PlacedWork(index.indexRows(w), Map.of(a, placement("ZOOLOGICAL", "Coleoptera"))), 1);
+    WorkName n = index.workNames(w).get(0);
+    assertThat(n.bodyCount()).isZero();
+    assertThat(n.onlyReference()).isFalse();
+    assertThat(n.mainSubject()).isTrue();
+  }
+
+  @Test
   void referenceActGivesNoActWeight() {
     long w = work("FULLTEXT");
     long a = mention(w, "Carabus auratus", "PARAGRAPH", 0, "body", null);
