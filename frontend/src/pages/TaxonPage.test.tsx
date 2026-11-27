@@ -37,6 +37,7 @@ describe('TaxonPage', () => {
     expect(screen.getByText('genus')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1 }).querySelector('i')).not.toBeNull();
     expect(screen.getByRole('link', { name: 'Atom feed' })).toHaveAttribute('href', '/feeds/taxon/T1.atom');
+    expect(screen.getByRole('link', { name: 'col:T1' })).toHaveAttribute('href', 'https://www.catalogueoflife.org/data/taxon/T1');
     expect(await screen.findByText('6')).toBeInTheDocument();
     expect(await screen.findByText('Carabidae')).toBeInTheDocument();
     expect(await screen.findAllByTestId('year-bar')).toHaveLength(2);

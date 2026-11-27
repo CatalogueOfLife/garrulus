@@ -1,10 +1,11 @@
+import { Fragment } from 'react';
 import { Alert, Anchor, Loader, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { getName, searchWorks } from '../api';
 import { FollowActions } from '../components/FollowActions';
 import { Section } from '../components/Section';
-import { ClassificationPath } from '../components/ClassificationPath';
+import { rootFirst } from '../components/ClassificationPath';
 import { MentionedInFilter, withMentionedIn } from '../components/MentionedInFilter';
 import { WorkList } from '../components/WorkList';
 import { YearBars } from '../components/YearBars';
@@ -37,6 +38,10 @@ export function NamePage() {
   const m = n.match;
   const synonym = m?.acceptedId && m.acceptedId !== m.usageId;
   const first = n.firstAppearance;
+  // the classification shortened to its kingdom (else its root) and the parent: "Animalia … Trombellidae"
+  const path = rootFirst((m?.classification ?? []).filter((c) => c.name));
+  const top = path.find((c) => c.rank?.toLowerCase() === 'kingdom') ?? path[0];
+  const ends = path.length ? [...new Set([top, path[path.length - 1]])] : [];
 
   return (
     <article>
@@ -46,26 +51,26 @@ export function NamePage() {
         actions={<FollowActions type="NAME" target={String(n.id)} label={n.name} feed={withMentionedIn(`/feeds/name/${n.id}.atom`, mentionedIn)} mentionedIn={mentionedIn} />}
       />
 
+      <section aria-label="Match in COL" className={classes.matchRow}>
+        <span className={classes.matchLabel}>Match in COL:</span>{' '}
+        {m?.usageId ? (
+          <>
+            <SciName name={m.usageName || m.usageId} rank={m.rank} to={`/taxon/${m.usageId}`} />
+            {m.rank ? <> ({words(m.rank)})</> : null}
+            {m.status ? <> · {words(m.status)}</> : null}
+            {synonym ? <> · <Link to={`/taxon/${m.acceptedId}`}>accepted taxon</Link></> : null}
+            {ends.length ? <> · {ends.map((c, i) => (
+              <Fragment key={c.id ?? c.name}>
+                {i > 0 ? ' … ' : null}
+                <SciName name={c.name!} rank={c.rank} to={c.id ? `/taxon/${c.id}` : undefined} />
+              </Fragment>
+            ))}</> : null}
+          </>
+        ) : 'not matched to the Catalogue of Life.'}
+      </section>
+
       <div className={`${list.page} ${classes.body}`}>
         <div className={list.mainCol}>
-          <Section title="Match in COL">
-            {m?.usageId ? (
-              <div>
-                <Text>
-                  <SciName name={m.usageName || m.usageId} rank={m.rank} to={`/taxon/${m.usageId}`} />
-                  {m.rank ? <span className={classes.muted}> ({words(m.rank)})</span> : null}
-                  {m.status ? <span className={classes.muted}> · {words(m.status)}</span> : null}
-                </Text>
-                {synonym ? (
-                  <Text size="sm">
-                    <Anchor component={Link} to={`/taxon/${m.acceptedId}`}>Go to the accepted taxon</Anchor>
-                  </Text>
-                ) : null}
-                <ClassificationPath items={m.classification} />
-              </div>
-            ) : <Text c="dimmed">This name is not matched to the Catalogue of Life.</Text>}
-          </Section>
-
           <Section title="First appearance">
             {first ? (
               <Text>
@@ -73,10 +78,6 @@ export function NamePage() {
                 {first.publicationDate ? <span className={classes.muted}> · {formatDate(first.publicationDate)}</span> : null}
               </Text>
             ) : <Text c="dimmed">Not seen in any paper yet.</Text>}
-          </Section>
-
-          <Section title="Filter">
-            <MentionedInFilter value={mentionedIn} onChange={setMentioned} />
           </Section>
 
           <Section title="Papers naming this name">
@@ -95,6 +96,9 @@ export function NamePage() {
           A name as written in papers.{' '}
           <Anchor component={Link} to="/about#names" inherit>What is this?</Anchor>
         </>}>
+          <Section title="Mentioned in">
+            <MentionedInFilter legend={null} value={mentionedIn} onChange={setMentioned} />
+          </Section>
           <Section title="Papers per year">
             <YearBars years={n.timeline} />
           </Section>

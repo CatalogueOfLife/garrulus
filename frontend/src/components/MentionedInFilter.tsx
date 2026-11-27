@@ -10,15 +10,18 @@ const PARTS: { value: MentionedIn; label: string }[] = [
 /** The same hint on the filter and on the follow dialog. */
 export const FULL_TEXT_HINT = 'Full text is available for some papers only.';
 
-/** Where the name must occur: checkboxes for the title, the abstract and the full text; none checked means anywhere. */
+/**
+ * Where the name must occur: checkboxes for the title, the abstract and the full text; none checked means anywhere.
+ * `legend={null}` leaves the label out, for a place whose heading already names the filter.
+ */
 export function MentionedInFilter({ value, onChange, legend = 'Mentioned in' }: {
   value: string[];
   onChange: (v: MentionedIn[]) => void;
-  legend?: string;
+  legend?: string | null;
 }) {
   return (
     <Checkbox.Group
-      label={legend}
+      label={legend ?? undefined}
       value={value}
       onChange={(v) => onChange(PARTS.filter((p) => v.includes(p.value)).map((p) => p.value))}
     >

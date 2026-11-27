@@ -1,5 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
+import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router-dom';
 import { SourcePage } from './SourcePage';
 import { server, work, taxGroupHandler, emptyPage } from '../test/server';
@@ -118,6 +119,28 @@ describe('SourcePage', () => {
     expect(within(langs).getByRole('rowheader', { name: 'English' })).toBeInTheDocument();
   });
 
+  it('languageTableSetsTheFilter', async () => {
+    const seen: URLSearchParams[] = [];
+    server.use(taxGroupHandler,
+      http.get('/api/sources/7', () => HttpResponse.json({
+        id: 7, title: 'Zootaxa', tier: 'CORE', subfields: [], taxgroups: [], codes: [], years: [], recentWorks: [work(1, 'Recent one')],
+        languages: [{ language: 'en', year: 2025, works: 9 }, { language: '', year: 2025, works: 2 }],
+      })),
+      http.get('/api/works', ({ request }) => {
+        seen.push(new URL(request.url).searchParams);
+        return HttpResponse.json({ ...emptyPage, total: 1, results: [work(2, 'Filtered one')] });
+      }));
+    renderSource();
+    const langs = await screen.findByRole('region', { name: 'Languages' });
+    await userEvent.click(within(langs).getByRole('button', { name: 'Undecided' }));
+    expect(await screen.findByText('Filtered one')).toBeInTheDocument();
+    expect(seen[seen.length - 1].getAll('language')).toEqual(['none']);
+    expect(within(langs).getByRole('button', { name: 'Undecided' })).toHaveAttribute('aria-pressed', 'true');
+    // a second click clears it: the journal's own recent papers again
+    await userEvent.click(within(langs).getByRole('button', { name: 'Undecided' }));
+    expect(await screen.findByText('Recent one')).toBeInTheDocument();
+  });
+
   it('filtersTheJournalListByPartAndLanguage', async () => {
     const seen: URLSearchParams[] = [];
     server.use(
@@ -139,7 +162,8 @@ describe('SourcePage', () => {
     expect(q.getAll('mentionedIn')).toEqual(['ABSTRACT']);
     expect(q.getAll('language')).toEqual(['de']);
     expect(screen.getByLabelText('Abstract')).toBeChecked();
-    expect(screen.getByRole('button', { name: 'German 1' })).toHaveAttribute('aria-current', 'true');
+    // the selected language has no row in the journal's language table: it can still be cleared there
+    expect(screen.getByRole('button', { name: 'Show papers in all languages' })).toBeInTheDocument();
     // feeds and follows do not filter by language: hidden while a language is selected
     expect(screen.queryByRole('link', { name: 'Atom feed' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Follow' })).toBeNull();

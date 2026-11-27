@@ -7,10 +7,8 @@ import { IdentifierLinks } from '../components/IdentifierLinks';
 import { LanguageBreakdown } from '../components/LanguageBreakdown';
 import { FollowActions } from '../components/FollowActions';
 import { Section } from '../components/Section';
-import { FacetGroup } from '../ui/FacetGroup';
 import { TaxGroupIcon } from '../components/TaxGroupIcon';
 import { YearBars } from '../components/YearBars';
-import { languageItems } from '../components/FilterSidebar';
 import { MentionedInFilter, withMentionedIn } from '../components/MentionedInFilter';
 import { WorkList } from '../components/WorkList';
 import { DetailHead } from '../ui/DetailHead';
@@ -40,7 +38,7 @@ export function SourcePage() {
   });
   const works = useQuery({
     queryKey: ['source-works', id, mentionedIn, language],
-    queryFn: () => searchWorks({ source: id, limit: '10', mentionedIn, language }, ['language']),
+    queryFn: () => searchWorks({ source: id, limit: '10', mentionedIn, language }),
   });
   const source = useQuery({ queryKey: ['source', id], queryFn: () => getSource(id) });
   const groups = useQuery({ queryKey: ['taxgroups'], queryFn: getTaxGroups, staleTime: Infinity });
@@ -91,11 +89,6 @@ export function SourcePage() {
       <div className={`${list.page} ${classes.body}`}>
         <div className={list.mainCol}>
           <Section title="Recent papers">
-            <MentionedInFilter value={mentionedIn} onChange={(v) => setList('mentionedIn', v)} />
-            {works.data?.facets.language?.length || language.length ? (
-              <FacetGroup title="Language" current={language[0]} onSelect={(v) => setList('language', v ? [v] : [])}
-                items={languageItems(works.data?.facets.language, language)} />
-            ) : null}
             {(() => {
               const list = filtered ? works.data?.results : s.recentWorks;
               if (filtered && works.isError) return <Alert color="red">{(works.error as Error).message}</Alert>;
@@ -109,6 +102,9 @@ export function SourcePage() {
         </div>
 
         <SideColumn>
+          <Section title="Mentioned in">
+            <MentionedInFilter legend={null} value={mentionedIn} onChange={(v) => setList('mentionedIn', v)} />
+          </Section>
           <Section title="Taxonomic groups">
             {shown.length ? (
               <ul className={classes.plain}>
@@ -147,9 +143,10 @@ export function SourcePage() {
             <YearBars years={s.years} />
           </Section>
 
-          {s.languages?.length ? (
+          {s.languages?.length || language.length ? (
             <Section title="Languages">
-              <LanguageBreakdown languages={s.languages} />
+              <LanguageBreakdown languages={s.languages} current={language[0]}
+                onSelect={(v) => setList('language', v ? [v] : [])} />
             </Section>
           ) : null}
         </SideColumn>

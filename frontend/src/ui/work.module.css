@@ -172,3 +172,34 @@
 .langTable thead th {
   color: var(--gr-grey);
 }
+
+/* a language name that sets the list's language filter: underlined on hover, in red while selected (as a facet row) */
+.langPick, .langClear {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--gr-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.langPick:hover, .langClear:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.langPick[aria-pressed='true'] {
+  text-decoration: underline;
+  text-decoration-color: var(--gr-red);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.langClear {
+  margin-top: var(--gr-space-2);
+  font-size: var(--gr-type-meta-size);
+  line-height: var(--gr-type-meta-line);
+  color: var(--gr-grey);
+}

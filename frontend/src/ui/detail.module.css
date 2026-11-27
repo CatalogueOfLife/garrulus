@@ -10,8 +10,28 @@
   line-height: var(--gr-type-meta-line);
 }
 
+/* underlined like the identifier links (work.module.css .identifiers) */
 .sub a {
   color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+/* a name page's COL match in one line under the head, grey like the head's sub-line */
+.matchRow {
+  margin: var(--gr-space-1) 0 0;
+  color: var(--gr-grey);
+  font-size: var(--gr-type-meta-size);
+  line-height: var(--gr-type-meta-line);
+}
+
+.matchRow a {
+  color: inherit;
+}
+
+.matchLabel {
+  color: var(--gr-ink);
 }
 
 /* The gap trails each part, so a part that wraps to a new line starts flush left. */

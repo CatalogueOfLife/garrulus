@@ -31,6 +31,9 @@ export function relevantVerbatim(contexts: Context[], lineageNames: (string | un
   return [...new Set(kept.map((c) => c.verbatim))];
 }
 
+/** The taxon's page in the Catalogue of Life portal. */
+export const colTaxonUrl = (id: string) => `https://www.catalogueoflife.org/data/taxon/${encodeURIComponent(id)}`;
+
 export function TaxonPage() {
   const { id = '' } = useParams();
   const [params, setParams] = useSearchParams();
@@ -73,7 +76,8 @@ export function TaxonPage() {
       {name ? (
         <DetailHead
           title={<SciName name={name} rank={rank} />}
-          parts={[words(rank), words(taxon.data?.status)]}
+          parts={[words(rank), words(taxon.data?.status),
+            <a href={colTaxonUrl(id)} target="_blank" rel="noopener noreferrer">col:{id}</a>]}
           actions={<FollowActions type="TAXON" target={id} label={name}
             feed={withMentionedIn(`/feeds/taxon/${encodeURIComponent(id)}.atom`, mentionedIn)} mentionedIn={mentionedIn} />}
         />
@@ -82,10 +86,6 @@ export function TaxonPage() {
 
       <div className={`${list.page} ${classes.body}`}>
         <div className={list.mainCol}>
-          <Section title="Filter">
-            <MentionedInFilter value={mentionedIn} onChange={setMentioned} />
-          </Section>
-
           <Section title="Recent papers (main subject)">
             {recent.isError ? <Alert color="red">{(recent.error as Error).message}</Alert>
               : recent.data ? (recent.data.results.length ? <WorkList works={recent.data.results} /> : <Text c="dimmed">No papers yet.</Text>)
@@ -117,6 +117,9 @@ export function TaxonPage() {
           A taxon in the Catalogue of Life, with everything below it.{' '}
           <Anchor component={Link} to="/about#taxa" inherit>What is this?</Anchor>
         </>}>
+          <Section title="Mentioned in">
+            <MentionedInFilter legend={null} value={mentionedIn} onChange={setMentioned} />
+          </Section>
           {stats.data ? (
             <Section title="Papers">
               <StatRows rows={[
