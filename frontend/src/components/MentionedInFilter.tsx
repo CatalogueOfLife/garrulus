@@ -1,7 +1,7 @@
 import { Checkbox, Stack, Text } from '@mantine/core';
 import type { MentionedIn } from '../api';
 
-const PARTS: { value: MentionedIn; label: string }[] = [
+export const PARTS: { value: MentionedIn; label: string }[] = [
   { value: 'TITLE', label: 'Title' },
   { value: 'ABSTRACT', label: 'Abstract' },
   { value: 'BODY', label: 'Full text' },

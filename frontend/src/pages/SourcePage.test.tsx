@@ -157,11 +157,17 @@ describe('SourcePage', () => {
     renderApp(<Routes><Route path="/source/:id" element={<SourcePage />} /></Routes>, '/source/7?mentionedIn=ABSTRACT&language=de');
     expect(await screen.findByText('Filtered one')).toBeInTheDocument();
     expect(screen.queryByText('Recent one')).toBeNull();
-    const q = seen[seen.length - 1];
+    // the list (limit 10) and one count per part for the facet (limit 1), each with the language filter
+    const listQ = seen.filter((x) => x.get('limit') === '10');
+    const q = listQ[listQ.length - 1];
     expect(q.get('source')).toBe('7');
     expect(q.getAll('mentionedIn')).toEqual(['ABSTRACT']);
     expect(q.getAll('language')).toEqual(['de']);
-    expect(screen.getByLabelText('Abstract')).toBeChecked();
+    const counts = seen.filter((x) => x.get('limit') === '1');
+    expect(new Set(counts.map((x) => x.getAll('mentionedIn').join()))).toEqual(new Set(['TITLE', 'ABSTRACT', 'BODY']));
+    expect(counts.every((x) => x.getAll('language').join() === 'de')).toBe(true);
+    const facet = screen.getByRole('list', { name: 'Mentioned in' });
+    expect(await within(facet).findByRole('button', { name: 'Abstract 1' })).toHaveAttribute('aria-current', 'true');
     // the selected language has no row in the journal's language table: it can still be cleared there
     expect(screen.getByRole('button', { name: 'Show papers in all languages' })).toBeInTheDocument();
     // feeds and follows do not filter by language: hidden while a language is selected

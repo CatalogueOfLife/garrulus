@@ -1,5 +1,5 @@
 import { Alert, Loader, Text } from '@mantine/core';
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { getSource, getTaxGroups, searchWorks } from '../api';
 import { CeasedBadge } from '../components/CeasedBadge';
@@ -9,7 +9,8 @@ import { FollowActions } from '../components/FollowActions';
 import { Section } from '../components/Section';
 import { TaxGroupIcon } from '../components/TaxGroupIcon';
 import { YearBars } from '../components/YearBars';
-import { MentionedInFilter, withMentionedIn } from '../components/MentionedInFilter';
+import { FULL_TEXT_HINT, PARTS, withMentionedIn } from '../components/MentionedInFilter';
+import { FacetGroup } from '../ui/FacetGroup';
 import { WorkList } from '../components/WorkList';
 import { DetailHead } from '../ui/DetailHead';
 import { NotFound, isNotFound } from '../ui/NotFound';
@@ -39,6 +40,13 @@ export function SourcePage() {
   const works = useQuery({
     queryKey: ['source-works', id, mentionedIn, language],
     queryFn: () => searchWorks({ source: id, limit: '10', mentionedIn, language }),
+  });
+  // the works per part (title, abstract, full text) as facet counts
+  const partCounts = useQueries({
+    queries: PARTS.map((p) => ({
+      queryKey: ['source-part', id, p.value, language],
+      queryFn: () => searchWorks({ source: id, limit: '1', mentionedIn: [p.value], language }),
+    })),
   });
   const source = useQuery({ queryKey: ['source', id], queryFn: () => getSource(id) });
   const groups = useQuery({ queryKey: ['taxgroups'], queryFn: getTaxGroups, staleTime: Infinity });
@@ -102,25 +110,6 @@ export function SourcePage() {
         </div>
 
         <SideColumn>
-          <Section title="Mentioned in">
-            <MentionedInFilter legend={null} value={mentionedIn} onChange={(v) => setList('mentionedIn', v)} />
-          </Section>
-          <Section title="Taxonomic groups">
-            {shown.length ? (
-              <ul className={classes.plain}>
-                {shown.map((g) => (
-                  <li key={g.name}>
-                    <span className={classes.group}>
-                      <TaxGroupIcon group={{ name: g.name, icon: icon(g.name) }} />
-                      <span>{g.name}</span>
-                    </span>
-                    {g.share !== null ? <span className={classes.muted}> {pct(g.share)}</span> : null}
-                  </li>
-                ))}
-              </ul>
-            ) : <Text c="dimmed">No taxonomic groups recorded.</Text>}
-          </Section>
-
           <Section title="Categorisation">
             <StatRows rows={cat} />
             {s.subfields.length ? (
@@ -143,12 +132,34 @@ export function SourcePage() {
             <YearBars years={s.years} />
           </Section>
 
+          <Section title="Taxonomic groups">
+            {shown.length ? (
+              <ul className={classes.plain}>
+                {shown.map((g) => (
+                  <li key={g.name}>
+                    <span className={classes.group}>
+                      <TaxGroupIcon group={{ name: g.name, icon: icon(g.name) }} />
+                      <span>{g.name}</span>
+                    </span>
+                    {g.share !== null ? <span className={classes.muted}> {pct(g.share)}</span> : null}
+                  </li>
+                ))}
+              </ul>
+            ) : <Text c="dimmed">No taxonomic groups recorded.</Text>}
+          </Section>
+
           {s.languages?.length || language.length ? (
             <Section title="Languages">
               <LanguageBreakdown languages={s.languages} current={language[0]}
                 onSelect={(v) => setList('language', v ? [v] : [])} />
             </Section>
           ) : null}
+
+          {/* a facet without a backend facet: one count query per part, the language filter applied, the part's own not */}
+          <FacetGroup title="Mentioned in" current={mentionedIn.length === 1 ? mentionedIn[0] : undefined}
+            onSelect={(v) => setList('mentionedIn', v ? [v] : [])}
+            items={PARTS.map((p, i) => ({ value: p.value, label: p.label, count: partCounts[i].data?.total }))} />
+          <Text size="xs" c="dimmed" mt={4}>{FULL_TEXT_HINT}</Text>
         </SideColumn>
       </div>
     </article>
