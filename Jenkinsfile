@@ -48,6 +48,7 @@ pipeline {
               docker run --rm --user "$(id -u)" \
                 -v "$PWD":/usr/src/app -w /usr/src/app/frontend \
                 -e npm_config_cache=/usr/src/app/frontend/.npm \
+                -e GIT_COMMIT \
                 node:24 sh -c "npm ci && npm run build"
             '''
           }
