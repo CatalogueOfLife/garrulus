@@ -11,6 +11,7 @@ describe('AboutPage', () => {
     expect(screen.getByText(/is about one name as it is written in papers/)).toBeInTheDocument();
     expect(screen.getByText(/gathers the\s+papers about this taxon and everything below it/)).toBeInTheDocument();
     expect(screen.getByText(/Full text is kept and shown only for open-licensed papers/)).toBeInTheDocument();
+    expect(screen.getByText('2000').closest('li')).toHaveTextContent('Papers published from 2000 on are included');
     expect(await screen.findByText('COL26.10 XR')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'API description' })).toHaveAttribute('href', '/api/openapi.yaml');
     expect(screen.getByRole('link', { name: 'Source code' })).toHaveAttribute('href', 'https://github.com/CatalogueOfLife/garrulus');

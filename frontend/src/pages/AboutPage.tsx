@@ -6,6 +6,12 @@ import { Mark } from '../ui/Mark';
 import styles from '../ui/pages.module.css';
 import { usePageTitle } from '../usePageTitle';
 
+/**
+ * The first publication year Garrulus keeps. The indexer has it as constants, not configuration: LayerWriter.MIN_YEAR,
+ * CrossrefHarvestHandler.MIN_YEAR, RouteBackfill.FROM_YEAR and BackfillHandler.DEFAULT_FROM_YEAR; change them together.
+ */
+export const FIRST_YEAR = 2000;
+
 export function AboutPage() {
   usePageTitle('About');
   const xr = useQuery({ queryKey: ['xr'], queryFn: getXr, staleTime: Infinity });
@@ -29,6 +35,7 @@ export function AboutPage() {
           Journals and papers come from OpenAlex and Crossref, from the journals' own archives (OAI-PMH), Europe PMC and
           the Biodiversity Literature Repository.
         </li>
+        <li>Papers published from <b>{FIRST_YEAR}</b> on are included; older papers are left out.</li>
         <li>
           Full text comes from the journal, Pensoft, Europe PMC, PubMed Central or OpenAlex where a paper is open. Missing
           abstracts are filled in from open services such as Europe PMC and SciELO.
