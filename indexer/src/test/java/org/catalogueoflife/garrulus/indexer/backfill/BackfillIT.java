@@ -190,6 +190,17 @@ class BackfillIT extends AbstractBackfillIT {
   }
 
   @Test
+  void fromYearNeverBeforeTheFirstYear() throws Exception {
+    source("S1", "CORE");
+    String path = "data/jsonl/works/updated_date=2026-01-01/part_0000.gz";
+    manifest(file(path, 1));
+    serve(path, List.of(record("W-old", "S1", 2020, "article")));
+    enqueueBackfill("{\"fromYear\":1990,\"toYear\":2026}"); // garrulus.first-year is 2000
+    assertThat(step()).isTrue();
+    assertThat(runs.getRun(onlyRun()).fromYear()).isEqualTo((short) 2000);
+  }
+
+  @Test
   void sliceTakesOnlyGivenFiles() throws Exception {
     source("S1", "CORE");
     String[] paths = new String[4];

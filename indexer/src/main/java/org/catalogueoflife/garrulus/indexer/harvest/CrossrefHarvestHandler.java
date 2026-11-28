@@ -33,6 +33,7 @@ import org.catalogueoflife.garrulus.store.work.WorkMapper;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
@@ -56,8 +57,6 @@ public class CrossrefHarvestHandler implements TaskHandler {
 
   public static final String TYPE = "HARVEST_CROSSREF";
   static final int ISSN_BATCH = 40;
-  /** Items published before this year are skipped. */
-  static final int MIN_YEAR = 2000;
   private static final Logger LOG = LoggerFactory.getLogger(CrossrefHarvestHandler.class);
 
   private final CrossrefClient crossref;
@@ -69,10 +68,13 @@ public class CrossrefHarvestHandler implements TaskHandler {
   private final HarvestRunMapper runs;
   private final Clock clock;
   private final HarvestOutage outage;
+  /** Items published before this year are skipped ({@code garrulus.first-year}). */
+  private final int firstYear;
 
   public CrossrefHarvestHandler(CrossrefClient crossref, OpenAlexClient openAlex, WorksPager pager,
       SourceMapper sources, WorkMapper works, TaskQueue queue, HarvestRunMapper runs, Clock clock,
-      HarvestOutage outage) {
+      HarvestOutage outage, @Value("${garrulus.first-year:2000}") int firstYear) {
+    this.firstYear = firstYear;
     this.crossref = crossref;
     this.openAlex = openAlex;
     this.pager = pager;
@@ -198,8 +200,8 @@ public class CrossrefHarvestHandler implements TaskHandler {
         LOG.warn("Skipping an unreadable Crossref item {}: {}", item.path("DOI").asString(""), e.toString());
         continue;
       }
-      if (rec.year() != null && rec.year() < MIN_YEAR) {
-        skipped++; // not news and not worth the full-text effort: Garrulus follows works from 2000 on
+      if (rec.year() != null && rec.year() < firstYear) {
+        skipped++; // not news and not worth the full-text effort: Garrulus follows works from its first year on
         continue;
       }
       seen++;
@@ -213,7 +215,7 @@ public class CrossrefHarvestHandler implements TaskHandler {
     }
     runs.addProgress(runId, 1, seen, created);
     LOG.info("Crossref harvest of {}, batch {}: {} works seen, {} created, {} skipped (published before {})", date,
-        batch, seen, created, skipped, MIN_YEAR);
+        batch, seen, created, skipped, firstYear);
 
     if (!page.last() && page.nextCursor() != null) {
       continuation(task, date, batch, page.nextCursor(), slice, null, runId, WorksPager.pos(page.nextCursor(), 1));

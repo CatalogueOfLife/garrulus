@@ -21,12 +21,13 @@ import org.catalogueoflife.garrulus.store.task.TaskQueue;
 import org.catalogueoflife.garrulus.store.work.Layer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
 /**
- * The history of a journal back to {@value #FROM_YEAR} through its own routes, at {@code BACKFILL} priority, from
- * 1 January {@value #FROM_YEAR} to {@value RouteLifecycle#ONBOARDING_DAYS} days before today (the onboarding pass
+ * The history of a journal back to {@code garrulus.first-year} (2000) through its own routes, at {@code BACKFILL}
+ * priority, from 1 January of that year to {@value RouteLifecycle#ONBOARDING_DAYS} days before today (the onboarding pass
  * covers the rest); works get origin {@code BACKFILL}.
  *
  * <ul>
@@ -45,7 +46,6 @@ import tools.jackson.databind.JsonNode;
 public class RouteBackfill implements TaskHandler {
 
   public static final String TYPE = "ROUTE_BACKFILL";
-  static final int FROM_YEAR = 2000;
   private static final Logger LOG = LoggerFactory.getLogger(RouteBackfill.class);
 
   private final SourceRouteMapper routes;
@@ -53,9 +53,11 @@ public class RouteBackfill implements TaskHandler {
   private final TaskQueue queue;
   private final TaskMapper tasks;
   private final Clock clock;
+  private final int firstYear;
 
   public RouteBackfill(SourceRouteMapper routes, SourceMapper sources, TaskQueue queue, TaskMapper tasks,
-      Clock clock) {
+      Clock clock, @Value("${garrulus.first-year:2000}") int firstYear) {
+    this.firstYear = firstYear;
     this.routes = routes;
     this.sources = sources;
     this.queue = queue;
@@ -88,7 +90,7 @@ public class RouteBackfill implements TaskHandler {
       LOG.info("Route backfill of source {} ({}) skipped: the journal has ceased publication", sourceId, source.title());
       return;
     }
-    LocalDate from = LocalDate.of(FROM_YEAR, 1, 1);
+    LocalDate from = LocalDate.of(firstYear, 1, 1);
     LocalDate until = LocalDate.now(clock.withZone(ZoneOffset.UTC)).minusDays(RouteLifecycle.ONBOARDING_DAYS);
     int n = 0;
     for (SourceRoute r : routes.forSource(sourceId)) {

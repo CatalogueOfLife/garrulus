@@ -26,6 +26,7 @@ export const disciplines: Discipline[] = [
 export const disciplineHandler = http.get('/api/vocab/discipline', () => HttpResponse.json(disciplines));
 
 export const xrHandler = http.get('/api/xr', () => HttpResponse.json({ key: 316691, alias: 'COL26.10 XR' }));
+export const infoHandler = http.get('/api/info', () => HttpResponse.json({ firstYear: 2000 }));
 export const taxGroupHandler = http.get('/api/vocab/taxgroup', () => HttpResponse.json(taxGroups));
 
 export const sourcesHandler = (total = 312) =>

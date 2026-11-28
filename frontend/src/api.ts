@@ -336,6 +336,9 @@ export const listSources = (params: { q?: string; tier?: string; journalType?: s
   return getJson<SourcePage>(`/api/sources?${p}`);
 };
 export const getXr = () => getJson<Xr>('/api/xr');
+/** Facts about the service: the first publication year it keeps (garrulus.first-year). */
+export interface Info { firstYear: number }
+export const getInfo = () => getJson<Info>('/api/info');
 export const getTaxGroups = () => getJson<TaxGroup[]>('/api/vocab/taxgroup');
 
 export const CLB_BASE = 'https://api.checklistbank.org';

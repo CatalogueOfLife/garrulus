@@ -103,7 +103,10 @@ on 2026-11-15), install them from a CLB backend checkout: `mvn -q -DskipTests -p
 
 **Configuration** (environment variables; defaults in each `application.yml`):
 - Both apps: `GARRULUS_DB_URL` (default `jdbc:postgresql://localhost:5434/garrulus`), `GARRULUS_DB_USER` and
-  `GARRULUS_DB_PASSWORD` (both default `garrulus`). `GARRULUS_BLOBS_DIR` (`./data/blobs`) is relative to the
+  `GARRULUS_DB_PASSWORD` (both default `garrulus`). `GARRULUS_FIRST_YEAR` (`garrulus.first-year`, 2000): the first
+  publication year kept. In the indexer every harvest layer (OpenAlex snapshot, Crossref, OAI, Magtech, Europe PMC, BLR)
+  skips older works, route backfills and the Crossref history start on 1 January of it, and a `BACKFILL` `fromYear`
+  before it is raised to it (WARN); `web` serves it at `/api/info` for the About page. Set it once for both apps. `GARRULUS_BLOBS_DIR` (`./data/blobs`) is relative to the
   working directory, and `mvn -pl <app> spring-boot:run` runs in the module directory: give both apps the same
   absolute path, or `web` finds no blobs and serves no full text.
 - `web`: `ADMIN_TOKEN` enables the admin endpoints (`/api/admin/tasks`, `/sources`, `/status`; send it in the
@@ -581,7 +584,7 @@ curl ... -d '{"type":"BACKFILL","payload":{"fromYear":2020,"toYear":2024,"files"
 `yearFrom`, `yearTo`, `hasActs`, `actType`, `mainSubjectOnly`, `q`, `identifier=<SCHEME>:<value>`, repeatable
 `mentionedIn` (`TITLE`, `ABSTRACT`, `BODY`; any suffices; also on `/api/taxa/{colId}/works`); `limit` ≤ 100,
 `offset` ≤ 10000; repeatable `facet`), `/api/works/{id}`, `/api/names?q=`, `/api/names/{id}`, `/api/taxa/{colId}/works` (`mainSubjectOnly` defaults
-to true), `/api/taxa/{colId}/stats`, `/api/sources` (filter `publicationStatus`; ceased journals are listed), `/api/sources/{id}`, `/api/xr`,
+to true), `/api/taxa/{colId}/stats`, `/api/sources` (filter `publicationStatus`; ceased journals are listed), `/api/sources/{id}`, `/api/xr`, `/api/info` (`firstYear`),
 `/api/stats/languages` (works per language and year, `taxgroup/code/country/yearFrom/yearTo`; read from `language_stats`, as are a taxon's and a source's `languages` from `taxon_language_stats` and a live per-source count; `REBUILD_STATS` fills them), repeatable `language` filter and facet on works (`none` = undecided; the facet shows undecided as `''`), `/api/vocab/taxgroup`, `/api/vocab/discipline` (`discipline` is an alias of the `subfield` filter; a retired code resolves to
 its replacement). Work and journal details carry `identifiers` (scheme, label, value, url); a work detail also
 `languageSource`, `titleLang`, `abstractLang` and `titles`/`abstracts` with their `kind` (ORIGINAL, PARALLEL, MACHINE: a

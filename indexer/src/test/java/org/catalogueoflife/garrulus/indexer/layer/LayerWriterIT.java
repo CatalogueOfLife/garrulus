@@ -117,10 +117,10 @@ class LayerWriterIT extends AbstractPostgresIT {
   @Test
   void pre2000Skipped() {
     assertThat(writer.store(harvested("10.5555/y1999", LocalDate.of(1999, 12, 31)), LayerMode.BACKFILL,
-        TaskPriority.BACKFILL)).isEqualTo(LayerWriter.Stored.SKIPPED_PRE_2000);
+        TaskPriority.BACKFILL)).isEqualTo(LayerWriter.Stored.SKIPPED_TOO_OLD);
     assertThat(writer.store(new HarvestedWork(work("10.5555/yonly", "Year only", null, 1987), Layer.OAI,
         List.of(IdScheme.id(IdScheme.DOI, "10.5555/yonly"))), LayerMode.LIVE, TaskPriority.LIVE))
-        .isEqualTo(LayerWriter.Stored.SKIPPED_PRE_2000);
+        .isEqualTo(LayerWriter.Stored.SKIPPED_TOO_OLD);
     assertThat(writer.store(harvested("10.5555/y2000", LocalDate.of(2000, 1, 1)), LayerMode.BACKFILL,
         TaskPriority.BACKFILL)).isEqualTo(LayerWriter.Stored.CREATED);
 

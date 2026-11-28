@@ -157,7 +157,7 @@ public abstract class LayerHarvestHandler implements TaskHandler {
           created++;
         }
         case MERGED -> seen++;
-        case SKIPPED_PRE_2000 -> skipped++;
+        case SKIPPED_TOO_OLD -> skipped++;
       }
     }
     runs.addProgress(job.runId(), page.calls(), seen, created);

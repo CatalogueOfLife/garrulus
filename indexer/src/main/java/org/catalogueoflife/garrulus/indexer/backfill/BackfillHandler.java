@@ -16,13 +16,15 @@ import org.catalogueoflife.garrulus.store.task.TaskPriority;
 import org.catalogueoflife.garrulus.store.task.TaskQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
 
 /**
  * {@code BACKFILL}, payload {@code {"fromYear":2000,"toYear":<this year>,"files":null,"fromFile":0}} (all optional; the
- * defaults are shown, {@code toYear} is the current UTC year), started by hand through the admin task endpoint. Reads
+ * defaults are shown: {@code fromYear} is {@code garrulus.first-year} and never earlier, {@code toYear} is the current
+ * UTC year), started by hand through the admin task endpoint. Reads
  * the manifest of the free OpenAlex snapshot and, in one transaction, records a {@code backfill_run} with one
  * {@code backfill_file} per works file (all of them, or the slice {@code fromFile}…{@code fromFile+files-1}; idx is the
  * file's position in the manifest) and enqueues one {@code BACKFILL_FILE {"runId":r,"idx":i,"records":n}} per file at
@@ -39,7 +41,6 @@ import tools.jackson.databind.JsonNode;
 public class BackfillHandler implements TaskHandler {
 
   public static final String TYPE = "BACKFILL";
-  static final int DEFAULT_FROM_YEAR = 2000;
   static final String SERVICE = "the OpenAlex snapshot";
   private static final Logger LOG = LoggerFactory.getLogger(BackfillHandler.class);
 
@@ -49,9 +50,11 @@ public class BackfillHandler implements TaskHandler {
   private final TransactionTemplate tx;
   private final HarvestOutage outage;
   private final Clock clock;
+  private final int firstYear;
 
   public BackfillHandler(SnapshotClient snapshot, BackfillMapper backfill, TaskQueue queue, TransactionTemplate tx,
-      HarvestOutage outage, Clock clock) {
+      HarvestOutage outage, Clock clock, @Value("${garrulus.first-year:2000}") int firstYear) {
+    this.firstYear = firstYear;
     this.snapshot = snapshot;
     this.backfill = backfill;
     this.queue = queue;
@@ -68,7 +71,12 @@ public class BackfillHandler implements TaskHandler {
   @Override
   public void handle(Task task) {
     JsonNode p = FinderJson.mapper().readTree(task.payload());
-    int fromYear = p.hasNonNull("fromYear") ? p.path("fromYear").asInt() : DEFAULT_FROM_YEAR;
+    int asked = p.hasNonNull("fromYear") ? p.path("fromYear").asInt() : firstYear;
+    if (asked < firstYear) {
+      // the harvest layers drop older works anyway: a backfill below the first year would leave an uneven record
+      LOG.warn("BACKFILL fromYear {} is before garrulus.first-year {}; using {}", asked, firstYear, firstYear);
+    }
+    int fromYear = Math.max(asked, firstYear);
     int toYear = p.hasNonNull("toYear") ? p.path("toYear").asInt() : LocalDate.now(clock.withZone(ZoneOffset.UTC))
         .getYear();
     Integer files = p.hasNonNull("files") ? p.path("files").asInt() : null;

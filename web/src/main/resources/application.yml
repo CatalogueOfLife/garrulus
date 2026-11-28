@@ -54,6 +54,9 @@ management:
         include: health,info
 
 garrulus:
+  # the first publication year Garrulus keeps (set by the indexer's harvests), served at /api/info; the same
+  # GARRULUS_FIRST_YEAR as the indexer's
+  first-year: ${GARRULUS_FIRST_YEAR:2000}
   # base URL of the SPA, for links in emails and feeds
   public-url: ${GARRULUS_PUBLIC_URL:http://localhost:5173}
   mail:

@@ -8,6 +8,7 @@ import org.catalogueoflife.garrulus.indexer.harvest.WorksPager;
 import org.catalogueoflife.garrulus.store.task.TaskPriority;
 import org.catalogueoflife.garrulus.store.work.Work;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -15,7 +16,8 @@ import org.springframework.stereotype.Component;
  * upserts the work and queues its RESOLVE_CONTENT (on create) and MERGE_WORKS (on a duplicate) in one transaction.
  *
  * <ul>
- *   <li>A record published before {@value #MIN_YEAR} is skipped: pre-2000 is not a goal of Garrulus.</li>
+ *   <li>A record published before {@code garrulus.first-year} (2000) is skipped: older literature is not a goal of
+ *   Garrulus.</li>
  *   <li>Origin: {@code ONBOARDING} mode gives {@code ONBOARDING}, {@code BACKFILL} gives {@code BACKFILL}; {@code LIVE}
  *   gives {@code LIVE} for a work published within {@value OpenAlexHarvestHandler#LIVE_DAYS} days (UTC) or without
  *   a date, else {@code BACKFILL}. A year alone counts as its last day.</li>
@@ -25,23 +27,23 @@ import org.springframework.stereotype.Component;
 @Component
 public class LayerWriter {
 
-  /** Records published before this year are skipped. */
-  public static final int MIN_YEAR = 2000;
-
-  public enum Stored { CREATED, MERGED, SKIPPED_PRE_2000 }
+  public enum Stored { CREATED, MERGED, SKIPPED_TOO_OLD }
 
   private final WorksPager pager;
   private final Clock clock;
+  /** Records published before this year are skipped ({@code garrulus.first-year}). */
+  private final int firstYear;
 
-  public LayerWriter(WorksPager pager, Clock clock) {
+  public LayerWriter(WorksPager pager, Clock clock, @Value("${garrulus.first-year:2000}") int firstYear) {
     this.pager = pager;
     this.clock = clock;
+    this.firstYear = firstYear;
   }
 
   public Stored store(HarvestedWork hw, LayerMode mode, TaskPriority contentPriority) {
     Work w = hw.work();
     Integer year = year(w);
-    if (year != null && year < MIN_YEAR) return Stored.SKIPPED_PRE_2000;
+    if (year != null && year < firstYear) return Stored.SKIPPED_TOO_OLD;
     String origin = origin(w, mode);
     TaskPriority priority = "BACKFILL".equals(origin) ? TaskPriority.BACKFILL : contentPriority;
     return pager.store(withOrigin(w, origin), hw.layer(), hw.ids(), priority, null, hw.declaredLanguage(), hw.texts(),

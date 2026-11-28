@@ -298,6 +298,21 @@ paths:
           content:
             application/json:
               schema: {$ref: "#/components/schemas/Error"}
+  /api/info:
+    get:
+      tags: [reference]
+      summary: Facts about the service
+      operationId: getInfo
+      responses:
+        "200":
+          description: The first publication year Garrulus keeps; older works are not harvested.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [firstYear]
+                properties:
+                  firstYear: {type: integer, examples: [2000]}
   /api/vocab/taxgroup:
     get:
       tags: [reference]
